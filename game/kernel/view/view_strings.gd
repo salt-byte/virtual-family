@@ -9,7 +9,7 @@ const DEFAULTS := {
 	"btn.arrange": "摆设", "btn.adopt": "领养", "btn.reroll": "换一位", "btn.accept": "应下",
 	"btn.decline": "回绝", "btn.close": "关闭", "btn.buy": "买", "btn.use_on": "给{name}用",
 	"btn.sell": "卖掉", "btn.build": "加盖", "btn.new_game": "新开一局", "btn.settings": "设置",
-	"idle": "闲着", "money": "钱 {n}", "years": "{n} 岁", "stock": "存货 {n}",
+	"idle": "闲着", "doing.progress": "{text} · {pct}%", "money": "钱 {n}", "years": "{n} 岁", "stock": "存货 {n}",
 	"title.adopt": "领养一位", "title.proposal": "有人提亲", "title.over": "这一家到此为止",
 	"title.away": "离开期间", "over.reason": "家里的人都已经过世了。",
 	"over.carry": "房子和钱都还在，留给下一位来的人。", "title.pack_error": "主题包有错", "title.load_error": "存档读不出来",

@@ -229,3 +229,58 @@ func test_smoke_pack_through_the_view_has_no_theme_money_words():
 	assert_eq(m.drag.dragging, -1)
 	assert_true(not m.hud.bar_text().contains("文"))
 	m.free()
+
+
+func test_progress_and_bob_follow_the_action():
+	var m := _main(); m.session.command({"type": "adopt"}); m.tick(0.016)
+	var w := m.session.world
+	var p := w.people[0]
+	var pv: PersonView = m.house.people[p.uid]
+	AutonomySystem.cancel(w, p); m.tick(0.016)
+	assert_eq(pv.progress(), -1.0)
+	assert_eq(pv.bob_offset(), 0.0)
+	var desk: int = w.objects.filter(func(o): return o.type == "desk")[0].uid
+	m.session.command({"type": "drag", "person": p.uid, "object": desk}); m.tick(0.016)
+	assert_near(pv.progress(), 0.0, 0.05)
+	for i in 200:                                   # 走到位
+		pv.tick(0.05)
+	pv.tick(0.2)
+	assert_true(absf(pv.bob_offset()) > 0.0 and absf(pv.bob_offset()) <= 3.0)
+	clk.unix += 60.0; m.tick(0.016)                 # 念书 2 分钟，过了一半
+	assert_near(pv.progress(), 0.5, 0.1)
+	m.free()
+
+
+func test_held_person_does_not_bob():
+	var m := _main(); m.session.command({"type": "adopt"}); m.tick(0.016)
+	var w := m.session.world
+	var p := w.people[0]
+	var pv: PersonView = m.house.people[p.uid]
+	AutonomySystem.cancel(w, p); m.tick(0.016)
+	var desk: int = w.objects.filter(func(o): return o.type == "desk")[0].uid
+	m.session.command({"type": "drag", "person": p.uid, "object": desk}); m.tick(0.016)
+	for i in 200:
+		pv.tick(0.05)
+	pv.tick(0.2)
+	assert_true(pv.bob_offset() != 0.0)
+	pv.held = true
+	assert_eq(pv.bob_offset(), 0.0)
+	m.free()
+
+
+func test_sleeping_person_is_dimmed_not_bobbing():
+	var m := _main(); m.session.command({"type": "adopt"}); m.tick(0.016)
+	var w := m.session.world
+	var p := w.people[0]
+	var pv: PersonView = m.house.people[p.uid]
+	AutonomySystem.cancel(w, p); m.tick(0.016)
+	var bed: int = w.objects.filter(func(o): return o.type == "kang")[0].uid
+	m.session.command({"type": "drag", "person": p.uid, "object": bed}); m.tick(0.016)
+	assert_true(w.pack.actions[str(p.current.get("action", ""))].get("slow", false))
+	assert_true(not pv.asleep())                    # still walking
+	for i in 400:
+		pv.tick(0.05)
+	pv.tick(0.2)
+	assert_true(pv.asleep())
+	assert_eq(pv.bob_offset(), 0.0)
+	m.free()

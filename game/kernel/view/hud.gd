@@ -70,7 +70,7 @@ func _build() -> void:
 	who.add_child(_name)
 	who.add_child(_line)
 	_doing = Label.new()
-	_doing.custom_minimum_size.x = 160
+	_doing.custom_minimum_size.x = 220
 	row.add_child(_doing)
 	var mid := VBoxContainer.new()
 	mid.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -154,7 +154,7 @@ func refresh() -> void:
 	if have:
 		_name.text = s.person_name(p)
 		_line.text = s.person_line(p, w)
-		_doing.text = s.doing(p, w)
+		_doing.text = _doing_text(p)
 		_status.text = s.status_line(p, w)
 		_avatar.color = PersonView.FEMALE if p.gender == "female" else (PersonView.MALE if p.gender == "male" else PersonView.OTHER)
 	var waiting := living and not w.proposals.is_empty()
@@ -164,6 +164,18 @@ func refresh() -> void:
 	_scold.disabled = off
 	_praise.visible = living
 	_scold.visible = living
+
+
+## The "what they are doing" sentence, with how far along it is when that is worth showing
+## (not while idle, not for slow things like sleeping).
+func _doing_text(p: Person) -> String:
+	var s := session.strings
+	var text := s.doing(p, session.world)
+	var pv: PersonView = main.house.people.get(p.uid) if main.house != null else null
+	if pv == null or p.current.is_empty() or pv.slow():
+		return text
+	var pct := int(pv.progress() * 100.0)
+	return s.t("doing.progress").format({"text": text, "pct": pct})
 
 
 func judge_disabled() -> bool:

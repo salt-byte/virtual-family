@@ -46,6 +46,7 @@ func _click(m: Main, at: Vector2) -> void:
 func test_bar_shows_selected_person_in_words_not_numbers():
 	var m := _adopted()
 	var p := m.session.world.people[0]
+	AutonomySystem.cancel(m.session.world, p)   # idle: no progress percentage to confuse the check
 	p.needs["fed"] = 73.0
 	m.tick(0.016)
 	assert_eq(m.selected, p.uid)
@@ -167,3 +168,23 @@ func test_praise_success_floats_a_character_for_one_second():
 	assert_eq(pv.float_text(), "")
 	m.free()
 
+
+
+func test_bar_shows_progress_for_a_quick_action_and_not_for_sleep():
+	var m := _adopted()
+	var w := m.session.world
+	var p := w.people[0]
+	AutonomySystem.cancel(w, p)
+	m.tick(0.016)
+	assert_true(not m.hud.bar_text().contains("%"))   # idle: nothing
+	var desk: int = w.objects.filter(func(o): return o.type == "desk")[0].uid
+	m.session.command({"type": "drag", "person": p.uid, "object": desk})
+	m.tick(0.016)
+	assert_true(m.hud.bar_text().contains("%"))
+	AutonomySystem.cancel(w, p)
+	var bed: int = w.objects.filter(func(o): return o.type == "kang")[0].uid
+	m.session.command({"type": "drag", "person": p.uid, "object": bed})
+	m.tick(0.016)
+	assert_true(w.pack.actions[str(p.current.get("action", ""))].get("slow", false))
+	assert_true(not m.hud.bar_text().contains("%"))
+	m.free()

@@ -45,6 +45,20 @@ var _doing := ""
 var _key := ""
 var _rng := RandomNumberGenerator.new()
 var _box := StyleBoxFlat.new()
+var _body := Color.WHITE
+## Time accumulated by tick(); drives the bob.
+var _t := 0.0
+## What the progress line follows: the action's identity, the kernel's last remaining_s, the
+## time since that value last changed, and the furthest the line has reached.
+var _pkey := ""
+var _rem := -1.0
+var _since := 0.0
+var _maxp := 0.0
+
+const BOB_AMPLITUDE := 3.0
+const BOB_PERIOD := 0.8
+const ASLEEP_DARKEN := 0.3
+const ARRIVED := 1.0
 
 
 func setup(p: Person, s: GameSession) -> void:
@@ -77,11 +91,17 @@ func refresh() -> void:
 	if not stages.is_empty():
 		elder = person.stage(w.pack) == str(stages[-1]["id"])
 	var c := FEMALE if person.gender == "female" else (MALE if person.gender == "male" else OTHER)
-	_box.bg_color = c.lerp(ELDER_TINT, 0.7) if elder else c
+	_body = c.lerp(ELDER_TINT, 0.7) if elder else c
+	_track_progress(w)
 	queue_redraw()
 
 
 func tick(delta: float) -> void:
+	_t += delta
+	_since += delta
+	if not person.current.is_empty():
+		_maxp = maxf(_maxp, _estimate())
+		queue_redraw()
 	if _mark != null and not _mark.tick(delta):
 		remove_child(_mark)
 		_mark.queue_free()
@@ -89,6 +109,77 @@ func tick(delta: float) -> void:
 	if held:
 		return
 	position = position.move_toward(target, SPEED * delta)
+
+
+## How far through the current action, 0..1; -1 when idle. Between the kernel's steps the
+## value is extrapolated from tick time (at most one step), and never moves backwards.
+func progress() -> float:
+	if person == null or person.current.is_empty() or session.world == null:
+		return -1.0
+	return clampf(maxf(_estimate(), _maxp), 0.0, 1.0)
+
+
+func _duration() -> float:
+	var w := session.world
+	var aid := str(person.current.get("action", ""))
+	if not w.pack.actions.has(aid):
+		return 0.0
+	return float(AutonomySystem.duration_s(w, w.pack.actions[aid]))
+
+
+func _estimate() -> float:
+	var d := _duration()
+	if d <= 0.0:
+		return 0.0
+	var rem := float(person.current.get("remaining_s", d))
+	var v := 1.0 - rem / d
+	if is_equal_approx(rem, _rem):
+		v += minf(_since, float(session.world.step_s)) / d
+	return clampf(v, 0.0, 1.0)
+
+
+func _track_progress(w: World) -> void:
+	var cur := person.current
+	if cur.is_empty():
+		_pkey = ""
+		_rem = -1.0
+		_since = 0.0
+		_maxp = 0.0
+		return
+	var key := "%s|%s|%s" % [cur.get("action", ""), cur.get("object_uid", -1), cur.get("target_uid", -1)]
+	var rem := float(cur.get("remaining_s", 0))
+	if key != _pkey or rem > _rem:
+		_pkey = key
+		_maxp = 0.0
+		_rem = rem
+		_since = 0.0
+	elif rem != _rem:
+		_rem = rem
+		_since = 0.0
+	_maxp = maxf(_maxp, _estimate())
+
+
+## Whether the current action is a slow one (sleeping).
+func slow() -> bool:
+	if person == null or person.current.is_empty() or session.world == null:
+		return false
+	var aid := str(person.current.get("action", ""))
+	var acts: Dictionary = session.world.pack.actions
+	return acts.has(aid) and bool(acts[aid].get("slow", false))
+
+
+## True while doing something slow (sleeping) and in place.
+func asleep() -> bool:
+	return slow() and position.distance_to(target) <= ARRIVED
+
+
+## The vertical wobble of the block while busy in place: zero when idle, walking, held or asleep.
+func bob_offset() -> float:
+	if person == null or held or person.current.is_empty() or asleep():
+		return 0.0
+	if position.distance_to(target) > ARRIVED:
+		return 0.0
+	return BOB_AMPLITUDE * sin(TAU * _t / BOB_PERIOD)
 
 
 ## Whether a point in the house's coordinates lands on this person's body or name plate.
@@ -153,14 +244,16 @@ func _entrance(w: World, l: HouseLayout) -> Vector2:
 func _draw() -> void:
 	if person == null:
 		return
-	draw_style_box(_box, Rect2(Vector2(-BODY.x * 0.5, -BODY.y), BODY))
+	var bob := bob_offset()
+	_box.bg_color = _body.darkened(ASLEEP_DARKEN) if asleep() else _body
+	draw_style_box(_box, Rect2(Vector2(-BODY.x * 0.5, -BODY.y + bob), BODY))
 	if selected:
 		var ring := StyleBoxFlat.new()
 		ring.draw_center = false
 		ring.border_color = Color(0.95, 0.75, 0.1)
 		ring.set_border_width_all(3)
 		ring.set_corner_radius_all(10)
-		draw_style_box(ring, Rect2(Vector2(-BODY.x * 0.5, -BODY.y), BODY).grow(4.0))
+		draw_style_box(ring, Rect2(Vector2(-BODY.x * 0.5, -BODY.y + bob), BODY).grow(4.0))
 	var plate := StyleBoxFlat.new()
 	plate.bg_color = Color(1, 1, 1, 0.88)
 	plate.set_corner_radius_all(5)
@@ -168,3 +261,6 @@ func _draw() -> void:
 	var font := ThemeDB.fallback_font
 	draw_string(font, Vector2(-70, -BODY.y - 21), _name, HORIZONTAL_ALIGNMENT_CENTER, 140, 13, Color.BLACK)
 	draw_string(font, Vector2(-70, -BODY.y - 6), _doing, HORIZONTAL_ALIGNMENT_CENTER, 140, 11, Color(0.1, 0.1, 0.1))
+	var prog := progress()
+	if prog >= 0.0:
+		draw_rect(Rect2(Vector2(-70, -BODY.y - 4), Vector2(140.0 * prog, 2)), Color(0.2, 0.6, 0.3))
