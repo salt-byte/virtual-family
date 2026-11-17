@@ -121,6 +121,7 @@ func exit() -> void:
 		return
 	_clear_hold()
 	_confirm_room = ""
+	_has_hover = false
 	active = false
 	_root.visible = false
 	_signature = ""
@@ -149,6 +150,9 @@ func pick_type(type: String) -> void:
 		return
 	held_type = type
 	held_uid = -1
+	# The last pointer spot was over the house before the catalogue click; no ghost until
+	# the pointer is back over the house.
+	_has_hover = false
 	refresh()
 
 
@@ -278,14 +282,15 @@ func build(room: String) -> Dictionary:
 
 # ---- pointer input, forwarded by HouseView while the mode is active ----
 
-## A press on the house. True when it belongs to this mode (so the house does not pan).
+## A press on the house. True when it picked a piece up (a drag then carries it); false lets a
+## drag pan the house, also while a piece is in hand.
 func house_press(pos: Vector2) -> bool:
 	_press_picked = false
 	_press_room = ""
 	hover(pos)
 	if held_type != "":
-		return true
-	var hit := main.house.layout.pick(session.world, pos)
+		return false
+	var hit := main.house.layout.pick(session.world, pos, true)
 	if str(hit.kind) == "object":
 		pick_object(int(hit.uid))
 		_press_picked = true
@@ -296,11 +301,15 @@ func house_press(pos: Vector2) -> bool:
 	return false
 
 
-## The pointer let go: a drag-picked piece is dropped, a click-picked one stays in hand until
-## the next click; a plain click on an unbuilt room asks to build it.
+## The pointer let go: a piece this press picked up is dropped when it was dragged and stays in
+## hand after a click; a piece already in hand is placed by a click (a drag only panned);
+## a plain click on an unbuilt room asks to build it.
 func house_release(pos: Vector2, moved: bool) -> void:
-	if held_type != "":
-		if not (_press_picked and not moved):
+	if _press_picked:
+		if moved and held_type != "":
+			drop(pos)
+	elif held_type != "":
+		if not moved:
 			drop(pos)
 	elif _press_room != "" and not moved:
 		ask_build(_press_room)

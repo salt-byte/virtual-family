@@ -9,13 +9,14 @@ const DEFAULTS := {
 	"btn.arrange": "摆设", "btn.adopt": "领养", "btn.reroll": "换一位", "btn.accept": "应下",
 	"btn.decline": "回绝", "btn.close": "关闭", "btn.buy": "买", "btn.use_on": "给{name}用",
 	"btn.sell": "卖掉", "btn.build": "加盖", "btn.new_game": "新开一局", "btn.settings": "设置",
-	"idle": "闲着", "money": "{n} 文", "years": "{n} 岁", "stock": "存粮 {n}",
+	"idle": "闲着", "money": "钱 {n}", "years": "{n} 岁", "stock": "存货 {n}",
 	"title.adopt": "领养一位", "title.proposal": "有人提亲", "title.over": "这一家到此为止",
-	"title.away": "离开期间", "title.pack_error": "主题包有错", "title.load_error": "存档读不出来",
+	"title.away": "离开期间", "over.reason": "家里的人都已经过世了。",
+	"over.carry": "房子和钱都还在，留给下一位来的人。", "title.pack_error": "主题包有错", "title.load_error": "存档读不出来",
 	"tab.items": "货品", "tab.inventory": "家里存的", "tab.goals": "目标", "tab.collection": "收藏",
 	"tab.furniture": "家具", "where.indoor": "屋里", "where.outdoor": "院里",
 	"btn.confirm": "确定", "btn.cancel": "取消",
-	"arrange.banner": "摆设中：点家具拿起，点目录里的东西买下，点灰色的房间加盖；右键或 Esc 放回原处",
+	"arrange.banner": "摆设中：点家具拿起，再点一下放下；点目录里的东西买下，点灰色的房间加盖；按住拖动能挪房子看别处；右键或 Esc 放回原处",
 	"arrange.refund": "卖掉能回 {n}", "arrange.build": "加盖「{room}」，造价 {cost}，定了吗？",
 	"set.flip": "昼夜颠倒", "set.speed": "调试快进",
 	"set.clock": "家里现在是 {t}", "set.debug_note": "快进只为调试，正式版会去掉。",
@@ -36,13 +37,15 @@ const DEFAULTS := {
 	"load.pack_mismatch": "存档是另一个主题包的", "load.pack_changed": "主题包改过，旧存档对不上",
 	"ev.fell_ill": "{name}看着不大对劲", "ev.cured": "{name}的病好了", "ev.level_up": "{name}成了{level}",
 	"ev.married": "{name}进了门", "ev.died_old": "{name}寿终了", "ev.died_neglect": "{name}没能撑过去",
-	"ev.proposal": "有人上门提亲", "ev.goal": "达成「{text}」，得 {n} 文",
-	"ev.collected_first": "捡到{thing}，头一件，收起来了", "ev.collected_paid": "捡到{thing}，卖了 {n} 文",
-	"away.time": "你离开了 {h} 小时", "away.capped": "（最多只补算 {h} 小时）", "away.years": "家里人长了 {y} 岁",
-	"away.money": "钱 {n} 文", "away.died": "{name}寿终了", "away.ill": "{name}病过",
+	"ev.proposal": "有人上门提亲", "ev.proposal_expired": "一桩提亲过期作罢了",
+	"ev.goal": "达成「{text}」，得 {n}",
+	"ev.collected_first": "捡到{thing}，头一件，收起来了", "ev.collected_paid": "捡到{thing}，卖了 {n}",
+	"away.time": "你离开了 {h} 小时", "away.minutes": "你离开了 {m} 分钟", "away.capped": "（最多只补算 {h} 小时）", "away.years": "家里人长了 {y} 岁",
+	"away.money": "钱 {n}", "away.died": "{name}寿终了", "away.ill": "{name}病过",
 	"away.level": "{name}成了{level}", "away.goal": "达成「{text}」",
 	"away.expired": "有 {n} 桩提亲过期作废了", "away.waiting": "有 {n} 桩提亲在等你回话",
 	"away.messes": "屋里有 {n} 处要收拾", "away.over": "家里已经没有人了",
+	"hint.drag": "把人拖到东西上，他就去用它；不拖的时候，他自己过日子",
 }
 
 var pack: Pack
@@ -105,7 +108,7 @@ func _level_name(track: String, level: int) -> String:
 
 
 func person_line(p: Person, world: World) -> String:
-	var out := "%d 岁" % int(p.age)
+	var out := _f("years", {"n": int(p.age)})
 	var lv := _level_name(p.track, p.level) if p.track != "" else ""
 	if lv != "":
 		out += " · " + lv
@@ -148,6 +151,8 @@ func event(e: Dictionary, world: World) -> String:
 			return _f(key, {"name": _name_of(int(e["person"]), world)})
 		"proposal_arrived":
 			return t("ev.proposal")
+		"proposal_expired":
+			return t("ev.proposal_expired")
 		"goal_done":
 			var g: Dictionary = world.pack.goals.get(str(e["goal"]), {})
 			return _f("ev.goal", {"text": str(g.get("text", "")), "n": int(e["reward"])})
@@ -168,12 +173,14 @@ func _hours(x: float) -> String:
 func summary_lines(summary: Dictionary, world: World) -> Array[String]:
 	var out: Array[String] = []
 	var secs := float(summary.get("simulated_seconds", 0))
-	if secs > 0.0:
+	if secs >= 3600.0:
 		out.append(_f("away.time", {"h": _hours(secs / 3600.0)}))
+	elif roundi(secs / 60.0) > 0:
+		out.append(_f("away.minutes", {"m": roundi(secs / 60.0)}))
 	if summary.get("capped", false):
 		out.append(_f("away.capped", {"h": str(world.pack.cfg("offline_cap_hours"))}))
 	var years := float(summary.get("years_passed", 0.0))
-	if years > 0.0:
+	if _hours(years) != "0":
 		out.append(_f("away.years", {"y": _hours(years)}))
 	var money := int(summary.get("money_delta", 0))
 	if money != 0:

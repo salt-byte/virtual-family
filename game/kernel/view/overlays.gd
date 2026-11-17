@@ -95,10 +95,15 @@ func press(button_key: String) -> void:
 		return
 	match _current:
 		"load_error":
-			session.new_game()
+			if session.new_game():
+				_away = {}
 		"adopt":
-			session.command({"type": "adopt" if button_key == "btn.adopt" else "reroll"})
+			if button_key == "btn.adopt":
+				_adopt()
+			else:
+				session.command({"type": "reroll"})
 		"over":
+			_away = {}
 			session.command({"type": "reroll"})
 		"away":
 			_away = {}
@@ -112,8 +117,23 @@ func press(button_key: String) -> void:
 	refresh()
 
 
+## Adopts the candidate; the first adoption of a brand-new world, once per install, also
+## tells the player that people can be dragged.
+func _adopt() -> void:
+	var first := not session.world.adopted_once
+	var r := session.command({"type": "adopt"})
+	if r.get("ok", false) and first and not bool(session.settings.get("hint_seen", false)):
+		main.hud.toast(session.strings.t("hint.drag"))
+		session.set_setting("hint_seen", true)
+
+
+## Priority: pack_error, load_error, away, adopt, over, proposal. The away summary outranks the
+## game-over card (the dead are still in the world, so names resolve) but is dropped as stale
+## once a new game is adopting: the world it described is gone.
 func refresh() -> void:
 	var w := session.world
+	if w != null and w.phase == "adopting":
+		_away = {}
 	var proposal := _find_proposal(w)
 	if proposal.is_empty():
 		_proposal_id = -1
@@ -125,14 +145,14 @@ func refresh() -> void:
 	elif session.load_error != "":
 		kind = "load_error"
 		sig = session.load_error
+	elif not _away.is_empty() and w != null:
+		kind = "away"
+		sig = str(_away)
 	elif w != null and w.phase == "adopting":
 		kind = "adopt"
 		sig = str(w.candidate)
 	elif w != null and w.phase == "over":
 		kind = "over"
-	elif not _away.is_empty() and w != null:
-		kind = "away"
-		sig = str(_away)
 	elif not proposal.is_empty():
 		kind = "proposal"
 		sig = str(proposal)
@@ -183,6 +203,8 @@ func _rebuild(w: World, proposal: Dictionary) -> void:
 			_button("btn.reroll", row)
 		"over":
 			_title(s.t("title.over"))
+			_box.add_child(_label(s.t("over.reason")))
+			_box.add_child(_label(s.t("over.carry")))
 			_button("btn.new_game")
 		"away":
 			_title(s.t("title.away"))
@@ -211,7 +233,11 @@ func _person_card(p: Person) -> void:
 	if not job.is_empty():
 		var levels: Array = job.get("levels", [])
 		var lv := str(levels[p.level]["name"]) if p.level >= 0 and p.level < levels.size() else ""
-		bits.append(str(job.get("name", "")) + lv)
+		var job_bits: Array[String] = []
+		for part in [str(job.get("name", "")), lv]:
+			if part != "":
+				job_bits.append(part)
+		bits.append(" · ".join(job_bits))
 	_box.add_child(_label(" · ".join(bits)))
 	if not p.likes.is_empty():
 		_box.add_child(_label(s.t("label.likes") + "：" + "、".join(p.likes)))

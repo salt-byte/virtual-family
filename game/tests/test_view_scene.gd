@@ -190,3 +190,42 @@ func test_random_cell_is_rerolled_after_idle():
 		assert_eq(pv._key, "")
 	assert_true(seen.size() > 1)
 	m.free()
+
+
+func test_smoke_pack_through_the_view_has_no_theme_money_words():
+	var m := _main("_smoke")
+	m.tick(0.016)
+	m.overlays.press("btn.adopt")
+	m.tick(0.016)
+	var w := m.session.world
+	var bar := m.hud.bar_text()
+	assert_true(bar.contains(m.session.strings.t("money").replace("{n}", str(w.money))), bar)
+	assert_true(not bar.contains("文") and not bar.contains("存粮"), bar)
+	for what in ["shop", "ledger", "family"]:
+		m.hud.press(what)
+		m.tick(0.016)
+		assert_eq(m.panels.opened(), what)
+		assert_true(not m.panels.text().contains(" 文") and not m.panels.text().contains("存粮"), m.panels.text())
+	m.hud.press("settings")
+	m.tick(0.016)
+	assert_true(m.settings.opened())
+	m.settings.press("btn.close")
+	m.hud.press("arrange")
+	m.tick(0.016)
+	assert_true(m.arrange.active)
+	assert_true(not m.arrange.text().contains(" 文"), m.arrange.text())
+	m.hud.press("arrange")
+	# One person drag onto a piece of furniture.
+	var p: Person = w.people[0]
+	var o: Dictionary = w.objects[0]
+	var pv: PersonView = m.house.people[p.uid]
+	var from := m.house.position + pv.position
+	var to := m.house.position + m.house.layout.object_rect(o, w.pack).get_center()
+	m.house.press(from)
+	m.house.move(to, to - from)
+	assert_eq(m.drag.dragging, p.uid)
+	m.house.release(to)
+	m.tick(0.016)
+	assert_eq(m.drag.dragging, -1)
+	assert_true(not m.hud.bar_text().contains("文"))
+	m.free()

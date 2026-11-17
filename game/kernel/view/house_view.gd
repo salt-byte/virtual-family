@@ -144,19 +144,18 @@ func press(screen: Vector2) -> void:
 
 func move(screen: Vector2, relative: Vector2) -> void:
 	if _arrange_on():
+		# A press that did not pick a piece up pans once it moves past the slop, also with a
+		# piece in hand; the ghost keeps following the pointer.
+		if _pressed:
+			_last = screen
+			if not _moved:
+				if screen.distance_to(_press_at) > CLICK_SLOP:
+					_moved = true
+					if not _arranging:
+						pan(screen - _press_at)
+			elif not _arranging:
+				pan(relative)
 		arrange.hover(world_pos(screen))
-		if not _pressed:
-			return
-		_last = screen
-		if not _moved:
-			if screen.distance_to(_press_at) <= CLICK_SLOP:
-				return
-			_moved = true
-			if not _arranging:
-				pan(screen - _press_at)
-				return
-		if not _arranging:
-			pan(relative)
 		return
 	if not _pressed:
 		return
@@ -247,11 +246,29 @@ func _draw() -> void:
 		draw_rect(rect.grow(-2), Color.from_hsv(hue, 0.4, 0.82, faded))
 		draw_string(font, rect.position + Vector2(0, rect.size.y * 0.5 + 4), str(t.get("name", "")), HORIZONTAL_ALIGNMENT_CENTER, rect.size.x, 12, Color(0.15, 0.15, 0.15))
 	for m in w.messes:
-		draw_rect(Rect2(layout.cell_center(str(m.room), int(m.x), int(m.y)) - Vector2(8, 6), Vector2(16, 12)), Color(0.45, 0.3, 0.18))
+		var at := layout.cell_center(str(m.room), int(m.x), int(m.y))
+		draw_rect(Rect2(at - Vector2(8, 6), Vector2(16, 12)), Color(0.45, 0.3, 0.18))
+		_small_name(font, at, thing_name(w.pack.mess_types, str(m.type)))
 	for c in w.collectibles:
-		draw_rect(Rect2(layout.cell_center(str(c.room), int(c.x), int(c.y)) - Vector2(6, 6), Vector2(12, 12)), Color(0.95, 0.8, 0.2))
+		var at := layout.cell_center(str(c.room), int(c.x), int(c.y))
+		draw_rect(Rect2(at - Vector2(6, 6), Vector2(12, 12)), Color(0.95, 0.8, 0.2))
+		_small_name(font, at, thing_name(w.pack.collectibles, str(c.type)))
 	_draw_hover(w)
 	_draw_ghost(w)
+
+
+## The pack's name for a mess or collectible type; "" when the type is unknown.
+static func thing_name(table: Dictionary, type: String) -> String:
+	var e = table.get(type, {})
+	return str(e.get("name", "")) if e is Dictionary else ""
+
+
+## A small dark label under a marker centred at `at`.
+func _small_name(font: Font, at: Vector2, text: String) -> void:
+	if text == "":
+		return
+	var width := HouseLayout.CELL.x * 2.0
+	draw_string(font, at + Vector2(-width * 0.5, 18), text, HORIZONTAL_ALIGNMENT_CENTER, width, 10, Color(0.15, 0.12, 0.1))
 
 
 ## The piece in hand under the pointer: green where it can go, red where it cannot.

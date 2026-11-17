@@ -37,6 +37,9 @@ func setup(m: Main) -> void:
 		if code != _muted:
 			toast(session.strings.error(code)))
 	session.event.connect(_on_event)
+	# A typo in the pack's ui.json would otherwise go unnoticed: say so once, at launch.
+	if not session.strings.errors.is_empty():
+		toast(session.strings.errors[0])
 	refresh()
 
 

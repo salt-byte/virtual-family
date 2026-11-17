@@ -66,3 +66,28 @@ func test_nearest_room_picks_closest_of_the_given_rooms():
 	assert_eq(l.nearest_room(r.end + Vector2(5, -5), ids), ids[0])
 	assert_eq(l.nearest_room(Vector2.ZERO, []), "")
 	assert_eq(l.nearest_room(Vector2.ZERO, [ids[1]]), ids[1])
+
+func test_furniture_only_pick_skips_messes_and_collectibles():
+	var w := BalanceRun.setup("qijia", 1)
+	var l := HouseLayout.new(w.pack)
+	var o: Dictionary = w.objects[0]
+	var at := l.cell_center(o.room, o.x, o.y)
+	w.messes.append({"uid": 9001, "type": "dirt", "room": o.room, "x": o.x, "y": o.y})
+	w.collectibles.append({"uid": 9002, "type": "egg", "room": o.room, "x": o.x, "y": o.y, "expires_at": 0})
+	assert_eq(l.pick(w, at).uid, 9002)
+	assert_eq(l.pick(w, at, true), {"kind": "object", "uid": o.uid, "room": o.room})
+
+func test_rooms_without_a_numeric_size_are_left_out_without_errors():
+	var p := Pack.load_dir("res://tests/fixtures/sizeless_room_pack")
+	assert_true(not p.is_valid())
+	var l := HouseLayout.new(p)
+	assert_eq(l.room_rect("main").size, Vector2(384, 216))
+	assert_eq(l.room_rect("study"), Rect2())
+	assert_eq(l.room_rect("yard"), Rect2())
+	assert_true(l.bounds().size.x > 0.0)
+
+func test_mess_and_collectible_names_come_from_the_pack():
+	var p := _pack()
+	assert_eq(HouseView.thing_name(p.mess_types, "dirt"), str(p.mess_types["dirt"]["name"]))
+	assert_eq(HouseView.thing_name(p.collectibles, "egg"), str(p.collectibles["egg"]["name"]))
+	assert_eq(HouseView.thing_name(p.collectibles, "nope"), "")

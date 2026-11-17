@@ -58,9 +58,37 @@ func test_silent_events():
 	for e in [{"type": "action_started", "person": p.uid, "action": "x", "object": 0, "target": 0},
 			{"type": "income", "amount": 5, "source": "work"},
 			{"type": "mess_spawned", "uid": 1, "kind": "k", "room": "r"},
-			{"type": "action_finished", "person": p.uid, "action": "x"},
-			{"type": "proposal_expired", "id": 1}]:
+			{"type": "action_finished", "person": p.uid, "action": "x"}]:
 		assert_eq(s.event(e, w), "")
+
+func test_expired_proposal_has_a_sentence():
+	var w := _living()
+	var s := ViewStrings.new(w.pack)
+	assert_eq(s.event({"type": "proposal_expired", "id": 1}, w), s.t("ev.proposal_expired"))
+	assert_true(s.t("ev.proposal_expired") != "ev.proposal_expired")
+
+func test_short_absence_reads_in_minutes_and_skips_zero_lines():
+	var w := _living()
+	var s := ViewStrings.new(w.pack)
+	var sum := {"simulated_seconds": 360, "capped": false, "years_passed": 0.01, "money_delta": 0,
+		"deaths": [], "illnesses": [], "level_ups": [], "proposals_expired": 0, "proposals_waiting": 0,
+		"goals_done": [], "messes_now": 0, "game_over": false}
+	var lines := s.summary_lines(sum, w)
+	assert_eq(lines, [s.t("away.minutes").replace("{m}", "6")] as Array[String])
+	sum.simulated_seconds = 20
+	assert_eq(s.summary_lines(sum, w), [] as Array[String])
+	sum.simulated_seconds = 7200
+	sum.years_passed = 1.0
+	assert_eq(s.summary_lines(sum, w).size(), 2)
+
+func test_money_words_are_neutral_by_default_and_themed_by_the_pack():
+	var smoke := ViewStrings.new(Pack.load_dir("res://packs/_smoke"))
+	for key in ["money", "stock", "ev.goal", "ev.collected_paid", "away.money"]:
+		assert_true(not smoke.t(key).contains("文") and not smoke.t(key).contains("存粮"), key)
+	var qijia := ViewStrings.new(Pack.load_dir("res://packs/qijia"))
+	assert_eq(qijia.t("money").replace("{n}", "200"), "200 文")
+	assert_eq(qijia.t("stock").replace("{n}", "3"), "存粮 3")
+	assert_true(qijia.t("ev.goal").ends_with("文") and qijia.t("away.money").ends_with("文"))
 
 func test_sentences_for_events():
 	var w := _living()

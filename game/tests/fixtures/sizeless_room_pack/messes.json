@@ -1,0 +1,3 @@
+[
+	{"id": "trash", "name": "Trash", "spawn_per_day": 2, "outdoor": false, "penalty": {"happy": 1}}
+]

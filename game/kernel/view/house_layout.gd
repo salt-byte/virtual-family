@@ -12,18 +12,28 @@ var _rects: Dictionary = {}  # room id -> Rect2 (floor only)
 var _indoor: Dictionary = {}
 var _order: Array[String] = []
 
+## A broken pack (a room that is not an object, or lacks a numeric w/h) must not raise an
+## engine error here: such rooms are left out; the pack error overlay explains the rest.
 func _init(pack: Pack) -> void:
+	var valid: Array[String] = []
 	var tallest := 0.0
 	for id in pack.rooms:
-		tallest = maxf(tallest, float(pack.rooms[id].h) * CELL.y)
+		var r = pack.rooms[id]
+		if r is Dictionary and _num(r, "w") > 0.0 and _num(r, "h") > 0.0:
+			valid.append(str(id))
+			tallest = maxf(tallest, _num(r, "h") * CELL.y)
 	var x := 0.0
-	for id in pack.rooms:
+	for id in valid:
 		var r: Dictionary = pack.rooms[id]
-		var size := Vector2(float(r.w) * CELL.x, float(r.h) * CELL.y)
+		var size := Vector2(_num(r, "w") * CELL.x, _num(r, "h") * CELL.y)
 		_rects[id] = Rect2(Vector2(x, tallest - size.y), size)
 		_indoor[id] = not bool(r.get("outdoor", false))
 		_order.append(id)
 		x += size.x + GAP
+
+static func _num(r: Dictionary, key: String) -> float:
+	var v = r.get(key, 0)
+	return float(v) if typeof(v) in [TYPE_INT, TYPE_FLOAT] else 0.0
 
 func room_rect(room: String) -> Rect2:
 	return _rects.get(room, Rect2())
@@ -83,16 +93,19 @@ func stand_pos(o: Dictionary, pack: Pack) -> Vector2:
 		return p
 	return r.get_center()
 
-func pick(world: World, pos: Vector2) -> Dictionary:
+## What is under `pos`: a collectible, then a mess, then furniture, else the room.
+## `furniture_only` (arrange mode) skips messes and collectibles so the piece under them
+## can still be picked up.
+func pick(world: World, pos: Vector2, furniture_only := false) -> Dictionary:
 	var hit := pos_to_cell(pos)
 	if hit.is_empty():
 		return {"kind": "", "uid": -1, "room": ""}
 	var room: String = hit.room
 	if room in world.rooms_built:
-		for c in world.collectibles:
+		for c in ([] if furniture_only else world.collectibles):
 			if c.room == room and c.x == hit.x and c.y == hit.y:
 				return {"kind": "collectible", "uid": c.uid, "room": room}
-		for m in world.messes:
+		for m in ([] if furniture_only else world.messes):
 			if m.room == room and m.x == hit.x and m.y == hit.y:
 				return {"kind": "mess", "uid": m.uid, "room": room}
 		for o in world.objects:

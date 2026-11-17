@@ -4,5 +4,10 @@
 	"btn.ledger": "账房",
 	"btn.adopt": "收留",
 	"title.adopt": "收留一位落脚的人",
-	"title.proposal": "媒人上门"
+	"title.proposal": "媒人上门",
+	"money": "{n} 文",
+	"stock": "存粮 {n}",
+	"ev.goal": "达成「{text}」，得 {n} 文",
+	"ev.collected_paid": "捡到{thing}，卖了 {n} 文",
+	"away.money": "钱 {n} 文"
 }

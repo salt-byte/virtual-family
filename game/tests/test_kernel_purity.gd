@@ -61,7 +61,10 @@ func test_kernel_quotes_no_pack_id():
 				assert_true(not src[f].contains(q + id + q), "%s quotes pack id %s" % [f, id])
 
 func test_view_layer_has_no_theme_words():
-	var banned := ["qijia", "_smoke", "灶台", "科举", "侯府", "集市", "账房", "家谱", "媒人", ".illness"]
+	# "存粮" and the currency unit 文 after a number or placeholder ("{n} 文", "{n}文", "文」",
+	# a string ending in 文) are theme words; 文 inside ordinary words such as 文字 is fine.
+	var banned := ["qijia", "_smoke", "灶台", "科举", "侯府", "集市", "账房", "家谱", "媒人", ".illness",
+		"存粮", " 文", "}文", "文」", "文\"", "文，"]
 	var n := 0
 	for f in DirAccess.get_files_at("res://kernel/view"):
 		if not f.ends_with(".gd"):

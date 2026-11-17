@@ -1,5 +1,5 @@
 [
 	{"id": "hall", "name": "堂屋", "w": 8, "h": 6, "built": true, "build_cost": 0},
-	{"id": "side", "name": "厢房", "w": 5, "h": 4, "built": false, "build_cost": 2400},
+	{"id": "side", "name": "厢房", "w": 5, "h": 4, "built": false, "build_cost": 900},
 	{"id": "yard", "name": "院子", "w": 9, "h": 6, "built": true, "build_cost": 0, "outdoor": true}
 ]
