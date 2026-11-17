@@ -24,7 +24,7 @@ const REQUIRED := {
 ## Whole-number fields and their minimum (money, sizes and durations are never fractional or negative).
 const MIN_INT := {
 	"actions.json": {"duration_min": 1},
-	"objects.json": {"price": 0, "w": 1, "h": 1},
+	"objects.json": {"price": 0, "w": 1, "h": 1, "capacity": 1},
 	"rooms.json": {"w": 1, "h": 1, "build_cost": 0},
 	"items.json": {"price": 0},
 	"collectibles.json": {"value": 0},
@@ -105,6 +105,9 @@ func _check_pack_config() -> void:
 	if vital != "" and not _p.needs.has(vital):
 		_err("pack.json", _p.id, "vital_need '%s' is not a need" % [vital])
 	_check_int("pack.json", _p.id, "start_money", c.get("start_money"), 0)
+	var rf = c.get("repeat_factor")
+	if not (rf is int or rf is float) or float(rf) <= 0.0 or float(rf) > 1.0:
+		_err("pack.json", _p.id, "repeat_factor must be a number above 0 and at most 1")
 	var pn := str(c.get("praise_need", ""))
 	if pn != "" and not _p.needs.has(pn):
 		_err("pack.json", _p.id, "praise_need '%s' is not a need" % [pn])

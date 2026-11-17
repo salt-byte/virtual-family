@@ -72,3 +72,30 @@ func _score(w, p, id) -> float:
 	for c in AutonomySystem.candidates(w, p):
 		if c.action == id: return c.score
 	return 0.0
+
+func test_object_with_capacity_two_takes_two_people():
+	var w := TestKit.world()
+	var a := TestKit.adult(w)
+	var b := TestKit.adult(w)
+	var c := TestKit.adult(w)
+	var type := str(w.pack.actions["sleep"]["object"])
+	w.pack.object_types[type]["capacity"] = 2
+	var uid := w.add_object(type, w.rooms_built[0], 0, 0)
+	AutonomySystem.start(w, a, "sleep", uid)
+	assert_eq(AutonomySystem.can_do(w, b, "sleep", uid), "")
+	AutonomySystem.start(w, b, "sleep", uid)
+	assert_eq(AutonomySystem.can_do(w, c, "sleep", uid), "busy")
+
+func test_just_finished_action_scores_lower():
+	var w := TestKit.world()
+	var p := TestKit.adult(w)
+	var a: Dictionary = w.pack.actions[w.pack.actions.keys()[0]]
+	for id in w.pack.actions:
+		var cand: Dictionary = w.pack.actions[id]
+		if AutonomySystem._score(w, p, cand) > 0.0:
+			a = cand
+			break
+	var fresh := AutonomySystem._score(w, p, a)
+	assert_true(fresh > 0.0)
+	p.last_action = str(a["id"])
+	assert_near(AutonomySystem._score(w, p, a), fresh * 0.3)

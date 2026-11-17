@@ -56,3 +56,18 @@ func test_setup_places_one_of_each_object_and_adopts():
 		for o in w.objects:
 			types[o.type] = true
 		assert_eq(types.size(), w.pack.object_types.size(), id)
+
+## A married couple sharing one kang both sleep through the night.
+func test_qijia_two_adults_share_one_kang_overnight():
+	var w := TestKit.world("qijia")
+	var a := TestKit.adult(w)
+	var b := TestKit.adult(w)
+	var kang: String = str(w.pack.actions["sleep"]["object"])
+	w.add_object(kang, w.rooms_built[0], 0, 0)
+	w.set_time(1767268800 + 9 * 3600, 0)
+	a.needs["energy"] = 20.0
+	b.needs["energy"] = 20.0
+	for i in 3 * 60:
+		w.advance(60.0)
+	assert_eq(str(a.current.get("action", "")), "sleep")
+	assert_eq(str(b.current.get("action", "")), "sleep")

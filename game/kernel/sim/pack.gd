@@ -23,14 +23,14 @@ const DEFAULT_CONFIG := {
 	"proposal_ttl_hours": 24, "praise_need": "", "praise_gain": 5, "praise_decay_per_hour": 1,
 	"praise_window_min": 10, "praise_annoy_count": 3, "work_needs_min": {},
 	"illness_daily_chance": 0.15, "collectible_interval_min": 20, "collectible_max": 3,
-	"collectible_ttl_min": 60, "sell_back_ratio": 0.5,
+	"collectible_ttl_min": 60, "sell_back_ratio": 0.5, "repeat_factor": 0.3,
 }
 
 ## Per-file field defaults (applied to every entry that lacks the key).
 const ENTRY_DEFAULTS := {
 	"actions": {"object": "", "needs": {}, "base": 0, "hours": [], "tags": [], "praiseable": true,
 		"consumes": {}, "work": {}, "mess": {}, "cleans": "", "picks": false, "requires": {}},
-	"object_types": {"outdoor": false},
+	"object_types": {"outdoor": false, "capacity": 1},
 	"rooms": {"outdoor": false},
 	"items": {"stock": {}, "cures": "", "needs": {}},
 	"needs": {"when_empty": {}},
@@ -39,7 +39,7 @@ const ENTRY_DEFAULTS := {
 ## Fields that are always whole numbers (JSON gives floats, so they are converted on load).
 const INT_FIELDS := {
 	"actions": ["duration_min", "base"],
-	"object_types": ["price", "w", "h"],
+	"object_types": ["price", "w", "h", "capacity"],
 	"rooms": ["w", "h", "build_cost"],
 	"items": ["price"],
 	"illnesses": ["weight"],

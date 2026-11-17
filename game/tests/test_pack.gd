@@ -184,3 +184,14 @@ func test_pack_sorts_stages_on_load():
 	assert_eq((p.cfg("stages") as Array).map(func(s): return s.id), ["baby", "child", "adult", "elder"])
 	var q := Person.new(); q.age = 30.0
 	assert_eq(q.stage(p), "adult")
+
+func test_object_capacity_must_be_a_positive_whole_number():
+	var first := func(p): return p.object_types.keys()[0]
+	assert_true(_has(_errs(func(p): p.object_types[first.call(p)]["capacity"] = 0), "objects.json:", "capacity"))
+	assert_true(_has(_errs(func(p): p.object_types[first.call(p)]["capacity"] = 1.5), "objects.json:", "capacity"))
+	assert_eq(_errs(func(p): p.object_types[first.call(p)]["capacity"] = 2), [] as Array[String])
+
+func test_repeat_factor_must_be_in_zero_exclusive_to_one():
+	assert_true(_has(_errs(func(p): p.config["repeat_factor"] = 0.0), "pack.json:", "repeat_factor"))
+	assert_true(_has(_errs(func(p): p.config["repeat_factor"] = 1.5), "pack.json:", "repeat_factor"))
+	assert_eq(_errs(func(p): p.config["repeat_factor"] = 1.0), [] as Array[String])

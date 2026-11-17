@@ -177,6 +177,8 @@ static func _score(world: World, p: Person, a: Dictionary) -> float:
 	var hours: Array = a.get("hours", [])
 	if not hours.is_empty() and not _in_hours(world.local_hour(), hours):
 		score *= 0.1
+	if str(a["id"]) == p.last_action:
+		score *= float(world.pack.cfg("repeat_factor"))
 	return score
 
 
@@ -212,8 +214,14 @@ static func _free_object(world: World, p: Person, a: Dictionary, object_uid: int
 	return -1
 
 
+## True when the object already has as many other users as its type's `capacity`.
 static func _occupied(world: World, uid: int, except: Person) -> bool:
+	var users := 0
 	for q in world.people:
 		if q != except and q.alive and not q.current.is_empty() and int(q.current.get("object_uid", -1)) == uid:
-			return true
-	return false
+			users += 1
+	var o := world.object(uid)
+	var capacity := 1
+	if not o.is_empty():
+		capacity = int(world.pack.object_types.get(o["type"], {}).get("capacity", 1))
+	return users >= capacity
