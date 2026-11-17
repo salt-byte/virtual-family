@@ -17,6 +17,28 @@ var target := Vector2.ZERO
 ## Where they would head alone; the house adds the sideways offset on top.
 var base_target := Vector2.ZERO
 var held := false
+var selected := false:
+	set(v):
+		selected = v
+		queue_redraw()
+
+## The little 赏/罚 character that floats above the head for a second.
+class FloatMark:
+	extends Node2D
+	const LIFETIME := 1.0
+	var text := ""
+	var age := 0.0
+
+	func _draw() -> void:
+		var f := ThemeDB.fallback_font
+		draw_string(f, Vector2(-14, 0), text, HORIZONTAL_ALIGNMENT_CENTER, 28, 22, Color(0.8, 0.15, 0.1))
+
+	func tick(delta: float) -> bool:
+		age += delta
+		position.y = -PersonView.BODY.y - 50.0 - age * 24.0
+		return age < LIFETIME
+
+var _mark: FloatMark
 
 var _name := ""
 var _doing := ""
@@ -60,9 +82,34 @@ func refresh() -> void:
 
 
 func tick(delta: float) -> void:
+	if _mark != null and not _mark.tick(delta):
+		remove_child(_mark)
+		_mark.queue_free()
+		_mark = null
 	if held:
 		return
 	position = position.move_toward(target, SPEED * delta)
+
+
+## Whether a point in the house's coordinates lands on this person's body or name plate.
+func hit(world_pos: Vector2) -> bool:
+	var local := world_pos - position
+	return Rect2(Vector2(-BODY.x * 0.5, -BODY.y), BODY).grow(4.0).has_point(local)
+
+
+## Floats `text` above the head for a second, replacing any one already showing.
+func float_text_up(text: String) -> void:
+	if _mark == null:
+		_mark = FloatMark.new()
+		add_child(_mark)
+	_mark.text = text
+	_mark.age = 0.0
+	_mark.position = Vector2(0, -BODY.y - 50.0)
+	_mark.queue_redraw()
+
+
+func float_text() -> String:
+	return _mark.text if _mark != null else ""
 
 
 func _compute_target(w: World, l: HouseLayout) -> Vector2:
@@ -107,6 +154,13 @@ func _draw() -> void:
 	if person == null:
 		return
 	draw_style_box(_box, Rect2(Vector2(-BODY.x * 0.5, -BODY.y), BODY))
+	if selected:
+		var ring := StyleBoxFlat.new()
+		ring.draw_center = false
+		ring.border_color = Color(0.95, 0.75, 0.1)
+		ring.set_border_width_all(3)
+		ring.set_corner_radius_all(10)
+		draw_style_box(ring, Rect2(Vector2(-BODY.x * 0.5, -BODY.y), BODY).grow(4.0))
 	var plate := StyleBoxFlat.new()
 	plate.bg_color = Color(1, 1, 1, 0.88)
 	plate.set_corner_radius_all(5)

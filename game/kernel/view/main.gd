@@ -7,6 +7,9 @@ const DEFAULT_PACK_SETTING := "lifesim/default_pack"
 
 var session: GameSession
 var house: HouseView
+var hud: Hud
+## Uid of the selected person; -1 for none.
+var selected := -1
 
 
 static func create(pack_id: String, dir := "user://", real_clock := Callable()) -> Main:
@@ -28,7 +31,44 @@ func _build(pack_id: String, dir: String, real_clock: Callable) -> void:
 	house = HouseView.new()
 	add_child(house)
 	house.setup(session)
+	house.person_clicked.connect(select)
+	hud = Hud.new()
+	add_child(hud)
+	hud.setup(self)
+	_sync_selection()
 	house.refresh()
+	hud.refresh()
+
+
+func select(uid: int) -> void:
+	selected = uid
+	_sync_selection()
+	_apply_selection()
+	if hud != null:
+		hud.refresh()
+
+
+## Keeps `selected` pointing at a living person: when the chosen one is gone, the first
+## living person takes over, and with nobody left it is -1. A newcomer (adopted, married in)
+## is picked up the same way when nothing was selected.
+func _sync_selection() -> void:
+	var w := session.world
+	var first := -1
+	var found := false
+	if w != null and w.phase != "invalid":
+		for p in w.people:
+			if p.alive:
+				if first < 0:
+					first = p.uid
+				if p.uid == selected:
+					found = true
+	if not found:
+		selected = first
+
+
+func _apply_selection() -> void:
+	for uid in house.people:
+		house.people[uid].selected = (uid == selected)
 
 
 func _ready() -> void:
@@ -38,8 +78,12 @@ func _ready() -> void:
 
 func tick(delta: float) -> void:
 	session.tick(delta)
+	_sync_selection()
 	house.refresh()
+	_apply_selection()
 	house.tick(delta)
+	hud.refresh()
+	hud.tick(delta)
 
 
 func _process(delta: float) -> void:

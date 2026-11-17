@@ -13,7 +13,15 @@ var session: GameSession
 var layout: HouseLayout
 var people: Dictionary = {}  # uid -> PersonView
 var _modulate: CanvasModulate
+## Moving further than this between press and release is a drag, not a click.
+const CLICK_SLOP := 6.0
+
+signal person_clicked(uid: int)
+
 var _dragging := false
+var _press_uid := -1
+var _press_at := Vector2.ZERO
+var _moved := false
 
 
 static func night_amount(hour: float) -> float:
@@ -87,11 +95,37 @@ func tick(delta: float) -> void:
 		people[uid].tick(delta)
 
 
+## The uid of the person under a point in the house's coordinates (the one drawn on top
+## wins), or -1.
+func person_at(wpos: Vector2) -> int:
+	var best := -1
+	var best_y := -INF
+	for uid in people:
+		var pv: PersonView = people[uid]
+		if pv.hit(wpos) and pv.position.y >= best_y:
+			best = uid
+			best_y = pv.position.y
+	return best
+
+
 func _unhandled_input(event: InputEvent) -> void:
 	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT:
-		_dragging = event.pressed
+		if event.pressed:
+			_dragging = true
+			_moved = false
+			_press_at = event.position
+			_press_uid = person_at(world_pos(event.position))
+		else:
+			if _dragging and _press_uid >= 0 and not _moved:
+				person_clicked.emit(_press_uid)
+			_dragging = false
+			_press_uid = -1
 	elif event is InputEventMouseMotion and _dragging:
-		pan(event.relative)
+		if not _moved and event.position.distance_to(_press_at) > CLICK_SLOP:
+			_moved = true
+		# Dragging a person comes later; until then a drag always pans.
+		if _moved:
+			pan(event.relative)
 
 
 func _draw() -> void:
