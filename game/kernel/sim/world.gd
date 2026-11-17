@@ -36,8 +36,18 @@ var collectibles: Array[Dictionary] = []
 var collection: Dictionary = {}
 ## Ids of goals already rewarded.
 var goals_done: Array[String] = []
-## True once two living people are married (a later task sets it).
+## True once two living people are married.
 var married := false
+## The person on offer while adopting, in `Person.to_dict()` shape; {} otherwise.
+var candidate: Dictionary = {}
+## Pending marriage proposals: {id, person: Dictionary, savings, expires_at}.
+var proposals: Array[Dictionary] = []
+## `now` from which the next proposal may arrive.
+var next_proposal_at := 0
+## True after the first proposal was declined in this game (later declines wait longer).
+var declined_once := false
+## True once the first adoption happened: only that one sets the starting money.
+var adopted_once := false
 
 var _acc := 0.0
 var _next_uid := 1
@@ -54,6 +64,8 @@ func _init(p: Pack, seed: int) -> void:
 	for id in p.rooms:
 		if bool(p.rooms[id].get("built", false)):
 			rooms_built.append(str(id))
+	phase = "adopting"
+	FamilySystem.new_candidate(self)
 
 
 func set_time(unix: int, offset: int) -> void:
@@ -67,7 +79,7 @@ func local_hour() -> float:
 
 
 func advance(seconds: float) -> void:
-	if phase == "invalid" or phase == "over":
+	if phase != "living":
 		return
 	_acc += seconds
 	while _acc >= STEP and phase != "over":
@@ -77,11 +89,22 @@ func advance(seconds: float) -> void:
 
 ## Runs a player command. Always returns {ok, error}; handlers live in `Commands.handlers`.
 func command(cmd: Dictionary) -> Dictionary:
-	if phase == "invalid" or phase == "over":
+	if phase == "invalid":
 		return Commands.fail("not_running")
-	var handler: Callable = Commands.handlers.get(str(cmd.get("type", "")), Callable())
+	var type := str(cmd.get("type", ""))
+	var handler: Callable = Commands.handlers.get(type, Callable())
 	if handler.is_null():
 		return Commands.fail("unknown_command")
+	match phase:
+		"adopting":
+			if type != "adopt" and type != "reroll":
+				return Commands.fail("not_running")
+		"over":
+			if type != "reroll":
+				return Commands.fail("not_running")
+		_:
+			if type == "adopt" or type == "reroll":
+				return Commands.fail("not_adopting")
 	return handler.call(self, cmd)
 
 
@@ -159,4 +182,5 @@ func _run_systems(dt: float) -> void:
 	AutonomySystem.step(self, dt)
 	EconomySystem.step(self, dt)
 	CollectibleSystem.step(self, dt)
+	FamilySystem.step(self, dt)
 	GoalSystem.step(self, dt)

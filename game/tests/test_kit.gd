@@ -8,6 +8,7 @@ static func world(pack_id := "_smoke", seed := 1) -> World:
 	var w := World.new(Pack.load_dir("res://packs/" + pack_id), seed)
 	w.set_time(1767268800, 0)
 	w.phase = "living"
+	w.candidate = {}
 	return w
 
 

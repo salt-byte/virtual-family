@@ -18,6 +18,9 @@ static var handlers: Dictionary = {
 	"move": HouseSystem.move,
 	"sell_object": HouseSystem.sell,
 	"build_room": HouseSystem.build_room,
+	"adopt": FamilySystem.adopt,
+	"reroll": FamilySystem.reroll,
+	"answer_proposal": FamilySystem.answer_proposal,
 }
 
 
