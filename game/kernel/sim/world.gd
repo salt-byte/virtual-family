@@ -82,12 +82,17 @@ func local_hour() -> float:
 
 
 func advance(seconds: float) -> void:
-	if phase != "living":
+	if phase != "living" or seconds <= 0.0:
 		return
 	_acc += seconds
 	while _acc >= STEP and phase != "over":
 		_acc -= STEP
 		_step()
+
+
+## Replays the time the player was away (capped) and returns the summary; see `Offline`.
+func catch_up(elapsed_seconds: float) -> Dictionary:
+	return Offline.catch_up(self, elapsed_seconds)
 
 
 ## Runs a player command. Always returns {ok, error}; handlers live in `Commands.handlers`.
