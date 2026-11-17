@@ -80,3 +80,18 @@ func test_praise_need_decays_extra():
 func test_dead_or_over_world_rejects_commands():
 	var w := _w(); var p := TestKit.adult(w); w.phase = "over"
 	assert_eq(w.command({type = "praise", person = p.uid}).error, "not_running")
+func test_drag_child_to_stove_in_use_says_busy_not_stage():
+	var w := TestKit.world("qijia"); var stove := w.add_object("stove", w.rooms_built[0], 0, 0)
+	assert_true(stove >= 0)
+	var cook := TestKit.adult(w); var child := TestKit.adult(w, 6.0)
+	AutonomySystem.start(w, cook, "cook_porridge", stove)
+	assert_eq(w.command({type = "drag", person = child.uid, object = stove}).error, "busy")
+	AutonomySystem.cancel(w, cook)
+	var r := w.command({type = "drag", person = child.uid, object = stove})
+	assert_true(r.ok); assert_eq(r.action, "sneak_a_bite")
+func test_drag_explicit_action_must_belong_to_object_type():
+	var w := _w(); var p := TestKit.adult(w)
+	assert_eq(w.command({type = "drag", person = p.uid, object = w.objects[0].uid, action = "stare_window"}).error, "no_action")
+	assert_eq(w.command({type = "drag", person = p.uid, object = w.objects[0].uid, action = "nope"}).error, "no_action")
+	assert_true(p.current.is_empty())
+	assert_true(w.command({type = "drag", person = p.uid, object = w.objects[0].uid, action = "watch_tv"}).ok)

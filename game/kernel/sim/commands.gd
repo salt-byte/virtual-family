@@ -57,25 +57,43 @@ static func _try_drag(world: World, cmd: Dictionary) -> Dictionary:
 		return fail("no_object")
 	var action_id := str(cmd.get("action", ""))
 	if action_id == "":
-		var first_reason := "no_action"
-		var first := true
-		for id in world.pack.actions:
-			if str(world.pack.actions[id]["object"]) != str(o["type"]):
-				continue
-			var why := AutonomySystem.can_do(world, p, id, object_uid)
-			if why == "":
-				action_id = id
-				break
-			if first:
-				first_reason = why
-				first = false
-		if action_id == "":
-			return fail(first_reason)
+		var pick := _pick_object_action(world, p, o)
+		if pick.error != "":
+			return fail(pick.error)
+		action_id = pick.action
+	elif str(world.pack.actions.get(action_id, {}).get("object", "")) != str(o["type"]):
+		return fail("no_action")
 	var reason := AutonomySystem.can_do(world, p, action_id, object_uid)
 	if reason != "":
 		return fail(reason)
 	AutonomySystem.start(world, p, action_id, object_uid)
 	return success({"action": action_id})
+
+
+## {action, error}: the first action of object `o`'s type that `p` can do on it now, else
+## why not: "dead"; the reason of the first action fit for `p`'s stage (so an object in use
+## by someone else gives "busy"); "stage" when no action suits the stage; "no_action" when
+## the type has no actions.
+static func _pick_object_action(world: World, p: Person, o: Dictionary) -> Dictionary:
+	var first_reason := ""
+	var stage_only := false
+	for id in world.pack.actions:
+		if str(world.pack.actions[id]["object"]) != str(o["type"]):
+			continue
+		var why := AutonomySystem.can_do(world, p, id, int(o["uid"]))
+		match why:
+			"":
+				return {"action": id, "error": ""}
+			"dead":
+				return {"action": "", "error": why}
+			"stage":
+				stage_only = true
+			_:
+				if first_reason == "":
+					first_reason = why
+	if first_reason == "":
+		first_reason = "stage" if stage_only else "no_action"
+	return {"action": "", "error": first_reason}
 
 
 static func _drag_to_mess(world: World, p: Person, mess_uid: int) -> Dictionary:
