@@ -39,10 +39,16 @@ static func infect(world: World, p: Person, illness_id: String) -> void:
 	world.emit("fell_ill", {"person": p.uid})
 
 
+## Makes `p` healthy. An action that only the sick may do (`requires` an illness or
+## `sick: true`) is cancelled, so the cured do not stay in the sick bed.
 static func cure(world: World, p: Person) -> void:
 	if p.illness == "":
 		return
 	p.illness = ""
+	if not p.current.is_empty():
+		var req: Dictionary = world.pack.actions[p.current["action"]]["requires"]
+		if req.has("illness") or bool(req.get("sick", false)):
+			AutonomySystem.cancel(world, p)
 	world.stats["cured"] = int(world.stats["cured"]) + 1
 	world.emit("cured", {"person": p.uid})
 

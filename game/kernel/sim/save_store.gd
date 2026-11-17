@@ -17,7 +17,8 @@ static func save(world: World, path: String) -> bool:
 	return true
 
 
-## {world: World or null, error: "" | "missing" | "corrupt" | "version" | "pack_mismatch"}
+## {world: World or null, error: "" | "missing" | "corrupt" | "version" | "pack_mismatch" | "pack_changed"}
+## ("pack_changed": the save names content this pack no longer has; see `WorldSave.restore`).
 static func load(pack: Pack, path: String) -> Dictionary:
 	if not FileAccess.file_exists(path):
 		return {"world": null, "error": "missing"}
@@ -33,7 +34,4 @@ static func load(pack: Pack, path: String) -> Dictionary:
 		return {"world": null, "error": "version"}
 	if d.get("pack_id") != pack.id:
 		return {"world": null, "error": "pack_mismatch"}
-	var w := World.from_dict(pack, d)
-	if w == null:
-		return {"world": null, "error": "corrupt"}
-	return {"world": w, "error": ""}
+	return WorldSave.restore(pack, d)

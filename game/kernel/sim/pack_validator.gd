@@ -31,6 +31,9 @@ const MIN_INT := {
 	"goals.json": {"reward": 0},
 }
 const LEVEL_FIELDS := ["name", "daily_income", "work_bonus_per_hour", "progress_to_next"]
+## Stage ids the kernel itself relies on (babies idle and never fall ill; adults and elders
+## earn and marry).
+const REQUIRED_STAGES := ["baby", "adult", "elder"]
 
 var _errors: Array[String] = []
 var _p: Pack
@@ -111,6 +114,29 @@ func _check_pack_config() -> void:
 				_err("pack.json", _p.id, "work_needs_min key '%s' is not a need" % [k])
 	else:
 		_err("pack.json", _p.id, "work_needs_min must be an object")
+	_check_stages(c["stages"])
+
+
+## `Pack` sorts stages by `from` on load, so this rejects two stages starting at one age.
+func _check_stages(stages) -> void:
+	if not stages is Array:
+		_err("pack.json", _p.id, "stages must be an array")
+		return
+	var ids := []
+	var last := -INF
+	for s in stages:
+		if not (s is Dictionary and s.get("id") is String and (s.get("from") is int or s.get("from") is float)):
+			_err("pack.json", _p.id, "each stage needs a string 'id' and a number 'from'")
+			return
+		if ids.has(s["id"]):
+			_err("pack.json", _p.id, "stage id '%s' appears twice" % [s["id"]])
+		ids.append(s["id"])
+		if float(s["from"]) <= last:
+			_err("pack.json", _p.id, "stage 'from' values must be strictly ascending (stage '%s')" % [s["id"]])
+		last = float(s["from"])
+	for id in REQUIRED_STAGES:
+		if not ids.has(id):
+			_err("pack.json", _p.id, "stages must include '%s'" % [id])
 
 
 func _check_names() -> void:

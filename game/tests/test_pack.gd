@@ -150,3 +150,37 @@ func test_json_null_file_is_an_error():
 	var p := Pack.load_dir("res://tests/fixtures/null_json_pack")
 	assert_true(_has(p.errors, "goals.json:", "array"))
 	assert_true(_has(p.errors, "names.json:", "object"))
+
+func test_stages_must_include_kernel_stage_ids():
+	for id in ["baby", "adult", "elder"]:
+		var e := _errs(func(p): p.config["stages"] = (p.config["stages"] as Array).filter(func(s): return s.id != id))
+		assert_true(_has(e, "pack.json:", "'%s'" % id), id)
+	assert_true(not _has(_errs(func(p): p.config["stages"] = (p.config["stages"] as Array).filter(func(s): return s.id != "child")), "pack.json:", "stage"))
+
+func test_stage_from_must_be_strictly_ascending():
+	var swapped := func(p):
+		var st: Array = p.config["stages"]; var t = st[1]; st[1] = st[2]; st[2] = t
+	assert_true(_has(_errs(swapped), "pack.json:", "strictly ascending"))
+	assert_true(_has(_errs(func(p): p.config["stages"][2]["from"] = p.config["stages"][1]["from"]), "pack.json:", "strictly ascending"))
+	assert_true(_has(_errs(func(p): p.config["stages"] = "x"), "pack.json:", "stages"))
+	assert_true(_has(_errs(func(p): p.config["stages"][0] = {"id": "baby"}), "pack.json:", "'from'"))
+
+## A pack listing its stages out of order loads with them sorted by `from`.
+func test_pack_sorts_stages_on_load():
+	var src := "res://packs/_smoke"; var dst := "user://test_unsorted_stages_pack"
+	DirAccess.make_dir_recursive_absolute(dst)
+	for f in DirAccess.get_files_at(src):
+		var text := FileAccess.get_file_as_string(src + "/" + f)
+		if f == "pack.json":
+			var d: Dictionary = JSON.parse_string(text)
+			d["stages"] = [{"id": "elder", "from": 55}, {"id": "baby", "from": 0}, {"id": "adult", "from": 18}, {"id": "child", "from": 2}]
+			text = JSON.stringify(d)
+		var out := FileAccess.open(dst + "/" + f, FileAccess.WRITE); out.store_string(text); out.close()
+	var p := Pack.load_dir(dst)
+	for f in DirAccess.get_files_at(dst):
+		DirAccess.remove_absolute(dst + "/" + f)
+	DirAccess.remove_absolute(dst)
+	assert_eq(p.errors, [] as Array[String])
+	assert_eq((p.cfg("stages") as Array).map(func(s): return s.id), ["baby", "child", "adult", "elder"])
+	var q := Person.new(); q.age = 30.0
+	assert_eq(q.stage(p), "adult")

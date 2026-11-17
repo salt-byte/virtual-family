@@ -61,3 +61,16 @@ func test_offline_illness_never_drains_below_floor():
 func test_dead_person_not_infected_by_chance_or_drained():
 	var w := TestKit.world(); var p := TestKit.adult(w); w.kill_person(p, "x")
 	w.advance(86400); assert_eq(p.illness, "")
+func test_cure_cancels_sick_only_action():
+	var w := TestKit.world(); var bed := w.add_object("bed", "main", 0, 0); var p := TestKit.adult(w)
+	IllnessSystem.infect(w, p, "cold"); AutonomySystem.start(w, p, "nap_sick", bed); w.drain_events()
+	IllnessSystem.cure(w, p)
+	assert_true(p.current.is_empty())
+	assert_true(w.drain_events().any(func(e): return e.type == "action_cancelled" and e.action == "nap_sick"))
+	IllnessSystem.infect(w, p, "cold"); AutonomySystem.start(w, p, "cough", -1)
+	IllnessSystem.cure(w, p); assert_true(p.current.is_empty())
+func test_cure_keeps_ordinary_action():
+	var w := TestKit.world(); var p := TestKit.adult(w)
+	IllnessSystem.infect(w, p, "cold"); AutonomySystem.start(w, p, "stare_window", -1)
+	IllnessSystem.cure(w, p)
+	assert_eq(p.current.get("action"), "stare_window")

@@ -158,3 +158,25 @@ func test_uid_counter_must_exceed_uids_in_use():
 	for pr in w.proposals: top = maxi(top, pr.id)
 	var d2 := w.to_dict(); d2["next_uid"] = top; assert_true(World.from_dict(w.pack, d2) == null)
 	var d3 := w.to_dict(); d3["next_uid"] = top + 100; assert_true(World.from_dict(w.pack, d3) != null)
+## A save written before a pack content update: each kind of vanished id gives "pack_changed".
+func test_save_naming_removed_pack_content_is_pack_changed():
+	var w := _busy(); w.inventory["cold_pill"] = 1; w.people[0].last_action = "eat"
+	assert_true(SaveStore.save(w, P))
+	var p0 := w.people[0]
+	var removals := {
+		"actions": p0.current["action"], "object_types": "fridge", "rooms": "study",
+		"items": "cold_pill", "needs": w.pack.needs.keys()[0], "illnesses": p0.illness,
+		"mess_types": w.messes[0].type, "collectibles": w.collectibles[0].type,
+		"goals": w.goals_done[0], "livelihoods": p0.track,
+	}
+	assert_eq(SaveStore.load(Pack.load_dir(SMOKE), P).error, "")
+	for key in removals:
+		var pack := Pack.load_dir(SMOKE)
+		var table: Dictionary = pack.get(key)
+		assert_true(table.has(removals[key]), key)
+		table.erase(removals[key])
+		var r := SaveStore.load(pack, P)
+		assert_eq(r.error, "pack_changed", key); assert_true(r.world == null, key)
+	var added := Pack.load_dir(SMOKE); added.needs["extra_need"] = added.needs.values()[0].duplicate()
+	assert_eq(SaveStore.load(added, P).error, "pack_changed", "pack gained a need")
+	_cleanup()

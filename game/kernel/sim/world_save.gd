@@ -39,12 +39,25 @@ static func _snapshot(w: World) -> Dictionary:
 
 ## Rebuilds a world from `to_dict` output, also after a JSON round trip (numbers come back
 ## as floats and are restored to the exact types the live world uses). Returns null, with
-## no engine error, for a wrong version or pack, a missing key or a value of the wrong shape.
+## no engine error, whenever `restore` reports an error.
 static func from_dict(pack: Pack, saved: Dictionary) -> World:
+	return restore(pack, saved)["world"]
+
+
+## {world: World or null, error}: error "corrupt" for a wrong version or pack, a missing key
+## or a value of the wrong shape; "pack_changed" when well-shaped data names an id this pack
+## no longer has (or lacks one of its needs), i.e. the pack's content was updated.
+static func restore(pack: Pack, saved: Dictionary) -> Dictionary:
 	var bad := []
 	var d: Dictionary = _decode(saved, bad)
 	if pack == null or not bad.is_empty() or not _valid_save(pack, d):
-		return null
+		return {"world": null, "error": "corrupt"}
+	if not _ids_known(pack, d):
+		return {"world": null, "error": "pack_changed"}
+	return {"world": _build(pack, d), "error": ""}
+
+
+static func _build(pack: Pack, d: Dictionary) -> World:
 	var w := World.new(pack, int(d["seed"]))
 	w.rng.set_state(d["rng"])
 	w.phase = d["phase"]
@@ -204,32 +217,30 @@ static func _all_strings(a: Array) -> bool:
 	return true
 
 
-## Dictionary whose values are all whole numbers and (when `ids` is given) keys all in it.
-static func _count_map(v, ids = null, key_whole := false) -> bool:
+## Dictionary whose values are all whole numbers and whose keys are strings (`key_whole`:
+## strings holding a 64-bit whole number).
+static func _count_map(v, key_whole := false) -> bool:
 	if typeof(v) != TYPE_DICTIONARY:
 		return false
 	for k in v:
 		if key_whole:
 			if not _is_i64(k):
 				return false
-		elif not _is_str(k) or (ids != null and not ids.has(k)):
+		elif not _is_str(k):
 			return false
 		if not _is_whole(v[k]):
 			return false
 	return true
 
 
-static func _valid_person(pack: Pack, p) -> bool:
+static func _valid_person(p) -> bool:
 	if not _has(p, {"uid": "i", "given": "s", "family": "s", "gender": "s", "age": "n",
 			"lifespan": "n", "alive": "b", "needs": "d", "likes": "a", "dislikes": "a",
 			"habits": "d", "praise_times": "a", "track": "s", "level": "i", "progress": "n",
 			"aptitude": "n", "illness": "s", "current": "d", "last_action": "s", "last_action_t": "i"}):
 		return false
 	for k in p["needs"]:
-		if not (pack.needs.has(k) and _is_num(p["needs"][k])):
-			return false
-	for k in pack.needs:
-		if not p["needs"].has(k):
+		if not (_is_str(k) and _is_num(p["needs"][k])):
 			return false
 	if not (_all_strings(p["likes"]) and _all_strings(p["dislikes"])):
 		return false
@@ -239,20 +250,13 @@ static func _valid_person(pack: Pack, p) -> bool:
 	for t in p["praise_times"]:
 		if not _is_whole(t):
 			return false
-	if p["track"] != "" and not pack.livelihoods.has(p["track"]):
-		return false
-	if p["illness"] != "" and not pack.illnesses.has(p["illness"]):
-		return false
 	var c: Dictionary = p["current"]
-	if c.is_empty():
-		return true
-	return _has(c, {"action": "s", "object_uid": "i", "target_uid": "i", "remaining_s": "i"}) \
-			and pack.actions.has(c["action"])
+	return c.is_empty() or _has(c, {"action": "s", "object_uid": "i", "target_uid": "i", "remaining_s": "i"})
 
 
-## Every entry has uid, x, y, a `type` known in `types`, plus `extra` whole-number keys;
-## `with_room` also demands a `room` the pack knows.
-static func _valid_placed(pack: Pack, a, types: Dictionary, with_room: bool, extra: Array) -> bool:
+## Every entry has uid, x, y, a string `type`, plus `extra` whole-number keys and, when
+## `with_room`, a string `room`.
+static func _valid_placed(a, with_room: bool, extra: Array) -> bool:
 	if typeof(a) != TYPE_ARRAY:
 		return false
 	var spec := {"uid": "i", "type": "s", "x": "i", "y": "i"}
@@ -261,13 +265,12 @@ static func _valid_placed(pack: Pack, a, types: Dictionary, with_room: bool, ext
 	if with_room:
 		spec["room"] = "s"
 	for o in a:
-		if not _has(o, spec) or not types.has(o["type"]):
-			return false
-		if with_room and not pack.rooms.has(o["room"]):
+		if not _has(o, spec):
 			return false
 	return true
 
 
+## Shape only: every key present with the right type and range; ids are not looked up here.
 static func _valid_save(pack: Pack, d: Dictionary) -> bool:
 	if not _has(d, {"version": "i", "pack_id": "s", "seed": "s", "rng": "d", "phase": "s",
 			"now": "i", "utc_offset": "i", "acc": "n", "next_uid": "i", "money": "i",
@@ -284,30 +287,24 @@ static func _valid_save(pack: Pack, d: Dictionary) -> bool:
 			or not _is_i64(d["rng"]["state"]):
 		return false
 	for p in d["people"]:
-		if not _valid_person(pack, p):
+		if not _valid_person(p):
 			return false
-	if not _valid_placed(pack, d["objects"], pack.object_types, true, []):
+	if not (_valid_placed(d["objects"], true, []) and _valid_placed(d["messes"], true, [])
+			and _valid_placed(d["collectibles"], false, ["expires_at"])):
 		return false
-	if not _valid_placed(pack, d["messes"], pack.mess_types, true, []):
+	if not (_count_map(d["stock"]) and _count_map(d["inventory"]) and _count_map(d["collection"])):
 		return false
-	if not _valid_placed(pack, d["collectibles"], pack.collectibles, false, ["expires_at"]):
-		return false
-	if not (_count_map(d["stock"]) and _count_map(d["inventory"]) and _count_map(d["collection"], pack.collectibles)):
-		return false
-	if not _count_map(d["income_carry"], null, true):
+	if not _count_map(d["income_carry"], true):
 		return false
 	if not _count_map(d["stats"]) or not _has(d["stats"], {"cured": "i", "collected": "i", "mess_cleaned": "i", "all_clean": "i"}):
 		return false
 	if not _all_strings(d["goals_done"]) or not _all_strings(d["rooms_built"]):
 		return false
-	for r in d["rooms_built"]:
-		if not pack.rooms.has(r):
-			return false
-	if not d["candidate"].is_empty() and not _valid_person(pack, d["candidate"]):
+	if not d["candidate"].is_empty() and not _valid_person(d["candidate"]):
 		return false
 	for pr in d["proposals"]:
 		if not _has(pr, {"id": "i", "person": "d", "savings": "i", "expires_at": "i"}) \
-				or not _valid_person(pack, pr["person"]):
+				or not _valid_person(pr["person"]):
 			return false
 	# The uid counter must lie above every uid in use, or new things would collide.
 	var top := 0
@@ -317,3 +314,57 @@ static func _valid_save(pack: Pack, d: Dictionary) -> bool:
 	for pr in d["proposals"]:
 		top = maxi(top, int(pr["id"]))
 	return int(d["next_uid"]) > top
+
+
+# --- pack references: run on well-shaped data; a miss means the pack's content changed ---
+
+## True when every pack id the save refers to still exists (and every need the pack has
+## is in each saved person).
+static func _ids_known(pack: Pack, d: Dictionary) -> bool:
+	var persons: Array = d["people"].duplicate()
+	if not d["candidate"].is_empty():
+		persons.append(d["candidate"])
+	for pr in d["proposals"]:
+		persons.append(pr["person"])
+	for p in persons:
+		if not _person_ids_known(pack, p):
+			return false
+	for o in d["objects"]:
+		if not (pack.object_types.has(o["type"]) and pack.rooms.has(o["room"])):
+			return false
+	for m in d["messes"]:
+		if not (pack.mess_types.has(m["type"]) and pack.rooms.has(m["room"])):
+			return false
+	for c in d["collectibles"]:
+		if not pack.collectibles.has(c["type"]):
+			return false
+	return _keys_in(d["inventory"], pack.items) and _keys_in(d["collection"], pack.collectibles) \
+			and _all_in(d["rooms_built"], pack.rooms) and _all_in(d["goals_done"], pack.goals)
+
+
+static func _person_ids_known(pack: Pack, p: Dictionary) -> bool:
+	if not (_keys_in(p["needs"], pack.needs) and _keys_in(pack.needs, p["needs"])):
+		return false
+	if not _keys_in(p["habits"], pack.actions):
+		return false
+	if p["track"] != "" and not pack.livelihoods.has(p["track"]):
+		return false
+	if p["illness"] != "" and not pack.illnesses.has(p["illness"]):
+		return false
+	if p["last_action"] != "" and not pack.actions.has(p["last_action"]):
+		return false
+	return p["current"].is_empty() or pack.actions.has(p["current"]["action"])
+
+
+static func _keys_in(d: Dictionary, ids: Dictionary) -> bool:
+	for k in d:
+		if not ids.has(k):
+			return false
+	return true
+
+
+static func _all_in(a: Array, ids: Dictionary) -> bool:
+	for v in a:
+		if not ids.has(v):
+			return false
+	return true

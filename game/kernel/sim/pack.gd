@@ -152,6 +152,10 @@ func _build_config(pack_dict: Dictionary) -> void:
 
 
 func _apply_defaults() -> void:
+	# Stages are read in age order everywhere, so sort them by `from` (when well-formed).
+	var stages = config["stages"]
+	if stages is Array and (stages as Array).all(func(s): return s is Dictionary and (s.get("from") is int or s.get("from") is float)):
+		(stages as Array).sort_custom(func(a, b): return float(a["from"]) < float(b["from"]))
 	for key in ENTRY_DEFAULTS:
 		var defaults: Dictionary = ENTRY_DEFAULTS[key]
 		for e in (get(key) as Dictionary).values():
