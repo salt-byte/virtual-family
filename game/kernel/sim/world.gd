@@ -23,17 +23,15 @@ var stock: Dictionary = {}
 var inventory: Dictionary = {}
 ## Salary coins paid ahead of schedule per person uid (<= 0), so 24 hourly parts add up.
 var income_carry: Dictionary = {}
-## Counters that goals read: cured, collected, mess_cleaned, all_clean.
 ## Messes in the house: {uid, type, room, x, y}.
 var messes: Array[Dictionary] = []
 ## Ids of rooms that exist in the house (pack rooms with `built`, plus any built later).
 var rooms_built: Array[String] = []
+## Counters that goals read: cured, collected, mess_cleaned, all_clean.
 var stats: Dictionary = {"cured": 0, "collected": 0, "mess_cleaned": 0, "all_clean": 0}
 
 var _acc := 0.0
 var _next_uid := 1
-var _next_object_uid := 1
-var _next_mess_uid := 1
 var _events: Array = []
 
 
@@ -98,8 +96,7 @@ func person(uid: int) -> Person:
 
 
 func add_person(p: Person) -> void:
-	p.uid = _next_uid
-	_next_uid += 1
+	p.uid = next_uid()
 	people.append(p)
 
 
@@ -108,16 +105,15 @@ func add_person(p: Person) -> void:
 func add_object(type: String, room: String, x: int, y: int) -> int:
 	if HouseSystem.can_place(self, type, room, x, y) != "":
 		return -1
-	var uid := _next_object_uid
-	_next_object_uid += 1
+	var uid := next_uid()
 	objects.append({"uid": uid, "type": type, "room": room, "x": x, "y": y})
 	return uid
 
 
-## Next uid for a mess.
-func next_mess_uid() -> int:
-	var uid := _next_mess_uid
-	_next_mess_uid += 1
+## One world-wide uid counter: people, objects, messes (and later collectibles) never collide.
+func next_uid() -> int:
+	var uid := _next_uid
+	_next_uid += 1
 	return uid
 
 

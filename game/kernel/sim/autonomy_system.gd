@@ -65,9 +65,13 @@ static func can_do(world: World, p: Person, action_id: String, object_uid: int) 
 
 
 ## Starts an action (no checks: callers use `can_do` first). Replaces whatever `p` was doing.
+## Resolves the action's object (any free one when `object_uid` is -1) and, for a cleaning
+## action without an explicit `target_uid`, the first unclaimed mess of its type.
 static func start(world: World, p: Person, action_id: String, object_uid: int, target_uid := -1) -> void:
 	cancel(world, p)
 	var a: Dictionary = world.pack.actions[action_id]
+	if str(a["cleans"]) != "" and target_uid < 0:
+		target_uid = MessSystem.first_free(world, str(a["cleans"]), p)
 	var uid := _free_object(world, p, a, object_uid) if str(a["object"]) != "" else -1
 	for item in a["consumes"]:
 		world.stock[item] = int(world.stock.get(item, 0)) - int(a["consumes"][item])

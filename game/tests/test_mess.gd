@@ -52,3 +52,55 @@ func test_action_mess_spawns_in_object_room():
 	w.command({type = "drag", person = p.uid, object = w.objects[0].uid})
 	w.advance(60 * 60)
 	assert_true(w.messes.size() >= 1); assert_eq(w.messes[0].room, "main")
+func _bin_action(w: World) -> void:
+	w.pack.actions["take_out_trash"]["object"] = "bed"
+func test_mess_drag_occupies_object_of_cleaning_action():
+	var w := TestKit.world(); _bin_action(w)
+	var bed := w.add_object("bed", "main", 0, 0); var a := TestKit.adult(w); var b := TestKit.adult(w)
+	var uid := MessSystem.spawn(w, "trash")
+	assert_true(w.command({type = "drag", person = a.uid, mess = uid}).ok)
+	assert_eq(a.current["object_uid"], bed)
+	MessSystem.spawn(w, "trash")
+	assert_eq(AutonomySystem.can_do(w, b, "take_out_trash", -1), "busy")
+	w.advance(w.pack.actions["take_out_trash"]["duration_min"] * 60)
+	assert_eq(w.stats["mess_cleaned"], 1)
+func test_object_drag_of_cleaning_action_resolves_target():
+	var w := TestKit.world(); _bin_action(w)
+	var bed := w.add_object("bed", "main", 0, 0); var p := TestKit.adult(w)
+	MessSystem.spawn(w, "trash")
+	assert_true(w.command({type = "drag", person = p.uid, object = bed, action = "take_out_trash"}).ok)
+	assert_true(p.current["target_uid"] >= 0)
+	w.advance(w.pack.actions["take_out_trash"]["duration_min"] * 60)
+	assert_eq(w.messes.size(), 0); assert_eq(w.stats["mess_cleaned"], 1)
+func test_object_drag_of_cleaning_action_without_mess_is_rejected():
+	var w := TestKit.world(); _bin_action(w)
+	var bed := w.add_object("bed", "main", 0, 0); var p := TestKit.adult(w)
+	assert_eq(w.command({type = "drag", person = p.uid, object = bed, action = "take_out_trash"}).error, "no_target")
+func test_spawn_without_matching_room_returns_minus_one():
+	var w := TestKit.world(); w.rooms_built.clear()
+	assert_eq(MessSystem.spawn(w, "trash"), -1); assert_eq(w.messes.size(), 0)
+	w.rooms_built.append("yard")  # outdoor only: trash is indoor
+	assert_eq(MessSystem.spawn(w, "trash"), -1)
+func test_candidates_target_skips_claimed_mess_and_own_claim_does_not_block():
+	var w := TestKit.world(); var a := TestKit.adult(w); var b := TestKit.adult(w)
+	var m1 := MessSystem.spawn(w, "trash"); var m2 := MessSystem.spawn(w, "trash")
+	w.command({type = "drag", person = a.uid, mess = m1})
+	var c := AutonomySystem.candidates(w, b).filter(func(x): return x.action == "take_out_trash")
+	assert_eq(c.size(), 1); assert_eq(c[0].target_uid, m2)
+	var own := AutonomySystem.candidates(w, a).filter(func(x): return x.action == "take_out_trash")
+	assert_eq(own[0].target_uid, m1)
+	assert_true(w.command({type = "drag", person = a.uid, mess = m1}).ok)
+func test_claim_requires_cleaning_action():
+	var w := TestKit.world(); var a := TestKit.adult(w); var b := TestKit.adult(w)
+	var m := MessSystem.spawn(w, "trash")
+	a.current = {action = "stare_window", object_uid = -1, target_uid = m, remaining_s = 600}
+	assert_true(w.command({type = "drag", person = b.uid, mess = m}).ok)
+func test_offline_floor_holds_under_mess_penalty():
+	var w := TestKit.world(); var p := TestKit.adult(w); w.offline = true
+	p.current = {action = "stare_window", object_uid = -1, target_uid = -1, remaining_s = 99999999}
+	p.needs["happy"] = 0.0; MessSystem.spawn(w, "trash"); w.advance(600)
+	assert_true(p.needs["happy"] >= float(w.pack.cfg("offline_need_floor")))
+func test_uids_are_unique_across_kinds():
+	var w := TestKit.world(); var p := TestKit.adult(w); var o := w.add_object("bed", "main", 0, 0)
+	var m := MessSystem.spawn(w, "trash")
+	assert_true(p.uid != o and o != m and p.uid != m)

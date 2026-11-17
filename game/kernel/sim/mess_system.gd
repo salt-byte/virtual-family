@@ -25,7 +25,7 @@ static func spawn(world: World, type: String, room := "") -> int:
 			return -1
 		room = str(world.rng.pick(ok))
 	var r: Dictionary = world.pack.rooms[room]
-	var uid := world.next_mess_uid()
+	var uid := world.next_uid()
 	world.messes.append({"uid": uid, "type": type, "room": room,
 		"x": world.rng.randi_range(0, int(r["w"]) - 1), "y": world.rng.randi_range(0, int(r["h"]) - 1)})
 	world.emit("mess_spawned", {"uid": uid, "type": type, "room": room})
@@ -56,7 +56,9 @@ static func find(world: World, uid: int) -> Dictionary:
 ## True when a living person other than `except` is on their way to / cleaning this mess.
 static func claimed_by_other(world: World, uid: int, except: Person) -> bool:
 	for q in world.people:
-		if q != except and q.alive and not q.current.is_empty() and int(q.current.get("target_uid", -1)) == uid:
+		if q == except or not q.alive or q.current.is_empty():
+			continue
+		if int(q.current.get("target_uid", -1)) == uid and str(world.pack.actions[q.current["action"]]["cleans"]) != "":
 			return true
 	return false
 
@@ -70,8 +72,6 @@ static func first_free(world: World, type: String, p: Person) -> int:
 
 
 static func _apply_penalties(world: World, dt: float) -> void:
-	if world.messes.is_empty():
-		return
 	var floor_v := float(world.pack.cfg("offline_need_floor"))
 	for m in world.messes:
 		var penalty: Dictionary = world.pack.mess_types[m.type].get("penalty", {})
@@ -81,10 +81,5 @@ static func _apply_penalties(world: World, dt: float) -> void:
 			for nid in penalty:
 				if p.needs.has(nid):
 					p.needs[nid] = clampf(float(p.needs[nid]) - absf(float(penalty[nid])) * dt / 3600.0, 0.0, 100.0)
-	if world.offline:
-		for m in world.messes:
-			for p in world.people:
-				if p.alive:
-					for nid in world.pack.mess_types[m.type].get("penalty", {}):
-						if p.needs.has(nid):
-							p.needs[nid] = maxf(float(p.needs[nid]), floor_v)
+					if world.offline:
+						p.needs[nid] = maxf(float(p.needs[nid]), floor_v)
