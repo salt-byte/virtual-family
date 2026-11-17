@@ -122,6 +122,11 @@ func emit(type: String, data := {}) -> void:
 	_events.append(e)
 
 
+## Puts `events` back at the front of the queue, ahead of anything queued since.
+func requeue_events(events: Array) -> void:
+	_events = events + _events
+
+
 func drain_events() -> Array:
 	var out := _events
 	_events = []
@@ -169,9 +174,9 @@ func object(uid: int) -> Dictionary:
 func kill_person(p: Person, cause: String) -> void:
 	if not p.alive:
 		return
+	AutonomySystem.cancel(self, p)
 	p.alive = false
-	p.current = {}
-	emit("person_died", {"uid": p.uid, "cause": cause})
+	emit("person_died", {"person": p.uid, "cause": cause})
 	if phase == "living" and not people.any(func(q: Person): return q.alive):
 		phase = "over"
 		emit("game_over")

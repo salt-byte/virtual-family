@@ -21,7 +21,7 @@ static func step(world: World, _dt: float) -> void:
 		var pay := maxi((total + 23) / 24, 0)
 		world.income_carry[p.uid] = total - pay * 24
 		world.money += pay
-		world.emit("income", {"uid": p.uid, "amount": pay, "source": "salary"})
+		world.emit("income", {"person": p.uid, "amount": pay, "source": "salary"})
 
 
 ## False (and nothing taken) when there is not enough money.
@@ -32,14 +32,15 @@ static func spend(world: World, amount: int) -> bool:
 	return true
 
 
-## `uid` (>= 0) names the person the income belongs to and goes into the event.
-static func earn(world: World, amount: int, source: String, uid := -1) -> void:
+## `person_uid` (>= 0) names the person the income belongs to and goes into the event as
+## `person`; income from no one in particular (a goal, a sale) has no `person` key.
+static func earn(world: World, amount: int, source: String, person_uid := -1) -> void:
 	if amount <= 0:
 		return
 	world.money += amount
 	var e := {"amount": amount, "source": source}
-	if uid >= 0:
-		e["uid"] = uid
+	if person_uid >= 0:
+		e["person"] = person_uid
 	world.emit("income", e)
 
 
@@ -58,7 +59,7 @@ static func on_work_finished(world: World, p: Person, minutes: int) -> void:
 	if need > 0 and p.progress >= need and p.level < levels.size() - 1:
 		p.level += 1
 		p.progress = 0.0
-		world.emit("level_up", {"uid": p.uid, "track": p.track, "level": p.level})
+		world.emit("level_up", {"person": p.uid, "track": p.track, "level": p.level})
 
 
 static func _fit_to_work(world: World, p: Person) -> bool:

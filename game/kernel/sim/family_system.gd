@@ -63,7 +63,7 @@ static func adopt(world: World, _cmd: Dictionary) -> Dictionary:
 		world.money = int(world.pack.cfg("start_money"))
 	world.phase = "living"
 	world.next_proposal_at = world.now + int(world.pack.cfg("proposal_first_min")) * 60
-	return Commands.success()
+	return Commands.success({"person": p.uid})
 
 
 static func answer_proposal(world: World, cmd: Dictionary) -> Dictionary:
@@ -92,7 +92,7 @@ static func answer_proposal(world: World, cmd: Dictionary) -> Dictionary:
 	world.married = true
 	world.proposals.clear()
 	world.emit("married", {"person": spouse.uid})
-	return Commands.success()
+	return Commands.success({"person": spouse.uid})
 
 
 static func step(world: World, _dt: float) -> void:

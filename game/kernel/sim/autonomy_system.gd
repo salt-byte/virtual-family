@@ -96,14 +96,14 @@ static func start(world: World, p: Person, action_id: String, object_uid: int, t
 		world.stock[item] = int(world.stock.get(item, 0)) - int(a["consumes"][item])
 	p.current = {"action": action_id, "object_uid": uid, "target_uid": target_uid,
 		"remaining_s": int(a["duration_min"]) * 60}
-	world.emit("action_started", {"uid": p.uid, "action": action_id, "object_uid": uid})
+	world.emit("action_started", {"person": p.uid, "action": action_id, "object": uid, "target": target_uid})
 
 
 ## Drops the current action without any payout; the object becomes free.
 static func cancel(world: World, p: Person) -> void:
 	if p.current.is_empty():
 		return
-	world.emit("action_cancelled", {"uid": p.uid, "action": p.current["action"]})
+	world.emit("action_cancelled", {"person": p.uid, "action": p.current["action"]})
 	p.current = {}
 
 
@@ -135,7 +135,7 @@ static func _finish(world: World, p: Person) -> void:
 	p.current = {}
 	p.last_action = id
 	p.last_action_t = world.now
-	world.emit("action_finished", {"uid": p.uid, "action": id})
+	world.emit("action_finished", {"person": p.uid, "action": id})
 
 
 ## First unclaimed target for the action's kind (-1 when it has none or none is free).

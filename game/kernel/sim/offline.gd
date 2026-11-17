@@ -21,16 +21,17 @@ static func catch_up(world: World, elapsed_seconds: float) -> Dictionary:
 	world.advance(seconds)
 	world.offline = was_offline
 	var events := world.drain_events()
-	world._events = held
+	world.requeue_events(held)
 	summary["capped"] = elapsed_seconds > float(cap)
+	summary["game_over"] = world.phase == "over"
 	summary["simulated_seconds"] = world.now - t0
 	summary["years_passed"] = float(world.now - t0) / (float(world.pack.cfg("hours_per_year")) * 3600.0)
 	summary["money_delta"] = world.money - money0
 	for e in events:
 		match e.type:
-			"person_died": summary["deaths"].append({"person": e.uid, "cause": e.cause})
+			"person_died": summary["deaths"].append({"person": e.person, "cause": e.cause})
 			"fell_ill": summary["illnesses"].append(e.person)
-			"level_up": summary["level_ups"].append({"person": e.uid, "level": e.level})
+			"level_up": summary["level_ups"].append({"person": e.person, "level": e.level})
 			"proposal_expired": summary["proposals_expired"] += 1
 			"goal_done": summary["goals_done"].append(e.goal)
 	summary["proposals_waiting"] = world.proposals.size()
@@ -41,4 +42,4 @@ static func catch_up(world: World, elapsed_seconds: float) -> Dictionary:
 static func _empty() -> Dictionary:
 	return {"simulated_seconds": 0, "capped": false, "years_passed": 0.0, "money_delta": 0,
 		"deaths": [], "illnesses": [], "level_ups": [], "proposals_expired": 0,
-		"proposals_waiting": 0, "goals_done": [], "messes_now": 0}
+		"proposals_waiting": 0, "goals_done": [], "messes_now": 0, "game_over": false}
