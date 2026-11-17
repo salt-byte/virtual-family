@@ -64,9 +64,6 @@ func test_use_item_errors():
 	w.command({type = "buy", item = "cake", qty = 1})
 	assert_eq(w.command({type = "use_item", item = "cake", person = 99}).error, "no_person")
 	assert_eq(w.inventory["cake"], 1)
-	w.command({type = "buy", item = "cold_pill", qty = 1})
-	assert_eq(w.command({type = "use_item", item = "cold_pill", person = p.uid}).error, "not_usable_yet")
-	assert_eq(w.inventory["cold_pill"], 1)
 func test_finished_work_action_pays_bonus():
 	var w := _w(); var p := _worker(w); w.drain_events()
 	AutonomySystem.start(w, p, "work_desk", -1)

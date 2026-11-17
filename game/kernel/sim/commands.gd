@@ -28,6 +28,15 @@ static func success(extra := {}) -> Dictionary:
 
 
 static func _drag(world: World, cmd: Dictionary) -> Dictionary:
+	var result := _try_drag(world, cmd)
+	# Dropping a sick, idle person shows their symptom, whether or not the drag worked.
+	var p := world.person(int(cmd.get("person", -1)))
+	if p != null:
+		IllnessSystem.show_symptom(world, p)
+	return result
+
+
+static func _try_drag(world: World, cmd: Dictionary) -> Dictionary:
 	var p := world.person(int(cmd.get("person", -1)))
 	if p == null:
 		return fail("no_person")
@@ -122,11 +131,14 @@ static func _use_item(world: World, cmd: Dictionary) -> Dictionary:
 	if p == null or not p.alive:
 		return fail("no_person")
 	var item: Dictionary = world.pack.items[id]
-	if str(item["cures"]) != "":
-		return fail("not_usable_yet")  # Task 7 replaces this with the cure rules
+	var cures := str(item["cures"])
+	world.inventory[id] = int(world.inventory[id]) - 1
+	if cures != "":
+		if p.illness != cures:
+			return fail("wrong_medicine")  # the item is spent anyway
+		IllnessSystem.cure(world, p)
 	var needs: Dictionary = item["needs"]
 	for n in needs:
 		if p.needs.has(n):
 			p.needs[n] = clampf(float(p.needs[n]) + float(needs[n]), 0.0, 100.0)
-	world.inventory[id] = int(world.inventory[id]) - 1
 	return success()

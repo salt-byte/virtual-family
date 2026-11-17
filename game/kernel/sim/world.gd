@@ -23,6 +23,8 @@ var stock: Dictionary = {}
 var inventory: Dictionary = {}
 ## Salary coins paid ahead of schedule per person uid (<= 0), so 24 hourly parts add up.
 var income_carry: Dictionary = {}
+## Counters that goals read: cured, collected, mess_cleaned, all_clean.
+var stats: Dictionary = {"cured": 0, "collected": 0, "mess_cleaned": 0, "all_clean": 0}
 
 var _acc := 0.0
 var _next_uid := 1
@@ -129,5 +131,6 @@ func _step() -> void:
 ## Every per-step system, in the fixed order they must run. Later tasks add theirs here.
 func _run_systems(dt: float) -> void:
 	NeedsSystem.step(self, dt)
+	IllnessSystem.step(self, dt)
 	AutonomySystem.step(self, dt)
 	EconomySystem.step(self, dt)
