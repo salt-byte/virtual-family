@@ -233,3 +233,21 @@ func test_step_seconds_must_divide_a_minute():
 		assert_eq(_errs(func(p): p.config["step_seconds"] = good), [] as Array[String], str(good))
 	assert_eq(Pack.DEFAULT_CONFIG["step_seconds"], 60)
 	assert_eq(Pack.load_dir("res://packs/qijia").cfg("step_seconds"), 5)
+
+func test_action_speed_must_be_at_least_one():
+	for bad in [0.5, 0, -2, "fast"]:
+		assert_true(_has(_errs(func(p): p.config["action_speed"] = bad), "pack.json:", "action_speed"), str(bad))
+	for good in [1, 1.0, 30]:
+		assert_eq(_errs(func(p): p.config["action_speed"] = good), [] as Array[String], str(good))
+	assert_eq(Pack.DEFAULT_CONFIG["action_speed"], 1.0)
+	assert_eq(Pack.load_dir("res://packs/qijia").cfg("action_speed"), 30.0)
+
+func test_slow_must_be_a_bool_and_defaults_to_false():
+	var first := func(p): return p.actions.keys()[0]
+	assert_true(_has(_errs(func(p): p.actions[first.call(p)]["slow"] = 1), "actions.json:", "slow"))
+	assert_eq(_errs(func(p): p.actions[first.call(p)]["slow"] = true), [] as Array[String])
+	var smoke := Pack.load_dir("res://packs/_smoke")
+	assert_true(smoke.actions.values().all(func(a): return a["slow"] == false))
+	var q := Pack.load_dir("res://packs/qijia")
+	assert_true(q.actions["sleep"]["slow"] and q.actions["nap"]["slow"])
+	assert_true(not q.actions["study"]["slow"])

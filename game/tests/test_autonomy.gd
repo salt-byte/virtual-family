@@ -99,3 +99,68 @@ func test_just_finished_action_scores_lower():
 	assert_true(fresh > 0.0)
 	p.last_action = str(a["id"])
 	assert_near(AutonomySystem._score(w, p, a), fresh * 0.3)
+
+## qijia runs actions 30x faster (step 5): durations shrink and round up to whole steps;
+## a `slow` action keeps its real length; the default (speed 1) changes nothing.
+func test_duration_is_scaled_rounded_up_to_steps_and_slow_is_exempt():
+	var w := TestKit.world("qijia")
+	var acts := w.pack.actions
+	assert_eq(AutonomySystem.duration_s(w, acts["study"]), 120)
+	assert_eq(AutonomySystem.duration_s(w, acts["wash_face"]), 20)
+	assert_eq(AutonomySystem.duration_s(w, acts["sleep"]), int(acts["sleep"]["duration_min"]) * 60)   # slow: unscaled (540 min in qijia)
+	var s := TestKit.world()
+	assert_eq(AutonomySystem.duration_s(s, s.pack.actions["eat"]), int(s.pack.actions["eat"]["duration_min"]) * 60)
+
+## Positive need effects are paid in full over the short real time; negative ones (costs)
+## shrink with it.
+func test_gain_is_whole_but_cost_follows_real_time():
+	var w := TestKit.world("qijia")
+	var p := TestKit.adult(w)
+	p.track = "reading"
+	var uid := w.add_object("desk", "hall", 6, 4)
+	assert_true(uid >= 0)
+	p.needs["energy"] = 80.0
+	p.needs["fed"] = 40.0
+	AutonomySystem.start(w, p, "study", uid)
+	w.advance(120.0)
+	assert_true(p.needs["energy"] > 79.0, "energy " + str(p.needs["energy"]))
+	assert_eq(p.last_action, "study")
+	var q := TestKit.adult(w)
+	q.needs["fed"] = 20.0
+	w.stock["food"] = 3
+	AutonomySystem.start(w, q, "eat_on_threshold", -1)
+	w.advance(float(AutonomySystem.duration_s(w, w.pack.actions["eat_on_threshold"])))
+	assert_true(q.needs["fed"] > 54.0, "fed " + str(q.needs["fed"]))
+
+## An action shorter than one step after the speed-up takes exactly one step and pays out.
+func test_action_shorter_than_a_step_takes_one_step_and_pays():
+	var w := TestKit.world("qijia")
+	var a: Dictionary = w.pack.actions["wash_face"]
+	a["duration_min"] = 1
+	assert_eq(AutonomySystem.duration_s(w, a), 5)
+	var p := TestKit.adult(w)
+	p.needs["energy"] = 50.0
+	AutonomySystem.start(w, p, "wash_face", -1)
+	w.advance(5.0)
+	assert_true(p.current.is_empty())
+	assert_eq(p.last_action, "wash_face")
+	assert_true(p.needs["energy"] > 57.9, "energy " + str(p.needs["energy"]))
+
+## A save from before the speed-up holds a running action with its old, longer remaining
+## time: it runs that time out, finishes normally and pays its effect only once.
+func test_legacy_remaining_time_runs_out_without_overpaying():
+	var w := TestKit.world("qijia")
+	var p := TestKit.adult(w)
+	p.needs["energy"] = 10.0
+	p.needs["happy"] = 10.0
+	var vat: int = -1
+	for o in w.objects:
+		if o.type == "vat": vat = o.uid
+	if vat < 0: vat = w.add_object("vat", "hall", 6, 4)
+	p.current = {"action": "wash_face", "object_uid": vat, "target_uid": -1, "remaining_s": 600}
+	w.advance(580.0)
+	assert_eq(str(p.current.get("action", "")), "wash_face")
+	w.advance(20.0)
+	assert_eq(p.last_action, "wash_face")
+	# energy +8 once (minus ten minutes' drain), not 8 x 30
+	assert_true(p.needs["energy"] > 17.0 and p.needs["energy"] < 18.1, "energy " + str(p.needs["energy"]))

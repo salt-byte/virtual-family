@@ -6,6 +6,8 @@
 	"work_needs_min": {"fed": 30},
 	"start_money": 200,
 	"step_seconds": 5,
+	"action_speed": 30,
+	"hours_per_year": 4,
 	"illness_daily_chance": 0.3,
 	"collectible_interval_min": 60,
 	"collectible_ttl_min": 45,

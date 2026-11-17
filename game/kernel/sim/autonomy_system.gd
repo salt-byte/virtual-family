@@ -19,15 +19,46 @@ static func step(world: World, dt: float) -> void:
 ## Everything `p` could start right now, scored. Order is stable (pack action order).
 static func candidates(world: World, p: Person) -> Array[Dictionary]:
 	var out: Array[Dictionary] = []
+	if not p.alive:
+		return out
+	# On the fast action clock people choose often, so this is the hot path: the stage and
+	# hour are worked out once, the score (cheap) comes first, and the checks of `can_do`
+	# with object_uid -1 are repeated inline with the free object per type looked up once.
+	var stage := p.stage(world.pack)
+	var hour := world.local_hour()
+	var free := {}  # object type -> first object of that type free for `p` (-1: none)
 	for id in world.pack.actions:
-		if can_do(world, p, id, -1) != "":
+		var a: Dictionary = world.pack.actions[id]
+		var s := _score(world, p, a, hour)
+		if s <= 0.0 or not (stage in a["stages"]):
 			continue
-		var s := _score(world, p, world.pack.actions[id])
-		if s > 0.0:
-			var a: Dictionary = world.pack.actions[id]
-			var target := _first_free_target(world, a, p)
-			out.append({"action": id, "object_uid": _free_object(world, p, a, -1), "target_uid": target, "score": s})
+		var type := str(a["object"])
+		var uid := -1
+		if type != "":
+			if not free.has(type):
+				free[type] = _free_object(world, p, a, -1)
+			uid = free[type]
+			if uid < 0:
+				continue
+		var work: Dictionary = a["work"]
+		if not work.is_empty() and str(work.get("track", "")) != p.track:
+			continue
+		if not _requires_ok(p, a["requires"]):
+			continue
+		var target := _first_free_target(world, a, p)
+		if target_kind(a) != "" and target < 0:
+			continue
+		if not _stock_ok(world, a):
+			continue
+		out.append({"action": id, "object_uid": uid, "target_uid": target, "score": s})
 	return out
+
+
+static func _stock_ok(world: World, a: Dictionary) -> bool:
+	for item in a["consumes"]:
+		if int(world.stock.get(item, 0)) < int(a["consumes"][item]):
+			return false
+	return true
 
 
 ## "" when `p` can start the action now, else the first failing reason.
@@ -56,9 +87,8 @@ static func can_do(world: World, p: Person, action_id: String, object_uid: int) 
 		return "requires"
 	if target_kind(a) != "" and _first_free_target(world, a, p) < 0:
 		return "no_target"
-	for item in a["consumes"]:
-		if int(world.stock.get(item, 0)) < int(a["consumes"][item]):
-			return "no_stock"
+	if not _stock_ok(world, a):
+		return "no_stock"
 	return ""
 
 
@@ -95,8 +125,20 @@ static func start(world: World, p: Person, action_id: String, object_uid: int, t
 	for item in a["consumes"]:
 		world.stock[item] = int(world.stock.get(item, 0)) - int(a["consumes"][item])
 	p.current = {"action": action_id, "object_uid": uid, "target_uid": target_uid,
-		"remaining_s": int(a["duration_min"]) * 60}
+		"remaining_s": duration_s(world, a)}
 	world.emit("action_started", {"person": p.uid, "action": action_id, "object": uid, "target": target_uid})
+
+
+## Real seconds an action takes: `duration_min` minutes divided by the pack's
+## `action_speed`, rounded up to whole steps (at least one). `slow` actions (sleep) and a
+## speed of 1 keep the full `duration_min`.
+static func duration_s(world: World, a: Dictionary) -> int:
+	var full := int(a["duration_min"]) * 60
+	var speed := float(world.pack.cfg("action_speed"))
+	if bool(a.get("slow", false)) or speed == 1.0:
+		return full
+	var s := ceili(full / speed - 1e-9)
+	return maxi(ceili(float(s) / world.step_s), 1) * world.step_s
 
 
 ## Drops the current action without any payout; the object becomes free.
@@ -107,13 +149,22 @@ static func cancel(world: World, p: Person) -> void:
 	p.current = {}
 
 
+## Pays the running action's need effects for `dt` seconds: gains add up to their full
+## amount over the action's real duration, costs to the share of `duration_min` it took.
+## Only the last `duration_s` seconds pay, so a longer `remaining_s` from an older save
+## runs out without paying more than once.
 static func _progress(world: World, p: Person, dt: float) -> void:
 	var a: Dictionary = world.pack.actions[p.current["action"]]
-	var frac := dt / (float(a["duration_min"]) * 60.0)
+	var dur := duration_s(world, a)
+	var remaining := int(p.current["remaining_s"])
+	var paid := clampf(dt - float(remaining - dur), 0.0, dt)
+	var gain_frac := paid / float(dur)
+	var cost_frac := paid / (float(a["duration_min"]) * 60.0)
 	for n in a["needs"]:
 		if p.needs.has(n):
-			p.needs[n] = clampf(float(p.needs[n]) + float(a["needs"][n]) * frac, 0.0, 100.0)
-	p.current["remaining_s"] = int(p.current["remaining_s"]) - int(dt)
+			var v := float(a["needs"][n])
+			p.needs[n] = clampf(float(p.needs[n]) + v * (gain_frac if v >= 0.0 else cost_frac), 0.0, 100.0)
+	p.current["remaining_s"] = remaining - int(dt)
 	if int(p.current["remaining_s"]) <= 0:
 		_finish(world, p)
 
@@ -131,7 +182,7 @@ static func _finish(world: World, p: Person) -> void:
 		var room := str(world.object(int(p.current.get("object_uid", -1))).get("room", ""))
 		MessSystem.spawn(world, str(mess["type"]), room)
 	if not action["work"].is_empty():
-		EconomySystem.on_work_finished(world, p, int(action["duration_min"]))
+		EconomySystem.on_work_finished(world, p, duration_s(world, action) / 60.0)
 	p.current = {}
 	p.last_action = id
 	p.last_action_t = world.now
@@ -163,7 +214,8 @@ static func _choose(world: World, p: Person) -> void:
 	start(world, p, pick.action, pick.object_uid, int(pick.get("target_uid", -1)))
 
 
-static func _score(world: World, p: Person, a: Dictionary) -> float:
+## `hour` is the local hour (negative: read it from the world).
+static func _score(world: World, p: Person, a: Dictionary, hour := -1.0) -> float:
 	var gain := 0.0
 	for n in a["needs"]:
 		if p.needs.has(n):
@@ -175,7 +227,7 @@ static func _score(world: World, p: Person, a: Dictionary) -> float:
 		if t in p.dislikes:
 			score *= 0.5
 	var hours: Array = a.get("hours", [])
-	if not hours.is_empty() and not _in_hours(world.local_hour(), hours):
+	if not hours.is_empty() and not _in_hours(hour if hour >= 0.0 else world.local_hour(), hours):
 		score *= 0.1
 	if str(a["id"]) == p.last_action:
 		score *= float(world.pack.cfg("repeat_factor"))

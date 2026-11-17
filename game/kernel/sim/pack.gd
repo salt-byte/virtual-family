@@ -26,12 +26,14 @@ const DEFAULT_CONFIG := {
 	"collectible_ttl_min": 60, "sell_back_ratio": 0.5, "repeat_factor": 0.3,
 	"start_objects": [],
 	"step_seconds": 60,
+	"action_speed": 1.0,
 }
 
 ## Per-file field defaults (applied to every entry that lacks the key).
 const ENTRY_DEFAULTS := {
 	"actions": {"object": "", "needs": {}, "base": 0, "hours": [], "tags": [], "praiseable": true,
-		"consumes": {}, "work": {}, "mess": {}, "cleans": "", "picks": false, "requires": {}},
+		"consumes": {}, "work": {}, "mess": {}, "cleans": "", "picks": false, "requires": {},
+		"slow": false},
 	"object_types": {"outdoor": false, "capacity": 1},
 	"rooms": {"outdoor": false},
 	"items": {"stock": {}, "cures": "", "needs": {}},

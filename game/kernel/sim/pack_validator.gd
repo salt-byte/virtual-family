@@ -111,6 +111,9 @@ func _check_pack_config() -> void:
 	var ss = c.get("step_seconds")
 	if not ss is int or ss <= 0 or 60 % ss != 0:
 		_err("pack.json", _p.id, "step_seconds must be a whole number that divides 60 (1, 2, 3, 4, 5, 6, 10, 12, 15, 20, 30 or 60)")
+	var sp = c.get("action_speed")
+	if not (sp is int or sp is float) or float(sp) < 1.0:
+		_err("pack.json", _p.id, "action_speed must be a number of at least 1")
 	_check_start_objects(c["start_objects"])
 	var pn := str(c.get("praise_need", ""))
 	if pn != "" and not _p.needs.has(pn):
@@ -278,6 +281,8 @@ func _check_actions() -> void:
 				_err("actions.json", id, "cleans '%s' is not a mess type" % [a["cleans"]])
 		else:
 			_err("actions.json", id, "cleans must be a string")
+		if not a["slow"] is bool:
+			_err("actions.json", id, "slow must be true or false")
 		_check_requires(id, a["requires"])
 
 

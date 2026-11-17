@@ -21,6 +21,8 @@ var track := ""
 var level := 0
 var progress := 0.0
 var aptitude := 1.0
+## Fraction of a coin of work bonus earned but not yet paid (0 <= work_carry < 1).
+var work_carry := 0.0
 ## illness id; "" means healthy
 var illness := ""
 ## Empty when idle; otherwise {action, object_uid, target_uid, remaining_s}.
@@ -61,7 +63,7 @@ func to_dict() -> Dictionary:
 		"lifespan": lifespan, "alive": alive, "needs": needs.duplicate(true),
 		"likes": likes.duplicate(true), "dislikes": dislikes.duplicate(true),
 		"habits": habits.duplicate(true), "praise_times": praise_times.duplicate(true),
-		"track": track, "level": level, "progress": progress, "aptitude": aptitude,
+		"track": track, "level": level, "progress": progress, "aptitude": aptitude, "work_carry": work_carry,
 		"illness": illness, "current": current.duplicate(true),
 		"last_action": last_action, "last_action_t": last_action_t,
 	}
@@ -91,6 +93,7 @@ static func from_dict(d: Dictionary) -> Person:
 	p.level = int(d.get("level", 0))
 	p.progress = float(d.get("progress", 0.0))
 	p.aptitude = float(d.get("aptitude", 1.0))
+	p.work_carry = float(d.get("work_carry", 0.0))  # absent in saves from before it existed
 	p.illness = str(d.get("illness", ""))
 	var c: Dictionary = d.get("current", {})
 	if not c.is_empty():

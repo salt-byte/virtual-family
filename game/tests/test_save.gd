@@ -185,11 +185,56 @@ func test_save_naming_removed_pack_content_is_pack_changed():
 	var added := Pack.load_dir(SMOKE); added.needs["extra_need"] = added.needs.values()[0].duplicate()
 	assert_eq(SaveStore.load(added, P).error, "pack_changed", "pack gained a need")
 	_cleanup()
-func test_acc_must_be_a_partial_step_of_the_packs_step_length():
+func test_acc_must_be_below_the_largest_step():
 	var w := _played()
 	for acc in [-1.0, 60.0, 61.0]:
 		w._acc = acc; assert_true(World.from_dict(w.pack, w.to_dict()) == null, str(acc))
 	w._acc = 59.5; assert_true(World.from_dict(w.pack, w.to_dict()) != null)
+	# qijia steps 5 s, but a save written when it stepped 60 s may hold up to 59.x s: that
+	# loads, and the next advance folds it into whole steps.
 	var q: World = BalanceRun.setup("qijia", 3)
-	q._acc = 5.0; assert_true(World.from_dict(q.pack, q.to_dict()) == null)
-	q._acc = 4.5; assert_true(World.from_dict(q.pack, q.to_dict()) != null)
+	for acc in [-1.0, 60.0]:
+		q._acc = acc; assert_true(World.from_dict(q.pack, q.to_dict()) == null, str(acc))
+	q._acc = 59.0
+	var r := World.from_dict(q.pack, q.to_dict())
+	assert_true(r != null)
+	var t0 := r.now
+	r.advance(1.0)
+	assert_eq(r.now, t0 + 60); assert_true(r._acc < 5.0, str(r._acc))
+
+## A qijia save as the kernel wrote it before actions ran on the fast clock: no
+## `work_carry`, a study running with its old 60-minute `remaining_s`, a 37.5 s partial step.
+func test_save_from_before_the_fast_clock_loads_and_plays_on():
+	var w: World = BalanceRun.setup("qijia", 4)
+	var p: Person = w.people[0]
+	p.track = "reading"
+	var desk := -1
+	for o in w.objects:
+		if o.type == "desk": desk = o.uid
+	p.current = {"action": "study", "object_uid": desk, "target_uid": -1, "remaining_s": 3600}
+	w._acc = 37.5
+	var d := _through_json(w.to_dict())
+	for pd in d["people"]:
+		pd.erase("work_carry")
+	var r := World.from_dict(w.pack, d)
+	assert_true(r != null)
+	var q: Person = r.people[0]
+	assert_eq(q.work_carry, 0.0)
+	assert_eq(int(q.current["remaining_s"]), 3600)
+	r.advance(3600.0 - 37.5 - 5.0)
+	assert_eq(str(q.current.get("action", "")), "study")
+	r.drain_events()
+	r.advance(5.0)
+	assert_eq(q.last_action, "study")
+	assert_true(r.drain_events().any(func(e): return e.type == "action_finished" and e.action == "study"))
+	r.advance(3600.0)
+	assert_true(q.alive)
+
+func test_save_without_work_carry_loads_with_zero():
+	var w := _played(); var d := w.to_dict()
+	for pd in d["people"]:
+		pd.erase("work_carry")
+	var r := World.from_dict(w.pack, d)
+	assert_true(r != null); assert_eq(r.people[0].work_carry, 0.0)
+	var d2 := w.to_dict(); d2["people"][0]["work_carry"] = "x"
+	assert_true(World.from_dict(w.pack, d2) == null)

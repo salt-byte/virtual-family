@@ -250,6 +250,8 @@ static func _valid_person(p) -> bool:
 	for t in p["praise_times"]:
 		if not _is_whole(t):
 			return false
+	if p.has("work_carry") and not _is_num(p["work_carry"]):  # optional: older saves lack it
+		return false
 	var c: Dictionary = p["current"]
 	return c.is_empty() or _has(c, {"action": "s", "object_uid": "i", "target_uid": "i", "remaining_s": "i"})
 
@@ -283,8 +285,9 @@ static func _valid_save(pack: Pack, d: Dictionary) -> bool:
 		return false
 	if not (d["phase"] in _PHASES) or not _is_i64(d["seed"]) or int(d["money"]) < 0:
 		return false
-	var step := int(pack.cfg("step_seconds")) if pack.is_valid() else 60
-	if float(d["acc"]) < 0.0 or float(d["acc"]) >= float(step):  # a partial step only
+	# A partial step: below 60 s, the largest legal step. A save written when the pack had
+	# longer steps may hold more than one current step; `advance` folds it into whole steps.
+	if float(d["acc"]) < 0.0 or float(d["acc"]) >= 60.0:
 		return false
 	if not _has(d["rng"], {"seed": "s", "state": "s"}) or not _is_i64(d["rng"]["seed"]) \
 			or not _is_i64(d["rng"]["state"]):

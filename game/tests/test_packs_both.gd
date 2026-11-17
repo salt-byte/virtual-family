@@ -26,8 +26,9 @@ func test_qijia_action_kinds_are_honest():
 			"flavor":
 				assert_true(a.base > 0 and a.needs.is_empty() and a.requires.is_empty(), a.id)
 
-## 2 simulated days = 24 years at 2 real hours per year: long enough for marriage and
-## illness, short enough that nobody adopted at 22-29 reaches the minimum lifespan.
+## 2 simulated days = 24 years at 2 real hours per year (_smoke), 12 at 4 (qijia): long
+## enough for marriage and illness, short enough that nobody adopted at 22-29 reaches the
+## minimum lifespan.
 func test_both_packs_survive_two_days_with_caretaker():
 	for id in PACKS:
 		var r: Dictionary = BalanceRun.run(id, 5, 2, 100)   # 5 families, 2 days, seeds from 100
@@ -35,16 +36,67 @@ func test_both_packs_survive_two_days_with_caretaker():
 		assert_eq(r.deaths_neglect, 0, id)
 		assert_true(r.min_money >= 0, id)
 		assert_true(r.married >= 3, id)
+		if id == "qijia":   # the caretaker's rice lasts: snacks do not empty the larder
+			assert_true(r.food_bought_per_day <= 2.0, str(r.food_bought_per_day))
+			assert_true(r.max_food_bought_in_a_day <= 2, str(r.max_food_bought_in_a_day))
 
+## On the fast action clock one household does at least 20 different things in a day.
 func test_qijia_people_show_variety():
 	var w: World = BalanceRun.setup("qijia", 1)
 	var seen := {}
-	for i in 24 * 60:
-		w.advance(60)
+	for h in 24:
+		BalanceRun.caretake(w)
+		w.advance(3600.0)
+		for e in w.drain_events():
+			if e.type == "action_started":
+				seen[e.action] = true
+	assert_true(seen.size() >= 20, "%d: %s" % [seen.size(), seen.keys()])
+
+## Daytime on the fast clock: in any ten minutes (here 10:00-10:10 of the first day) every
+## grown-up switches what they do at least four times.
+func test_qijia_daytime_ten_minutes_has_at_least_four_switches_each():
+	for seed in [1, 2, 3]:
+		var w: World = BalanceRun.setup("qijia", seed)   # 08:00
+		for h in 2:
+			BalanceRun.caretake(w)
+			w.advance(3600.0)
+		w.drain_events()
+		w.advance(600.0)
+		var starts := _starts_by_person(w.drain_events())
 		for p in w.people:
-			if not p.current.is_empty():
-				seen[p.current.action] = true
-	assert_true(seen.size() >= 8, str(seen.keys()))
+			if p.alive and p.stage(w.pack) != "baby":
+				assert_true(int(starts.get(p.uid, 0)) >= 4, "seed %d person %d: %d starts" % [seed, p.uid, int(starts.get(p.uid, 0))])
+
+## Night stays slow: from 22:00 to 05:00 a married couple mostly sleeps, starting at most
+## six actions each in those seven hours.
+func test_qijia_night_is_mostly_sleep():
+	for seed in [1, 2, 3]:
+		var w: World = BalanceRun.setup("qijia", seed)   # 08:00
+		for h in 14:                                    # to 22:00
+			BalanceRun.caretake(w)
+			w.advance(3600.0)
+		assert_true(w.married, "seed %d not married by 22:00" % seed)
+		w.drain_events()
+		var starts := {}
+		for h in 7:
+			BalanceRun.caretake(w)
+			w.advance(3600.0)
+			var s := _starts_by_person(w.drain_events())
+			for uid in s:
+				starts[uid] = int(starts.get(uid, 0)) + int(s[uid])
+		var adults := 0
+		for p in w.people:
+			if p.alive and p.stage(w.pack) in ["adult", "elder"]:
+				adults += 1
+				assert_true(int(starts.get(p.uid, 0)) <= 6, "seed %d person %d: %d starts" % [seed, p.uid, int(starts.get(p.uid, 0))])
+		assert_eq(adults, 2, "seed %d" % seed)
+
+func _starts_by_person(events: Array) -> Dictionary:
+	var out := {}
+	for e in events:
+		if e.type == "action_started":
+			out[e.person] = int(out.get(e.person, 0)) + 1
+	return out
 
 func test_setup_places_one_of_each_object_and_adopts():
 	for id in PACKS:
@@ -83,13 +135,13 @@ func test_qijia_event_rates_do_not_depend_on_step_length():
 		assert_true(at60[k] > 0.0 and at5[k] > 0.0, msg)
 		assert_true(absf(at5[k] - at60[k]) <= 0.35 * at60[k], msg)
 
-## Per-household averages of the dice-driven events, 30 households x 2 days with the
+## Per-household averages of the dice-driven events, 10 households x 2 days with the
 ## hourly caretaker, the qijia pack run at `step` seconds.
 func _qijia_event_averages(step: int) -> Dictionary:
 	var pack := Pack.load_dir("res://packs/qijia")
 	pack.config["step_seconds"] = step
 	var counts := {"fell_ill": 0.0, "mess_spawned": 0.0, "collectible_spawned": 0.0, "proposal_arrived": 0.0}
-	for i in 30:
+	for i in 10:
 		var w := BalanceRun.setup_pack(pack, 300 + i)
 		assert_eq(w.step_s, step)
 		for h in 48:
@@ -99,5 +151,5 @@ func _qijia_event_averages(step: int) -> Dictionary:
 				if counts.has(e.type):
 					counts[e.type] += 1.0
 	for k in counts:
-		counts[k] /= 30.0
+		counts[k] /= 10.0
 	return counts

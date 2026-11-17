@@ -43,9 +43,10 @@ func _init() -> void:
 	quit(0)
 
 
+## HH:MM:SS: on the fast action clock a person starts several things within one minute.
 func _clock(w: World, t: int) -> String:
 	var s := posmod(t + w.utc_offset, 86400)
-	return "%02d:%02d" % [s / 3600, s % 3600 / 60]
+	return "%02d:%02d:%02d" % [s / 3600, s % 3600 / 60, s % 60]
 
 
 func _name(w: World, uid: int) -> String:

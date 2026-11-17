@@ -44,12 +44,15 @@ static func earn(world: World, amount: int, source: String, person_uid := -1) ->
 	world.emit("income", e)
 
 
-## Called when a `work` action ends: coin bonus always, progress only when fit to work.
-static func on_work_finished(world: World, p: Person, minutes: int) -> void:
+## Called when a `work` action ends with the real minutes it took: coin bonus always (the
+## fraction of a coin is kept in `p.work_carry` for next time), progress only when fit.
+static func on_work_finished(world: World, p: Person, minutes: float) -> void:
 	var lvl := _level(world, p)
 	if lvl.is_empty():
 		return
-	var bonus := int(float(lvl["work_bonus_per_hour"]) * minutes / 60.0)
+	var owed := float(lvl["work_bonus_per_hour"]) * minutes / 60.0 + p.work_carry
+	var bonus := int(owed + 1e-9)  # 1e-9: thirty 2/15-coin parts still add up to 4
+	p.work_carry = maxf(owed - bonus, 0.0)
 	earn(world, bonus, "work", p.uid)
 	if not _fit_to_work(world, p):
 		return

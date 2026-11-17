@@ -45,10 +45,22 @@ static func run(pack_id: String, families: int, days: int, seed0: int) -> Dictio
 	var messes := 0
 	var deaths := {"neglect": 0, "old_age": 0}
 	var seen := {}
+	var bags := 0
+	var max_bags_day := 0
 	for i in families:
 		var w := setup(pack_id, seed0 + i)
+		var bag_size := _food_bag_size(w)
+		var bags_today := 0
 		for h in days * 24:
+			if h % 24 == 0:
+				bags_today = 0
+			var before := int(w.stock.get(FOOD_STOCK, 0))
 			caretake(w)
+			if bag_size > 0:
+				var n := (int(w.stock.get(FOOD_STOCK, 0)) - before) / bag_size
+				bags += n
+				bags_today += n
+				max_bags_day = maxi(max_bags_day, bags_today)
 			w.advance(3600.0)
 			for e in w.drain_events():
 				if e.type == "action_started":
@@ -75,7 +87,9 @@ static func run(pack_id: String, families: int, days: int, seed0: int) -> Dictio
 		"avg_level": snappedf(levels / living, 0.01) if living > 0 else 0.0,
 		"avg_messes": snappedf(float(messes) / families, 0.01) if families > 0 else 0.0,
 		"deaths_neglect": int(deaths["neglect"]), "deaths_old_age": int(deaths["old_age"]),
-		"distinct_actions": seen.size(), "actions_in_pack": Pack.load_dir("res://packs/" + pack_id).actions.size(),
+		"distinct_actions": seen.size(),
+		"food_bought_per_day": snappedf(float(bags) / (families * days), 0.01) if families * days > 0 else 0.0,
+		"max_food_bought_in_a_day": max_bags_day, "actions_in_pack": Pack.load_dir("res://packs/" + pack_id).actions.size(),
 	}
 
 
@@ -98,6 +112,12 @@ static func caretake(w: World) -> void:
 		if float(p.needs.get(MOOD_NEED, 100.0)) < LOW_MOOD:
 			_give(w, p, _first_item(w, func(it): return it["cures"] == "" and (it["stock"] as Dictionary).is_empty() \
 					and (it["needs"] as Dictionary).has(MOOD_NEED)))
+
+
+## Food units one purchase of the caretaker's food item adds (0 when the pack has none).
+static func _food_bag_size(w: World) -> int:
+	var food := _first_item(w, func(it): return (it["stock"] as Dictionary).has(FOOD_STOCK))
+	return int(w.pack.items[food]["stock"][FOOD_STOCK]) if food != "" else 0
 
 
 ## Buys one of `item` and uses it on `p`, when there is such an item and the money for it.

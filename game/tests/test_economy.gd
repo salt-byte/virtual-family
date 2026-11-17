@@ -78,3 +78,37 @@ func test_salary_paid_when_clock_is_off_the_minute():
 	for e in w.drain_events():
 		if e.type == "income" and e.source == "salary": n += 1; sum += int(e.amount)
 	assert_eq(n, 24); assert_eq(sum, 20); assert_eq(w.money, 120)
+
+## qijia: 30 studies of 2 real minutes = one real hour of work = one hour's bonus (4 coins
+## at level 0, fractions carried over) and 60 minutes of progress.
+func test_work_pay_follows_real_minutes_and_keeps_fractions():
+	var w := TestKit.world("qijia")
+	var p := TestKit.adult(w)
+	p.track = "reading"
+	var uid := w.add_object("desk", "hall", 6, 4)
+	var money := w.money
+	w.drain_events()
+	var salary := 0
+	for i in 30:
+		AutonomySystem.start(w, p, "study", uid)
+		w.advance(120.0)
+		p.needs["fed"] = 80.0
+		salary += _salary_paid(w)
+	var earned := w.money - money - salary
+	assert_eq(earned, 4)
+	assert_near(p.progress, 60.0 * p.aptitude, 0.5)
+
+func _salary_paid(w: World) -> int:
+	var sum := 0
+	for e in w.drain_events():
+		if e.type == "income" and e.source == "salary":
+			sum += int(e.amount)
+	return sum
+
+func test_work_carry_defaults_to_zero_and_round_trips():
+	var p := Person.new()
+	assert_eq(p.work_carry, 0.0)
+	p.work_carry = 0.25
+	assert_near(Person.from_dict(p.to_dict()).work_carry, 0.25)
+	var d := p.to_dict(); d.erase("work_carry")
+	assert_eq(Person.from_dict(d).work_carry, 0.0)
