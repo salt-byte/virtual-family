@@ -280,6 +280,9 @@ func _check_illnesses() -> void:
 			var req = _p.actions[sa]["requires"]
 			if not (req is Dictionary and req.get("illness") == id):
 				_err("illnesses.json", id, "symptom_action '%s' must have requires.illness '%s'" % [sa, id])
+			# The symptom is started without resolving an object (see IllnessSystem.show_symptom).
+			if str(_p.actions[sa]["object"]) != "":
+				_err("illnesses.json", id, "symptom_action '%s' must not need an object" % [sa])
 
 
 func _check_messes() -> void:

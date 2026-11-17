@@ -1,0 +1,4 @@
+[
+	{"id": "dirt", "name": "满地碎屑", "spawn_per_day": 2, "outdoor": false, "penalty": {"happy": 1}},
+	{"id": "droppings", "name": "鸡粪落叶", "spawn_per_day": 2, "outdoor": true, "penalty": {"happy": 0.5}}
+]

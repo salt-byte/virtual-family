@@ -1,0 +1,10 @@
+[
+	{"id": "tidy_home", "text": "把屋里院里收拾得干干净净", "reward": 40, "when": {"type": "mess_cleared"}},
+	{"id": "first_cure", "text": "头一回抓对了药，把病治好", "reward": 30, "when": {"type": "cured"}},
+	{"id": "wedding", "text": "请媒人说成一门亲事", "reward": 60, "when": {"type": "married"}},
+	{"id": "nest_egg", "text": "攒下六百文压箱底", "reward": 80, "when": {"type": "money_at_least", "amount": 600}},
+	{"id": "furnished", "text": "家里添置到十件家什", "reward": 100, "when": {"type": "objects_owned", "count": 10}},
+	{"id": "side_room", "text": "盖起一间厢房", "reward": 150, "when": {"type": "room_built", "room": "side"}},
+	{"id": "passed_first", "text": "家里出一个童生", "reward": 80, "when": {"type": "level_reached", "level": 1}},
+	{"id": "keen_eye", "text": "在院里捡拾满十回", "reward": 40, "when": {"type": "collected", "count": 10}}
+]

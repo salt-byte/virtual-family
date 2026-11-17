@@ -1,0 +1,11 @@
+[
+	{"id": "fed", "name": "饱腹", "drain_per_hour": 4, "start": 80,
+	 "labels": [{"below": 15, "text": "饿得心慌"}, {"below": 40, "text": "肚里空"}, {"below": 75, "text": "半饱"}, {"below": 101, "text": "吃饱了"}],
+	 "when_empty": {"need": "health", "per_hour": 10}},
+	{"id": "energy", "name": "精神", "drain_per_hour": 3, "start": 85,
+	 "labels": [{"below": 20, "text": "困乏"}, {"below": 50, "text": "发蔫"}, {"below": 101, "text": "抖擞"}]},
+	{"id": "happy", "name": "心绪", "drain_per_hour": 2.5, "start": 75,
+	 "labels": [{"below": 25, "text": "郁结"}, {"below": 55, "text": "有点闷"}, {"below": 101, "text": "舒心"}]},
+	{"id": "health", "name": "身子", "drain_per_hour": 0, "start": 100,
+	 "labels": [{"below": 25, "text": "极虚"}, {"below": 50, "text": "虚弱"}, {"below": 80, "text": "不大爽利"}, {"below": 101, "text": "康健"}]}
+]

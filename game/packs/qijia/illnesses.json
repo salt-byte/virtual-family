@@ -1,0 +1,4 @@
+[
+	{"id": "chill", "name": "伤风", "weight": 3, "drain": {"health": 3, "happy": 1}, "symptom_action": "cough"},
+	{"id": "itch", "name": "癣疮", "weight": 2, "drain": {"health": 2, "happy": 2}, "symptom_action": "scratch"}
+]

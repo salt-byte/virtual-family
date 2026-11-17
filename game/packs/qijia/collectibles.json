@@ -1,0 +1,5 @@
+[
+	{"id": "egg", "name": "鸡窝外的鸡蛋", "value": 1, "weight": 6},
+	{"id": "coins", "name": "一串铜钱", "value": 4, "weight": 3},
+	{"id": "hairpin", "name": "旧银簪", "value": 15, "weight": 1}
+]

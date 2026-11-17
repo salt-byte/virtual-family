@@ -94,6 +94,9 @@ func test_symptom_action_must_exist():
 func test_symptom_action_must_point_back():
 	assert_true(_has(_errs(func(p): p.actions["cough"]["requires"] = {"sick": true}), "illnesses.json: cold:", "requires.illness"))
 
+func test_symptom_action_must_not_need_an_object():
+	assert_true(_has(_errs(func(p): p.actions["cough"]["object"] = "bed"), "illnesses.json: cold:", "object"))
+
 func test_needs_one_built_indoor_room():
 	var e := _errs(func(p): p.rooms["main"]["built"] = false)
 	assert_true(_has(e, "rooms.json:", "built indoor"))
