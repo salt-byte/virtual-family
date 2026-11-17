@@ -15,9 +15,14 @@ var people: Array[Person] = []
 var money := 0
 ## True while replaying time the player was away: needs are floored so neglect never kills.
 var offline := false
+## Placed objects: {uid, type, room, x, y}.
+var objects: Array[Dictionary] = []
+## Consumable stock name -> count.
+var stock: Dictionary = {}
 
 var _acc := 0.0
 var _next_uid := 1
+var _next_object_uid := 1
 var _events: Array = []
 
 
@@ -74,6 +79,22 @@ func add_person(p: Person) -> void:
 	people.append(p)
 
 
+## Adds an object with the next uid and returns it. No placement checks yet.
+func add_object(type: String, room: String, x: int, y: int) -> int:
+	var uid := _next_object_uid
+	_next_object_uid += 1
+	objects.append({"uid": uid, "type": type, "room": room, "x": x, "y": y})
+	return uid
+
+
+## The object with this uid, or {} when missing.
+func object(uid: int) -> Dictionary:
+	for o in objects:
+		if o.uid == uid:
+			return o
+	return {}
+
+
 ## Marks a person dead, and ends the game when nobody is left.
 func kill_person(p: Person, cause: String) -> void:
 	if not p.alive:
@@ -94,3 +115,4 @@ func _step() -> void:
 ## Every per-step system, in the fixed order they must run. Later tasks add theirs here.
 func _run_systems(dt: float) -> void:
 	NeedsSystem.step(self, dt)
+	AutonomySystem.step(self, dt)
