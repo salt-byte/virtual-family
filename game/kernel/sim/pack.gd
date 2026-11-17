@@ -116,6 +116,9 @@ func _read_json(dir: String, file: String) -> Variant:
 	if parser.parse(FileAccess.get_file_as_string(path)) != OK:
 		errors.append("%s: *: invalid JSON (line %d): %s" % [file, parser.get_error_line(), parser.get_error_message()])
 		return null
+	if parser.data == null:
+		errors.append("%s: *: must be a JSON %s" % [file, "object" if file in ["pack.json", "names.json"] else "array"])
+		return null
 	raw[file] = parser.data
 	return parser.data
 

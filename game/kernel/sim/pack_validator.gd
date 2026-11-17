@@ -21,6 +21,15 @@ const REQUIRED := {
 	"collectibles.json": {"name": TYPE_STRING, "value": TYPE_NIL, "weight": TYPE_NIL},
 	"goals.json": {"text": TYPE_STRING, "reward": TYPE_NIL, "when": TYPE_DICTIONARY},
 }
+## Whole-number fields and their minimum (money, sizes and durations are never fractional or negative).
+const MIN_INT := {
+	"actions.json": {"duration_min": 1},
+	"objects.json": {"price": 0, "w": 1, "h": 1},
+	"rooms.json": {"w": 1, "h": 1, "build_cost": 0},
+	"items.json": {"price": 0},
+	"collectibles.json": {"value": 0},
+	"goals.json": {"reward": 0},
+}
 const LEVEL_FIELDS := ["name", "daily_income", "work_bonus_per_hour", "progress_to_next"]
 
 var _errors: Array[String] = []
@@ -65,29 +74,41 @@ func _check_required() -> void:
 			_check_fields(file, e["id"], e)
 
 
+func _check_int(file: String, eid: String, field: String, v: Variant, minimum: int) -> void:
+	if not v is int:
+		_err(file, eid, "field '%s' must be a whole number" % [field])
+	elif v < minimum:
+		_err(file, eid, "field '%s' must be at least %d" % [field, minimum])
+
+
 func _check_fields(file: String, eid: String, e: Dictionary) -> void:
+	var mins: Dictionary = MIN_INT.get(file, {})
+	for f in mins:
+		if e.has(f) and (e[f] is int or e[f] is float):
+			_check_int(file, eid, f, e[f], mins[f])
 	var req: Dictionary = REQUIRED.get(file, {})
 	for f in req:
 		if not e.has(f):
-			_err(file, eid, "missing field '%s'" % f)
+			_err(file, eid, "missing field '%s'" % [f])
 		elif req[f] != TYPE_NIL and typeof(e[f]) != req[f]:
-			_err(file, eid, "field '%s' has the wrong type" % f)
+			_err(file, eid, "field '%s' has the wrong type" % [f])
 		elif req[f] == TYPE_NIL and not (e[f] is int or e[f] is float):
-			_err(file, eid, "field '%s' must be a number" % f)
+			_err(file, eid, "field '%s' must be a number" % [f])
 
 
 func _check_pack_config() -> void:
 	var c := _p.config
 	var vital := str(c.get("vital_need", ""))
 	if vital != "" and not _p.needs.has(vital):
-		_err("pack.json", _p.id, "vital_need '%s' is not a need" % vital)
+		_err("pack.json", _p.id, "vital_need '%s' is not a need" % [vital])
+	_check_int("pack.json", _p.id, "start_money", c.get("start_money"), 0)
 	var pn := str(c.get("praise_need", ""))
 	if pn != "" and not _p.needs.has(pn):
-		_err("pack.json", _p.id, "praise_need '%s' is not a need" % pn)
+		_err("pack.json", _p.id, "praise_need '%s' is not a need" % [pn])
 	if c["work_needs_min"] is Dictionary:
 		for k in c["work_needs_min"]:
 			if not _p.needs.has(k):
-				_err("pack.json", _p.id, "work_needs_min key '%s' is not a need" % k)
+				_err("pack.json", _p.id, "work_needs_min key '%s' is not a need" % [k])
 	else:
 		_err("pack.json", _p.id, "work_needs_min must be an object")
 
@@ -135,46 +156,46 @@ func _check_actions() -> void:
 	for a in _p.actions.values():
 		var id: String = a["id"]
 		if a.get("kind") is String and not ACTION_KINDS.has(a["kind"]):
-			_err("actions.json", id, "kind '%s' must be daily, trouble or flavor" % a["kind"])
+			_err("actions.json", id, "kind '%s' must be daily, trouble or flavor" % [a["kind"]])
 		if not (a["object"] is String):
 			_err("actions.json", id, "object must be a string")
 		elif a["object"] != "" and not _p.object_types.has(a["object"]):
-			_err("actions.json", id, "object '%s' does not exist" % a["object"])
+			_err("actions.json", id, "object '%s' does not exist" % [a["object"]])
 		if a["needs"] is Dictionary:
 			for k in a["needs"]:
 				if not _p.needs.has(k):
-					_err("actions.json", id, "needs key '%s' is not a need" % k)
+					_err("actions.json", id, "needs key '%s' is not a need" % [k])
 		else:
 			_err("actions.json", id, "needs must be an object")
 		if a["consumes"] is Dictionary:
 			for k in a["consumes"]:
 				if not stock_names.has(k):
-					_err("actions.json", id, "consumes '%s' is not provided by any item's stock" % k)
+					_err("actions.json", id, "consumes '%s' is not provided by any item's stock" % [k])
 		else:
 			_err("actions.json", id, "consumes must be an object")
 		if a["stages"] is Array:
 			for s in a["stages"]:
 				if not stage_ids.has(s):
-					_err("actions.json", id, "stage '%s' is not defined in pack stages" % s)
+					_err("actions.json", id, "stage '%s' is not defined in pack stages" % [s])
 		else:
 			_err("actions.json", id, "stages must be an array")
 		if not (a["hours"] is Array and (a["hours"].is_empty() or a["hours"].size() == 2)):
 			_err("actions.json", id, "hours must be [] or [from, to]")
 		if a["work"] is Dictionary and not a["work"].is_empty():
 			if not _p.livelihoods.has(a["work"].get("track", "")):
-				_err("actions.json", id, "work.track '%s' is not a livelihood" % a["work"].get("track", ""))
+				_err("actions.json", id, "work.track '%s' is not a livelihood" % [a["work"].get("track", "")])
 			if a["object"] == "":
 				_err("actions.json", id, "a work action needs an object")
 		elif not a["work"] is Dictionary:
 			_err("actions.json", id, "work must be an object")
 		if a["mess"] is Dictionary and not a["mess"].is_empty():
 			if not _p.mess_types.has(a["mess"].get("type", "")):
-				_err("actions.json", id, "mess.type '%s' is not a mess type" % a["mess"].get("type", ""))
+				_err("actions.json", id, "mess.type '%s' is not a mess type" % [a["mess"].get("type", "")])
 		elif not a["mess"] is Dictionary:
 			_err("actions.json", id, "mess must be an object")
 		if a["cleans"] is String:
 			if a["cleans"] != "" and not _p.mess_types.has(a["cleans"]):
-				_err("actions.json", id, "cleans '%s' is not a mess type" % a["cleans"])
+				_err("actions.json", id, "cleans '%s' is not a mess type" % [a["cleans"]])
 		else:
 			_err("actions.json", id, "cleans must be a string")
 		_check_requires(id, a["requires"])
@@ -191,16 +212,16 @@ func _check_requires(id: String, r) -> void:
 					_err("actions.json", id, "requires.sick must be true or false")
 			"illness":
 				if not _p.illnesses.has(r[k]):
-					_err("actions.json", id, "requires.illness '%s' is not an illness" % r[k])
+					_err("actions.json", id, "requires.illness '%s' is not an illness" % [r[k]])
 			"need_below":
 				if r[k] is Dictionary:
 					for n in r[k]:
 						if not _p.needs.has(n):
-							_err("actions.json", id, "requires.need_below key '%s' is not a need" % n)
+							_err("actions.json", id, "requires.need_below key '%s' is not a need" % [n])
 				else:
 					_err("actions.json", id, "requires.need_below must be an object")
 			_:
-				_err("actions.json", id, "unknown requires key '%s'" % k)
+				_err("actions.json", id, "unknown requires key '%s'" % [k])
 
 
 func _check_rooms() -> void:
@@ -222,8 +243,13 @@ func _check_livelihoods() -> void:
 			continue
 		for lv in levels:
 			if not lv is Dictionary or LEVEL_FIELDS.any(func(f): return not lv.has(f)):
-				_err("livelihoods.json", l["id"], "each level needs %s" % ", ".join(LEVEL_FIELDS))
+				_err("livelihoods.json", l["id"], "each level needs %s" % [", ".join(LEVEL_FIELDS)])
 				break
+			for f in ["daily_income", "progress_to_next"]:
+				if lv[f] is int or lv[f] is float:
+					_check_int("livelihoods.json", l["id"], f, lv[f], 0)
+				else:
+					_err("livelihoods.json", l["id"], "level field '%s' must be a number" % [f])
 		if levels[-1] is Dictionary and levels[-1].get("progress_to_next", 0) != 0:
 			_err("livelihoods.json", l["id"], "last level progress_to_next must be 0")
 
@@ -231,11 +257,11 @@ func _check_livelihoods() -> void:
 func _check_items() -> void:
 	for it in _p.items.values():
 		if it["cures"] is String and it["cures"] != "" and not _p.illnesses.has(it["cures"]):
-			_err("items.json", it["id"], "cures '%s' is not an illness" % it["cures"])
+			_err("items.json", it["id"], "cures '%s' is not an illness" % [it["cures"]])
 		if it["needs"] is Dictionary:
 			for k in it["needs"]:
 				if not _p.needs.has(k):
-					_err("items.json", it["id"], "needs key '%s' is not a need" % k)
+					_err("items.json", it["id"], "needs key '%s' is not a need" % [k])
 
 
 func _check_illnesses() -> void:
@@ -244,12 +270,12 @@ func _check_illnesses() -> void:
 		if i.get("drain") is Dictionary:
 			for k in i["drain"]:
 				if not _p.needs.has(k):
-					_err("illnesses.json", id, "drain key '%s' is not a need" % k)
+					_err("illnesses.json", id, "drain key '%s' is not a need" % [k])
 		var sa = i.get("symptom_action")
 		if not sa is String:
 			continue
 		if not _p.actions.has(sa):
-			_err("illnesses.json", id, "symptom_action '%s' does not exist" % sa)
+			_err("illnesses.json", id, "symptom_action '%s' does not exist" % [sa])
 		else:
 			var req = _p.actions[sa]["requires"]
 			if not (req is Dictionary and req.get("illness") == id):
@@ -261,7 +287,7 @@ func _check_messes() -> void:
 		if m.get("penalty") is Dictionary:
 			for k in m["penalty"]:
 				if not _p.needs.has(k):
-					_err("messes.json", m["id"], "penalty key '%s' is not a need" % k)
+					_err("messes.json", m["id"], "penalty key '%s' is not a need" % [k])
 
 
 func _check_goals() -> void:
@@ -271,9 +297,9 @@ func _check_goals() -> void:
 			continue
 		var t = w.get("type")
 		if not GOAL_TYPES.has(t):
-			_err("goals.json", g["id"], "when.type '%s' is not a known goal type" % str(t))
+			_err("goals.json", g["id"], "when.type '%s' is not a known goal type" % [str(t)])
 		elif t == "room_built" and not _p.rooms.has(w.get("room", "")):
-			_err("goals.json", g["id"], "when.room '%s' is not a room" % w.get("room", ""))
+			_err("goals.json", g["id"], "when.room '%s' is not a room" % [w.get("room", "")])
 		else:
 			var param: String = {"money_at_least": "amount", "objects_owned": "count", "level_reached": "level", "collected": "count"}.get(t, "")
 			if param != "" and not w.has(param):
