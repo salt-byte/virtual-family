@@ -301,7 +301,7 @@ static func _decode(v: Variant, bad: Array) -> Variant:
 	match typeof(v):
 		TYPE_DICTIONARY:
 			if v.size() == 1 and v.has("$f"):
-				if not (_is_str(v["$f"]) and v["$f"].is_valid_int()):
+				if not _is_i64(v["$f"]):
 					bad.append(true)
 					return 0.0
 				var b := PackedByteArray()
@@ -347,6 +347,18 @@ static func _is_str(v) -> bool:
 	return typeof(v) == TYPE_STRING
 
 
+## A String holding a whole number that fits in 64 bits (`int()` prints an engine error
+## for anything larger, so this must run first).
+static func _is_i64(v) -> bool:
+	if not _is_str(v) or not v.is_valid_int():
+		return false
+	var neg: bool = v.begins_with("-")
+	var digits: String = v.trim_prefix("-").trim_prefix("+").lstrip("0")
+	if digits.length() != 19:
+		return digits.length() < 19
+	return digits <= ("9223372036854775808" if neg else "9223372036854775807")
+
+
 static func _is_bool(v) -> bool:
 	return typeof(v) == TYPE_BOOL
 
@@ -386,7 +398,7 @@ static func _count_map(v, ids = null, key_whole := false) -> bool:
 		return false
 	for k in v:
 		if key_whole:
-			if not (_is_str(k) and k.is_valid_int()):
+			if not _is_i64(k):
 				return false
 		elif not _is_str(k) or (ids != null and not ids.has(k)):
 			return false
@@ -404,6 +416,11 @@ static func _valid_person(pack: Pack, p) -> bool:
 	for k in p["needs"]:
 		if not (pack.needs.has(k) and _is_num(p["needs"][k])):
 			return false
+	for k in pack.needs:
+		if not p["needs"].has(k):
+			return false
+	if not (_all_strings(p["likes"]) and _all_strings(p["dislikes"])):
+		return false
 	for k in p["habits"]:
 		if not (_is_str(k) and _is_num(p["habits"][k])):
 			return false
@@ -449,10 +466,10 @@ static func _valid_save(pack: Pack, d: Dictionary) -> bool:
 		return false
 	if int(d["version"]) != SAVE_VERSION or d["pack_id"] != pack.id:
 		return false
-	if not (d["phase"] in _PHASES) or not d["seed"].is_valid_int() or int(d["money"]) < 0:
+	if not (d["phase"] in _PHASES) or not _is_i64(d["seed"]) or int(d["money"]) < 0:
 		return false
-	if not _has(d["rng"], {"seed": "s", "state": "s"}) or not d["rng"]["seed"].is_valid_int() \
-			or not d["rng"]["state"].is_valid_int():
+	if not _has(d["rng"], {"seed": "s", "state": "s"}) or not _is_i64(d["rng"]["seed"]) \
+			or not _is_i64(d["rng"]["state"]):
 		return false
 	for p in d["people"]:
 		if not _valid_person(pack, p):
@@ -480,4 +497,11 @@ static func _valid_save(pack: Pack, d: Dictionary) -> bool:
 		if not _has(pr, {"id": "i", "person": "d", "savings": "i", "expires_at": "i"}) \
 				or not _valid_person(pack, pr["person"]):
 			return false
-	return true
+	# The uid counter must lie above every uid in use, or new things would collide.
+	var top := 0
+	for key in ["people", "objects", "messes", "collectibles"]:
+		for e in d[key]:
+			top = maxi(top, int(e["uid"]))
+	for pr in d["proposals"]:
+		top = maxi(top, int(pr["id"]))
+	return int(d["next_uid"]) > top

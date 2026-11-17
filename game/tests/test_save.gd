@@ -12,11 +12,15 @@ func _played() -> World:
 ## Pending proposal, a sick person, a mess, a collectible and someone mid-action.
 func _busy() -> World:
 	var w := _played()
+	var guard := 0
+	while not w.command({type = "praise", person = w.people[0].uid}).ok and guard < 600:
+		w.advance(60); guard += 1
+	assert_true(w.command({type = "build_room", room = "study"}).ok)
 	w.offline = true; w.advance(16 * 60); w.offline = false
 	CollectibleSystem.spawn(w)
 	MessSystem.spawn(w, w.pack.mess_types.keys()[0])
 	w.people[0].illness = str(w.pack.illnesses.keys()[0])
-	var guard := 0
+	guard = 0
 	while w.people[0].current.is_empty() and guard < 600:
 		w.advance(60); guard += 1
 	w.drain_events(); return w
@@ -45,6 +49,9 @@ func test_busy_world_has_the_interesting_state():
 	assert_eq(w.proposals.size(), 1); assert_true(w.people[0].illness != "")
 	assert_eq(w.messes.size() >= 1, true); assert_true(w.collectibles.size() >= 1)
 	assert_true(not w.people[0].current.is_empty())
+	assert_true(not w.income_carry.is_empty()); assert_true(not w.people[0].habits.is_empty())
+	assert_true(not w.people[0].praise_times.is_empty()); assert_true(w.rooms_built.has("study"))
+	assert_true(not w.goals_done.is_empty()); assert_true(w.people[0].track != "")
 func test_loaded_world_continues_identically():
 	var a := _played(); var b := World.from_dict(a.pack, a.to_dict())
 	a.advance(3 * 3600); b.advance(3 * 3600); assert_eq(a.to_dict(), b.to_dict())
@@ -131,3 +138,23 @@ func test_missing_room_in_placed_entries_is_rejected():
 func test_malformed_float_marker_is_rejected():
 	var w := _played(); var d := w.to_dict(); d["people"][0]["age"] = {"$f": "abc"}
 	assert_true(World.from_dict(w.pack, d) == null)
+func test_missing_need_and_non_string_tags_rejected():
+	var w := _busy(); var d := w.to_dict(); d["people"][0]["needs"].erase(w.pack.needs.keys()[0])
+	assert_true(World.from_dict(w.pack, d) == null)
+	var d2 := w.to_dict(); d2["people"][0]["likes"] = [3]; assert_true(World.from_dict(w.pack, d2) == null)
+func test_out_of_range_digit_strings_rejected_silently():
+	var big := "99999999999999999999"
+	var w := _busy()
+	var d := w.to_dict(); d["seed"] = big; assert_true(World.from_dict(w.pack, d) == null)
+	var d2 := w.to_dict(); d2["rng"]["seed"] = big; assert_true(World.from_dict(w.pack, d2) == null)
+	var d3 := w.to_dict(); d3["rng"]["state"] = "-" + big; assert_true(World.from_dict(w.pack, d3) == null)
+	var d4 := w.to_dict(); d4["people"][0]["age"] = {"$f": big}; assert_true(World.from_dict(w.pack, d4) == null)
+	var d5 := w.to_dict(); d5["income_carry"] = {big: 1}; assert_true(World.from_dict(w.pack, d5) == null)
+	var d6 := w.to_dict(); d6["rng"]["state"] = "9223372036854775807"; assert_true(World.from_dict(w.pack, d6) != null)
+func test_uid_counter_must_exceed_uids_in_use():
+	var w := _busy(); var d := w.to_dict(); d["next_uid"] = 1; assert_true(World.from_dict(w.pack, d) == null)
+	var top := 0
+	for p in w.people: top = maxi(top, p.uid)
+	for pr in w.proposals: top = maxi(top, pr.id)
+	var d2 := w.to_dict(); d2["next_uid"] = top; assert_true(World.from_dict(w.pack, d2) == null)
+	var d3 := w.to_dict(); d3["next_uid"] = top + 100; assert_true(World.from_dict(w.pack, d3) != null)
