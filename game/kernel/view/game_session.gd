@@ -11,12 +11,17 @@ signal changed
 
 const AUTOSAVE_SECONDS := 30.0
 const FLIP_OFFSET := 43200
+## The longest frame that counts toward debug fast-forward: at ×600 a 0.15 s frame adds about
+## 90 s, so one slow frame never jumps past World.SYNC_OFFLINE_GAP into an offline catch-up.
+const FF_MAX_DELTA := 0.15
 
 var world: World
 var pack: Pack
 var strings: ViewStrings
 var load_error := ""
-var settings := {"flip_day_night": false, "clock_skew": 0, "speed": 1}
+## `clock_skew` is this pack's debug fast-forward (settings.json keeps one per pack); `speed`
+## always starts at 1 and is not saved; `hint_seen` is true once the drag hint was shown.
+var settings := {"flip_day_night": false, "clock_skew": 0, "speed": 1, "hint_seen": false}
 
 var _dir: String
 var _real_clock: Callable
@@ -46,6 +51,12 @@ func start() -> void:
 	var err := str(r.error)
 	if err == "":
 		world = r.world
+		# Settings lost or older than the save: never leave the world ahead of the clock,
+		# or every sync would return early until real time caught up.
+		var behind := world.now - now_unix()
+		if behind > 0:
+			_skew += float(behind)
+			_write_settings()
 	elif err == "missing":
 		_create_world()
 	else:
@@ -53,16 +64,23 @@ func start() -> void:
 		world = null
 
 
-func new_game() -> void:
+## Moves an unreadable save aside (to the first free `.bad`, `.bad2`, ... name; earlier backups
+## are never touched) and starts a fresh world. False, with nothing changed, when the old save
+## could not be moved.
+func new_game() -> bool:
 	var path := save_path()
 	if FileAccess.file_exists(path):
 		var bad := path + ".bad"
-		if FileAccess.file_exists(bad):
-			DirAccess.remove_absolute(bad)
-		DirAccess.rename_absolute(path, bad)
+		var n := 2
+		while FileAccess.file_exists(bad):
+			bad = path + ".bad%d" % n
+			n += 1
+		if DirAccess.rename_absolute(path, bad) != OK:
+			return false
 	load_error = ""
 	_since_save = 0.0
 	_create_world()
+	return true
 
 
 func now_unix() -> int:
@@ -79,7 +97,7 @@ func tick(delta: float) -> void:
 		return
 	var speed := int(settings.speed)
 	if speed > 1:
-		_skew += (speed - 1) * delta
+		_skew += (speed - 1) * minf(delta, FF_MAX_DELTA)
 		settings.clock_skew = int(_skew)
 	_sync_and_dispatch()
 	changed.emit()
@@ -102,13 +120,12 @@ func command(cmd: Dictionary) -> Dictionary:
 	return r
 
 
+## Writes the settings first, then the world, so a save is never ahead of its clock skew.
 func save() -> bool:
 	if not _running():
 		return false
-	if not SaveStore.save(world, save_path()):
-		return false
 	_write_settings()
-	return true
+	return SaveStore.save(world, save_path())
 
 
 func set_setting(key: String, value) -> void:
@@ -153,27 +170,56 @@ func _settings_path() -> String:
 	return _dir + "settings.json"
 
 
-func _load_settings() -> void:
+func _read_settings_file() -> Dictionary:
 	var path := _settings_path()
 	if not FileAccess.file_exists(path):
-		return
+		return {}
 	var json := JSON.new()
 	if json.parse(FileAccess.get_file_as_string(path)) != OK or typeof(json.data) != TYPE_DICTIONARY:
-		return
-	var d: Dictionary = json.data
+		return {}
+	return json.data
+
+
+## The skew of every pack in the file; an old file's top-level `clock_skew` counts as this pack's.
+func _skews_in(d: Dictionary) -> Dictionary:
+	var out := {}
+	var by_pack = d.get("clock_skew_by_pack")
+	if by_pack is Dictionary:
+		for k in by_pack:
+			if typeof(by_pack[k]) in [TYPE_INT, TYPE_FLOAT]:
+				out[str(k)] = float(by_pack[k])
+	if not out.has(pack.id) and typeof(d.get("clock_skew")) in [TYPE_INT, TYPE_FLOAT]:
+		out[pack.id] = float(d["clock_skew"])
+	return out
+
+
+func _load_settings() -> void:
+	var d := _read_settings_file()
 	if typeof(d.get("flip_day_night")) == TYPE_BOOL:
 		settings.flip_day_night = d["flip_day_night"]
-	if typeof(d.get("clock_skew")) in [TYPE_INT, TYPE_FLOAT]:
-		_skew = float(d["clock_skew"])
+	if typeof(d.get("hint_seen")) == TYPE_BOOL:
+		settings.hint_seen = d["hint_seen"]
+	var skews := _skews_in(d)
+	if skews.has(pack.id):
+		_skew = float(skews[pack.id])
 		settings.clock_skew = int(_skew)
-	if typeof(d.get("speed")) in [TYPE_INT, TYPE_FLOAT]:
-		settings.speed = int(d["speed"])
 
 
+## Writes settings.json through a temporary file and a rename, keeping the other packs' skews
+## as they are on disk.
 func _write_settings() -> void:
 	settings.clock_skew = int(_skew)
-	var f := FileAccess.open(_settings_path(), FileAccess.WRITE)
+	var skews := _skews_in(_read_settings_file())
+	if pack.id != "":
+		skews[pack.id] = int(_skew)
+	var out := {"flip_day_night": settings.flip_day_night, "hint_seen": settings.hint_seen,
+		"clock_skew_by_pack": skews}
+	var path := _settings_path()
+	var tmp := path + ".tmp"
+	var f := FileAccess.open(tmp, FileAccess.WRITE)
 	if f == null:
 		return
-	f.store_string(JSON.stringify(settings))
+	var written := f.store_string(JSON.stringify(out))
 	f.close()
+	if not written or DirAccess.rename_absolute(tmp, path) != OK:
+		DirAccess.remove_absolute(tmp)

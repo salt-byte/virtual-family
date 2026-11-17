@@ -38,7 +38,7 @@ func _living() -> Main:
 	return m
 
 
-func test_speed_marker_and_setting_persist():
+func test_speed_marker_shows_and_speed_resets_on_relaunch():
 	var m := _living()
 	assert_eq(m.settings.marker_text(), "")
 	m.settings.open()
@@ -49,8 +49,14 @@ func test_speed_marker_and_setting_persist():
 	m.settings.press("btn.close")
 	assert_true(not m.settings.opened())
 	assert_eq(m.settings.marker_text(), "×60")
+	m.session.save()
+	var ahead := m.session.world.now
 	var m2 := _main_same_dir()
-	assert_eq(m2.session.settings.speed, 60)
+	assert_eq(m2.session.settings.speed, 1)
+	assert_eq(m2.settings.marker_text(), "")
+	clk.unix += 60.0
+	m2.tick(0.016)
+	assert_true(m2.session.world.now > ahead)
 	m2.free()
 	m.free()
 

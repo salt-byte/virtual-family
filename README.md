@@ -14,7 +14,7 @@ godot --path game
 godot --path game -- --pack=_smoke
 ```
 
-底栏的「设置」里有两样东西：昼夜颠倒（把家里的钟点拨开 12 小时），和调试快进（×60、×600）。快进只为调试，正式版会去掉；开着的时候屏幕右上角会一直显示"×60"之类的标记。
+底栏的「设置」里有两样东西：昼夜颠倒（把家里的钟点拨开 12 小时），和调试快进（×60、×600）。快进只为调试，正式版会去掉；开着的时候屏幕右上角会一直显示"×60"之类的标记。每次启动都回到 ×1，已经快进过的时间按主题包分开记在 `settings.json` 里。
 
 ## 跑测试
 
@@ -36,4 +36,4 @@ python3 -m http.server -d build/web 8060
 
 ## 存档在哪
 
-存档和设置都在 Godot 的 `user://` 下：macOS 上是 `~/Library/Application Support/Godot/app_userdata/lifesim-kernel/`，文件是 `save_<包名>.json` 和 `settings.json`。网页版存在浏览器的站点存储里。想重来，删掉对应的 `save_<包名>.json` 即可（网页版清掉该站点的数据）；损坏的旧存档会自动留一份 `.bad` 备份。
+存档和设置都在 Godot 的 `user://` 下：macOS 上是 `~/Library/Application Support/Godot/app_userdata/lifesim-kernel/`，文件是 `save_<包名>.json` 和 `settings.json`。网页版存在浏览器的站点存储里。想重来，删掉对应的 `save_<包名>.json` 即可（网页版清掉该站点的数据）；损坏的旧存档会自动留一份备份（`.bad`，已有就用 `.bad2`、`.bad3`……，旧备份不会被删）。
