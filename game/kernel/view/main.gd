@@ -12,6 +12,7 @@ var drag: DragController
 var overlays: Overlays
 var panels: Panels
 var arrange: ArrangeMode
+var settings: SettingsPanel
 ## Uid of the selected person; -1 for none.
 var selected := -1
 
@@ -53,6 +54,9 @@ func _build(pack_id: String, dir: String, real_clock: Callable) -> void:
 	add_child(arrange)
 	arrange.setup(self)
 	house.arrange = arrange
+	settings = SettingsPanel.new()
+	add_child(settings)
+	settings.setup(self)
 	hud.open.connect(_on_hud_open)
 	house.blocked = is_house_blocked
 	_sync_selection()
@@ -61,6 +65,7 @@ func _build(pack_id: String, dir: String, real_clock: Callable) -> void:
 	overlays.refresh()
 	panels.refresh()
 	arrange.refresh()
+	settings.refresh()
 
 
 ## "arrange" toggles arrange mode; any panel button leaves it first.
@@ -72,13 +77,19 @@ func _on_hud_open(what: String) -> void:
 			arrange.enter()
 		return
 	arrange.exit()
+	if what == "settings":
+		panels.close()
+		settings.open()
+		return
+	settings.close()
 	panels.open(what)
 
 
 ## True while an overlay, a panel or the build confirmation covers the house; the house then
 ## ignores input.
 func is_house_blocked() -> bool:
-	return overlays.blocks_input() or panels.blocks_input() or arrange.blocks_input()
+	return overlays.blocks_input() or panels.blocks_input() or arrange.blocks_input() \
+		or settings.blocks_input()
 
 
 func select(uid: int) -> void:
@@ -129,6 +140,7 @@ func tick(delta: float) -> void:
 	overlays.refresh()
 	panels.refresh()
 	arrange.refresh()
+	settings.refresh()
 
 
 func _process(delta: float) -> void:

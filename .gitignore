@@ -2,3 +2,4 @@ game/.godot/
 .superpowers/
 .DS_Store
 *.tmp
+build/

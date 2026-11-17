@@ -18,6 +18,7 @@ const DEFAULTS := {
 	"arrange.banner": "摆设中：点家具拿起，点目录里的东西买下，点灰色的房间加盖；右键或 Esc 放回原处",
 	"arrange.refund": "卖掉能回 {n}", "arrange.build": "加盖「{room}」，造价 {cost}，定了吗？",
 	"set.flip": "昼夜颠倒", "set.speed": "调试快进",
+	"set.clock": "家里现在是 {t}", "set.debug_note": "快进只为调试，正式版会去掉。",
 	"error.busy": "那儿有人在用", "error.stage": "这个年纪做不了", "error.no_money": "钱不够",
 	"error.wrong_track": "这不是他的营生", "error.no_stock": "家里没存货了", "error.no_target": "没有可收拾的",
 	"error.requires": "他现在做不了这个", "error.dead": "人已经不在了", "error.no_object": "那儿没有东西",
