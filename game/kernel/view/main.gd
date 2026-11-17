@@ -10,6 +10,7 @@ var house: HouseView
 var hud: Hud
 var drag: DragController
 var overlays: Overlays
+var panels: Panels
 ## Uid of the selected person; -1 for none.
 var selected := -1
 
@@ -44,10 +45,21 @@ func _build(pack_id: String, dir: String, real_clock: Callable) -> void:
 	overlays = Overlays.new()
 	add_child(overlays)
 	overlays.setup(self)
+	panels = Panels.new()
+	add_child(panels)
+	panels.setup(self)
+	hud.open.connect(panels.open)
+	house.blocked = is_house_blocked
 	_sync_selection()
 	house.refresh()
 	hud.refresh()
 	overlays.refresh()
+	panels.refresh()
+
+
+## True while an overlay or a panel covers the house; the house then ignores input.
+func is_house_blocked() -> bool:
+	return overlays.blocks_input() or panels.blocks_input()
 
 
 func select(uid: int) -> void:
@@ -96,6 +108,7 @@ func tick(delta: float) -> void:
 	hud.refresh()
 	hud.tick(delta)
 	overlays.refresh()
+	panels.refresh()
 
 
 func _process(delta: float) -> void:

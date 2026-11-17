@@ -24,6 +24,9 @@ var hover: Dictionary = {}
 ## Whether the left button is physically down; replaceable so tests can drive it.
 var button_down: Callable = func() -> bool: return Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT)
 
+## Returns true while something covers the house; set by Main.
+var blocked: Callable = func() -> bool: return false
+
 var _pressed := false
 var _press_uid := -1
 var _press_at := Vector2.ZERO
@@ -162,6 +165,8 @@ func release(screen: Vector2) -> void:
 
 
 func _unhandled_input(event: InputEvent) -> void:
+	if blocked.call():
+		return
 	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT:
 		if event.pressed:
 			press(event.position)
