@@ -1,9 +1,12 @@
 class_name World
 extends RefCounted
-## Top-level sim state. Time is fed in from outside (`set_time`); `advance` turns elapsed
-## real seconds into fixed 60-second steps, each of which runs every system in order.
+## Top-level sim state. Time is fed in from outside: a view calls `sync` with the real clock
+## and nothing else; `advance` turns elapsed real seconds into fixed 60-second steps, each of
+## which runs every system in order.
 
 const STEP := 60
+## A `sync` gap longer than this many seconds is treated as an absence (`catch_up`).
+const SYNC_OFFLINE_GAP := 120
 ## Bump when `to_dict` changes shape; `from_dict` refuses any other version.
 const SAVE_VERSION := 1
 const _PHASES := ["adopting", "living", "over", "invalid"]
@@ -71,9 +74,44 @@ func _init(p: Pack, seed: int) -> void:
 	FamilySystem.new_candidate(self)
 
 
-func set_time(unix: int, offset: int) -> void:
-	now = unix
+## The one entry point a view needs for time: call it with the real clock (unix seconds and
+## the local UTC offset in seconds) whenever convenient, e.g. every frame or on resume.
+## Returns a catch-up summary (see `Offline`); it is the zero summary unless the gap since the
+## last sync was longer than `SYNC_OFFLINE_GAP` and the world is living.
+## - A clock that did not move forward changes nothing (time never runs backwards).
+## - While adopting (time frozen), or before the world was ever given a time (`now` 0),
+##   `now` just jumps to `unix`.
+## - Afterwards the sim clock (`now` plus the partial step not yet simulated) equals `unix`,
+##   also after an absence beyond the cap or one that ended the game.
+func sync(unix: int, offset: int) -> Dictionary:
 	utc_offset = offset
+	var clock := float(now) + _acc
+	if float(unix) <= clock:
+		return Offline.zero_summary(self)
+	if phase == "adopting" or now == 0:
+		now = unix
+		_acc = 0.0
+		return Offline.zero_summary(self)
+	var gap := float(unix) - clock
+	var summary: Dictionary
+	if gap > SYNC_OFFLINE_GAP:
+		summary = catch_up(gap)
+	else:
+		advance(gap)
+		summary = Offline.zero_summary(self)
+	if float(now) + _acc != float(unix):  # capped, game over, or not living: snap to real time
+		now = unix
+		_acc = 0.0
+	return summary
+
+
+## Test / setup only: sets the clock directly. Views use `sync`. Once people live in the
+## world, `now` is never moved backwards (the offset still updates).
+func set_time(unix: int, offset: int) -> void:
+	utc_offset = offset
+	if unix < now and phase == "living" and not people.is_empty():
+		return
+	now = unix
 
 
 ## Local hour of day as 0..24.

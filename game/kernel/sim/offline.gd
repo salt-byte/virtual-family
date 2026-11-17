@@ -6,11 +6,9 @@ extends RefCounted
 ## Simulates up to `offline_cap_hours` of `elapsed_seconds` with the offline floor on.
 ## Events that were already queued stay queued; those the replay produces go into the summary.
 static func catch_up(world: World, elapsed_seconds: float) -> Dictionary:
-	var summary := _empty()
 	if world.phase != "living" or elapsed_seconds <= 0.0:
-		summary["proposals_waiting"] = world.proposals.size()
-		summary["messes_now"] = world.messes.size()
-		return summary
+		return zero_summary(world)
+	var summary := _empty()
 	var cap := int(world.pack.cfg("offline_cap_hours")) * 3600
 	var seconds := minf(elapsed_seconds, float(cap))
 	var t0 := world.now
@@ -34,6 +32,14 @@ static func catch_up(world: World, elapsed_seconds: float) -> Dictionary:
 			"level_up": summary["level_ups"].append({"person": e.person, "level": e.level})
 			"proposal_expired": summary["proposals_expired"] += 1
 			"goal_done": summary["goals_done"].append(e.goal)
+	summary["proposals_waiting"] = world.proposals.size()
+	summary["messes_now"] = world.messes.size()
+	return summary
+
+
+## The summary of an absence in which nothing was simulated (still reports what is waiting).
+static func zero_summary(world: World) -> Dictionary:
+	var summary := _empty()
 	summary["proposals_waiting"] = world.proposals.size()
 	summary["messes_now"] = world.messes.size()
 	return summary
