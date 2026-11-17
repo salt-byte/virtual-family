@@ -250,7 +250,10 @@ static func _valid_person(p) -> bool:
 	for t in p["praise_times"]:
 		if not _is_whole(t):
 			return false
-	if p.has("work_carry") and not _is_num(p["work_carry"]):  # optional: older saves lack it
+	# optional (older saves lack it); a fraction of a coin: 0 <= work_carry < 1
+	if p.has("recent_actions") and not (typeof(p["recent_actions"]) == TYPE_ARRAY and _all_strings(p["recent_actions"])):
+		return false  # optional: older saves lack it
+	if p.has("work_carry") and not (_is_num(p["work_carry"]) and float(p["work_carry"]) >= 0.0 and float(p["work_carry"]) < 1.0):
 		return false
 	var c: Dictionary = p["current"]
 	return c.is_empty() or _has(c, {"action": "s", "object_uid": "i", "target_uid": "i", "remaining_s": "i"})
@@ -358,6 +361,8 @@ static func _person_ids_known(pack: Pack, p: Dictionary) -> bool:
 	if p["illness"] != "" and not pack.illnesses.has(p["illness"]):
 		return false
 	if p["last_action"] != "" and not pack.actions.has(p["last_action"]):
+		return false
+	if p.has("recent_actions") and not _all_in(p["recent_actions"], pack.actions):
 		return false
 	return p["current"].is_empty() or pack.actions.has(p["current"]["action"])
 

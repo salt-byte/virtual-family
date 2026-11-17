@@ -95,3 +95,17 @@ func test_drag_explicit_action_must_belong_to_object_type():
 	assert_eq(w.command({type = "drag", person = p.uid, object = w.objects[0].uid, action = "nope"}).error, "no_action")
 	assert_true(p.current.is_empty())
 	assert_true(w.command({type = "drag", person = p.uid, object = w.objects[0].uid, action = "watch_tv"}).ok)
+
+## qijia: a drag onto the kang by day picks the first thing to do there, a nap (a couple of
+## minutes), not a nine-hour sleep.
+func test_qijia_drag_onto_the_kang_at_noon_naps():
+	var w := TestKit.world("qijia")   # local noon
+	var p := TestKit.adult(w)
+	var kang := -1
+	for o in w.objects:
+		if o.type == "kang": kang = o.uid
+	if kang < 0: kang = w.add_object("kang", "hall", 0, 2)
+	var r := w.command({"type": "drag", "person": p.uid, "object": kang})
+	assert_true(r.ok, str(r))
+	assert_eq(str(p.current.get("action", "")), "nap")
+	assert_true(AutonomySystem.duration_s(w, w.pack.actions["nap"]) <= 180)

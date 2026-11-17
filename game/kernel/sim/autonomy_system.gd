@@ -16,42 +16,156 @@ static func step(world: World, dt: float) -> void:
 			_choose(world, p)
 
 
+## The constant parts of one action, read once per pack so the hot path does no
+## dictionary lookups of constants (see `_table`).
+class Info:
+	var id := ""
+	var stages: Array = []
+	var object := ""
+	var has_work := false
+	var track := ""
+	var requires: Dictionary = {}
+	var has_requires := false
+	var kind := ""
+	var consumes: Dictionary = {}
+	var has_consumes := false
+	var base := 0.0
+	var need_ids: Array[String] = []
+	## max(effect, 0) of each need in `need_ids`, as `_score` uses it
+	var need_gains: Array[float] = []
+	var tags: Array = []
+	var has_hours := false
+	var hours: Array = []
+	## slow with an `hours` window: it ends as soon as the hour is outside the window
+	var slow_in_hours := false
+
+
+## The pack's actions as `Info`, in pack order, built on first use and kept on the pack
+## (a pack's content does not change once worlds use it).
+static func _table(pack: Pack) -> Array:
+	if pack.autonomy_table.size() == pack.actions.size() and not pack.autonomy_table.is_empty():
+		return pack.autonomy_table
+	var out: Array = []
+	for id in pack.actions:
+		var a: Dictionary = pack.actions[id]
+		var i := Info.new()
+		i.id = str(id)
+		i.stages = a["stages"]
+		i.object = str(a["object"])
+		var work: Dictionary = a["work"]
+		i.has_work = not work.is_empty()
+		i.track = str(work.get("track", ""))
+		i.requires = a["requires"]
+		i.has_requires = not i.requires.is_empty()
+		i.kind = target_kind(a)
+		i.consumes = a["consumes"]
+		i.has_consumes = not i.consumes.is_empty()
+		i.base = float(a.get("base", 0))
+		for n in a["needs"]:
+			i.need_ids.append(str(n))
+			i.need_gains.append(maxf(float(a["needs"][n]), 0.0))
+		i.tags = a.get("tags", [])
+		i.hours = a.get("hours", [])
+		i.has_hours = not i.hours.is_empty()
+		i.slow_in_hours = bool(a.get("slow", false)) and i.has_hours
+		out.append(i)
+	pack.autonomy_table = out
+	return out
+
+
 ## Everything `p` could start right now, scored. Order is stable (pack action order).
+## Gives exactly what `can_do(..., -1)` and `_score` give, action by action, except that a
+## slow action with an `hours` window is not chosen outside that window (it would end at
+## the very next step, see `_progress`).
 static func candidates(world: World, p: Person) -> Array[Dictionary]:
 	var out: Array[Dictionary] = []
 	if not p.alive:
 		return out
-	# On the fast action clock people choose often, so this is the hot path: the stage and
-	# hour are worked out once, the score (cheap) comes first, and the checks of `can_do`
-	# with object_uid -1 are repeated inline with the free object per type looked up once.
-	var stage := p.stage(world.pack)
+	# On the fast action clock people choose often, so this is the hot path: the stage, hour
+	# and settings are worked out once, every constant of an action comes from `_table`, and
+	# the free object per type is looked up once.
+	var pack := world.pack
+	var stage := p.stage(pack)
 	var hour := world.local_hour()
+	var memory := int(pack.cfg("repeat_memory"))
+	var rf := float(pack.cfg("repeat_factor"))
 	var free := {}  # object type -> first object of that type free for `p` (-1: none)
-	for id in world.pack.actions:
-		var a: Dictionary = world.pack.actions[id]
-		var s := _score(world, p, a, hour)
-		if s <= 0.0 or not (stage in a["stages"]):
+	var users := {}  # object uid -> people other than `p` using it (filled on first need)
+	for i: Info in _table(pack):
+		if not (stage in i.stages):
 			continue
-		var type := str(a["object"])
+		if i.slow_in_hours and not _in_hours(hour, i.hours):
+			continue
+		var s := _score_info(p, i, hour, memory, rf)
+		if s <= 0.0:
+			continue
 		var uid := -1
-		if type != "":
-			if not free.has(type):
-				free[type] = _free_object(world, p, a, -1)
-			uid = free[type]
+		if i.object != "":
+			if not free.has(i.object):
+				if users.is_empty():
+					users[-1] = 0
+					for q in world.people:
+						if q != p and q.alive and not q.current.is_empty():
+							var ou := int(q.current.get("object_uid", -1))
+							users[ou] = int(users.get(ou, 0)) + 1
+				free[i.object] = _first_unoccupied(world, i.object, users)
+			uid = free[i.object]
 			if uid < 0:
 				continue
-		var work: Dictionary = a["work"]
-		if not work.is_empty() and str(work.get("track", "")) != p.track:
+		if i.has_work and i.track != p.track:
 			continue
-		if not _requires_ok(p, a["requires"]):
+		if i.has_requires and not _requires_ok(p, i.requires):
 			continue
-		var target := _first_free_target(world, a, p)
-		if target_kind(a) != "" and target < 0:
-			continue
-		if not _stock_ok(world, a):
-			continue
-		out.append({"action": id, "object_uid": uid, "target_uid": target, "score": s})
+		var target := -1
+		if i.kind != "":
+			target = _first_free_target(world, pack.actions[i.id], p)
+			if target < 0:
+				continue
+		if i.has_consumes:
+			var ok := true
+			for item in i.consumes:
+				if int(world.stock.get(item, 0)) < int(i.consumes[item]):
+					ok = false
+					break
+			if not ok:
+				continue
+		out.append({"action": i.id, "object_uid": uid, "target_uid": target, "score": s})
 	return out
+
+
+## `_free_object` for any object of `type`, with the other users per object counted once.
+static func _first_unoccupied(world: World, type: String, users: Dictionary) -> int:
+	var capacity := int(world.pack.object_types.get(type, {}).get("capacity", 1))
+	for o in world.objects:
+		if o.type == type and int(users.get(o.uid, 0)) < capacity:
+			return o.uid
+	return -1
+
+
+## `_score` from an action's `Info`: the same arithmetic in the same order.
+static func _score_info(p: Person, i: Info, hour: float, memory: int, rf: float) -> float:
+	var gain := 0.0
+	for k in i.need_ids.size():
+		var n := i.need_ids[k]
+		if p.needs.has(n):
+			var room := 100.0 - float(p.needs[n])
+			gain += minf(i.need_gains[k], room) * room / 100.0
+	var score := (i.base + gain) * float(p.habits.get(i.id, 1.0))
+	for t in i.tags:
+		if t in p.likes:
+			score *= 1.5
+		if t in p.dislikes:
+			score *= 0.5
+	if i.has_hours and not _in_hours(hour, i.hours):
+		score *= 0.1
+	if memory == 1:
+		if i.id == p.last_action:
+			score *= rf
+	else:
+		var k := p.recent_actions.find(i.id)
+		if k >= 0 and k < memory:
+			score *= pow(rf, float(memory - k) / float(memory))
+	return score
 
 
 static func _stock_ok(world: World, a: Dictionary) -> bool:
@@ -151,12 +265,23 @@ static func cancel(world: World, p: Person) -> void:
 
 ## Pays the running action's need effects for `dt` seconds: gains add up to their full
 ## amount over the action's real duration, costs to the share of `duration_min` it took.
-## Only the last `duration_s` seconds pay, so a longer `remaining_s` from an older save
-## runs out without paying more than once.
+## When the pack speeds actions up, a longer `remaining_s` (from a save written before they
+## were sped up) is cut to the action's current length first, so the action finishes within
+## that length and pays over it. At speed 1 lengths never changed, and only the last
+## `duration_s` seconds of a longer `remaining_s` pay, as always.
 static func _progress(world: World, p: Person, dt: float) -> void:
 	var a: Dictionary = world.pack.actions[p.current["action"]]
+	# A slow action with an `hours` window (sleep) ends as soon as the local hour is outside
+	# it: people get up when the night is over, or when the day/night setting flips.
+	if bool(a.get("slow", false)) and not (a["hours"] as Array).is_empty() \
+			and not _in_hours(world.local_hour(), a["hours"]):
+		_finish(world, p)
+		return
 	var dur := duration_s(world, a)
 	var remaining := int(p.current["remaining_s"])
+	if remaining > dur and float(world.pack.cfg("action_speed")) != 1.0:
+		remaining = dur
+		p.current["remaining_s"] = remaining
 	var paid := clampf(dt - float(remaining - dur), 0.0, dt)
 	var gain_frac := paid / float(dur)
 	var cost_frac := paid / (float(a["duration_min"]) * 60.0)
@@ -186,6 +311,8 @@ static func _finish(world: World, p: Person) -> void:
 	p.current = {}
 	p.last_action = id
 	p.last_action_t = world.now
+	p.recent_actions.push_front(id)
+	p.recent_actions.resize(mini(p.recent_actions.size(), int(world.pack.cfg("repeat_memory"))))
 	world.emit("action_finished", {"person": p.uid, "action": id})
 
 
@@ -229,8 +356,16 @@ static func _score(world: World, p: Person, a: Dictionary, hour := -1.0) -> floa
 	var hours: Array = a.get("hours", [])
 	if not hours.is_empty() and not _in_hours(hour if hour >= 0.0 else world.local_hour(), hours):
 		score *= 0.1
-	if str(a["id"]) == p.last_action:
-		score *= float(world.pack.cfg("repeat_factor"))
+	var memory := int(world.pack.cfg("repeat_memory"))
+	if memory == 1:  # the default: only the last action, exactly as before the memory existed
+		if str(a["id"]) == p.last_action:
+			score *= float(world.pack.cfg("repeat_factor"))
+	else:
+		# Found at position k (0 = most recent) of the last `memory` actions: repeat_factor
+		# to the power (memory - k) / memory, so older repeats are damped less.
+		var k := p.recent_actions.find(a["id"])
+		if k >= 0 and k < memory:
+			score *= pow(float(world.pack.cfg("repeat_factor")), float(memory - k) / float(memory))
 	return score
 
 

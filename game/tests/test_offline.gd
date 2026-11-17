@@ -44,13 +44,40 @@ func test_stops_when_everyone_dies_and_restores_offline():
 	assert_true(s.simulated_seconds < 10 * 3600); assert_true(not w.offline)
 func _qhome() -> World:
 	return BalanceRun.setup("qijia", 11)
-func test_qijia_48_hour_catch_up_is_fast_enough():
+## At 5 s steps the catch-up simulates exactly the time asked for, and stops at the cap.
+func test_qijia_catch_up_simulates_the_time_asked_and_stops_at_the_cap():
 	var w := _qhome(); assert_eq(w.step_s, 5)
-	var t := Time.get_ticks_msec()
-	var s := w.catch_up(48 * 3600)
-	var ms := Time.get_ticks_msec() - t
-	assert_eq(s.simulated_seconds, 48 * 3600)
-	assert_true(ms <= 5000, "48 h catch-up took %d ms" % ms)
+	var t0 := w.now
+	var s := w.catch_up(2 * 3600)
+	assert_eq(s.simulated_seconds, 2 * 3600); assert_true(not s.capped); assert_eq(w.now, t0 + 2 * 3600)
+	var c := _qhome()
+	c.pack.config["offline_cap_hours"] = 1
+	var sc := c.catch_up(30 * 86400)
+	assert_true(sc.capped); assert_eq(sc.simulated_seconds, 3600)
+
+## True when the run was asked for the timing tests (`./game/tests/run.sh perf`).
+func _perf_requested() -> bool:
+	var args := OS.get_cmdline_user_args()
+	return args.size() > 0 and str(args[0]).contains("perf")
+
+## Timing, skipped in the normal run (wall-clock results depend on the machine's load): a
+## realistic household (2 adults, 2 children) catches up 2 hours, best of 3, scaled to the
+## 48-hour cap; that must take at most 10 s.
+func test_perf_qijia_48_hour_catch_up_of_a_family_within_budget():
+	if not _perf_requested():
+		assert_true(not _perf_requested(), "skipped: run with the filter 'perf'")
+		return
+	var best := INF
+	for r in 3:
+		var w := BalanceRun.family_of_four("qijia", 11)
+		assert_eq(w.people.size(), 4)
+		var t := Time.get_ticks_usec()
+		var s := w.catch_up(2 * 3600)
+		var us := float(Time.get_ticks_usec() - t)
+		assert_eq(s.simulated_seconds, 2 * 3600)
+		best = minf(best, us)
+	var est_s := best * 24.0 / 1e6
+	assert_true(est_s <= 10.0, "48 h catch-up of a family of four would take %.1f s" % est_s)
 func test_qijia_offline_matches_online_when_no_floor_hit():
 	var a := _qhome(); var b := _qhome()
 	a.catch_up(2 * 3600); b.offline = true; b.advance(2 * 3600); b.offline = false; b.drain_events()

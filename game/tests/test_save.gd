@@ -204,6 +204,7 @@ func test_acc_must_be_below_the_largest_step():
 
 ## A qijia save as the kernel wrote it before actions ran on the fast clock: no
 ## `work_carry`, a study running with its old 60-minute `remaining_s`, a 37.5 s partial step.
+## The study is cut to its new length: it finishes within two minutes of play, not an hour.
 func test_save_from_before_the_fast_clock_loads_and_plays_on():
 	var w: World = BalanceRun.setup("qijia", 4)
 	var p: Person = w.people[0]
@@ -221,10 +222,11 @@ func test_save_from_before_the_fast_clock_loads_and_plays_on():
 	var q: Person = r.people[0]
 	assert_eq(q.work_carry, 0.0)
 	assert_eq(int(q.current["remaining_s"]), 3600)
-	r.advance(3600.0 - 37.5 - 5.0)
-	assert_eq(str(q.current.get("action", "")), "study")
 	r.drain_events()
-	r.advance(5.0)
+	var t0 := r.now
+	while str(q.current.get("action", "")) == "study" and r.now - t0 < 600:
+		r.advance(5.0)
+	assert_true(r.now - t0 <= 120, "study ran %d s after loading" % (r.now - t0))
 	assert_eq(q.last_action, "study")
 	assert_true(r.drain_events().any(func(e): return e.type == "action_finished" and e.action == "study"))
 	r.advance(3600.0)
@@ -238,3 +240,33 @@ func test_save_without_work_carry_loads_with_zero():
 	assert_true(r != null); assert_eq(r.people[0].work_carry, 0.0)
 	var d2 := w.to_dict(); d2["people"][0]["work_carry"] = "x"
 	assert_true(World.from_dict(w.pack, d2) == null)
+
+## `work_carry` is a fraction of a coin: a save holding a value outside [0, 1) is corrupt.
+func test_work_carry_out_of_range_is_rejected():
+	var w := _played()
+	for v in [-0.01, 1.0, 2.5, -1]:
+		var d := _through_json(w.to_dict()); d["people"][0]["work_carry"] = v
+		assert_eq(WorldSave.restore(w.pack, d).error, "corrupt", str(v))
+	for v in [0, 0.0, 0.5, 0.999]:
+		var d := _through_json(w.to_dict()); d["people"][0]["work_carry"] = v
+		assert_true(World.from_dict(w.pack, d) != null, str(v))
+
+## `recent_actions` is saved; an older save without it starts from `last_action`; a save
+## naming an action the pack no longer has is pack_changed, a non-array is corrupt.
+func test_recent_actions_round_trip_and_old_saves_derive_them():
+	var w: World = BalanceRun.setup("qijia", 5)
+	w.advance(600.0)
+	var p: Person = w.people[0]
+	assert_true(not p.recent_actions.is_empty())
+	var r := World.from_dict(w.pack, _through_json(w.to_dict()))
+	assert_eq(r.people[0].recent_actions, p.recent_actions)
+	var d := _through_json(w.to_dict())
+	d["people"][0].erase("recent_actions")
+	var old := World.from_dict(w.pack, d)
+	assert_eq(old.people[0].recent_actions, [p.last_action])
+	d["people"][0]["last_action"] = ""
+	assert_eq(World.from_dict(w.pack, d).people[0].recent_actions, [])
+	var bad := _through_json(w.to_dict()); bad["people"][0]["recent_actions"] = "study"
+	assert_eq(WorldSave.restore(w.pack, bad).error, "corrupt")
+	var gone := _through_json(w.to_dict()); gone["people"][0]["recent_actions"] = ["no_such_action"]
+	assert_eq(WorldSave.restore(w.pack, gone).error, "pack_changed")

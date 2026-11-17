@@ -111,6 +111,9 @@ func _check_pack_config() -> void:
 	var ss = c.get("step_seconds")
 	if not ss is int or ss <= 0 or 60 % ss != 0:
 		_err("pack.json", _p.id, "step_seconds must be a whole number that divides 60 (1, 2, 3, 4, 5, 6, 10, 12, 15, 20, 30 or 60)")
+	var rm = c.get("repeat_memory")
+	if not rm is int or rm < 1 or rm > 8:
+		_err("pack.json", _p.id, "repeat_memory must be a whole number from 1 to 8")
 	var sp = c.get("action_speed")
 	if not (sp is int or sp is float) or float(sp) < 1.0:
 		_err("pack.json", _p.id, "action_speed must be a number of at least 1")

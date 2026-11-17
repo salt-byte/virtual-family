@@ -89,9 +89,10 @@ func test_work_pay_follows_real_minutes_and_keeps_fractions():
 	var money := w.money
 	w.drain_events()
 	var salary := 0
-	for i in 30:
+	var dur := AutonomySystem.duration_s(w, w.pack.actions["study"])
+	for i in 3600 / dur:   # one real hour of studying, whatever the study's length
 		AutonomySystem.start(w, p, "study", uid)
-		w.advance(120.0)
+		w.advance(float(dur))
 		p.needs["fed"] = 80.0
 		salary += _salary_paid(w)
 	var earned := w.money - money - salary

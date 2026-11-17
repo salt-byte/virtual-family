@@ -141,3 +141,16 @@ static func _place_first_fit(w: World, type: String) -> void:
 			for x in int(r["w"]):
 				if w.add_object(type, room, x, y) >= 0:
 					return
+
+
+## A realistic household for timing: `setup`'s adopted adult, a spouse and two children
+## (made like any adopted person), with food in the larder.
+static func family_of_four(pack_id: String, seed: int) -> World:
+	var w := setup(pack_id, seed)
+	var spouse := FamilySystem.make_person(w, w.pack.cfg("adopt_age"))
+	w.add_person(spouse)
+	w.married = true
+	for i in 2:
+		w.add_person(FamilySystem.make_person(w, [6, 12]))
+	w.stock[FOOD_STOCK] = 20
+	return w

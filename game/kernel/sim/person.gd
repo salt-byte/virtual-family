@@ -29,6 +29,8 @@ var illness := ""
 var current: Dictionary = {}
 var last_action := ""
 var last_action_t := 0
+## The last few finished action ids, most recent first (at most the pack's `repeat_memory`).
+var recent_actions: Array = []
 
 
 ## Status bar: need id -> the label word that applies to the current value.
@@ -66,6 +68,7 @@ func to_dict() -> Dictionary:
 		"track": track, "level": level, "progress": progress, "aptitude": aptitude, "work_carry": work_carry,
 		"illness": illness, "current": current.duplicate(true),
 		"last_action": last_action, "last_action_t": last_action_t,
+		"recent_actions": recent_actions.duplicate(),
 	}
 
 
@@ -105,4 +108,9 @@ static func from_dict(d: Dictionary) -> Person:
 			p.current["remaining_s"] = int(p.current["remaining_s"])
 	p.last_action = str(d.get("last_action", ""))
 	p.last_action_t = int(d.get("last_action_t", 0))
+	if d.has("recent_actions"):
+		for id in d["recent_actions"]:
+			p.recent_actions.append(str(id))
+	elif p.last_action != "":  # saves from before it existed: the last action is all we know
+		p.recent_actions.append(p.last_action)
 	return p

@@ -249,5 +249,23 @@ func test_slow_must_be_a_bool_and_defaults_to_false():
 	var smoke := Pack.load_dir("res://packs/_smoke")
 	assert_true(smoke.actions.values().all(func(a): return a["slow"] == false))
 	var q := Pack.load_dir("res://packs/qijia")
-	assert_true(q.actions["sleep"]["slow"] and q.actions["nap"]["slow"])
+	assert_true(q.actions["sleep"]["slow"])
+	assert_true(not q.actions["nap"]["slow"])   # a nap is a quick lie-down, not a dead hour
 	assert_true(not q.actions["study"]["slow"])
+
+func test_repeat_memory_is_a_whole_number_from_one_to_eight():
+	for bad in [0, 9, 2.5, "3", -1]:
+		assert_true(_has(_errs(func(p): p.config["repeat_memory"] = bad), "pack.json:", "repeat_memory"), str(bad))
+	for good in [1, 3, 8]:
+		assert_eq(_errs(func(p): p.config["repeat_memory"] = good), [] as Array[String], str(good))
+	assert_eq(Pack.DEFAULT_CONFIG["repeat_memory"], 1)
+	assert_eq(Pack.load_dir("res://packs/_smoke").cfg("repeat_memory"), 1)
+	assert_eq(Pack.load_dir("res://packs/qijia").cfg("repeat_memory"), 8)
+
+## qijia's fast tempo fits 6-20 actions in ten minutes, so praise annoys only when three
+## praises come within three minutes.
+func test_qijia_praise_window_fits_the_fast_tempo():
+	var q := Pack.load_dir("res://packs/qijia")
+	assert_eq(q.cfg("praise_window_min"), 3)
+	assert_eq(q.cfg("praise_annoy_count"), 3)
+	assert_eq(Pack.load_dir("res://packs/_smoke").cfg("praise_window_min"), 10)
