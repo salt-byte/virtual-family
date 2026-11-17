@@ -6,7 +6,9 @@ extends CanvasLayer
 
 const LAYER := 5
 const PANEL_WIDTH := 560.0
-const BODY_HEIGHT := 360.0
+const BODY_HEIGHT := 340.0
+const MARGIN := 24.0
+const PRICE_WIDTH := 80.0
 const DONE_MARK := "✓ "
 const UNKNOWN := "？"
 
@@ -14,6 +16,7 @@ var main: Main
 var session: GameSession
 
 var _root: Control
+var _card: PanelContainer
 var _box: VBoxContainer
 var _buttons: Dictionary = {}  # id -> Button
 var _kind := ""
@@ -40,11 +43,12 @@ func setup(m: Main) -> void:
 	center.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_root.add_child(center)
 	var panel := PanelContainer.new()
+	_card = panel
 	panel.custom_minimum_size.x = PANEL_WIDTH
 	var card := StyleBoxFlat.new()
 	card.bg_color = Color(0.13, 0.12, 0.11, 1.0)
 	card.set_corner_radius_all(8)
-	card.set_content_margin_all(24)
+	card.set_content_margin_all(MARGIN)
 	panel.add_theme_stylebox_override("panel", card)
 	center.add_child(panel)
 	_box = VBoxContainer.new()
@@ -169,10 +173,11 @@ func _data_signature(w: World) -> String:
 	var s := session.strings
 	match _kind:
 		"shop":
-			if _tab == "tab.items":
-				return str(w.money)
 			var sel := w.person(main.selected)
-			return "%s|%s" % [str(w.inventory), s.person_name(sel) if sel != null and sel.alive else ""]
+			var total := 0
+			for k in w.stock:
+				total += int(w.stock[k])
+			return "%d|%d|%s|%s" % [w.money, total, str(w.inventory), s.person_name(sel) if sel != null and sel.alive else ""]
 		"ledger":
 			return "%s|%s" % [str(w.goals_done), str(w.collection)]
 		"family":
@@ -198,9 +203,10 @@ func _rebuild() -> void:
 	_box.add_child(head)
 	var title := _label(s.t("btn." + _kind))
 	title.add_theme_font_size_override("font_size", 22)
-	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	title.custom_minimum_size.x = 0
 	head.add_child(title)
+	var gap := Control.new()
+	gap.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	head.add_child(gap)
 	if _kind == "shop":
 		head.add_child(_label(s.t("money").replace("{n}", str(w.money))))
 	_button("btn.close", s.t("btn.close"), head)
@@ -211,7 +217,7 @@ func _rebuild() -> void:
 		for t in tabs:
 			_button(t, s.t(t), row).disabled = (t == _tab)
 	var scroll := ScrollContainer.new()
-	scroll.custom_minimum_size = Vector2(PANEL_WIDTH - 24, BODY_HEIGHT)
+	scroll.custom_minimum_size = Vector2(PANEL_WIDTH - 2.0 * MARGIN, BODY_HEIGHT)
 	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	_box.add_child(scroll)
 	var list := VBoxContainer.new()
@@ -241,15 +247,12 @@ func _fill_items(list: VBoxContainer, w: World) -> void:
 		by_cat[cat].append(id)
 	for cat in by_cat:
 		if cat != "":
-			list.add_child(_label(cat))
+			list.add_child(_wrapped(cat))
 		for id in by_cat[cat]:
 			var it: Dictionary = w.pack.items[id]
 			var row := _row(list)
-			var name := _label(str(it["name"]))
-			name.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-			name.custom_minimum_size.x = 0
-			row.add_child(name)
-			row.add_child(_label(s.t("money").replace("{n}", str(int(it["price"])))))
+			row.add_child(_name_label(str(it["name"])))
+			row.add_child(_price_label(s.t("money").replace("{n}", str(int(it["price"])))))
 			_button("buy:" + id, s.t("btn.buy"), row).disabled = w.money < int(it["price"])
 
 
@@ -258,7 +261,7 @@ func _fill_inventory(list: VBoxContainer, w: World) -> void:
 	var total := 0
 	for k in w.stock:
 		total += int(w.stock[k])
-	list.add_child(_label(s.t("stock").replace("{n}", str(total))))
+	list.add_child(_wrapped(s.t("stock").replace("{n}", str(total))))
 	var sel := w.person(main.selected)
 	var who := s.person_name(sel) if sel != null and sel.alive else ""
 	for id in w.pack.items:
@@ -266,10 +269,7 @@ func _fill_inventory(list: VBoxContainer, w: World) -> void:
 		if count <= 0:
 			continue
 		var row := _row(list)
-		var name := _label("%s × %d" % [str(w.pack.items[id]["name"]), count])
-		name.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		name.custom_minimum_size.x = 0
-		row.add_child(name)
+		row.add_child(_name_label("%s × %d" % [str(w.pack.items[id]["name"]), count]))
 		_button("use:" + id, s.t("btn.use_on").replace("{name}", who), row).disabled = who == ""
 
 
@@ -282,12 +282,12 @@ func _fill_goals(list: VBoxContainer, w: World) -> void:
 	for id in open_ids + done_ids:
 		var g: Dictionary = w.pack.goals[id]
 		var mark := DONE_MARK if id in done_ids else ""
-		list.add_child(_label("%s%s（%s）" % [mark, str(g["text"]), s.t("money").replace("{n}", str(int(g.get("reward", 0))))]))
+		list.add_child(_wrapped("%s%s（%s）" % [mark, str(g["text"]), s.t("money").replace("{n}", str(int(g.get("reward", 0))))]))
 
 
 func _fill_collection(list: VBoxContainer, w: World) -> void:
 	for id in w.pack.collectibles:
-		list.add_child(_label(str(w.pack.collectibles[id]["name"]) if w.collection.has(id) else UNKNOWN))
+		list.add_child(_name_label(str(w.pack.collectibles[id]["name"]) if w.collection.has(id) else UNKNOWN))
 
 
 func _fill_family(list: VBoxContainer, w: World) -> void:
@@ -298,14 +298,59 @@ func _fill_family(list: VBoxContainer, w: World) -> void:
 		if p.alive:
 			var b := _button("person:%d" % p.uid, "%s  %s  %s" % [s.person_name(p), s.person_line(p, w), s.status_line(p, w)], list)
 			b.alignment = HORIZONTAL_ALIGNMENT_LEFT
+			b.clip_text = true
+			b.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 
 
+## A single-line label at its natural width.
 func _label(t: String) -> Label:
 	var l := Label.new()
 	l.text = t
-	l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	l.custom_minimum_size.x = PANEL_WIDTH - 24
 	return l
+
+
+## A label that may wrap; it fills the width it gets and never asks for more than 100.
+func _wrapped(t: String) -> Label:
+	var l := _label(t)
+	l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	l.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	l.custom_minimum_size.x = 100.0
+	return l
+
+
+## The left, expanding cell of a row: one line, ellipsis when too long.
+func _name_label(t: String) -> Label:
+	var l := _label(t)
+	l.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	l.clip_text = true
+	l.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+	return l
+
+
+func _price_label(t: String) -> Label:
+	var l := _label(t)
+	l.custom_minimum_size.x = PRICE_WIDTH
+	l.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	return l
+
+
+## Every label that sits in a row beside other widgets; for layout tests.
+func row_labels() -> Array[Label]:
+	var out: Array[Label] = []
+	_row_labels(_box, out)
+	return out
+
+
+func _row_labels(n: Node, out: Array[Label]) -> void:
+	for c in n.get_children():
+		if c is Label and n is HBoxContainer:
+			out.append(c)
+		_row_labels(c, out)
+
+
+## The card's minimum size as the layout computes it; for layout tests.
+func card_size() -> Vector2:
+	return _card.get_combined_minimum_size()
 
 
 func _row(parent: Control) -> HBoxContainer:

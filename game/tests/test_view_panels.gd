@@ -216,3 +216,73 @@ func test_refresh_does_not_rebuild_when_unchanged():
 	m.panels.refresh()
 	assert_true(m.panels.button_node("buy:rice") != b)
 	m.free()
+
+
+func test_layout_fits_560_and_row_labels_are_safe():
+	var m := _living()
+	m.session.world.inventory["rice"] = 2
+	m.session.world.goals_done.append("tidy_home")
+	for step in [["shop", "tab.items"], ["shop", "tab.inventory"], ["ledger", "tab.goals"], ["ledger", "tab.collection"], ["family", ""]]:
+		m.panels.open(step[0])
+		if step[1] != "":
+			m.panels.press(step[1])
+		var size := m.panels.card_size()
+		assert_true(size.x <= 560.0, "%s width %s" % [step, size.x])
+		assert_true(size.y <= 520.0, "%s height %s" % [step, size.y])
+		for l in m.panels.row_labels():
+			assert_true(l.autowrap_mode == TextServer.AUTOWRAP_OFF or l.custom_minimum_size.x >= 100.0, "%s: %s" % [step, l.text])
+	m.panels.open("shop")
+	assert_true(m.panels.row_labels().size() >= 5)
+	m.free()
+
+
+func test_inventory_tab_refreshes_money_and_stock():
+	var m := _living()
+	var w := m.session.world
+	w.inventory["rice"] = 1
+	m.panels.open("shop")
+	m.panels.press("tab.inventory")
+	w.money = 4321
+	w.stock["food"] = 77
+	m.panels.refresh()
+	assert_true(m.panels.text().contains("4321"))
+	assert_true(m.panels.text().contains("77"))
+	m.free()
+
+
+func test_overlay_blocks_opening_and_closes_open_panel():
+	var m := _living()
+	for i in 16:
+		clk.unix += 60.0
+		m.tick(0.016)
+	m.panels.open("shop")
+	assert_eq(m.panels.opened(), "shop")
+	m.overlays.open_proposal()
+	m.tick(0.016)
+	assert_eq(m.overlays.current(), "proposal")
+	assert_eq(m.panels.opened(), "")
+	m.panels.open("family")
+	assert_eq(m.panels.opened(), "")
+	m.free()
+
+
+func test_panel_closes_when_game_leaves_living():
+	var m := _living()
+	m.panels.open("shop")
+	m.session.world.phase = "over"
+	m.panels.refresh()
+	assert_eq(m.panels.opened(), "")
+	m.free()
+
+
+func test_done_goals_sort_last():
+	var m := _living()
+	var w := m.session.world
+	var ids: Array = w.pack.goals.keys()
+	w.goals_done.append(ids[0])
+	m.panels.open("ledger")
+	var t := m.panels.text()
+	var first_done := t.find(str(w.pack.goals[ids[0]]["text"]))
+	var second := t.find(str(w.pack.goals[ids[1]]["text"]))
+	assert_true(first_done > second and second >= 0)
+	m.free()
