@@ -1,7 +1,7 @@
 [
 	{"id": "reading", "name": "读书", "levels": [
-		{"name": "蒙童", "daily_income": 72, "work_bonus_per_hour": 4, "progress_to_next": 480},
-		{"name": "童生", "daily_income": 144, "work_bonus_per_hour": 8, "progress_to_next": 1800},
+		{"name": "蒙童", "daily_income": 72, "work_bonus_per_hour": 4, "progress_to_next": 240},
+		{"name": "童生", "daily_income": 144, "work_bonus_per_hour": 8, "progress_to_next": 600},
 		{"name": "秀才", "daily_income": 288, "work_bonus_per_hour": 16, "progress_to_next": 0}
 	]}
 ]

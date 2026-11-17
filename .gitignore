@@ -3,3 +3,4 @@ game/.godot/
 .DS_Store
 *.tmp
 build/
+.cache/

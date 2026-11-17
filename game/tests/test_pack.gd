@@ -269,3 +269,12 @@ func test_qijia_praise_window_fits_the_fast_tempo():
 	assert_eq(q.cfg("praise_window_min"), 3)
 	assert_eq(q.cfg("praise_annoy_count"), 3)
 	assert_eq(Pack.load_dir("res://packs/_smoke").cfg("praise_window_min"), 10)
+
+func test_choice_pool_is_a_whole_number_from_one_to_thirty_two():
+	for bad in [0, 33, 2.5, "3"]:
+		assert_true(_has(_errs(func(p): p.config["choice_pool"] = bad), "pack.json:", "choice_pool"), str(bad))
+	for good in [1, 3, 32]:
+		assert_eq(_errs(func(p): p.config["choice_pool"] = good), [] as Array[String], str(good))
+	assert_eq(Pack.DEFAULT_CONFIG["choice_pool"], 3)
+	assert_eq(Pack.load_dir("res://packs/_smoke").cfg("choice_pool"), 3)
+

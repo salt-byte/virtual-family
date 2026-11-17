@@ -334,7 +334,7 @@ static func _choose(world: World, p: Person) -> void:
 	idx.sort_custom(func(i, j): return c[i].score > c[j].score or (c[i].score == c[j].score and i < j))
 	var top: Array = []
 	var weights: Array = []
-	for i in idx.slice(0, 3):
+	for i in idx.slice(0, int(world.pack.cfg("choice_pool"))):  # weighted pick among the best few
 		top.append(c[i])
 		weights.append(c[i].score)
 	var pick: Dictionary = world.rng.weighted_pick(top, weights)

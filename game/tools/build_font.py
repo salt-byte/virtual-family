@@ -1,6 +1,7 @@
 """只截取游戏用到的字，生成随游戏打包的小字体（网页版没有系统字体，不带字体中文会变成方块）。
 
-用法：python3 game/tools/build_font.py <NotoSansSC-Regular.otf 的路径>
+用法：python3 game/tools/build_font.py [NotoSansSC-Regular.otf 的路径]
+不给路径时用仓库根目录下 .cache/NotoSansSC-Regular.otf（不进 git）。
 来源字体：Noto Sans SC（SIL Open Font License 1.1），https://github.com/notofonts/noto-cjk
 改了主题包或界面文字后重新运行。
 """
@@ -23,7 +24,10 @@ for f in files:
         chars |= set(fh.read())
 text = "".join(sorted(c for c in chars if c.isprintable()))
 
-font = TTFont(sys.argv[1])
+src = sys.argv[1] if len(sys.argv) > 1 else os.path.join(os.path.dirname(ROOT), ".cache", "NotoSansSC-Regular.otf")
+if not os.path.exists(src):
+    sys.exit("找不到来源字体：" + src + "（从 notofonts/noto-cjk 下载 Sans/SubsetOTF/SC/NotoSansSC-Regular.otf）")
+font = TTFont(src)
 opts = subset.Options()
 opts.layout_features = ["*"]
 opts.name_IDs = ["*"]

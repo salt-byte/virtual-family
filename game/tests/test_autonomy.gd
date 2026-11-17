@@ -306,3 +306,38 @@ func test_slow_action_is_not_chosen_outside_its_hours():
 	assert_true(not AutonomySystem.candidates(w, p).any(func(c): return c.action == "sleep"))
 	w.set_time(w.now, 11 * 3600)   # 23:00
 	assert_true(AutonomySystem.candidates(w, p).any(func(c): return c.action == "sleep"))
+
+func test_choice_pool_of_one_always_takes_the_best_scoring_action():
+	for seed in [1, 2, 3, 4, 5, 6]:
+		var w := BalanceRun.setup("qijia", seed)
+		w.pack.config["choice_pool"] = 1
+		var p := w.people[0]
+		AutonomySystem.cancel(w, p)
+		var c := AutonomySystem.candidates(w, p)
+		assert_true(c.size() >= 2, "need a real choice")
+		var best: Dictionary = c[0]
+		for x in c:
+			if x.score > best.score:
+				best = x
+		AutonomySystem._choose(w, p)
+		assert_eq(str(p.current["action"]), str(best.action), "seed %d" % seed)
+
+func test_wider_choice_pool_reaches_actions_outside_the_top_three():
+	var seen := {}
+	for seed in 40:
+		var w := BalanceRun.setup("qijia", seed + 1)
+		w.pack.config["choice_pool"] = 32
+		var p := w.people[0]
+		AutonomySystem.cancel(w, p)
+		var c := AutonomySystem.candidates(w, p)
+		var order: Array = range(c.size())
+		order.sort_custom(func(i, j): return c[i].score > c[j].score or (c[i].score == c[j].score and i < j))
+		AutonomySystem._choose(w, p)
+		var rank := 0
+		for k in order.size():
+			if str(c[order[k]].action) == str(p.current["action"]):
+				rank = k
+		seen[rank] = true
+		assert_true(c.size() > 3, "need more than three candidates")
+	assert_true(seen.keys().any(func(r): return r >= 3), "ranks seen: " + str(seen.keys()))
+

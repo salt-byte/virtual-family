@@ -27,7 +27,7 @@ const DEFAULT_CONFIG := {
 	"start_objects": [],
 	"step_seconds": 60,
 	"action_speed": 1.0,
-	"repeat_memory": 1,
+	"repeat_memory": 1, "choice_pool": 3,
 }
 
 ## Per-file field defaults (applied to every entry that lacks the key).

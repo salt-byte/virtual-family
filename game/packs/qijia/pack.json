@@ -9,6 +9,7 @@
 	"action_speed": 30,
 	"repeat_memory": 8,
 	"repeat_factor": 0.1,
+	"choice_pool": 10,
 	"praise_window_min": 3,
 	"hours_per_year": 4,
 	"illness_daily_chance": 0.3,

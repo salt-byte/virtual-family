@@ -45,8 +45,8 @@ python3 -m http.server -d build/web 8060
 网页版没有系统字体，所以游戏自带一个小字体 `game/assets/fonts/ui.otf`：从 Noto Sans SC（SIL Open Font License 1.1，协议全文在同目录的 `OFL.txt`）里只截取了主题包和界面用到的字。改了主题包或界面文字后要重新生成，否则新字在网页版里是方块：
 
 ```
-python3 game/tools/build_font.py <NotoSansSC-Regular.otf 的路径>
+python3 game/tools/build_font.py
 ```
 
-来源字体从 https://github.com/notofonts/noto-cjk 下载（`Sans/SubsetOTF/SC/NotoSansSC-Regular.otf`）。
+来源字体放在仓库根目录的 `.cache/NotoSansSC-Regular.otf`（不进 git）；换了电脑要重新从 https://github.com/notofonts/noto-cjk 下载（`Sans/SubsetOTF/SC/NotoSansSC-Regular.otf`）。
 
