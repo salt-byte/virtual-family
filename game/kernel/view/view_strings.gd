@@ -13,7 +13,10 @@ const DEFAULTS := {
 	"title.adopt": "领养一位", "title.proposal": "有人提亲", "title.over": "这一家到此为止",
 	"title.away": "离开期间", "title.pack_error": "主题包有错", "title.load_error": "存档读不出来",
 	"tab.items": "货品", "tab.inventory": "家里存的", "tab.goals": "目标", "tab.collection": "收藏",
-	"tab.furniture": "家具",
+	"tab.furniture": "家具", "where.indoor": "屋里", "where.outdoor": "院里",
+	"btn.confirm": "确定", "btn.cancel": "取消",
+	"arrange.banner": "摆设中：点家具拿起，点目录里的东西买下，点灰色的房间加盖；右键或 Esc 放回原处",
+	"arrange.refund": "卖掉能回 {n}", "arrange.build": "加盖「{room}」，造价 {cost}，定了吗？",
 	"set.flip": "昼夜颠倒", "set.speed": "调试快进",
 	"error.busy": "那儿有人在用", "error.stage": "这个年纪做不了", "error.no_money": "钱不够",
 	"error.wrong_track": "这不是他的营生", "error.no_stock": "家里没存货了", "error.no_target": "没有可收拾的",
@@ -81,10 +84,11 @@ func _f(key: String, vars: Dictionary) -> String:
 	return t(key).format(vars)
 
 
-func error(code: String) -> String:
+## The text for a failure code; `vars` fills the {placeholders} some sentences have.
+func error(code: String, vars := {}) -> String:
 	var key := "error." + code
 	if _over.has(key) or DEFAULTS.has(key):
-		return t(key)
+		return t(key).format(vars)
 	return "%s（%s）" % [t("error.unknown"), code]
 
 

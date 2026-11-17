@@ -19,6 +19,7 @@ const CLICK_SLOP := 6.0
 signal person_clicked(uid: int)
 
 var drag: DragController
+var arrange: ArrangeMode
 ## The last `layout.pick` result under a dragged person; {} when nothing is dragged.
 var hover: Dictionary = {}
 ## Whether the left button is physically down; replaceable so tests can drive it.
@@ -32,6 +33,8 @@ var _press_uid := -1
 var _press_at := Vector2.ZERO
 var _last := Vector2.ZERO
 var _moved := false
+## Whether the current press belongs to arrange mode (a picked piece), not to panning.
+var _arranging := false
 
 
 static func night_amount(hour: float) -> float:
@@ -123,15 +126,38 @@ func set_hover(h: Dictionary) -> void:
 	queue_redraw()
 
 
+func _arrange_on() -> bool:
+	return arrange != null and arrange.active
+
+
 func press(screen: Vector2) -> void:
 	_pressed = true
 	_moved = false
 	_press_at = screen
 	_last = screen
+	if _arrange_on():
+		_press_uid = -1
+		_arranging = arrange.house_press(world_pos(screen))
+		return
 	_press_uid = person_at(world_pos(screen))
 
 
 func move(screen: Vector2, relative: Vector2) -> void:
+	if _arrange_on():
+		arrange.hover(world_pos(screen))
+		if not _pressed:
+			return
+		_last = screen
+		if not _moved:
+			if screen.distance_to(_press_at) <= CLICK_SLOP:
+				return
+			_moved = true
+			if not _arranging:
+				pan(screen - _press_at)
+				return
+		if not _arranging:
+			pan(relative)
+		return
 	if not _pressed:
 		return
 	_last = screen
@@ -154,6 +180,12 @@ func move(screen: Vector2, relative: Vector2) -> void:
 func release(screen: Vector2) -> void:
 	if not _pressed:
 		return
+	if _arrange_on():
+		arrange.house_release(world_pos(screen), _moved)
+		_pressed = false
+		_arranging = false
+		_moved = false
+		return
 	if _moved:
 		if drag != null and drag.dragging >= 0:
 			drag.drop(world_pos(screen))
@@ -172,12 +204,16 @@ func _unhandled_input(event: InputEvent) -> void:
 			press(event.position)
 		else:
 			release(event.position)
+	elif event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_RIGHT and event.pressed and _arrange_on():
+		arrange.cancel_held()
 	elif event is InputEventMouseMotion and _pressed:
 		if not button_down.call():
 			# The release went to a HUD control; finish where the pointer last was.
 			release(_last)
 		else:
 			move(event.position, event.relative)
+	elif event is InputEventMouseMotion and _arrange_on():
+		arrange.hover(world_pos(event.position))
 
 
 func _draw() -> void:
@@ -202,17 +238,33 @@ func _draw() -> void:
 			var cost := session.strings.t("money").replace("{n}", str(int(r.get("build_cost", 0))))
 			draw_string(font, rect.position + Vector2(0, rect.size.y * 0.5 - 6), str(r.name), HORIZONTAL_ALIGNMENT_CENTER, rect.size.x, 18, Color(0.95, 0.95, 0.95))
 			draw_string(font, rect.position + Vector2(0, rect.size.y * 0.5 + 14), cost, HORIZONTAL_ALIGNMENT_CENTER, rect.size.x, 14, Color(0.9, 0.85, 0.6))
+	var lifted := arrange.held_uid if _arrange_on() else -1
 	for o in w.objects:
 		var t: Dictionary = w.pack.object_types.get(str(o.type), {})
 		var rect := layout.object_rect(o, w.pack)
 		var hue := float(hash(str(t.get("category", ""))) % 360) / 360.0
-		draw_rect(rect.grow(-2), Color.from_hsv(hue, 0.4, 0.82))
+		var faded := 0.35 if int(o.uid) == lifted else 1.0
+		draw_rect(rect.grow(-2), Color.from_hsv(hue, 0.4, 0.82, faded))
 		draw_string(font, rect.position + Vector2(0, rect.size.y * 0.5 + 4), str(t.get("name", "")), HORIZONTAL_ALIGNMENT_CENTER, rect.size.x, 12, Color(0.15, 0.15, 0.15))
 	for m in w.messes:
 		draw_rect(Rect2(layout.cell_center(str(m.room), int(m.x), int(m.y)) - Vector2(8, 6), Vector2(16, 12)), Color(0.45, 0.3, 0.18))
 	for c in w.collectibles:
 		draw_rect(Rect2(layout.cell_center(str(c.room), int(c.x), int(c.y)) - Vector2(6, 6), Vector2(12, 12)), Color(0.95, 0.8, 0.2))
 	_draw_hover(w)
+	_draw_ghost(w)
+
+
+## The piece in hand under the pointer: green where it can go, red where it cannot.
+func _draw_ghost(w: World) -> void:
+	if not _arrange_on():
+		return
+	var g := arrange.ghost()
+	if g.is_empty():
+		return
+	var rect := Rect2(layout.cell_to_pos(str(g.room), int(g.x), int(g.y)), Vector2(int(g.w), int(g.h)) * HouseLayout.CELL)
+	var color := Color(0.3, 0.85, 0.35) if g.ok else Color(0.9, 0.25, 0.25)
+	draw_rect(rect.grow(-2), Color(color, 0.45))
+	draw_rect(rect.grow(-2), color, false, 2.0)
 
 
 func _draw_hover(w: World) -> void:

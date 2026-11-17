@@ -8,7 +8,6 @@ const LAYER := 5
 const PANEL_WIDTH := 560.0
 const BODY_HEIGHT := 340.0
 const MARGIN := 24.0
-const PRICE_WIDTH := 80.0
 const DONE_MARK := "✓ "
 const UNKNOWN := "？"
 
@@ -45,11 +44,7 @@ func setup(m: Main) -> void:
 	var panel := PanelContainer.new()
 	_card = panel
 	panel.custom_minimum_size.x = PANEL_WIDTH
-	var card := StyleBoxFlat.new()
-	card.bg_color = Color(0.13, 0.12, 0.11, 1.0)
-	card.set_corner_radius_all(8)
-	card.set_content_margin_all(MARGIN)
-	panel.add_theme_stylebox_override("panel", card)
+	panel.add_theme_stylebox_override("panel", ViewWidgets.card_style(MARGIN))
 	center.add_child(panel)
 	_box = VBoxContainer.new()
 	_box.add_theme_constant_override("separation", 8)
@@ -201,14 +196,14 @@ func _rebuild() -> void:
 	var w := session.world
 	var head := HBoxContainer.new()
 	_box.add_child(head)
-	var title := _label(s.t("btn." + _kind))
+	var title := ViewWidgets.label(s.t("btn." + _kind))
 	title.add_theme_font_size_override("font_size", 22)
 	head.add_child(title)
 	var gap := Control.new()
 	gap.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	head.add_child(gap)
 	if _kind == "shop":
-		head.add_child(_label(s.t("money").replace("{n}", str(w.money))))
+		head.add_child(ViewWidgets.label(s.t("money").replace("{n}", str(w.money))))
 	_button("btn.close", s.t("btn.close"), head)
 	var tabs := _tabs()
 	if not tabs.is_empty():
@@ -247,12 +242,12 @@ func _fill_items(list: VBoxContainer, w: World) -> void:
 		by_cat[cat].append(id)
 	for cat in by_cat:
 		if cat != "":
-			list.add_child(_wrapped(cat))
+			list.add_child(ViewWidgets.wrapped(cat))
 		for id in by_cat[cat]:
 			var it: Dictionary = w.pack.items[id]
-			var row := _row(list)
-			row.add_child(_name_label(str(it["name"])))
-			row.add_child(_price_label(s.t("money").replace("{n}", str(int(it["price"])))))
+			var row := ViewWidgets.row(list)
+			row.add_child(ViewWidgets.name_label(str(it["name"])))
+			row.add_child(ViewWidgets.price_label(s.t("money").replace("{n}", str(int(it["price"])))))
 			_button("buy:" + id, s.t("btn.buy"), row).disabled = w.money < int(it["price"])
 
 
@@ -261,15 +256,15 @@ func _fill_inventory(list: VBoxContainer, w: World) -> void:
 	var total := 0
 	for k in w.stock:
 		total += int(w.stock[k])
-	list.add_child(_wrapped(s.t("stock").replace("{n}", str(total))))
+	list.add_child(ViewWidgets.wrapped(s.t("stock").replace("{n}", str(total))))
 	var sel := w.person(main.selected)
 	var who := s.person_name(sel) if sel != null and sel.alive else ""
 	for id in w.pack.items:
 		var count := int(w.inventory.get(id, 0))
 		if count <= 0:
 			continue
-		var row := _row(list)
-		row.add_child(_name_label("%s × %d" % [str(w.pack.items[id]["name"]), count]))
+		var row := ViewWidgets.row(list)
+		row.add_child(ViewWidgets.name_label("%s × %d" % [str(w.pack.items[id]["name"]), count]))
 		_button("use:" + id, s.t("btn.use_on").replace("{name}", who), row).disabled = who == ""
 
 
@@ -282,12 +277,12 @@ func _fill_goals(list: VBoxContainer, w: World) -> void:
 	for id in open_ids + done_ids:
 		var g: Dictionary = w.pack.goals[id]
 		var mark := DONE_MARK if id in done_ids else ""
-		list.add_child(_wrapped("%s%s（%s）" % [mark, str(g["text"]), s.t("money").replace("{n}", str(int(g.get("reward", 0))))]))
+		list.add_child(ViewWidgets.wrapped("%s%s（%s）" % [mark, str(g["text"]), s.t("money").replace("{n}", str(int(g.get("reward", 0))))]))
 
 
 func _fill_collection(list: VBoxContainer, w: World) -> void:
 	for id in w.pack.collectibles:
-		list.add_child(_name_label(str(w.pack.collectibles[id]["name"]) if w.collection.has(id) else UNKNOWN))
+		list.add_child(ViewWidgets.name_label(str(w.pack.collectibles[id]["name"]) if w.collection.has(id) else UNKNOWN))
 
 
 func _fill_family(list: VBoxContainer, w: World) -> void:
@@ -300,38 +295,6 @@ func _fill_family(list: VBoxContainer, w: World) -> void:
 			b.alignment = HORIZONTAL_ALIGNMENT_LEFT
 			b.clip_text = true
 			b.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
-
-
-## A single-line label at its natural width.
-func _label(t: String) -> Label:
-	var l := Label.new()
-	l.text = t
-	return l
-
-
-## A label that may wrap; it fills the width it gets and never asks for more than 100.
-func _wrapped(t: String) -> Label:
-	var l := _label(t)
-	l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	l.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	l.custom_minimum_size.x = 100.0
-	return l
-
-
-## The left, expanding cell of a row: one line, ellipsis when too long.
-func _name_label(t: String) -> Label:
-	var l := _label(t)
-	l.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	l.clip_text = true
-	l.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
-	return l
-
-
-func _price_label(t: String) -> Label:
-	var l := _label(t)
-	l.custom_minimum_size.x = PRICE_WIDTH
-	l.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
-	return l
 
 
 ## Every label that sits in a row beside other widgets; for layout tests.
@@ -351,13 +314,6 @@ func _row_labels(n: Node, out: Array[Label]) -> void:
 ## The card's minimum size as the layout computes it; for layout tests.
 func card_size() -> Vector2:
 	return _card.get_combined_minimum_size()
-
-
-func _row(parent: Control) -> HBoxContainer:
-	var r := HBoxContainer.new()
-	r.add_theme_constant_override("separation", 10)
-	parent.add_child(r)
-	return r
 
 
 func _button(id: String, label: String, parent: Control) -> Button:

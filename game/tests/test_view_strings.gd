@@ -141,3 +141,9 @@ func test_broken_ui_json_records_error_and_uses_defaults():
 	var s := ViewStrings.new(Pack.load_dir("res://tests/fixtures/bad_ui_pack"), "res://tests/fixtures/bad_ui_pack/ui.json")
 	assert_true(s.errors.size() == 1, str(s.errors))
 	assert_eq(s.t("btn.shop"), "商店")
+
+func test_error_fills_placeholders():
+	var s := ViewStrings.new(Pack.load_dir("res://packs/_smoke"))
+	assert_eq(s.error("wrong_area", {"where": s.t("where.outdoor")}), "这东西得放在院里")
+	assert_eq(s.error("busy", {"where": "x"}), "那儿有人在用")
+	assert_eq(s.t("where.indoor"), "屋里")
