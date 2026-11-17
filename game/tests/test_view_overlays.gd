@@ -204,3 +204,13 @@ func test_game_over_then_new_game_returns_to_adopt_keeping_money():
 	assert_eq(m.overlays.current(), "adopt")
 	assert_eq(m.session.world.money, 777)
 	m.free()
+
+
+func test_card_is_opaque_and_padded():
+	var m := _main()
+	m.tick(0.016)
+	var st := m.overlays.card_style()
+	assert_eq(st.bg_color.a, 1.0)
+	assert_true(st.content_margin_left >= 16 and st.content_margin_top >= 16)
+	assert_true(st.content_margin_right >= 16 and st.content_margin_bottom >= 16)
+	m.free()

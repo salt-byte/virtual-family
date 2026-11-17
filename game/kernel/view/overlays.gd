@@ -11,6 +11,7 @@ var main: Main
 var session: GameSession
 
 var _root: Control
+var _card: StyleBoxFlat
 var _box: VBoxContainer
 var _buttons: Dictionary = {}  # key -> Button
 var _current := ""
@@ -39,9 +40,14 @@ func setup(m: Main) -> void:
 	_root.add_child(center)
 	var panel := PanelContainer.new()
 	panel.custom_minimum_size.x = PANEL_WIDTH
+	_card = StyleBoxFlat.new()
+	_card.bg_color = Color(0.13, 0.12, 0.11, 1.0)
+	_card.set_corner_radius_all(8)
+	_card.set_content_margin_all(24)
+	panel.add_theme_stylebox_override("panel", _card)
 	center.add_child(panel)
 	_box = VBoxContainer.new()
-	_box.add_theme_constant_override("separation", 10)
+	_box.add_theme_constant_override("separation", 8)
 	panel.add_child(_box)
 	session.away.connect(func(summary: Dictionary): _away = summary)
 	refresh()
@@ -50,6 +56,11 @@ func setup(m: Main) -> void:
 ## One of "", "pack_error", "load_error", "adopt", "over", "away", "proposal".
 func current() -> String:
 	return _current
+
+
+## The card's panel style; for tests.
+func card_style() -> StyleBoxFlat:
+	return _card
 
 
 ## True while an overlay covers the house.
@@ -218,13 +229,13 @@ func _label(t: String) -> Label:
 	var l := Label.new()
 	l.text = t
 	l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	l.custom_minimum_size.x = PANEL_WIDTH - 24
+	l.custom_minimum_size.x = PANEL_WIDTH - 48
 	return l
 
 
 func _row() -> HBoxContainer:
 	var r := HBoxContainer.new()
-	r.add_theme_constant_override("separation", 10)
+	r.add_theme_constant_override("separation", 8)
 	_box.add_child(r)
 	return r
 
