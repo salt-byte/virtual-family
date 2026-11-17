@@ -133,3 +133,19 @@ func test_export_preset_includes_json():
 			assert_eq(cfg.get_value(sec, "name"), "Web")
 			assert_true(str(cfg.get_value(sec, "include_filter")).contains("*.json"))
 	assert_true(found)
+
+
+func test_clock_updates_in_place_without_rebuilding_buttons():
+	var m := _living()
+	m.settings.open()
+	var b: Button = m.settings.button("speed:60")
+	var before: String = m.settings.text()
+	for i in 5:
+		clk["unix"] = float(clk["unix"]) + 60.0
+		m.tick(0.016)
+	assert_true(m.settings.opened())
+	assert_true(m.settings.text() != before)
+	assert_true(m.settings.text().contains("12:05"))
+	assert_true(is_instance_valid(b) and b.get_parent() != null and not b.is_queued_for_deletion())
+	assert_true(m.settings.button("speed:60") == b)
+	m.free()

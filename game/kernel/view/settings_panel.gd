@@ -14,6 +14,7 @@ var session: GameSession
 var _root: Control
 var _box: VBoxContainer
 var _marker: Label
+var _clock: Label
 var _buttons: Dictionary = {}  # id -> Button
 var _open := false
 var _signature := ""
@@ -107,6 +108,10 @@ func _collect(n: Node, out: Array[String]) -> void:
 		_collect(c, out)
 
 
+func button(id: String) -> Button:
+	return _buttons.get(id)
+
+
 func has_button(id: String) -> bool:
 	return _buttons.has(id)
 
@@ -134,11 +139,13 @@ func refresh() -> void:
 	if main.overlays.current() != "":
 		close()
 		return
-	var sig := "%s|%s|%s" % [session.settings.flip_day_night, session.settings.speed, _clock_text()]
-	if sig == _signature:
-		return
-	_signature = sig
-	_rebuild()
+	var clock := _clock_text()
+	var sig := "%s|%s|%s" % [session.settings.flip_day_night, session.settings.speed, clock != ""]
+	if sig != _signature:
+		_signature = sig
+		_rebuild()
+	elif _clock != null:
+		_clock.text = session.strings.t("set.clock").replace("{t}", clock)
 
 
 ## "HH:MM" of the in-game time; empty without a living world.
@@ -155,6 +162,7 @@ func _rebuild() -> void:
 		_box.remove_child(c)
 		c.queue_free()
 	_buttons.clear()
+	_clock = null
 	_root.visible = _open
 	if not _open:
 		return
@@ -170,7 +178,8 @@ func _rebuild() -> void:
 	_button("btn.close", s.t("btn.close"), head)
 	var clock := _clock_text()
 	if clock != "":
-		_box.add_child(ViewWidgets.label(s.t("set.clock").replace("{t}", clock)))
+		_clock = ViewWidgets.label(s.t("set.clock").replace("{t}", clock))
+		_box.add_child(_clock)
 	var flip := CheckButton.new()
 	flip.text = s.t("set.flip")
 	flip.set_pressed_no_signal(bool(session.settings.flip_day_night))
