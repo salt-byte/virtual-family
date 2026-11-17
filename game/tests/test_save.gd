@@ -1,0 +1,133 @@
+extends TestCase
+const P := "user://test_save.json"
+const SMOKE := "res://packs/_smoke"
+
+func _played() -> World:
+	var w := World.new(Pack.load_dir(SMOKE), 9); w.set_time(1767268800, 0)
+	w.command({type = "adopt"}); w.money = 2000
+	w.command({type = "place", object_type = "fridge", room = "main", x = 0, y = 0})
+	w.command({type = "buy", item = "groceries", qty = 2}); w.offline = true; w.advance(5 * 3600); w.offline = false
+	w.drain_events(); return w
+
+## Pending proposal, a sick person, a mess, a collectible and someone mid-action.
+func _busy() -> World:
+	var w := _played()
+	w.offline = true; w.advance(16 * 60); w.offline = false
+	CollectibleSystem.spawn(w)
+	MessSystem.spawn(w, w.pack.mess_types.keys()[0])
+	w.people[0].illness = str(w.pack.illnesses.keys()[0])
+	var guard := 0
+	while w.people[0].current.is_empty() and guard < 600:
+		w.advance(60); guard += 1
+	w.drain_events(); return w
+
+func _through_json(d: Dictionary) -> Dictionary:
+	var j := JSON.new()
+	assert_eq(j.parse(JSON.stringify(d)), OK)
+	return j.data
+
+func _write(text: String) -> void:
+	var f := FileAccess.open(P, FileAccess.WRITE); f.store_string(text); f.close()
+
+func _cleanup() -> void:
+	for p in [P, P + ".tmp"]:
+		if FileAccess.file_exists(p):
+			DirAccess.remove_absolute(p)
+
+func test_roundtrip_identical():
+	var w := _played(); var r := World.from_dict(w.pack, w.to_dict()); assert_eq(r.to_dict(), w.to_dict())
+func test_json_roundtrip_identical_types():
+	for w in [_played(), _busy()]:
+		var r := World.from_dict(w.pack, _through_json(w.to_dict()))
+		assert_true(r != null); assert_eq(r.to_dict(), w.to_dict())
+func test_busy_world_has_the_interesting_state():
+	var w := _busy()
+	assert_eq(w.proposals.size(), 1); assert_true(w.people[0].illness != "")
+	assert_eq(w.messes.size() >= 1, true); assert_true(w.collectibles.size() >= 1)
+	assert_true(not w.people[0].current.is_empty())
+func test_loaded_world_continues_identically():
+	var a := _played(); var b := World.from_dict(a.pack, a.to_dict())
+	a.advance(3 * 3600); b.advance(3 * 3600); assert_eq(a.to_dict(), b.to_dict())
+func test_loaded_through_file_continues_identically():
+	for make in [Callable(self, "_played"), Callable(self, "_busy")]:
+		var a: World = make.call()
+		assert_true(SaveStore.save(a, P))
+		var b: World = SaveStore.load(a.pack, P).world
+		_cleanup()
+		assert_true(b != null)
+		for i in 3:
+			var cmds := [{type = "buy", item = "groceries", qty = 1}, {type = "praise", person = a.people[0].uid}]
+			for c in cmds:
+				a.command(c.duplicate()); b.command(c.duplicate())
+			a.advance(2 * 3600 + 17); b.advance(2 * 3600 + 17)
+			assert_eq(a.to_dict(), b.to_dict())
+		var pr: Array = a.proposals
+		if not pr.is_empty():
+			var c := {type = "answer_proposal", id = pr[0].id, accept = true}
+			assert_eq(a.command(c.duplicate()).ok, b.command(c.duplicate()).ok)
+			a.advance(3600); b.advance(3600); assert_eq(a.to_dict(), b.to_dict())
+func test_loaded_world_is_not_offline_and_has_no_events():
+	var w := _played(); w.offline = true; w.emit("x")
+	var r := World.from_dict(w.pack, w.to_dict()); assert_true(not r.offline); assert_eq(r.drain_events().size(), 0)
+func test_to_dict_is_a_deep_copy():
+	var w := _busy(); var d := w.to_dict(); var before := w.to_dict()
+	d["money"] = 1; d["people"][0]["needs"]["fed"] = -5.0; d["objects"][0]["x"] = 99; d["proposals"].clear()
+	assert_eq(w.to_dict(), before)
+	var r := World.from_dict(w.pack, before); before["objects"][0]["x"] = 77; before["people"].clear()
+	assert_eq(r.to_dict(), w.to_dict())
+func test_file_roundtrip():
+	var w := _played(); assert_true(SaveStore.save(w, P))
+	var r := SaveStore.load(w.pack, P); assert_eq(r.error, ""); assert_eq(r.world.to_dict(), w.to_dict())
+	assert_true(not FileAccess.file_exists(P + ".tmp")); _cleanup()
+func test_missing_file():
+	assert_eq(SaveStore.load(Pack.load_dir(SMOKE), "user://nope.json").error, "missing")
+func test_corrupt_file_reported_and_left_alone():
+	_write("{not json")
+	assert_eq(SaveStore.load(Pack.load_dir(SMOKE), P).error, "corrupt")
+	assert_eq(FileAccess.get_file_as_string(P), "{not json"); _cleanup()
+func test_unknown_version():
+	var w := _played(); var d := w.to_dict(); d["version"] = 999
+	_write(JSON.stringify(d))
+	assert_eq(SaveStore.load(w.pack, P).error, "version"); _cleanup()
+func test_pack_mismatch():
+	var w := _played(); var d := w.to_dict(); d["pack_id"] = "other"
+	_write(JSON.stringify(d))
+	assert_eq(SaveStore.load(w.pack, P).error, "pack_mismatch"); _cleanup()
+func test_valid_json_wrong_shape_is_corrupt():
+	_write("[1,2,3]"); assert_eq(SaveStore.load(Pack.load_dir(SMOKE), P).error, "corrupt")
+	var d := _played().to_dict(); d.erase("money"); _write(JSON.stringify(d))
+	assert_eq(SaveStore.load(Pack.load_dir(SMOKE), P).error, "corrupt"); _cleanup()
+func test_load_does_not_touch_file():
+	var w := _played(); SaveStore.save(w, P); var before := FileAccess.get_file_as_string(P)
+	SaveStore.load(w.pack, P); assert_eq(FileAccess.get_file_as_string(P), before); _cleanup()
+func test_from_dict_rejects_bad_input_with_null():
+	var w := _busy(); var good := w.to_dict()
+	var bad: Array[Dictionary] = []
+	for k in good.keys():
+		var d := good.duplicate(true); d.erase(k); bad.append(d)
+	var d1 := good.duplicate(true); d1["version"] = 2; bad.append(d1)
+	var d2 := good.duplicate(true); d2["pack_id"] = "zzz"; bad.append(d2)
+	var d3 := good.duplicate(true); d3["people"] = {}; bad.append(d3)
+	var d4 := good.duplicate(true); d4["money"] = "lots"; bad.append(d4)
+	var d5 := good.duplicate(true); d5["people"][0].erase("needs"); bad.append(d5)
+	var d6 := good.duplicate(true); d6["objects"][0]["x"] = "a"; bad.append(d6)
+	var d7 := good.duplicate(true); d7["rng"] = {}; bad.append(d7)
+	var d8 := good.duplicate(true); d8["phase"] = "dancing"; bad.append(d8)
+	var d9 := good.duplicate(true); d9["stock"] = []; bad.append(d9)
+	var d10 := good.duplicate(true); d10["proposals"][0]["person"] = 3; bad.append(d10)
+	for d in bad:
+		assert_true(World.from_dict(w.pack, d) == null)
+func test_save_failure_leaves_existing_file_untouched():
+	var w := _played(); assert_true(SaveStore.save(w, P)); var before := FileAccess.get_file_as_string(P)
+	assert_true(not SaveStore.save(w, "user://no_such_dir/x.json"))
+	assert_eq(FileAccess.get_file_as_string(P), before); _cleanup()
+func test_save_overwrites_existing():
+	var w := _played(); _write("old"); assert_true(SaveStore.save(w, P))
+	assert_eq(SaveStore.load(w.pack, P).error, ""); _cleanup()
+func test_missing_room_in_placed_entries_is_rejected():
+	var w := _busy(); var d := w.to_dict(); d["objects"][0].erase("room")
+	assert_true(World.from_dict(w.pack, d) == null)
+	var d2 := w.to_dict(); d2["messes"][0].erase("room"); assert_true(World.from_dict(w.pack, d2) == null)
+func test_malformed_float_marker_is_rejected():
+	var w := _played(); var d := w.to_dict(); d["people"][0]["age"] = {"$f": "abc"}
+	assert_true(World.from_dict(w.pack, d) == null)
