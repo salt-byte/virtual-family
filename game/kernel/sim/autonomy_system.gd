@@ -25,7 +25,7 @@ static func candidates(world: World, p: Person) -> Array[Dictionary]:
 		var s := _score(world, p, world.pack.actions[id])
 		if s > 0.0:
 			var a: Dictionary = world.pack.actions[id]
-			var target := MessSystem.first_free(world, str(a["cleans"]), p) if str(a["cleans"]) != "" else -1
+			var target := _first_free_target(world, a, p)
 			out.append({"action": id, "object_uid": _free_object(world, p, a, -1), "target_uid": target, "score": s})
 	return out
 
@@ -54,24 +54,43 @@ static func can_do(world: World, p: Person, action_id: String, object_uid: int) 
 		return "wrong_track"
 	if not _requires_ok(p, a["requires"]):
 		return "requires"
-	if str(a["cleans"]) != "" and MessSystem.first_free(world, str(a["cleans"]), p) < 0:
+	if target_kind(a) != "" and _first_free_target(world, a, p) < 0:
 		return "no_target"
-	if bool(a["picks"]):
-		return "no_target"  # a later task looks for a collectible here
 	for item in a["consumes"]:
 		if int(world.stock.get(item, 0)) < int(a["consumes"][item]):
 			return "no_stock"
 	return ""
 
 
+## What an action aims at: "mess" (`cleans`), "collectible" (`picks`) or "" (nothing).
+## An action has at most one target kind.
+static func target_kind(a: Dictionary) -> String:
+	if str(a["cleans"]) != "":
+		return "mess"
+	if bool(a["picks"]):
+		return "collectible"
+	return ""
+
+
+## True when a living person other than `except` is going for target `uid` with an action
+## of this `kind`.
+static func target_claimed(world: World, uid: int, kind: String, except: Person) -> bool:
+	for q in world.people:
+		if q == except or not q.alive or q.current.is_empty():
+			continue
+		if int(q.current.get("target_uid", -1)) == uid and target_kind(world.pack.actions[q.current["action"]]) == kind:
+			return true
+	return false
+
+
 ## Starts an action (no checks: callers use `can_do` first). Replaces whatever `p` was doing.
 ## Resolves the action's object (any free one when `object_uid` is -1) and, for a cleaning
-## action without an explicit `target_uid`, the first unclaimed mess of its type.
+## or picking action without an explicit `target_uid`, the first unclaimed target.
 static func start(world: World, p: Person, action_id: String, object_uid: int, target_uid := -1) -> void:
 	cancel(world, p)
 	var a: Dictionary = world.pack.actions[action_id]
-	if str(a["cleans"]) != "" and target_uid < 0:
-		target_uid = MessSystem.first_free(world, str(a["cleans"]), p)
+	if target_uid < 0:
+		target_uid = _first_free_target(world, a, p)
 	var uid := _free_object(world, p, a, object_uid) if str(a["object"]) != "" else -1
 	for item in a["consumes"]:
 		world.stock[item] = int(world.stock.get(item, 0)) - int(a["consumes"][item])
@@ -102,10 +121,11 @@ static func _progress(world: World, p: Person, dt: float) -> void:
 ## Runs once when an action's time is up.
 static func _finish(world: World, p: Person) -> void:
 	var id := str(p.current["action"])
-	# Later tasks settle `picks` here, before `current` is cleared.
 	var action: Dictionary = world.pack.actions[id]
 	if str(action["cleans"]) != "":
 		MessSystem.clean(world, int(p.current.get("target_uid", -1)))
+	if bool(action["picks"]):
+		CollectibleSystem.collect(world, p, int(p.current.get("target_uid", -1)))
 	var mess: Dictionary = action["mess"]
 	if not mess.is_empty() and world.rng.chance(float(mess.get("chance", 0.0))):
 		var room := str(world.object(int(p.current.get("object_uid", -1))).get("room", ""))
@@ -116,6 +136,16 @@ static func _finish(world: World, p: Person) -> void:
 	p.last_action = id
 	p.last_action_t = world.now
 	world.emit("action_finished", {"uid": p.uid, "action": id})
+
+
+## First unclaimed target for the action's kind (-1 when it has none or none is free).
+static func _first_free_target(world: World, a: Dictionary, p: Person) -> int:
+	match target_kind(a):
+		"mess":
+			return MessSystem.first_free(world, str(a["cleans"]), p)
+		"collectible":
+			return CollectibleSystem.first_free(world, p)
+	return -1
 
 
 static func _choose(world: World, p: Person) -> void:

@@ -55,12 +55,7 @@ static func find(world: World, uid: int) -> Dictionary:
 
 ## True when a living person other than `except` is on their way to / cleaning this mess.
 static func claimed_by_other(world: World, uid: int, except: Person) -> bool:
-	for q in world.people:
-		if q == except or not q.alive or q.current.is_empty():
-			continue
-		if int(q.current.get("target_uid", -1)) == uid and str(world.pack.actions[q.current["action"]]["cleans"]) != "":
-			return true
-	return false
+	return AutonomySystem.target_claimed(world, uid, "mess", except)
 
 
 ## First mess of `type` (stable order) that nobody but `p` has claimed, else -1.

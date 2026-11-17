@@ -46,6 +46,8 @@ static func _try_drag(world: World, cmd: Dictionary) -> Dictionary:
 		return fail("no_person")
 	if cmd.has("mess"):
 		return _drag_to_mess(world, p, int(cmd["mess"]))
+	if cmd.has("collectible"):
+		return _drag_to_collectible(world, p, int(cmd["collectible"]))
 	var object_uid := int(cmd.get("object", -1))
 	var o := world.object(object_uid)
 	if o.is_empty():
@@ -86,6 +88,24 @@ static func _drag_to_mess(world: World, p: Person, mess_uid: int) -> Dictionary:
 		var why := AutonomySystem.can_do(world, p, id, -1)
 		if why == "":
 			AutonomySystem.start(world, p, id, -1, mess_uid)
+			return success({"action": id})
+		if first_reason == "no_action":
+			first_reason = why
+	return fail(first_reason)
+
+
+static func _drag_to_collectible(world: World, p: Person, uid: int) -> Dictionary:
+	if CollectibleSystem.find(world, uid).is_empty():
+		return fail("no_target")
+	if CollectibleSystem.claimed_by_other(world, uid, p):
+		return fail("busy")
+	var first_reason := "no_action"
+	for id in world.pack.actions:
+		if not bool(world.pack.actions[id]["picks"]):
+			continue
+		var why := AutonomySystem.can_do(world, p, id, -1)
+		if why == "":
+			AutonomySystem.start(world, p, id, -1, uid)
 			return success({"action": id})
 		if first_reason == "no_action":
 			first_reason = why

@@ -30,6 +30,15 @@ var rooms_built: Array[String] = []
 ## Counters that goals read: cured, collected, mess_cleaned, all_clean.
 var stats: Dictionary = {"cured": 0, "collected": 0, "mess_cleaned": 0, "all_clean": 0}
 
+## Loose pick-ups outdoors: {uid, type, x, y, expires_at}.
+var collectibles: Array[Dictionary] = []
+## Collectible type -> how many of it have ever been picked up.
+var collection: Dictionary = {}
+## Ids of goals already rewarded.
+var goals_done: Array[String] = []
+## True once two living people are married (a later task sets it).
+var married := false
+
 var _acc := 0.0
 var _next_uid := 1
 var _events: Array = []
@@ -149,3 +158,5 @@ func _run_systems(dt: float) -> void:
 	MessSystem.step(self, dt)
 	AutonomySystem.step(self, dt)
 	EconomySystem.step(self, dt)
+	CollectibleSystem.step(self, dt)
+	GoalSystem.step(self, dt)
