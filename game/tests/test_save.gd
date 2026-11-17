@@ -185,3 +185,11 @@ func test_save_naming_removed_pack_content_is_pack_changed():
 	var added := Pack.load_dir(SMOKE); added.needs["extra_need"] = added.needs.values()[0].duplicate()
 	assert_eq(SaveStore.load(added, P).error, "pack_changed", "pack gained a need")
 	_cleanup()
+func test_acc_must_be_a_partial_step_of_the_packs_step_length():
+	var w := _played()
+	for acc in [-1.0, 60.0, 61.0]:
+		w._acc = acc; assert_true(World.from_dict(w.pack, w.to_dict()) == null, str(acc))
+	w._acc = 59.5; assert_true(World.from_dict(w.pack, w.to_dict()) != null)
+	var q: World = BalanceRun.setup("qijia", 3)
+	q._acc = 5.0; assert_true(World.from_dict(q.pack, q.to_dict()) == null)
+	q._acc = 4.5; assert_true(World.from_dict(q.pack, q.to_dict()) != null)

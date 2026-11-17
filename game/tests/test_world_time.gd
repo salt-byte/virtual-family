@@ -50,3 +50,20 @@ func test_person_round_trips_through_json():
 	assert_eq(typeof(back.uid), TYPE_INT); assert_eq(typeof(back.level), TYPE_INT)
 	assert_eq(typeof(back.praise_times[0]), TYPE_INT); assert_eq(typeof(back.last_action_t), TYPE_INT)
 	assert_eq(typeof(back.current["remaining_s"]), TYPE_INT); assert_eq(typeof(back.current["object_uid"]), TYPE_INT)
+func test_step_seconds_comes_from_the_pack():
+	var w := TestKit.world()                       # _smoke，默认 60
+	assert_eq(w.step_s, 60)
+	var q := TestKit.world("qijia")
+	assert_eq(q.step_s, 5)
+	var t0 := q.now
+	q.advance(12.0)
+	assert_eq(q.now, t0 + 10)                      # 两步，余 2 秒留在累加器
+
+func test_hourly_salary_is_paid_once_per_hour_at_small_steps():
+	var w := TestKit.world("qijia")
+	var p := TestKit.adult(w)
+	p.track = w.pack.livelihoods.keys()[0]
+	w.drain_events()
+	w.advance(3 * 3600.0)
+	var pays := w.drain_events().filter(func(e): return e.type == "income" and e.get("source", "") == "salary")
+	assert_eq(pays.size(), 3)

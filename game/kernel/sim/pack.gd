@@ -25,6 +25,7 @@ const DEFAULT_CONFIG := {
 	"illness_daily_chance": 0.15, "collectible_interval_min": 20, "collectible_max": 3,
 	"collectible_ttl_min": 60, "sell_back_ratio": 0.5, "repeat_factor": 0.3,
 	"start_objects": [],
+	"step_seconds": 60,
 }
 
 ## Per-file field defaults (applied to every entry that lacks the key).

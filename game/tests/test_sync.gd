@@ -54,7 +54,7 @@ func test_salary_arrives_with_sync_calls_seconds_apart():
 		if w.drain_events().any(func(e): return e.type == "income" and e.source == "salary"):
 			paid = true
 	assert_true(paid); assert_true(w.money > m)
-	assert_true(w.now <= t and w.now > t - World.STEP)
+	assert_true(w.now <= t and w.now > t - w.step_s)
 
 func test_set_time_never_moves_living_world_backwards():
 	var w := TestKit.world(); TestKit.adult(w)

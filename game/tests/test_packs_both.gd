@@ -71,3 +71,33 @@ func test_qijia_two_adults_share_one_kang_overnight():
 		w.advance(60.0)
 	assert_eq(str(a.current.get("action", "")), "sleep")
 	assert_eq(str(b.current.get("action", "")), "sleep")
+
+## The step length must not change how fast things happen: the same qijia content at 60 s
+## and at 5 s steps gives about the same average number of illnesses, messes, drops and
+## proposals per household over two days (wide margin: the random sequences differ).
+func test_qijia_event_rates_do_not_depend_on_step_length():
+	var at60 := _qijia_event_averages(60)
+	var at5 := _qijia_event_averages(5)
+	for k in at60:
+		var msg := "%s: %.2f at 60 s vs %.2f at 5 s" % [k, at60[k], at5[k]]
+		assert_true(at60[k] > 0.0 and at5[k] > 0.0, msg)
+		assert_true(absf(at5[k] - at60[k]) <= 0.35 * at60[k], msg)
+
+## Per-household averages of the dice-driven events, 30 households x 2 days with the
+## hourly caretaker, the qijia pack run at `step` seconds.
+func _qijia_event_averages(step: int) -> Dictionary:
+	var pack := Pack.load_dir("res://packs/qijia")
+	pack.config["step_seconds"] = step
+	var counts := {"fell_ill": 0.0, "mess_spawned": 0.0, "collectible_spawned": 0.0, "proposal_arrived": 0.0}
+	for i in 30:
+		var w := BalanceRun.setup_pack(pack, 300 + i)
+		assert_eq(w.step_s, step)
+		for h in 48:
+			BalanceRun.caretake(w)
+			w.advance(3600.0)
+			for e in w.drain_events():
+				if counts.has(e.type):
+					counts[e.type] += 1.0
+	for k in counts:
+		counts[k] /= 30.0
+	return counts

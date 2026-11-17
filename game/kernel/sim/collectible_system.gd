@@ -5,10 +5,11 @@ extends RefCounted
 
 
 ## Expires old drops, then maybe spawns one while below the cap.
-static func step(world: World, _dt: float) -> void:
+static func step(world: World, dt: float) -> void:
 	_expire(world)
+	# One drop per `collectible_interval_min` on average, per minute scaled to the step.
 	if world.collectibles.size() < int(world.pack.cfg("collectible_max")) \
-			and world.rng.chance(1.0 / float(world.pack.cfg("collectible_interval_min"))):
+			and world.rng.chance(1.0 / float(world.pack.cfg("collectible_interval_min")) * (dt / 60.0)):
 		spawn(world)
 
 

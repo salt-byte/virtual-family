@@ -225,3 +225,11 @@ func test_start_objects_overlap_names_the_second_entry():
 func test_start_objects_must_be_a_list_of_objects():
 	assert_true(_has(_errs(func(p): p.config["start_objects"] = 5), "pack.json:", "start_objects"))
 	assert_true(_has(_errs(_start([5])), "pack.json:", "start_objects #0"))
+
+func test_step_seconds_must_divide_a_minute():
+	for bad in [0, 7, 61, 5.5]:
+		assert_true(_has(_errs(func(p): p.config["step_seconds"] = bad), "pack.json:", "step_seconds"), str(bad))
+	for good in [5, 60]:
+		assert_eq(_errs(func(p): p.config["step_seconds"] = good), [] as Array[String], str(good))
+	assert_eq(Pack.DEFAULT_CONFIG["step_seconds"], 60)
+	assert_eq(Pack.load_dir("res://packs/qijia").cfg("step_seconds"), 5)

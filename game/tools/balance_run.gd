@@ -17,7 +17,12 @@ const LOW_MOOD := 30.0
 ## pack's starting furniture first, the missing types placed for free on the first spot
 ## `HouseSystem.can_place` accepts: rooms in pack order, then row by row).
 static func setup(pack_id: String, seed: int) -> World:
-	var w := World.new(Pack.load_dir("res://packs/" + pack_id), seed)
+	return setup_pack(Pack.load_dir("res://packs/" + pack_id), seed)
+
+
+## `setup` for an already loaded (possibly tweaked) pack.
+static func setup_pack(pack: Pack, seed: int) -> World:
+	var w := World.new(pack, seed)
 	w.set_time(START_UNIX, 0)
 	w.command({"type": "adopt"})
 	var owned := {}

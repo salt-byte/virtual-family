@@ -42,3 +42,16 @@ func test_stops_when_everyone_dies_and_restores_offline():
 	var s := w.catch_up(10 * 3600)
 	assert_eq(w.phase, "over"); assert_eq(s.deaths.size(), 1); assert_eq(s.deaths[0].person, w.people[0].uid)
 	assert_true(s.simulated_seconds < 10 * 3600); assert_true(not w.offline)
+func _qhome() -> World:
+	return BalanceRun.setup("qijia", 11)
+func test_qijia_48_hour_catch_up_is_fast_enough():
+	var w := _qhome(); assert_eq(w.step_s, 5)
+	var t := Time.get_ticks_msec()
+	var s := w.catch_up(48 * 3600)
+	var ms := Time.get_ticks_msec() - t
+	assert_eq(s.simulated_seconds, 48 * 3600)
+	assert_true(ms <= 5000, "48 h catch-up took %d ms" % ms)
+func test_qijia_offline_matches_online_when_no_floor_hit():
+	var a := _qhome(); var b := _qhome()
+	a.catch_up(2 * 3600); b.offline = true; b.advance(2 * 3600); b.offline = false; b.drain_events()
+	assert_eq(a.to_dict(), b.to_dict())

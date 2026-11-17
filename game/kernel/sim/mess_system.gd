@@ -7,7 +7,7 @@ extends RefCounted
 static func step(world: World, dt: float) -> void:
 	_apply_penalties(world, dt)
 	for id in world.pack.mess_types:
-		var per_step := float(world.pack.mess_types[id].get("spawn_per_day", 0)) / 1440.0
+		var per_step := float(world.pack.mess_types[id].get("spawn_per_day", 0)) / 1440.0 * (dt / 60.0)
 		if world.rng.chance(per_step):
 			spawn(world, str(id))
 

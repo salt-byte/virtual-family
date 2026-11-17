@@ -34,7 +34,7 @@ func test_new_game_then_adopt_then_time_passes():
 	assert_true(s.command({"type": "adopt"}).ok)
 	clk.unix += 90.0
 	s.tick(0.016)
-	assert_eq(s.world.now, 1767254400 + 60)
+	assert_eq(s.world.now, 1767254400 + 90)  # qijia: 5 s steps, 90 s is whole steps
 
 
 func test_save_and_resume_shows_away_summary():

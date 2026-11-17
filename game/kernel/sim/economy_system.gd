@@ -7,8 +7,8 @@ extends RefCounted
 
 
 ## Pays each working-age person one of 24 hourly parts of their level's daily income.
-static func step(world: World, _dt: float) -> void:
-	if world.now / 3600 == (world.now - World.STEP) / 3600:  # no hour boundary crossed
+static func step(world: World, dt: float) -> void:
+	if world.now / 3600 == (world.now - int(dt)) / 3600:  # no hour boundary crossed
 		return
 	for p in world.people:
 		if not p.alive or p.track == "" or not (p.stage(world.pack) in ["adult", "elder"]):

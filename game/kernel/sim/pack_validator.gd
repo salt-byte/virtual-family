@@ -108,6 +108,9 @@ func _check_pack_config() -> void:
 	var rf = c.get("repeat_factor")
 	if not (rf is int or rf is float) or float(rf) <= 0.0 or float(rf) > 1.0:
 		_err("pack.json", _p.id, "repeat_factor must be a number above 0 and at most 1")
+	var ss = c.get("step_seconds")
+	if not ss is int or ss <= 0 or 60 % ss != 0:
+		_err("pack.json", _p.id, "step_seconds must be a whole number that divides 60 (1, 2, 3, 4, 5, 6, 10, 12, 15, 20, 30 or 60)")
 	_check_start_objects(c["start_objects"])
 	var pn := str(c.get("praise_need", ""))
 	if pn != "" and not _p.needs.has(pn):

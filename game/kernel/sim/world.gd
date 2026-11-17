@@ -1,10 +1,9 @@
 class_name World
 extends RefCounted
 ## Top-level sim state. Time is fed in from outside: a view calls `sync` with the real clock
-## and nothing else; `advance` turns elapsed real seconds into fixed 60-second steps, each of
-## which runs every system in order.
+## and nothing else; `advance` turns elapsed real seconds into fixed steps of `step_s`
+## seconds (the pack's `step_seconds`), each of which runs every system in order.
 
-const STEP := 60
 ## A `sync` gap longer than this many seconds is treated as an absence (`catch_up`).
 const SYNC_OFFLINE_GAP := 120
 ## Bump when `to_dict` changes shape; `from_dict` refuses any other version.
@@ -12,6 +11,9 @@ const SAVE_VERSION := 1
 
 var pack: Pack
 var rng: SimRng
+## Seconds per simulation step: the pack's `step_seconds` (a divisor of 60), 60 for an
+## invalid pack. Systems scale everything by `dt`, so this changes resolution, not pace.
+var step_s := 60
 var now := 0
 var utc_offset := 0
 ## "adopting" | "living" | "over" | "invalid"
@@ -65,6 +67,7 @@ func _init(p: Pack, seed: int) -> void:
 	if not p.is_valid():
 		phase = "invalid"  # silent on purpose: the reasons stay readable in pack.errors
 		return
+	step_s = int(p.cfg("step_seconds"))
 	money = int(p.cfg("start_money"))
 	for id in p.rooms:
 		if bool(p.rooms[id].get("built", false)):
@@ -122,8 +125,8 @@ func advance(seconds: float) -> void:
 	if phase != "living" or seconds <= 0.0:
 		return
 	_acc += seconds
-	while _acc >= STEP and phase != "over":
-		_acc -= STEP
+	while _acc >= step_s and phase != "over":
+		_acc -= step_s
 		_step()
 
 
@@ -220,8 +223,8 @@ func kill_person(p: Person, cause: String) -> void:
 
 
 func _step() -> void:
-	now += STEP
-	_run_systems(float(STEP))
+	now += step_s
+	_run_systems(float(step_s))
 
 
 ## Every per-step system, in the fixed order they must run. Later tasks add theirs here.

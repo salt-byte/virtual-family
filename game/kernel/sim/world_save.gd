@@ -283,6 +283,9 @@ static func _valid_save(pack: Pack, d: Dictionary) -> bool:
 		return false
 	if not (d["phase"] in _PHASES) or not _is_i64(d["seed"]) or int(d["money"]) < 0:
 		return false
+	var step := int(pack.cfg("step_seconds")) if pack.is_valid() else 60
+	if float(d["acc"]) < 0.0 or float(d["acc"]) >= float(step):  # a partial step only
+		return false
 	if not _has(d["rng"], {"seed": "s", "state": "s"}) or not _is_i64(d["rng"]["seed"]) \
 			or not _is_i64(d["rng"]["state"]):
 		return false
