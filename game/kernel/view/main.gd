@@ -9,6 +9,7 @@ var session: GameSession
 var house: HouseView
 var hud: Hud
 var drag: DragController
+var overlays: Overlays
 ## Uid of the selected person; -1 for none.
 var selected := -1
 
@@ -40,9 +41,13 @@ func _build(pack_id: String, dir: String, real_clock: Callable) -> void:
 	add_child(drag)
 	drag.setup(self)
 	house.drag = drag
+	overlays = Overlays.new()
+	add_child(overlays)
+	overlays.setup(self)
 	_sync_selection()
 	house.refresh()
 	hud.refresh()
+	overlays.refresh()
 
 
 func select(uid: int) -> void:
@@ -90,6 +95,7 @@ func tick(delta: float) -> void:
 	house.tick(delta)
 	hud.refresh()
 	hud.tick(delta)
+	overlays.refresh()
 
 
 func _process(delta: float) -> void:

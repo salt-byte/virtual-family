@@ -154,6 +154,8 @@ func refresh() -> void:
 		_doing.text = s.doing(p, w)
 		_status.text = s.status_line(p, w)
 		_avatar.color = PersonView.FEMALE if p.gender == "female" else (PersonView.MALE if p.gender == "male" else PersonView.OTHER)
+	var waiting := living and not w.proposals.is_empty()
+	_buttons["family"].text = ("● " if waiting else "") + s.t("btn.family")
 	var off := judge_disabled()
 	_praise.disabled = off
 	_scold.disabled = off
