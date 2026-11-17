@@ -8,6 +8,7 @@ const DEFAULT_PACK_SETTING := "lifesim/default_pack"
 var session: GameSession
 var house: HouseView
 var hud: Hud
+var drag: DragController
 ## Uid of the selected person; -1 for none.
 var selected := -1
 
@@ -35,6 +36,10 @@ func _build(pack_id: String, dir: String, real_clock: Callable) -> void:
 	hud = Hud.new()
 	add_child(hud)
 	hud.setup(self)
+	drag = DragController.new()
+	add_child(drag)
+	drag.setup(self)
+	house.drag = drag
 	_sync_selection()
 	house.refresh()
 	hud.refresh()
@@ -80,6 +85,7 @@ func tick(delta: float) -> void:
 	session.tick(delta)
 	_sync_selection()
 	house.refresh()
+	drag.refresh()
 	_apply_selection()
 	house.tick(delta)
 	hud.refresh()

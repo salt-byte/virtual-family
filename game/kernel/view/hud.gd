@@ -26,13 +26,16 @@ var _praise: Button
 var _scold: Button
 var _toast_box: VBoxContainer
 var _toasts: Array = []  # {text, left, label}
+var _muted := ""
 
 
 func setup(m: Main) -> void:
 	main = m
 	session = m.session
 	_build()
-	session.command_failed.connect(func(code: String): toast(session.strings.error(code)))
+	session.command_failed.connect(func(code: String):
+		if code != _muted:
+			toast(session.strings.error(code)))
 	session.event.connect(_on_event)
 	refresh()
 
@@ -104,6 +107,15 @@ func _build() -> void:
 	_toast_box.offset_top = 12
 	_toast_box.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	root.add_child(_toast_box)
+
+
+## Swallows the toast for one expected failure code until `unmute()`.
+func mute(code: String) -> void:
+	_muted = code
+
+
+func unmute() -> void:
+	_muted = ""
 
 
 func _living() -> bool:

@@ -18,9 +18,16 @@ const CLICK_SLOP := 6.0
 
 signal person_clicked(uid: int)
 
-var _dragging := false
+var drag: DragController
+## The last `layout.pick` result under a dragged person; {} when nothing is dragged.
+var hover: Dictionary = {}
+## Whether the left button is physically down; replaceable so tests can drive it.
+var button_down: Callable = func() -> bool: return Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT)
+
+var _pressed := false
 var _press_uid := -1
 var _press_at := Vector2.ZERO
+var _last := Vector2.ZERO
 var _moved := false
 
 
@@ -108,24 +115,64 @@ func person_at(wpos: Vector2) -> int:
 	return best
 
 
+func set_hover(h: Dictionary) -> void:
+	hover = h
+	queue_redraw()
+
+
+func press(screen: Vector2) -> void:
+	_pressed = true
+	_moved = false
+	_press_at = screen
+	_last = screen
+	_press_uid = person_at(world_pos(screen))
+
+
+func move(screen: Vector2, relative: Vector2) -> void:
+	if not _pressed:
+		return
+	_last = screen
+	if not _moved:
+		if screen.distance_to(_press_at) <= CLICK_SLOP:
+			return
+		_moved = true
+		if _press_uid >= 0 and drag != null:
+			drag.begin(_press_uid)
+		else:
+			# Catch up on everything since the press, not only this event's step.
+			pan(screen - _press_at)
+			return
+	if drag != null and drag.dragging >= 0:
+		drag.move(world_pos(screen))
+	else:
+		pan(relative)
+
+
+func release(screen: Vector2) -> void:
+	if not _pressed:
+		return
+	if _moved:
+		if drag != null and drag.dragging >= 0:
+			drag.drop(world_pos(screen))
+	elif _press_uid >= 0:
+		person_clicked.emit(_press_uid)
+	_pressed = false
+	_press_uid = -1
+	_moved = false
+
+
 func _unhandled_input(event: InputEvent) -> void:
 	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT:
 		if event.pressed:
-			_dragging = true
-			_moved = false
-			_press_at = event.position
-			_press_uid = person_at(world_pos(event.position))
+			press(event.position)
 		else:
-			if _dragging and _press_uid >= 0 and not _moved:
-				person_clicked.emit(_press_uid)
-			_dragging = false
-			_press_uid = -1
-	elif event is InputEventMouseMotion and _dragging:
-		if not _moved and event.position.distance_to(_press_at) > CLICK_SLOP:
-			_moved = true
-		# Dragging a person comes later; until then a drag always pans.
-		if _moved:
-			pan(event.relative)
+			release(event.position)
+	elif event is InputEventMouseMotion and _pressed:
+		if not button_down.call():
+			# The release went to a HUD control; finish where the pointer last was.
+			release(_last)
+		else:
+			move(event.position, event.relative)
 
 
 func _draw() -> void:
@@ -160,6 +207,23 @@ func _draw() -> void:
 		draw_rect(Rect2(layout.cell_center(str(m.room), int(m.x), int(m.y)) - Vector2(8, 6), Vector2(16, 12)), Color(0.45, 0.3, 0.18))
 	for c in w.collectibles:
 		draw_rect(Rect2(layout.cell_center(str(c.room), int(c.x), int(c.y)) - Vector2(6, 6), Vector2(12, 12)), Color(0.95, 0.8, 0.2))
+	_draw_hover(w)
+
+
+func _draw_hover(w: World) -> void:
+	var rect := Rect2()
+	match str(hover.get("kind", "")):
+		"object":
+			var o := w.object(int(hover.uid))
+			if not o.is_empty():
+				rect = layout.object_rect(o, w.pack)
+		"mess", "collectible":
+			var list: Array = w.messes if hover.kind == "mess" else w.collectibles
+			for m in list:
+				if int(m.uid) == int(hover.uid):
+					rect = Rect2(layout.cell_center(str(m.room), int(m.x), int(m.y)) - HouseLayout.CELL * 0.5, HouseLayout.CELL)
+	if rect.size != Vector2.ZERO:
+		draw_rect(rect.grow(2), Color(1.0, 0.85, 0.2), false, 3.0)
 
 
 func _dashed(rect: Rect2, color: Color) -> void:
