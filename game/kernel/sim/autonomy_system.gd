@@ -94,7 +94,10 @@ static func _progress(world: World, p: Person, dt: float) -> void:
 ## Runs once when an action's time is up.
 static func _finish(world: World, p: Person) -> void:
 	var id := str(p.current["action"])
-	# Later tasks settle `work`, `mess`, `cleans` and `picks` here, before `current` is cleared.
+	# Later tasks settle `mess`, `cleans` and `picks` here, before `current` is cleared.
+	var action: Dictionary = world.pack.actions[id]
+	if not action["work"].is_empty():
+		EconomySystem.on_work_finished(world, p, int(action["duration_min"]))
 	p.current = {}
 	p.last_action = id
 	p.last_action_t = world.now

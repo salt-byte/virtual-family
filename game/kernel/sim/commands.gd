@@ -12,6 +12,8 @@ static var handlers: Dictionary = {
 	"drag": Commands._drag,
 	"praise": Commands._praise,
 	"scold": Commands._scold,
+	"buy": Commands._buy,
+	"use_item": Commands._use_item,
 }
 
 
@@ -91,3 +93,40 @@ static func _judge(world: World, cmd: Dictionary, praise: bool) -> Dictionary:
 	var factor := 1.25 if praise else 0.8
 	p.habits[id] = clampf(float(p.habits.get(id, 1.0)) * factor, HABIT_MIN, HABIT_MAX)
 	return success({"action": id})
+
+
+static func _buy(world: World, cmd: Dictionary) -> Dictionary:
+	var id := str(cmd.get("item", ""))
+	var item: Dictionary = world.pack.items.get(id, {})
+	if item.is_empty():
+		return fail("no_item")
+	var qty := int(cmd.get("qty", 1))
+	if qty < 1:
+		return fail("bad_qty")
+	if not EconomySystem.spend(world, int(item["price"]) * qty):
+		return fail("no_money")
+	var stock: Dictionary = item["stock"]
+	if stock.is_empty():
+		world.inventory[id] = int(world.inventory.get(id, 0)) + qty
+	else:
+		for s in stock:
+			world.stock[s] = int(world.stock.get(s, 0)) + int(stock[s]) * qty
+	return success()
+
+
+static func _use_item(world: World, cmd: Dictionary) -> Dictionary:
+	var id := str(cmd.get("item", ""))
+	if int(world.inventory.get(id, 0)) < 1:
+		return fail("no_item")
+	var p := world.person(int(cmd.get("person", -1)))
+	if p == null or not p.alive:
+		return fail("no_person")
+	var item: Dictionary = world.pack.items[id]
+	if str(item["cures"]) != "":
+		return fail("not_usable_yet")  # Task 7 replaces this with the cure rules
+	var needs: Dictionary = item["needs"]
+	for n in needs:
+		if p.needs.has(n):
+			p.needs[n] = clampf(float(p.needs[n]) + float(needs[n]), 0.0, 100.0)
+	world.inventory[id] = int(world.inventory[id]) - 1
+	return success()

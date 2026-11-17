@@ -19,6 +19,10 @@ var offline := false
 var objects: Array[Dictionary] = []
 ## Consumable stock name -> count.
 var stock: Dictionary = {}
+## Owned items without a `stock` field: item id -> count.
+var inventory: Dictionary = {}
+## Salary coins paid ahead of schedule per person uid (<= 0), so 24 hourly parts add up.
+var income_carry: Dictionary = {}
 
 var _acc := 0.0
 var _next_uid := 1
@@ -126,3 +130,4 @@ func _step() -> void:
 func _run_systems(dt: float) -> void:
 	NeedsSystem.step(self, dt)
 	AutonomySystem.step(self, dt)
+	EconomySystem.step(self, dt)
