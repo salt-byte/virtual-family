@@ -24,11 +24,16 @@ var inventory: Dictionary = {}
 ## Salary coins paid ahead of schedule per person uid (<= 0), so 24 hourly parts add up.
 var income_carry: Dictionary = {}
 ## Counters that goals read: cured, collected, mess_cleaned, all_clean.
+## Messes in the house: {uid, type, room, x, y}.
+var messes: Array[Dictionary] = []
+## Ids of rooms that exist in the house (pack rooms with `built`); a later task adds to it.
+var rooms_built: Array[String] = []
 var stats: Dictionary = {"cured": 0, "collected": 0, "mess_cleaned": 0, "all_clean": 0}
 
 var _acc := 0.0
 var _next_uid := 1
 var _next_object_uid := 1
+var _next_mess_uid := 1
 var _events: Array = []
 
 
@@ -39,6 +44,9 @@ func _init(p: Pack, seed: int) -> void:
 		phase = "invalid"  # silent on purpose: the reasons stay readable in pack.errors
 		return
 	money = int(p.cfg("start_money"))
+	for id in p.rooms:
+		if bool(p.rooms[id].get("built", false)):
+			rooms_built.append(str(id))
 
 
 func set_time(unix: int, offset: int) -> void:
@@ -103,6 +111,13 @@ func add_object(type: String, room: String, x: int, y: int) -> int:
 	return uid
 
 
+## Next uid for a mess.
+func next_mess_uid() -> int:
+	var uid := _next_mess_uid
+	_next_mess_uid += 1
+	return uid
+
+
 ## The object with this uid, or {} when missing.
 func object(uid: int) -> Dictionary:
 	for o in objects:
@@ -132,5 +147,6 @@ func _step() -> void:
 func _run_systems(dt: float) -> void:
 	NeedsSystem.step(self, dt)
 	IllnessSystem.step(self, dt)
+	MessSystem.step(self, dt)
 	AutonomySystem.step(self, dt)
 	EconomySystem.step(self, dt)

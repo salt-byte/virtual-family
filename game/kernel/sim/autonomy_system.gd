@@ -24,7 +24,9 @@ static func candidates(world: World, p: Person) -> Array[Dictionary]:
 			continue
 		var s := _score(world, p, world.pack.actions[id])
 		if s > 0.0:
-			out.append({"action": id, "object_uid": _free_object(world, p, world.pack.actions[id], -1), "score": s})
+			var a: Dictionary = world.pack.actions[id]
+			var target := MessSystem.first_free(world, str(a["cleans"]), p) if str(a["cleans"]) != "" else -1
+			out.append({"action": id, "object_uid": _free_object(world, p, a, -1), "target_uid": target, "score": s})
 	return out
 
 
@@ -52,8 +54,10 @@ static func can_do(world: World, p: Person, action_id: String, object_uid: int) 
 		return "wrong_track"
 	if not _requires_ok(p, a["requires"]):
 		return "requires"
-	if str(a["cleans"]) != "" or bool(a["picks"]):
-		return "no_target"  # later tasks look for a valid target here
+	if str(a["cleans"]) != "" and MessSystem.first_free(world, str(a["cleans"]), p) < 0:
+		return "no_target"
+	if bool(a["picks"]):
+		return "no_target"  # a later task looks for a collectible here
 	for item in a["consumes"]:
 		if int(world.stock.get(item, 0)) < int(a["consumes"][item]):
 			return "no_stock"
@@ -94,8 +98,14 @@ static func _progress(world: World, p: Person, dt: float) -> void:
 ## Runs once when an action's time is up.
 static func _finish(world: World, p: Person) -> void:
 	var id := str(p.current["action"])
-	# Later tasks settle `mess`, `cleans` and `picks` here, before `current` is cleared.
+	# Later tasks settle `picks` here, before `current` is cleared.
 	var action: Dictionary = world.pack.actions[id]
+	if str(action["cleans"]) != "":
+		MessSystem.clean(world, int(p.current.get("target_uid", -1)))
+	var mess: Dictionary = action["mess"]
+	if not mess.is_empty() and world.rng.chance(float(mess.get("chance", 0.0))):
+		var room := str(world.object(int(p.current.get("object_uid", -1))).get("room", ""))
+		MessSystem.spawn(world, str(mess["type"]), room)
 	if not action["work"].is_empty():
 		EconomySystem.on_work_finished(world, p, int(action["duration_min"]))
 	p.current = {}
@@ -116,7 +126,7 @@ static func _choose(world: World, p: Person) -> void:
 		top.append(c[i])
 		weights.append(c[i].score)
 	var pick: Dictionary = world.rng.weighted_pick(top, weights)
-	start(world, p, pick.action, pick.object_uid)
+	start(world, p, pick.action, pick.object_uid, int(pick.get("target_uid", -1)))
 
 
 static func _score(world: World, p: Person, a: Dictionary) -> float:
