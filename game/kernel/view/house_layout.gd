@@ -53,6 +53,24 @@ func pos_to_cell(pos: Vector2) -> Dictionary:
 			return {"room": id, "x": int(c.x), "y": int(c.y)}
 	return {}
 
+## The room among `rooms` whose floor rect (wall strip included for indoor rooms) is closest
+## to `pos`; "" when `rooms` is empty or has no known room.
+func nearest_room(pos: Vector2, rooms: Array) -> String:
+	var best := ""
+	var best_d := INF
+	for id in _order:
+		if not id in rooms:
+			continue
+		var r: Rect2 = _rects[id]
+		if _indoor[id]:
+			r = Rect2(r.position.x, r.position.y - WALL, r.size.x, r.size.y + WALL)
+		var c := pos.clamp(r.position, r.end)
+		var d := pos.distance_squared_to(c)
+		if d < best_d:
+			best_d = d
+			best = id
+	return best
+
 func object_rect(o: Dictionary, pack: Pack) -> Rect2:
 	var t: Dictionary = pack.object_types.get(str(o.type), {})
 	var size := Vector2(float(t.get("w", 1)), float(t.get("h", 1))) * CELL

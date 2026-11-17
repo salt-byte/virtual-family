@@ -21,7 +21,6 @@ var held := false
 var _name := ""
 var _doing := ""
 var _key := ""
-var _cell := Vector2.ZERO
 var _rng := RandomNumberGenerator.new()
 var _box := StyleBoxFlat.new()
 
@@ -31,10 +30,10 @@ func setup(p: Person, s: GameSession) -> void:
 	session = s
 	_rng.randomize()
 	_box.set_corner_radius_all(8)
-	# Arrive from outside the house.
-	position = Vector2(-120, -120)
+	var l := layout()
+	if l != null and session.world != null and session.world.phase != "invalid":
+		position = _entrance(session.world, l)
 	refresh()
-	_cell = base_target
 
 
 func layout() -> HouseLayout:
@@ -73,24 +72,27 @@ func _compute_target(w: World, l: HouseLayout) -> Vector2:
 		if oid >= 0:
 			var o := w.object(oid)
 			if not o.is_empty():
+				_key = ""
 				return l.stand_pos(o, w.pack)
 		var tid := int(cur.get("target_uid", -1))
 		if tid >= 0:
 			for list in [w.messes, w.collectibles]:
 				for m in list:
 					if int(m.uid) == tid:
+						_key = ""
 						return l.cell_center(str(m.room), int(m.x), int(m.y))
-	var here := l.pos_to_cell(position)
-	if here.is_empty():
-		return _entrance(w, l)
 	if cur.is_empty():
-		return base_target if base_target != Vector2.ZERO else l.cell_center(here.room, here.x, here.y)
+		_key = ""
+		return base_target if base_target != Vector2.ZERO else position
+	var room := l.nearest_room(position, w.rooms_built)
+	if room == "":
+		return _entrance(w, l)
 	var key := str(cur.get("action", ""))
 	if key != _key:
 		_key = key
-		var r: Dictionary = w.pack.rooms[here.room]
+		var r: Dictionary = w.pack.rooms[room]
 		var cell := Vector2i(_rng.randi_range(0, int(r.w) - 1), _rng.randi_range(0, int(r.h) - 1))
-		return l.cell_center(str(here.room), cell.x, cell.y)
+		return l.cell_center(room, cell.x, cell.y)
 	return base_target
 
 
@@ -105,6 +107,10 @@ func _draw() -> void:
 	if person == null:
 		return
 	draw_style_box(_box, Rect2(Vector2(-BODY.x * 0.5, -BODY.y), BODY))
+	var plate := StyleBoxFlat.new()
+	plate.bg_color = Color(1, 1, 1, 0.88)
+	plate.set_corner_radius_all(5)
+	draw_style_box(plate, Rect2(Vector2(-70, -BODY.y - 36), Vector2(140, 34)))
 	var font := ThemeDB.fallback_font
-	draw_string(font, Vector2(-60, -BODY.y - 20), _name, HORIZONTAL_ALIGNMENT_CENTER, 120, 13, Color.BLACK)
-	draw_string(font, Vector2(-80, -BODY.y - 6), _doing, HORIZONTAL_ALIGNMENT_CENTER, 160, 11, Color(0.2, 0.2, 0.2))
+	draw_string(font, Vector2(-70, -BODY.y - 21), _name, HORIZONTAL_ALIGNMENT_CENTER, 140, 13, Color.BLACK)
+	draw_string(font, Vector2(-70, -BODY.y - 6), _doing, HORIZONTAL_ALIGNMENT_CENTER, 140, 11, Color(0.1, 0.1, 0.1))

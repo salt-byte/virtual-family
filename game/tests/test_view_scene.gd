@@ -108,3 +108,85 @@ func test_invalid_pack_does_not_crash():
 	m.house.queue_redraw()
 	assert_eq(m.house.people.size(), 0)
 	m.free()
+
+
+func _adopted() -> Main:
+	var m := _main()
+	m.session.command({"type": "adopt"})
+	m.tick(0.016)
+	return m
+
+
+func _wander(m: Main, p: Person) -> void:
+	var id: String = m.session.world.pack.actions.keys()[0]
+	p.current = {"action": id, "object_uid": -1, "target_uid": -1, "remaining_s": 600}
+
+
+func test_new_person_appears_inside_a_built_indoor_room():
+	var m := _adopted()
+	var w := m.session.world
+	var pv: PersonView = m.house.people[w.people[0].uid]
+	var hit := m.house.layout.pos_to_cell(pv.position)
+	assert_true(not hit.is_empty() and hit.room in w.rooms_built)
+	assert_true(not bool(w.pack.rooms[hit.room].get("outdoor", false)))
+	m.free()
+
+
+func test_mess_target_walks_to_the_mess_cell():
+	var m := _adopted()
+	var w := m.session.world
+	var p := w.people[0]
+	var uid := w.next_uid()
+	w.messes.append({"uid": uid, "type": "x", "room": "hall", "x": 2, "y": 1})
+	_wander(m, p)
+	p.current["target_uid"] = uid
+	m.tick(0.016)
+	assert_eq(m.house.people[p.uid].target, m.house.layout.cell_center("hall", 2, 1))
+	m.free()
+
+
+func test_collectible_target_walks_to_the_collectible_cell():
+	var m := _adopted()
+	var w := m.session.world
+	var p := w.people[0]
+	var uid := w.next_uid()
+	w.collectibles.append({"uid": uid, "type": "x", "room": "hall", "x": 1, "y": 2, "expires_at": 0})
+	_wander(m, p)
+	p.current["target_uid"] = uid
+	m.tick(0.016)
+	assert_eq(m.house.people[p.uid].target, m.house.layout.cell_center("hall", 1, 2))
+	m.free()
+
+
+func test_random_cell_picked_from_nearest_room_when_in_a_gap():
+	var m := _adopted()
+	var w := m.session.world
+	var p := w.people[0]
+	var pv: PersonView = m.house.people[p.uid]
+	var hall := m.house.layout.room_rect("hall")
+	pv.position = Vector2(hall.end.x + 10, hall.get_center().y)
+	assert_true(m.house.layout.pos_to_cell(pv.position).is_empty())
+	_wander(m, p)
+	pv.refresh()
+	var first := pv.target
+	var hit := m.house.layout.pos_to_cell(first)
+	assert_eq(hit.get("room", ""), "hall")
+	pv.refresh()
+	assert_eq(pv.target, first)
+	m.free()
+
+
+func test_random_cell_is_rerolled_after_idle():
+	var m := _adopted()
+	var p := m.session.world.people[0]
+	var pv: PersonView = m.house.people[p.uid]
+	var seen := {}
+	for i in 12:
+		_wander(m, p)
+		pv.refresh()
+		seen[pv.target] = true
+		p.current = {}
+		pv.refresh()
+		assert_eq(pv._key, "")
+	assert_true(seen.size() > 1)
+	m.free()

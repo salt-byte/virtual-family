@@ -109,11 +109,13 @@ func _draw() -> void:
 			else:
 				draw_rect(rect, Color(0.94, 0.91, 0.84))
 				draw_rect(Rect2(rect.position.x, rect.position.y - HouseLayout.WALL, rect.size.x, HouseLayout.WALL), Color(0.7, 0.62, 0.52))
+			var label_at := rect.position + Vector2(6, 16) if outdoor else rect.position + Vector2(6, -9)
+			draw_string(font, label_at, str(r.name), HORIZONTAL_ALIGNMENT_LEFT, rect.size.x - 12, 14, Color(0.12, 0.1, 0.08))
 		else:
-			_dashed(rect, Color(0.5, 0.5, 0.5))
+			_dashed(rect, Color(0.8, 0.8, 0.8))
 			var cost := session.strings.t("money").replace("{n}", str(int(r.get("build_cost", 0))))
-			draw_string(font, rect.position + Vector2(0, rect.size.y * 0.5 - 6), str(r.name), HORIZONTAL_ALIGNMENT_CENTER, rect.size.x, 16, Color(0.3, 0.3, 0.3))
-			draw_string(font, rect.position + Vector2(0, rect.size.y * 0.5 + 14), cost, HORIZONTAL_ALIGNMENT_CENTER, rect.size.x, 13, Color(0.4, 0.4, 0.4))
+			draw_string(font, rect.position + Vector2(0, rect.size.y * 0.5 - 6), str(r.name), HORIZONTAL_ALIGNMENT_CENTER, rect.size.x, 18, Color(0.95, 0.95, 0.95))
+			draw_string(font, rect.position + Vector2(0, rect.size.y * 0.5 + 14), cost, HORIZONTAL_ALIGNMENT_CENTER, rect.size.x, 14, Color(0.9, 0.85, 0.6))
 	for o in w.objects:
 		var t: Dictionary = w.pack.object_types.get(str(o.type), {})
 		var rect := layout.object_rect(o, w.pack)

@@ -56,3 +56,13 @@ func test_bounds_cover_rooms_and_walls():
 	assert_eq(b.position.y, -HouseLayout.WALL)
 	assert_eq(b.end.x, l.room_rect("yard").end.x)
 	assert_eq(b.end.y, 216.0)
+
+
+func test_nearest_room_picks_closest_of_the_given_rooms():
+	var pack := Pack.load_dir("res://packs/qijia")
+	var l := HouseLayout.new(pack)
+	var ids: Array = pack.rooms.keys()
+	var r := l.room_rect(ids[0])
+	assert_eq(l.nearest_room(r.end + Vector2(5, -5), ids), ids[0])
+	assert_eq(l.nearest_room(Vector2.ZERO, []), "")
+	assert_eq(l.nearest_room(Vector2.ZERO, [ids[1]]), ids[1])
