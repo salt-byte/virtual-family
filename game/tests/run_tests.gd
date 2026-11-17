@@ -3,7 +3,7 @@ extends SceneTree
 ## Runs every test_* method of every res://tests/test_*.gd on a fresh instance.
 ## The filter is matched against "file::method".
 
-func _init() -> void:
+func _initialize() -> void:
 	var filter := ""
 	var args := OS.get_cmdline_user_args()
 	if args.size() > 0:
