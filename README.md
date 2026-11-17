@@ -39,3 +39,14 @@ python3 -m http.server -d build/web 8060
 ## 存档在哪
 
 存档和设置都在 Godot 的 `user://` 下：macOS 上是 `~/Library/Application Support/Godot/app_userdata/lifesim-kernel/`，文件是 `save_<包名>.json` 和 `settings.json`。网页版存在浏览器的站点存储里。想重来，删掉对应的 `save_<包名>.json` 即可（网页版清掉该站点的数据）；损坏的旧存档会自动留一份备份（`.bad`，已有就用 `.bad2`、`.bad3`……，旧备份不会被删）。
+
+## 字体
+
+网页版没有系统字体，所以游戏自带一个小字体 `game/assets/fonts/ui.otf`：从 Noto Sans SC（SIL Open Font License 1.1，协议全文在同目录的 `OFL.txt`）里只截取了主题包和界面用到的字。改了主题包或界面文字后要重新生成，否则新字在网页版里是方块：
+
+```
+python3 game/tools/build_font.py <NotoSansSC-Regular.otf 的路径>
+```
+
+来源字体从 https://github.com/notofonts/noto-cjk 下载（`Sans/SubsetOTF/SC/NotoSansSC-Regular.otf`）。
+

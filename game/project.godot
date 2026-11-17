@@ -13,6 +13,10 @@ window/size/viewport_height=720
 window/stretch/mode="canvas_items"
 window/stretch/aspect="keep"
 
+[gui]
+
+theme/custom_font="res://assets/fonts/ui.otf"
+
 [lifesim]
 
 default_pack="qijia"
