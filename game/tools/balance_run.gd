@@ -13,15 +13,19 @@ const LOW_FOOD := 3
 const LOW_MOOD := 30.0
 
 
-## A world that is already living: one adopted person and one of each object type, placed
-## for free on the first spot `HouseSystem.can_place` accepts (rooms in pack order, then
-## row by row).
+## A world that is already living: one adopted person and one of each object type (the
+## pack's starting furniture first, the missing types placed for free on the first spot
+## `HouseSystem.can_place` accepts: rooms in pack order, then row by row).
 static func setup(pack_id: String, seed: int) -> World:
 	var w := World.new(Pack.load_dir("res://packs/" + pack_id), seed)
 	w.set_time(START_UNIX, 0)
 	w.command({"type": "adopt"})
+	var owned := {}
+	for o in w.objects:
+		owned[o["type"]] = true
 	for type in w.pack.object_types:
-		_place_first_fit(w, str(type))
+		if not owned.has(type):
+			_place_first_fit(w, str(type))
 	return w
 
 

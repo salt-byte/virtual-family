@@ -108,6 +108,7 @@ func _check_pack_config() -> void:
 	var rf = c.get("repeat_factor")
 	if not (rf is int or rf is float) or float(rf) <= 0.0 or float(rf) > 1.0:
 		_err("pack.json", _p.id, "repeat_factor must be a number above 0 and at most 1")
+	_check_start_objects(c["start_objects"])
 	var pn := str(c.get("praise_need", ""))
 	if pn != "" and not _p.needs.has(pn):
 		_err("pack.json", _p.id, "praise_need '%s' is not a need" % [pn])
@@ -118,6 +119,53 @@ func _check_pack_config() -> void:
 	else:
 		_err("pack.json", _p.id, "work_needs_min must be an object")
 	_check_stages(c["stages"])
+
+
+## Each starting piece of furniture must be placeable on its own (known type and room, room
+## built, right indoor/outdoor kind, inside the room) and clear of the pieces before it.
+func _check_start_objects(list) -> void:
+	if not list is Array:
+		_err("pack.json", _p.id, "start_objects must be an array")
+		return
+	var placed: Array = []
+	for i in list.size():
+		var why := _start_object_problem(list[i], placed)
+		if why != "":
+			_err("pack.json", _p.id, "start_objects #%d: %s" % [i, why])
+		else:
+			placed.append(list[i])
+
+
+func _start_object_problem(e, placed: Array) -> String:
+	if not (e is Dictionary and e.get("type") is String and e.get("room") is String
+			and e.get("x") is int and e.get("y") is int):
+		return "needs a string 'type' and 'room' and whole-number 'x' and 'y'"
+	var t: Dictionary = _p.object_types.get(e["type"], {})
+	if t.is_empty():
+		return "'%s' is not an object type" % [e["type"]]
+	var r: Dictionary = _p.rooms.get(e["room"], {})
+	if r.is_empty():
+		return "'%s' is not a room" % [e["room"]]
+	if not (t.get("w") is int and t.get("h") is int and r.get("w") is int and r.get("h") is int):
+		return ""  # the size fields are reported on their own entries
+	if r.get("built") != true:
+		return "room '%s' is not built" % [e["room"]]
+	if bool(t.get("outdoor")) != bool(r.get("outdoor")):
+		return "'%s' does not belong in room '%s' (indoor/outdoor mismatch)" % [e["type"], e["room"]]
+	var x: int = e["x"]
+	var y: int = e["y"]
+	if x < 0 or y < 0 or x + int(t["w"]) > int(r["w"]) or y + int(t["h"]) > int(r["h"]):
+		return "'%s' at (%d, %d) is outside room '%s'" % [e["type"], x, y, e["room"]]
+	for o in placed:
+		if o["room"] != e["room"]:
+			continue
+		var ot: Dictionary = _p.object_types[o["type"]]
+		if not (ot.get("w") is int and ot.get("h") is int):
+			continue
+		if x < int(o["x"]) + int(ot["w"]) and int(o["x"]) < x + int(t["w"]) \
+				and y < int(o["y"]) + int(ot["h"]) and int(o["y"]) < y + int(t["h"]):
+			return "'%s' at (%d, %d) overlaps '%s'" % [e["type"], x, y, o["type"]]
+	return ""
 
 
 ## `Pack` sorts stages by `from` on load, so this rejects two stages starting at one age.

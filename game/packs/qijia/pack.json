@@ -7,5 +7,13 @@
 	"start_money": 200,
 	"illness_daily_chance": 0.3,
 	"collectible_interval_min": 60,
-	"collectible_ttl_min": 45
+	"collectible_ttl_min": 45,
+	"start_objects": [
+		{"type": "stove", "room": "hall", "x": 0, "y": 0},
+		{"type": "desk", "room": "hall", "x": 3, "y": 0},
+		{"type": "vat", "room": "hall", "x": 6, "y": 0},
+		{"type": "kang", "room": "hall", "x": 0, "y": 2},
+		{"type": "stool", "room": "hall", "x": 0, "y": 5},
+		{"type": "coop", "room": "yard", "x": 7, "y": 0}
+	]
 }

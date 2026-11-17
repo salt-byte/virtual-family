@@ -67,3 +67,20 @@ func test_game_over_reroll_keeps_money_and_resets_people():
 	w.command({type = "adopt"}); assert_eq(w.money, 777); assert_eq(w.phase, "living")
 func test_testkit_world_stays_living_without_candidate():
 	var w := TestKit.world(); assert_eq(w.phase, "living"); assert_true(w.candidate.is_empty())
+
+func test_first_adoption_furnishes_the_house_once():
+	var w := World.new(Pack.load_dir("res://packs/qijia"), 1)
+	w.set_time(1767254400, 0)
+	w.command({"type": "adopt"})
+	var n := w.objects.size()
+	assert_true(n >= 5)
+	assert_eq(w.money, 200)                       # the starting furniture is free
+	w.kill_person(w.people[0], "old_age")
+	w.command({"type": "reroll"})
+	w.command({"type": "adopt"})
+	assert_eq(w.objects.size(), n)
+
+func test_pack_without_start_objects_adopts_into_an_empty_house():
+	var w := _fresh(); w.command({type = "adopt"})
+	var p := w.pack
+	assert_eq(w.objects.size(), (p.cfg("start_objects") as Array).size())

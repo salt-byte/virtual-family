@@ -61,6 +61,8 @@ static func adopt(world: World, _cmd: Dictionary) -> Dictionary:
 	if not world.adopted_once:
 		world.adopted_once = true
 		world.money = int(world.pack.cfg("start_money"))
+		for o in world.pack.cfg("start_objects"):
+			world.add_object(str(o["type"]), str(o["room"]), int(o["x"]), int(o["y"]))
 	world.phase = "living"
 	world.next_proposal_at = world.now + int(world.pack.cfg("proposal_first_min")) * 60
 	return Commands.success({"person": p.uid})

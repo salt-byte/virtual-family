@@ -195,3 +195,33 @@ func test_repeat_factor_must_be_in_zero_exclusive_to_one():
 	assert_true(_has(_errs(func(p): p.config["repeat_factor"] = 0.0), "pack.json:", "repeat_factor"))
 	assert_true(_has(_errs(func(p): p.config["repeat_factor"] = 1.5), "pack.json:", "repeat_factor"))
 	assert_eq(_errs(func(p): p.config["repeat_factor"] = 1.0), [] as Array[String])
+
+func _start(entries: Array) -> Callable:
+	return func(p): p.config["start_objects"] = entries
+
+func test_start_objects_default_is_empty_and_smoke_has_some():
+	assert_eq(Pack.DEFAULT_CONFIG["start_objects"], [])
+	var p := Pack.load_dir("res://packs/_smoke")
+	assert_true((p.cfg("start_objects") as Array).size() >= 2)
+	assert_eq(p.errors, [] as Array[String])
+
+func test_start_objects_unknown_type():
+	var e := _errs(_start([{"type": "nope", "room": "main", "x": 0, "y": 0}]))
+	assert_true(_has(e, "pack.json:", "start_objects #0"))
+
+func test_start_objects_unknown_room_and_unbuilt_room():
+	assert_true(_has(_errs(_start([{"type": "fridge", "room": "nope", "x": 0, "y": 0}])), "pack.json:", "start_objects #0"))
+	assert_true(_has(_errs(_start([{"type": "fridge", "room": "study", "x": 0, "y": 0}])), "pack.json:", "not built"))
+
+func test_start_objects_out_of_bounds_and_wrong_area():
+	assert_true(_has(_errs(_start([{"type": "tv", "room": "main", "x": 7, "y": 0}])), "pack.json:", "start_objects #0"))
+	assert_true(_has(_errs(_start([{"type": "fridge", "room": "yard", "x": 0, "y": 0}])), "pack.json:", "start_objects #0"))
+
+func test_start_objects_overlap_names_the_second_entry():
+	var e := _errs(_start([{"type": "fridge", "room": "main", "x": 0, "y": 0}, {"type": "tv", "room": "main", "x": 0, "y": 0}]))
+	assert_true(_has(e, "pack.json:", "start_objects #1"))
+	assert_true(not _has(e, "pack.json:", "start_objects #0"))
+
+func test_start_objects_must_be_a_list_of_objects():
+	assert_true(_has(_errs(func(p): p.config["start_objects"] = 5), "pack.json:", "start_objects"))
+	assert_true(_has(_errs(_start([5])), "pack.json:", "start_objects #0"))

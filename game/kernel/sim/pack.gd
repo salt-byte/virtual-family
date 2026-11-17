@@ -24,6 +24,7 @@ const DEFAULT_CONFIG := {
 	"praise_window_min": 10, "praise_annoy_count": 3, "work_needs_min": {},
 	"illness_daily_chance": 0.15, "collectible_interval_min": 20, "collectible_max": 3,
 	"collectible_ttl_min": 60, "sell_back_ratio": 0.5, "repeat_factor": 0.3,
+	"start_objects": [],
 }
 
 ## Per-file field defaults (applied to every entry that lacks the key).
@@ -167,6 +168,12 @@ func _apply_defaults() -> void:
 		for s in config["stages"]:
 			if s is Dictionary and str(s.get("id", "")) != "baby":
 				stage_ids.append(str(s.get("id", "")))
+	if config["start_objects"] is Array:
+		for so in config["start_objects"]:
+			if so is Dictionary:
+				for f in ["x", "y"]:
+					if so.has(f):
+						so[f] = _as_int(so[f])
 	for a in actions.values():
 		if not a.has("stages"):
 			a["stages"] = stage_ids.duplicate()

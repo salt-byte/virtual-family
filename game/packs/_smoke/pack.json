@@ -3,5 +3,9 @@
 	"name": "Smoke Test Pack",
 	"vital_need": "health",
 	"praise_need": "happy",
-	"work_needs_min": {"fed": 20}
+	"work_needs_min": {"fed": 20},
+	"start_objects": [
+		{"type": "fridge", "room": "main", "x": 0, "y": 0},
+		{"type": "desk", "room": "main", "x": 2, "y": 0}
+	]
 }
