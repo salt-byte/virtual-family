@@ -59,3 +59,15 @@ func test_kernel_quotes_no_pack_id():
 		for f in src:
 			for q in ["\"", "'"]:
 				assert_true(not src[f].contains(q + id + q), "%s quotes pack id %s" % [f, id])
+
+func test_view_layer_has_no_theme_words():
+	var banned := ["qijia", "_smoke", "灶台", "科举", "侯府", "集市", "账房", "家谱", "媒人", ".illness"]
+	var n := 0
+	for f in DirAccess.get_files_at("res://kernel/view"):
+		if not f.ends_with(".gd"):
+			continue
+		n += 1
+		var src := FileAccess.get_file_as_string("res://kernel/view/" + f)
+		for b in banned:
+			assert_true(not src.contains(b), f + " contains " + b)
+	assert_true(n >= 1)
