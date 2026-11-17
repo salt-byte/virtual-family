@@ -45,16 +45,64 @@ func _click(m: Main, at: Vector2) -> void:
 
 func test_bar_shows_selected_person_in_words_not_numbers():
 	var m := _adopted()
-	var p := m.session.world.people[0]
-	AutonomySystem.cancel(m.session.world, p)   # idle: no progress percentage to confuse the check
-	p.needs["fed"] = 73.0
+	var w := m.session.world
+	var p := w.people[0]
+	# Busy: the bar shows how far along the action is ("… · 37%"); that is the only number.
+	var desk: int = w.objects.filter(func(o): return o.type == "desk")[0].uid
+	m.session.command({"type": "drag", "person": p.uid, "object": desk})
+	# Need values whose digits cannot turn up in the age, the money or the larder count.
+	var values := [61.0, 67.0, 83.0, 89.0]
+	var k := 0
+	for nid in p.needs:
+		p.needs[nid] = values[k % values.size()]
+		k += 1
+	w.money = 500
 	m.tick(0.016)
+	assert_true(not p.current.is_empty())
 	assert_eq(m.selected, p.uid)
 	var text := m.hud.bar_text()
 	assert_true(text.contains(p.given))
+	assert_true(text.contains("%"), text)
 	for word in p.status(m.session.pack).values():
 		assert_true(text.contains(word))
-	assert_true(not text.contains(str(int(p.needs["fed"]))))
+	var re := RegEx.create_from_string("\\d+%")
+	var stripped := re.sub(text, "", true)
+	assert_true(not stripped.contains("%"), stripped)
+	for v in values:
+		assert_true(not str(int(v)) in str(int(p.age)) + " 500", "%d collides" % int(v))
+		assert_true(not stripped.contains(str(int(v))), "%d in %s" % [int(v), stripped])
+	m.free()
+
+
+## The kernel leaves a person idle for one step between two actions: the plate and the bar
+## keep the previous action's words through that gap, then fall back to the idle text.
+func test_previous_action_shows_through_the_idle_step_between_actions():
+	var m := _adopted()
+	var w := m.session.world
+	var p := w.people[0]
+	var pv: PersonView = m.house.people[p.uid]
+	var idle: String = m.session.strings.t("idle")
+	var label := str(w.pack.actions["wash_face"]["label"])
+	AutonomySystem.start(w, p, "wash_face", -1)
+	m.tick(0.016)
+	assert_eq(pv.doing_text(), label)
+	while not p.current.is_empty():
+		w.advance(float(w.step_s))
+	m.tick(0.016)
+	assert_eq(pv.doing_text(), label)
+	assert_true(m.hud.bar_text().contains(label), m.hud.bar_text())
+	assert_true(not m.hud.bar_text().contains(idle))
+	assert_eq(pv.bob_offset(), 0.0)
+	assert_eq(pv.progress(), -1.0)
+	w.advance(float(w.step_s))         # one step later they are still idle (cancelled here)
+	AutonomySystem.cancel(w, p)
+	m.tick(0.016)
+	assert_eq(pv.doing_text(), label)
+	w.advance(float(w.step_s))         # idle longer than one step plus a second
+	AutonomySystem.cancel(w, p)
+	m.tick(0.016)
+	assert_eq(pv.doing_text(), idle)
+	assert_true(m.hud.bar_text().contains(idle))
 	m.free()
 
 
@@ -182,8 +230,11 @@ func test_bar_shows_progress_for_a_quick_action_and_not_for_sleep():
 	m.tick(0.016)
 	assert_true(m.hud.bar_text().contains("%"))
 	AutonomySystem.cancel(w, p)
+	# Night (local 23:00): sleep, which is slow and keeps its real length.
+	clk["offset"] = 15 * 3600
+	m.tick(0.016)
 	var bed: int = w.objects.filter(func(o): return o.type == "kang")[0].uid
-	m.session.command({"type": "drag", "person": p.uid, "object": bed})
+	AutonomySystem.start(w, p, "sleep", bed)
 	m.tick(0.016)
 	assert_true(w.pack.actions[str(p.current.get("action", ""))].get("slow", false))
 	assert_true(not m.hud.bar_text().contains("%"))

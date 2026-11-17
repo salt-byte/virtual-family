@@ -170,8 +170,10 @@ func refresh() -> void:
 ## (not while idle, not for slow things like sleeping).
 func _doing_text(p: Person) -> String:
 	var s := session.strings
-	var text := s.doing(p, session.world)
 	var pv: PersonView = main.house.people.get(p.uid) if main.house != null else null
+	# The person's plate holds the previous action's words through the short idle gap
+	# between two actions; the bar says the same.
+	var text := pv.doing_text() if pv != null else s.doing(p, session.world)
 	if pv == null or p.current.is_empty() or pv.slow():
 		return text
 	var pct := int(pv.progress() * 100.0)

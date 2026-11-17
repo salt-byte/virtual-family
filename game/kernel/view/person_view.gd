@@ -42,6 +42,11 @@ var _mark: FloatMark
 
 var _name := ""
 var _doing := ""
+## The label of the last thing they were busy with, and the World time they fell idle
+## (-1: busy). Between two actions the kernel leaves a person idle for a step; the plate
+## keeps the previous label through such a gap instead of flashing the idle text.
+var _last_doing := ""
+var _idle_from := -1
 var _key := ""
 var _rng := RandomNumberGenerator.new()
 var _box := StyleBoxFlat.new()
@@ -82,6 +87,14 @@ func refresh() -> void:
 		return
 	_name = session.strings.person_name(person)
 	_doing = session.strings.doing(person, w)
+	if not person.current.is_empty():
+		_last_doing = _doing
+		_idle_from = -1
+	else:
+		if _idle_from < 0:
+			_idle_from = w.now
+		if _last_doing != "" and float(w.now - _idle_from) <= idle_grace():
+			_doing = _last_doing
 	var l := layout()
 	if l != null:
 		base_target = _compute_target(w, l)
@@ -109,6 +122,18 @@ func tick(delta: float) -> void:
 	if held:
 		return
 	position = position.move_toward(target, SPEED * delta)
+
+
+## The "what they are doing" text on the plate (the previous action's through a short
+## idle gap).
+func doing_text() -> String:
+	return _doing
+
+
+## The longest idle gap, in World seconds, that still shows the previous action: one
+## kernel step plus a second.
+func idle_grace() -> float:
+	return float(session.world.step_s) + 1.0 if session.world != null else 0.0
 
 
 ## How far through the current action, 0..1; -1 when idle. Between the kernel's steps the

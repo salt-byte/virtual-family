@@ -246,7 +246,8 @@ func test_progress_and_bob_follow_the_action():
 		pv.tick(0.05)
 	pv.tick(0.2)
 	assert_true(absf(pv.bob_offset()) > 0.0 and absf(pv.bob_offset()) <= 3.0)
-	clk.unix += 60.0; m.tick(0.016)                 # 念书 2 分钟，过了一半
+	var half := AutonomySystem.duration_s(w, w.pack.actions["study"]) / 2.0
+	clk.unix += half; m.tick(0.016)                 # 念书过了一半
 	assert_near(pv.progress(), 0.5, 0.1)
 	m.free()
 
@@ -274,8 +275,10 @@ func test_sleeping_person_is_dimmed_not_bobbing():
 	var p := w.people[0]
 	var pv: PersonView = m.house.people[p.uid]
 	AutonomySystem.cancel(w, p); m.tick(0.016)
+	# Night (local 23:00): sleep, which is slow; a drag onto the kang by day only naps.
+	clk["offset"] = 15 * 3600; m.tick(0.016)
 	var bed: int = w.objects.filter(func(o): return o.type == "kang")[0].uid
-	m.session.command({"type": "drag", "person": p.uid, "object": bed}); m.tick(0.016)
+	AutonomySystem.start(w, p, "sleep", bed); m.tick(0.016)
 	assert_true(w.pack.actions[str(p.current.get("action", ""))].get("slow", false))
 	assert_true(not pv.asleep())                    # still walking
 	for i in 400:
