@@ -6,7 +6,7 @@
 	{"id": "watch_tv", "label": "Watch TV", "kind": "daily", "duration_min": 60, "object": "tv",
 	 "needs": {"happy": 20}},
 	{"id": "work_desk", "label": "Work at the desk", "kind": "daily", "duration_min": 60, "object": "desk",
-	 "work": {"track": "office"}},
+	 "work": {"track": "office"}, "stages": ["adult", "elder"]},
 	{"id": "take_out_trash", "label": "Take out the trash", "kind": "daily", "duration_min": 15,
 	 "base": 15, "cleans": "trash"},
 	{"id": "pick_up", "label": "Pick up loose change", "kind": "daily", "duration_min": 5, "picks": true},

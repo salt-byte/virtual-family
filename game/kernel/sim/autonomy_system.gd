@@ -24,7 +24,7 @@ static func candidates(world: World, p: Person) -> Array[Dictionary]:
 			continue
 		var s := _score(world, p, world.pack.actions[id])
 		if s > 0.0:
-			out.append({"action": id, "object_uid": _free_object(world, world.pack.actions[id], -1), "score": s})
+			out.append({"action": id, "object_uid": _free_object(world, p, world.pack.actions[id], -1), "score": s})
 	return out
 
 
@@ -45,7 +45,7 @@ static func can_do(world: World, p: Person, action_id: String, object_uid: int) 
 				return "no_object"
 		elif not world.objects.any(func(o): return o.type == type):
 			return "no_object"
-		if _free_object(world, a, object_uid) < 0:
+		if _free_object(world, p, a, object_uid) < 0:
 			return "busy"
 	var work: Dictionary = a["work"]
 	if not work.is_empty() and str(work.get("track", "")) != p.track:
@@ -64,7 +64,7 @@ static func can_do(world: World, p: Person, action_id: String, object_uid: int) 
 static func start(world: World, p: Person, action_id: String, object_uid: int, target_uid := -1) -> void:
 	cancel(world, p)
 	var a: Dictionary = world.pack.actions[action_id]
-	var uid := _free_object(world, a, object_uid) if str(a["object"]) != "" else -1
+	var uid := _free_object(world, p, a, object_uid) if str(a["object"]) != "" else -1
 	for item in a["consumes"]:
 		world.stock[item] = int(world.stock.get(item, 0)) - int(a["consumes"][item])
 	p.current = {"action": action_id, "object_uid": uid, "target_uid": target_uid,
@@ -154,18 +154,19 @@ static func _requires_ok(p: Person, req: Dictionary) -> bool:
 	return true
 
 
-## uid of a free object of the action's type (`object_uid` >= 0 asks for that exact one), else -1.
-static func _free_object(world: World, a: Dictionary, object_uid: int) -> int:
+## uid of an object of the action's type that is free for `p` (`object_uid` >= 0 asks for that
+## exact one), else -1. An object `p` is already using does not count as occupied for them.
+static func _free_object(world: World, p: Person, a: Dictionary, object_uid: int) -> int:
 	for o in world.objects:
 		if o.type != a["object"] or (object_uid >= 0 and o.uid != object_uid):
 			continue
-		if not _occupied(world, o.uid):
+		if not _occupied(world, o.uid, p):
 			return o.uid
 	return -1
 
 
-static func _occupied(world: World, uid: int) -> bool:
+static func _occupied(world: World, uid: int, except: Person) -> bool:
 	for q in world.people:
-		if q.alive and not q.current.is_empty() and int(q.current.get("object_uid", -1)) == uid:
+		if q != except and q.alive and not q.current.is_empty() and int(q.current.get("object_uid", -1)) == uid:
 			return true
 	return false

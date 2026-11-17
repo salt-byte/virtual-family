@@ -54,6 +54,16 @@ func advance(seconds: float) -> void:
 		_step()
 
 
+## Runs a player command. Always returns {ok, error}; handlers live in `Commands.handlers`.
+func command(cmd: Dictionary) -> Dictionary:
+	if phase == "invalid" or phase == "over":
+		return Commands.fail("not_running")
+	var handler: Callable = Commands.handlers.get(str(cmd.get("type", "")), Callable())
+	if handler.is_null():
+		return Commands.fail("unknown_command")
+	return handler.call(self, cmd)
+
+
 func emit(type: String, data := {}) -> void:
 	var e := {"type": type, "t": now}
 	e.merge(data)
