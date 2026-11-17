@@ -1,0 +1,7 @@
+[
+	{"id": "office", "name": "Office Job", "levels": [], "_old": [
+		{"name": "Junior", "daily_income": 20, "work_bonus_per_hour": 2, "progress_to_next": 100},
+		{"name": "Associate", "daily_income": 45, "work_bonus_per_hour": 4, "progress_to_next": 300},
+		{"name": "Manager", "daily_income": 90, "work_bonus_per_hour": 8, "progress_to_next": 0}
+	]}
+]

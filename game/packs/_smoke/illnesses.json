@@ -1,0 +1,3 @@
+[
+	{"id": "cold", "name": "Cold", "weight": 1, "drain": {"health": 1, "happy": 1}, "symptom_action": "cough"}
+]

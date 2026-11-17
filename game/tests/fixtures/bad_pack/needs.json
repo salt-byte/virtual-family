@@ -1,0 +1,12 @@
+[
+	{"id": "fed", "name": "Fullness", "drain_per_hour": 3, "start": 80,
+	 "labels": [{"below": 25, "text": "Starving"}, {"below": 60, "text": "Peckish"}, {"below": 101, "text": "Satisfied"}],
+	 "when_empty": {"need": "health", "per_hour": 10}},
+	{"id": "fed", "name": "Dup", "drain_per_hour": 1, "start": 50, "labels": [{"below": 101, "text": "x"}]},
+	{"id": "energy", "name": "Energy", "drain_per_hour": 2, "start": 80,
+	 "labels": [{"below": 25, "text": "Wiped out"}, {"below": 60, "text": "Drowsy"}, {"below": 101, "text": "Alert"}]},
+	{"id": "happy", "name": "Mood", "drain_per_hour": 1, "start": 80,
+	 "labels": [{"below": 25, "text": "Miserable"}, {"below": 60, "text": "Flat"}, {"below": 101, "text": "Cheerful"}]},
+	{"id": "health", "name": "Wellbeing", "drain_per_hour": 0, "start": 100,
+	 "labels": [{"below": 25, "text": "Critical"}, {"below": 60, "text": "Unwell"}, {"below": 101, "text": "Sound"}]}
+]

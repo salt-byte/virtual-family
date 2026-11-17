@@ -1,0 +1,6 @@
+[
+	{"id": "fridge", "name": "Fridge", "category": "kitchen", "price": 300, "w": 1, "h": 1},
+	{"id": "tv", "name": "Television", "category": "leisure", "price": 250, "w": 2, "h": 1},
+	{"id": "desk", "name": "Desk", "category": "work", "price": 150, "w": 2, "h": 1},
+	{"id": "bed", "name": "Bed", "category": "bedroom", "price": 400, "w": 2, "h": 2}
+]

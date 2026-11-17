@@ -1,0 +1,18 @@
+[
+	{"id": "eat", "label": "Have a meal", "kind": "daily", "duration_min": 20, "object": "fridgee",
+	 "needs": {"fed": 40}, "consumes": {"food": 1}, "tags": ["food"]},
+	{"id": "sleep", "label": "Sleep", "kind": "daily", "duration_min": 480, "object": "bed",
+	 "needs": {"energy": 60}, "hours": [22, 6]},
+	{"id": "watch_tv", "label": "Watch TV", "kind": "daily", "duration_min": 60, "object": "tv",
+	 "needs": {"happy": 20}},
+	{"id": "work_desk", "label": "Work at the desk", "kind": "daily", "duration_min": 60, "object": "desk",
+	 "work": {"track": "office"}},
+	{"id": "take_out_trash", "label": "Take out the trash", "kind": "daily", "duration_min": 15,
+	 "base": 15, "cleans": "trash"},
+	{"id": "pick_up", "label": "Pick up loose change", "kind": "daily", "duration_min": 5, "picks": true},
+	{"id": "nap_sick", "label": "Rest in bed", "kind": "trouble", "duration_min": 120, "object": "bed",
+	 "needs": {"energy": 30}, "requires": {"sick": true}},
+	{"id": "cough", "label": "Cough", "kind": "trouble", "duration_min": 5, "base": 20,
+	 "praiseable": false, "requires": {"illness": "cold"}},
+	{"id": "stare_window", "label": "Stare out the window", "kind": "flavor", "duration_min": 10, "base": 3}
+]

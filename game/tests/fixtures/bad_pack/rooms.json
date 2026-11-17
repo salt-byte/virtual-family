@@ -1,0 +1,5 @@
+[
+	{"id": "main", "name": "Main Room", "w": 8, "h": 6, "built": true, "build_cost": 0},
+	{"id": "study", "name": "Study", "w": 5, "h": 4, "built": false, "build_cost": 500},
+	{"id": "yard", "name": "Yard", "w": 8, "h": 6, "built": true, "build_cost": 0, "outdoor": true}
+]

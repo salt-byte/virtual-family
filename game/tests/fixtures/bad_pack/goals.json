@@ -1,0 +1,4 @@
+[
+	{"id": "tidy_home", "text": "Clear every mess from the home.", "reward": 50, "when": {"type": "mess_cleared"}},
+	{"id": "tie_the_knot", "text": "Get married.", "reward": 100, "when": {"type": "married"}}
+]

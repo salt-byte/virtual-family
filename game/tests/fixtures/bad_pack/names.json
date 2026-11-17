@@ -1,0 +1,6 @@
+{
+	"family": ["Archer", "Bellamy", "Carver", "Dalton"],
+	"male": ["Arlo", "Boone", "Cyrus"],
+	"female": ["Delia", "Esme", "Fern"],
+	"tags": ["quiet", "outdoorsy", "foodie", "bookish"]
+}

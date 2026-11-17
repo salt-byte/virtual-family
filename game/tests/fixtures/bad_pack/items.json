@@ -1,0 +1,5 @@
+[
+	{"id": "groceries", "name": "Groceries", "category": "food", "price": 30, "stock": {"food": 10}},
+	{"id": "cold_pill", "name": "Cold Pill", "category": "medicine", "price": 40, "cures": "cold"},
+	{"id": "cake", "name": "Cake", "category": "treat", "price": 25, "needs": {"happy": 30}}
+]
