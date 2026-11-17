@@ -15,6 +15,14 @@ if [ $impcode -ne 0 ] || printf '%s\n' "$imp" | grep -qE "$pat"; then
 	echo "FAIL import step reported errors"
 	code=1
 fi
+# Godot only prints an import error the first time; later runs skip the asset silently,
+# but its .import file keeps `valid=false`.
+broken=$(find . -path ./.godot -prune -o -name '*.import' -print | xargs grep -l '^valid=false' 2>/dev/null)
+if [ -n "$broken" ]; then
+	printf '%s\n' "$broken"
+	echo "FAIL assets failed to import"
+	code=1
+fi
 if printf '%s\n' "$out" | grep -qE "$pat"; then
 	echo "FAIL engine errors/warnings in output"
 	code=1
