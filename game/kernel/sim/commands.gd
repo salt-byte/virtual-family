@@ -14,6 +14,10 @@ static var handlers: Dictionary = {
 	"scold": Commands._scold,
 	"buy": Commands._buy,
 	"use_item": Commands._use_item,
+	"place": HouseSystem.place,
+	"move": HouseSystem.move,
+	"sell_object": HouseSystem.sell,
+	"build_room": HouseSystem.build_room,
 }
 
 

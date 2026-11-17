@@ -26,7 +26,7 @@ var income_carry: Dictionary = {}
 ## Counters that goals read: cured, collected, mess_cleaned, all_clean.
 ## Messes in the house: {uid, type, room, x, y}.
 var messes: Array[Dictionary] = []
-## Ids of rooms that exist in the house (pack rooms with `built`); a later task adds to it.
+## Ids of rooms that exist in the house (pack rooms with `built`, plus any built later).
 var rooms_built: Array[String] = []
 var stats: Dictionary = {"cured": 0, "collected": 0, "mess_cleaned": 0, "all_clean": 0}
 
@@ -103,8 +103,11 @@ func add_person(p: Person) -> void:
 	people.append(p)
 
 
-## Adds an object with the next uid and returns it. No placement checks yet.
+## Adds an object with the next uid and returns it, free of charge; -1 (nothing added)
+## when `HouseSystem.can_place` rejects the spot.
 func add_object(type: String, room: String, x: int, y: int) -> int:
+	if HouseSystem.can_place(self, type, room, x, y) != "":
+		return -1
 	var uid := _next_object_uid
 	_next_object_uid += 1
 	objects.append({"uid": uid, "type": type, "room": room, "x": x, "y": y})
