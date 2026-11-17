@@ -1,0 +1,17 @@
+{
+  "name": "ai-lifesim-studio",
+  "version": "0.1.0",
+  "description": "Early skeleton of a plugin for making family life-sim games on a fixed Godot kernel, one theme pack per game. Only the theme-agnostic art, UI, release and writing skills are here, borrowed from AI RPG Studio; the pack-authoring skills are still to come. 生活模拟游戏（家庭、小人、房子、几代人）的插件，目前只是骨架：美术、界面、发布、文风这些和题材无关的技能借自 AI RPG Studio，填主题包的技能还没做。",
+  "author": {
+    "name": "Yudie Deng"
+  },
+  "keywords": [
+    "game-dev",
+    "life-sim",
+    "godot",
+    "theme-pack",
+    "cutout-animation",
+    "ai-art"
+  ],
+  "displayName": "AI Life-Sim Studio"
+}

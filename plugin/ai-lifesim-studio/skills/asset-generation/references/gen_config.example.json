@@ -1,0 +1,15 @@
+{
+  "provider": "ark",
+  "base_url": "https://ark.cn-beijing.volces.com/api/v3",
+  "model": "（去服务的文档页查当前型号名，填在这里）",
+  "size": "2048x2048",
+  "quality": null,
+  "native_transparent": false,
+  "price_per_image": 0.2,
+  "currency": "元",
+  "budget": 30,
+  "max_images": null,
+  "pixel_size": null,
+  "out_dirs": {},
+  "extra": {}
+}

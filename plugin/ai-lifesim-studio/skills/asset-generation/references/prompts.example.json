@@ -1,0 +1,17 @@
+[
+  {
+    "sheet": "hero_ref",
+    "prompt": "〈风格线〉\n画学徒，全身，侧面朝右，站在画面正中，四周留空……\n背景是一整片纯绿色 #00FF00（绿幕），没有渐变、没有阴影、没有地面。角色身上不用纯绿色。",
+    "size": "1024x1536",
+    "refs": [],
+    "background": "#00FF00"
+  },
+  {
+    "sheet": "env_01",
+    "prompt": "〈风格线〉\n画一张素材合集：4 列 × 2 行的格子……",
+    "size": "1536x1024",
+    "refs": ["assets/gen/ref/hero_ref.png"],
+    "background": "#F0F0F0",
+    "grid": "4x2"
+  }
+]
