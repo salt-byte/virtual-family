@@ -135,6 +135,11 @@ func test_missing_room_in_placed_entries_is_rejected():
 	var w := _busy(); var d := w.to_dict(); d["objects"][0].erase("room")
 	assert_true(World.from_dict(w.pack, d) == null)
 	var d2 := w.to_dict(); d2["messes"][0].erase("room"); assert_true(World.from_dict(w.pack, d2) == null)
+func test_missing_or_unknown_room_in_collectibles_is_rejected():
+	var w := _busy(); var d := w.to_dict(); d["collectibles"][0].erase("room")
+	assert_true(World.from_dict(w.pack, d) == null)
+	var d2 := w.to_dict(); d2["collectibles"][0]["room"] = "no_such_room"
+	assert_true(World.from_dict(w.pack, d2) == null)
 func test_malformed_float_marker_is_rejected():
 	var w := _played(); var d := w.to_dict(); d["people"][0]["age"] = {"$f": "abc"}
 	assert_true(World.from_dict(w.pack, d) == null)

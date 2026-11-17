@@ -78,3 +78,18 @@ func test_requeue_events_puts_them_first():
 	var w := TestKit.world(); w.emit("a"); var held := w.drain_events(); w.emit("b")
 	w.requeue_events(held)
 	assert_eq(w.drain_events().map(func(e): return e.type), ["a", "b"])
+
+func test_spawn_and_collect_events_name_the_kind():
+	var w := TestKit.world()
+	var p := TestKit.adult(w)
+	var m := MessSystem.spawn(w, w.pack.mess_types.keys()[0])
+	var c := CollectibleSystem.spawn(w, w.pack.collectibles.keys()[0])
+	CollectibleSystem.collect(w, p, c)
+	var by := {}
+	for e in w.drain_events():
+		by[e.type] = e
+	assert_eq(by["mess_spawned"].kind, w.pack.mess_types.keys()[0])
+	assert_eq(by["collectible_spawned"].kind, w.pack.collectibles.keys()[0])
+	assert_eq(by["collected"].kind, w.pack.collectibles.keys()[0])
+	assert_eq(by["collected"].person, p.uid)
+	assert_true(m > 0)

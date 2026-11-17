@@ -71,11 +71,11 @@ func _line(w: World, e: Dictionary) -> String:
 		"person_died":
 			return "✝ %s 去世（%s）" % [who, "寿终" if e.cause == "old_age" else "照看不周"]
 		"mess_spawned":
-			return "· %s多了一处脏乱" % w.pack.rooms[e.room].get("name", e.room)
+			return "· %s多了一处脏乱（%s）" % [w.pack.rooms[e.room].get("name", e.room), w.pack.mess_types[e.kind].get("name", e.kind)]
 		"mess_cleaned":
 			return "· 一处脏乱收拾掉了"
 		"collected":
-			return "· 院里捡到东西（%s）" % ("头一件，收进藏品" if e.first else "卖了 %d 文" % int(e.value))
+			return "· %s 捡到%s（%s）" % [who, w.pack.collectibles[e.kind].get("name", e.kind), "头一件，收进藏品" if e.first else "卖了 %d 文" % int(e.value)]
 		"goal_done":
 			return "✓ 达成「%s」，赏 %d 文" % [w.pack.goals[e.goal]["text"], int(e.reward)]
 	return str(e)

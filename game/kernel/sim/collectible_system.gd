@@ -24,12 +24,13 @@ static func spawn(world: World, type := "") -> int:
 		type = str(world.rng.weighted_pick(ids, weights))
 	elif not world.pack.collectibles.has(type):
 		return -1
-	var r: Dictionary = world.pack.rooms[str(world.rng.pick(rooms))]
+	var room := str(world.rng.pick(rooms))
+	var r: Dictionary = world.pack.rooms[room]
 	var uid := world.next_uid()
-	world.collectibles.append({"uid": uid, "type": type,
+	world.collectibles.append({"uid": uid, "type": type, "room": room,
 		"x": world.rng.randi_range(0, int(r["w"]) - 1), "y": world.rng.randi_range(0, int(r["h"]) - 1),
 		"expires_at": world.now + int(world.pack.cfg("collectible_ttl_min")) * 60})
-	world.emit("collectible_spawned", {"uid": uid, "type": type})
+	world.emit("collectible_spawned", {"uid": uid, "kind": type, "room": room})
 	return uid
 
 
@@ -70,7 +71,7 @@ static func collect(world: World, p: Person, uid: int) -> void:
 		value = 0
 	else:
 		EconomySystem.earn(world, value, "collect", p.uid)
-	world.emit("collected", {"uid": uid, "type": type, "value": value, "first": first})
+	world.emit("collected", {"uid": uid, "kind": type, "value": value, "first": first, "person": p.uid})
 
 
 static func _expire(world: World) -> void:

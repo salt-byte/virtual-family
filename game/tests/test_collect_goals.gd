@@ -41,3 +41,9 @@ func test_collected_goal_and_not_evaluated_when_over():
 	w.pack.goals["g"] = {"id": "g", "reward": 7, "when": {"type": "money_at_least", "amount": 1}}
 	w.phase = "over"; GoalSystem.step(w, 60.0); assert_eq(w.goals_done.size(), 0)
 	w.phase = "living"; w.money = 1; GoalSystem.step(w, 60.0); assert_eq(w.money, 8); assert_true(w.goals_done.has("g"))
+func test_collectible_remembers_its_outdoor_room():
+	var w := TestKit.world()
+	var uid := CollectibleSystem.spawn(w)
+	var c := CollectibleSystem.find(w, uid)
+	assert_true(w.rooms_built.has(c["room"]))
+	assert_true(bool(w.pack.rooms[c["room"]]["outdoor"]))

@@ -28,7 +28,7 @@ static func spawn(world: World, type: String, room := "") -> int:
 	var uid := world.next_uid()
 	world.messes.append({"uid": uid, "type": type, "room": room,
 		"x": world.rng.randi_range(0, int(r["w"]) - 1), "y": world.rng.randi_range(0, int(r["h"]) - 1)})
-	world.emit("mess_spawned", {"uid": uid, "type": type, "room": room})
+	world.emit("mess_spawned", {"uid": uid, "kind": type, "room": room})
 	return uid
 
 

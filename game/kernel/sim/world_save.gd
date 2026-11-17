@@ -290,7 +290,7 @@ static func _valid_save(pack: Pack, d: Dictionary) -> bool:
 		if not _valid_person(p):
 			return false
 	if not (_valid_placed(d["objects"], true, []) and _valid_placed(d["messes"], true, [])
-			and _valid_placed(d["collectibles"], false, ["expires_at"])):
+			and _valid_placed(d["collectibles"], true, ["expires_at"])):
 		return false
 	if not (_count_map(d["stock"]) and _count_map(d["inventory"]) and _count_map(d["collection"])):
 		return false
@@ -336,7 +336,7 @@ static func _ids_known(pack: Pack, d: Dictionary) -> bool:
 		if not (pack.mess_types.has(m["type"]) and pack.rooms.has(m["room"])):
 			return false
 	for c in d["collectibles"]:
-		if not pack.collectibles.has(c["type"]):
+		if not (pack.collectibles.has(c["type"]) and pack.rooms.has(c["room"])):
 			return false
 	return _keys_in(d["inventory"], pack.items) and _keys_in(d["collection"], pack.collectibles) \
 			and _all_in(d["rooms_built"], pack.rooms) and _all_in(d["goals_done"], pack.goals)
