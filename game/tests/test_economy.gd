@@ -70,3 +70,11 @@ func test_finished_work_action_pays_bonus():
 	w.advance(60 * 60)
 	assert_true(w.drain_events().any(func(e): return e.type == "income" and e.source == "work"))
 	assert_near(p.progress, 60.0)
+func test_salary_paid_when_clock_is_off_the_minute():
+	var w := _w(); w.set_time(1767268800 + 37, 0); var p := _worker(w)
+	p.current = {action = "stare_window", object_uid = -1, target_uid = -1, remaining_s = 999999}
+	w.advance(86400)
+	var n := 0; var sum := 0
+	for e in w.drain_events():
+		if e.type == "income" and e.source == "salary": n += 1; sum += int(e.amount)
+	assert_eq(n, 24); assert_eq(sum, 20); assert_eq(w.money, 120)

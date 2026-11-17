@@ -2,12 +2,13 @@ class_name EconomySystem
 extends RefCounted
 ## Money and livelihoods: hourly salary, work bonus, progress and levels, and the shop.
 ## Every coin in or out goes through `spend` / `earn`; `world.money` stays an int and never
-## drops below zero.
+## drops below zero. The one exception is salary, which keeps its own emit path because it
+## must emit an `income` event even for a 0-coin hourly part.
 
 
 ## Pays each working-age person one of 24 hourly parts of their level's daily income.
 static func step(world: World, _dt: float) -> void:
-	if world.now % 3600 != 0:
+	if world.now / 3600 == (world.now - World.STEP) / 3600:  # no hour boundary crossed
 		return
 	for p in world.people:
 		if not p.alive or p.track == "" or not (p.stage(world.pack) in ["adult", "elder"]):
@@ -31,11 +32,15 @@ static func spend(world: World, amount: int) -> bool:
 	return true
 
 
-static func earn(world: World, amount: int, source: String) -> void:
+## `uid` (>= 0) names the person the income belongs to and goes into the event.
+static func earn(world: World, amount: int, source: String, uid := -1) -> void:
 	if amount <= 0:
 		return
 	world.money += amount
-	world.emit("income", {"amount": amount, "source": source})
+	var e := {"amount": amount, "source": source}
+	if uid >= 0:
+		e["uid"] = uid
+	world.emit("income", e)
 
 
 ## Called when a `work` action ends: coin bonus always, progress only when fit to work.
@@ -44,9 +49,7 @@ static func on_work_finished(world: World, p: Person, minutes: int) -> void:
 	if lvl.is_empty():
 		return
 	var bonus := int(float(lvl["work_bonus_per_hour"]) * minutes / 60.0)
-	if bonus > 0:
-		world.money += bonus
-		world.emit("income", {"uid": p.uid, "amount": bonus, "source": "work"})
+	earn(world, bonus, "work", p.uid)
 	if not _fit_to_work(world, p):
 		return
 	p.progress += float(minutes) * p.aptitude
