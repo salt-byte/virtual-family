@@ -33,7 +33,11 @@ func _init() -> void:
 				continue
 			var t = script.new()
 			t.call(method)
-			if t.failures.is_empty():
+			if t.assertions == 0:
+				print("FAIL " + label)
+				print("  no assertions made")
+				failed += 1
+			elif t.failures.is_empty():
 				print("PASS " + label)
 				passed += 1
 			else:

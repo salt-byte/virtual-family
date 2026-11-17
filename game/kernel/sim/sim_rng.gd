@@ -18,7 +18,7 @@ func randi_range(a: int, b: int) -> int:
 
 
 func chance(p: float) -> bool:
-	return _rng.randf() < p
+	return p >= 1.0 or _rng.randf() < p
 
 
 func pick(arr: Array) -> Variant:

@@ -28,3 +28,12 @@ func test_chance_bounds():
 	var r := SimRng.new(1)
 	assert_true(not r.chance(0.0))
 	assert_true(r.chance(1.0))
+
+func test_state_restores_onto_fresh_instance():
+	var a := SimRng.new(7)
+	a.randf()
+	var s := a.get_state()
+	var expected := a.randf()
+	var b := SimRng.new(999)
+	b.set_state(s)
+	assert_eq(b.randf(), expected)
