@@ -63,6 +63,9 @@ static func _try_drag(world: World, cmd: Dictionary) -> Dictionary:
 		return fail("no_object")
 	var action_id := str(cmd.get("action", ""))
 	if action_id == "":
+		var meal := _eat_at(world, p, object_uid)
+		if meal != "":
+			return success({"action": meal})
 		var pick := _pick_object_action(world, p, o)
 		if pick.error != "":
 			return fail(pick.error)
@@ -74,6 +77,23 @@ static func _try_drag(world: World, cmd: Dictionary) -> Dictionary:
 		return fail(reason)
 	AutonomySystem.start(world, p, action_id, object_uid)
 	return success({"action": action_id})
+
+
+## Dropped on a table with food on it: starts the first action that eats one of the dishes
+## there (pack order) and returns its id; "" when there is none `p` can do.
+static func _eat_at(world: World, p: Person, object_uid: int) -> String:
+	for d in world.dishes:
+		if int(d.object_uid) != object_uid:
+			continue
+		for aid in world.pack.actions:
+			var a: Dictionary = world.pack.actions[aid]
+			if not (a["eats"] as Array).has(d.type) or AutonomySystem.can_do(world, p, aid, -1) != "":
+				continue
+			if DishSystem.first_free(world, [d.type], p) != int(d.uid):
+				continue
+			AutonomySystem.start(world, p, aid, -1, int(d.uid))
+			return str(aid)
+	return ""
 
 
 ## {action, error}: the first action of object `o`'s type that `p` can do on it now, else

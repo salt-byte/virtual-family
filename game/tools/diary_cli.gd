@@ -73,6 +73,11 @@ func _line(w: World, e: Dictionary) -> String:
 			return "✝ %s 去世（%s）" % [who, "寿终" if e.cause == "old_age" else "照看不周"]
 		"mess_spawned":
 			return "· %s多了一处脏乱（%s）" % [w.pack.rooms[e.room].get("name", e.room), w.pack.mess_types[e.kind].get("name", e.kind)]
+		"dish_served":
+			var o := w.object(int(e.object))
+			return "· %s上摆出了%s" % [w.pack.object_types.get(str(o.get("type", "")), {}).get("name", "?"), w.pack.dishes[e.kind]["name"]]
+		"dish_finished":
+			return "· %s%s" % [w.pack.dishes[e.kind]["name"], "吃光了" if e.how == "eaten" else "放凉了没人吃"]
 		"mess_cleaned":
 			return "· 一处脏乱收拾掉了"
 		"collected":

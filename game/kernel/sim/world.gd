@@ -32,6 +32,8 @@ var inventory: Dictionary = {}
 var income_carry: Dictionary = {}
 ## Messes in the house: {uid, type, room, x, y}.
 var messes: Array[Dictionary] = []
+## Cooked food waiting to be eaten (see `DishSystem`).
+var dishes: Array[Dictionary] = []
 ## Ids of rooms that exist in the house (pack rooms with `built`, plus any built later).
 var rooms_built: Array[String] = []
 ## Counters that goals read: cured, collected, mess_cleaned, all_clean.
@@ -271,6 +273,7 @@ func _run_systems(dt: float) -> void:
 	NeedsSystem.step(self, dt)
 	IllnessSystem.step(self, dt)
 	MessSystem.step(self, dt)
+	DishSystem.step(self, dt)
 	AutonomySystem.step(self, dt)
 	EconomySystem.step(self, dt)
 	CollectibleSystem.step(self, dt)

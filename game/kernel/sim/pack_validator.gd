@@ -21,6 +21,7 @@ const REQUIRED := {
 	"collectibles.json": {"name": TYPE_STRING, "value": TYPE_NIL, "weight": TYPE_NIL},
 	"goals.json": {"text": TYPE_STRING, "reward": TYPE_NIL, "when": TYPE_DICTIONARY},
 	"wishes.json": {"text": TYPE_STRING, "kind": TYPE_STRING, "ttl_hours": TYPE_NIL, "joy": TYPE_NIL},
+	"dishes.json": {"name": TYPE_STRING, "portions": TYPE_NIL},
 	"stories.json": {"title": TYPE_STRING, "unlock": TYPE_DICTIONARY, "fragments": TYPE_ARRAY, "finale": TYPE_DICTIONARY},
 }
 ## Whole-number fields and their minimum (money, sizes and durations are never fractional or negative).
@@ -31,6 +32,7 @@ const MIN_INT := {
 	"items.json": {"price": 0},
 	"collectibles.json": {"value": 0},
 	"goals.json": {"reward": 0},
+	"dishes.json": {"portions": 1, "max_out": 1},
 }
 const LEVEL_FIELDS := ["name", "daily_income", "work_bonus_per_hour", "progress_to_next"]
 ## The moods an action may require (see `MoodSystem`).
@@ -72,6 +74,7 @@ func _run() -> void:
 	_check_stories()
 	_check_mood_config()
 	_check_births()
+	_check_dishes()
 
 
 func _check_required() -> void:
@@ -258,6 +261,10 @@ func _check_actions() -> void:
 		if it["stock"] is Dictionary:
 			for k in it["stock"]:
 				stock_names[k] = true
+	for a0 in _p.actions.values():
+		if a0.get("yields") is Dictionary:
+			for k in a0["yields"]:
+				stock_names[k] = true
 	var stage_ids := []
 	if _p.config["stages"] is Array:
 		for s in _p.config["stages"]:
@@ -320,6 +327,7 @@ func _check_actions() -> void:
 				_err("actions.json", id, "an action with an object may not also list rooms")
 		_check_requires(id, a["requires"])
 		_check_tends(id, a)
+		_check_food(id, a)
 		var cs = a.get("completes_story", "")
 		if not cs is String:
 			_err("actions.json", id, "completes_story must be a story id")
@@ -329,6 +337,52 @@ func _check_actions() -> void:
 				_err("actions.json", id, "completes_story '%s' is not a story" % [cs])
 			elif not (st.get("finale") is Dictionary and str(st["finale"].get("kind", "")) in ["offering", "dig"]):
 				_err("actions.json", id, "completes_story '%s' needs an offering or dig finale" % [cs])
+
+
+## `serves` (a dish id), `eats` (dish ids) and `yields` (stock name -> whole number added).
+func _check_food(id: String, a: Dictionary) -> void:
+	var sv = a.get("serves", "")
+	if not sv is String:
+		_err("actions.json", id, "serves must be a dish id")
+	elif sv != "" and not _p.dishes.has(sv):
+		_err("actions.json", id, "serves '%s' is not a dish" % [sv])
+	var ea = a.get("eats", [])
+	if not ea is Array:
+		_err("actions.json", id, "eats must be an array of dish ids")
+	else:
+		for d in ea:
+			if not (d is String and _p.dishes.has(d)):
+				_err("actions.json", id, "eats: '%s' is not a dish" % [str(d)])
+		if not ea.is_empty():
+			if (a["cleans"] is String and a["cleans"] != "") or a["picks"] == true \
+					or (a.get("tends") is Dictionary and not a["tends"].is_empty()):
+				_err("actions.json", id, "an action that eats a dish may not also clean, pick up or tend")
+			if (a["object"] is String and a["object"] != "") or (a["rooms"] is Array and not a["rooms"].is_empty()):
+				_err("actions.json", id, "an action that eats a dish happens where the dish is: no object or rooms")
+	var y = a.get("yields", {})
+	if not y is Dictionary:
+		_err("actions.json", id, "yields must be an object")
+	else:
+		for k in y:
+			if not (y[k] is int and y[k] > 0):
+				_err("actions.json", id, "yields '%s' must be a whole number above 0" % [k])
+
+
+func _check_dishes() -> void:
+	for d in _p.dishes.values():
+		var id: String = d["id"]
+		if not d["on"] is Array or d["on"].is_empty():
+			_err("dishes.json", id, "on must be a non-empty array of object types")
+		else:
+			for t in d["on"]:
+				if not (t is String and _p.object_types.has(t)):
+					_err("dishes.json", id, "on: '%s' is not an object type" % [str(t)])
+		if not d["leaves"] is String or (d["leaves"] != "" and not _p.mess_types.has(d["leaves"])):
+			_err("dishes.json", id, "leaves '%s' is not a mess type" % [str(d["leaves"])])
+		if not _is_num(d["ttl_hours"]) or float(d["ttl_hours"]) < 0.0:
+			_err("dishes.json", id, "ttl_hours must be a number of at least 0")
+		if d.has("color") and not _color_ok(d["color"]):
+			_err("dishes.json", id, "color must be a colour like \"#rrggbb\"")
 
 
 ## `tends`: need id -> amount given to the baby the action is aimed at.
@@ -627,6 +681,8 @@ func _check_messes() -> void:
 			for k in m["penalty"]:
 				if not _p.needs.has(k):
 					_err("messes.json", m["id"], "penalty key '%s' is not a need" % [k])
+		if m.has("color") and not _color_ok(m["color"]):
+			_err("messes.json", m["id"], "color must be a colour like \"#rrggbb\"")
 
 
 func _check_goals() -> void:

@@ -14,8 +14,9 @@ static func step(world: World, dt: float) -> void:
 
 ## Adds one mess of `type` and returns its uid, or -1 when the type is unknown or no suitable
 ## room exists. `room` "" picks a random built room of the matching kind (outdoor or indoor),
-## never a place `outside` the house.
-static func spawn(world: World, type: String, room := "") -> int:
+## never a place `outside` the house. `at` (inside `room`) puts it on that cell instead of a
+## random one.
+static func spawn(world: World, type: String, room := "", at := Vector2i(-1, -1)) -> int:
 	var mt: Dictionary = world.pack.mess_types.get(type, {})
 	if mt.is_empty():
 		return -1
@@ -28,8 +29,9 @@ static func spawn(world: World, type: String, room := "") -> int:
 		room = str(world.rng.pick(ok))
 	var r: Dictionary = world.pack.rooms[room]
 	var uid := world.next_uid()
-	world.messes.append({"uid": uid, "type": type, "room": room,
-		"x": world.rng.randi_range(0, int(r["w"]) - 1), "y": world.rng.randi_range(0, int(r["h"]) - 1)})
+	if at.x < 0 or at.y < 0 or at.x >= int(r["w"]) or at.y >= int(r["h"]):
+		at = Vector2i(world.rng.randi_range(0, int(r["w"]) - 1), world.rng.randi_range(0, int(r["h"]) - 1))
+	world.messes.append({"uid": uid, "type": type, "room": room, "x": at.x, "y": at.y})
 	world.emit("mess_spawned", {"uid": uid, "kind": type, "room": room})
 	return uid
 

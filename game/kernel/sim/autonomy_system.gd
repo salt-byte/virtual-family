@@ -69,6 +69,9 @@ class Info:
 	var idx := 0
 	## the `capacity` of the object type (1 without an object)
 	var capacity := 1
+	## the dish this action puts out ("": none); only while another may be served
+	var serves := ""
+	var has_serves := false
 
 
 ## The pack's actions as `Info`, in pack order, built on first use and kept on the pack
@@ -109,7 +112,9 @@ static func _table(pack: Pack) -> Array:
 		i.has_rooms = not i.rooms.is_empty()
 		i.story = str(a.get("completes_story", ""))
 		i.has_story = i.story != ""
-		i.gated = i.slow_in_hours or i.has_story
+		i.serves = str(a.get("serves", ""))
+		i.has_serves = i.serves != ""
+		i.gated = i.slow_in_hours or i.has_story or i.has_serves
 		i.mood_req = i.requires.has("mood")
 		i.mood = str(i.requires.get("mood", ""))
 		var tends: Dictionary = a.get("tends", {})
@@ -258,6 +263,8 @@ static func candidates(world: World, p: Person, pool := 0) -> Array[Dictionary]:
 			if i.slow_in_hours and not _in_hours(hour, i.hours):
 				continue
 			if i.has_story and not StorySystem.finale_open(world, i.story):
+				continue
+			if i.has_serves and not DishSystem.may_serve(world, i.serves):
 				continue
 		var fl := flags[i.idx]
 		if fl & _F_NOWHERE:
@@ -444,6 +451,8 @@ static func can_do(world: World, p: Person, action_id: String, object_uid: int) 
 		return "requires"
 	if str(a.get("completes_story", "")) != "" and not StorySystem.finale_open(world, str(a["completes_story"])):
 		return "requires"
+	if str(a.get("serves", "")) != "" and not DishSystem.may_serve(world, str(a["serves"])):
+		return "requires"
 	if target_kind(a) != "" and _first_free_target(world, a, p) < 0:
 		return "no_target"
 	if not _stock_ok(world, a):
@@ -452,12 +461,15 @@ static func can_do(world: World, p: Person, action_id: String, object_uid: int) 
 
 
 ## What an action aims at: "mess" (`cleans`), "collectible" (`picks`), "person" (`tends`: a
-## baby) or "" (nothing). An action has at most one target kind.
+## baby), "dish" (`eats`: cooked food) or "" (nothing). An action has at most one target kind.
 static func target_kind(a: Dictionary) -> String:
 	if str(a["cleans"]) != "":
 		return "mess"
 	if bool(a["picks"]):
 		return "collectible"
+	var eats = a.get("eats")
+	if eats != null and not (eats as Array).is_empty():
+		return TARGET_DISH
 	var tends = a.get("tends")
 	if tends != null and not (tends as Dictionary).is_empty():
 		return TARGET_PERSON
@@ -466,6 +478,8 @@ static func target_kind(a: Dictionary) -> String:
 
 ## The target kind of an action that cares for a baby.
 const TARGET_PERSON := "person"
+## The target kind of an action that eats a dish.
+const TARGET_DISH := "dish"
 
 
 ## The gain `_tend_target` found for its pick (read right after the call).
@@ -529,6 +543,9 @@ static func start(world: World, p: Person, action_id: String, object_uid: int, t
 	var uid := _free_object(world, p, a, object_uid) if str(a["object"]) != "" else -1
 	for item in a["consumes"]:
 		world.stock[item] = int(world.stock.get(item, 0)) - int(a["consumes"][item])
+	if uid < 0 and target_uid >= 0 and target_kind(a) == TARGET_DISH:
+		# Eating: at the table (or stove) the dish stands on.
+		uid = int(DishSystem.find(world, target_uid).get("object_uid", -1))
 	p.current = {"action": action_id, "object_uid": uid, "target_uid": target_uid,
 		"remaining_s": duration_s(world, a)}
 	var rooms: Array = a.get("rooms", [])
@@ -609,6 +626,15 @@ static func _finish(world: World, p: Person) -> void:
 		MessSystem.clean(world, int(p.current.get("target_uid", -1)))
 	if bool(action["picks"]):
 		CollectibleSystem.collect(world, p, int(p.current.get("target_uid", -1)))
+	var eats = action.get("eats")
+	if eats != null and not (eats as Array).is_empty():
+		DishSystem.eat(world, int(p.current.get("target_uid", -1)))
+	if str(action.get("serves", "")) != "":
+		DishSystem.serve(world, str(action["serves"]))
+	var yields = action.get("yields")
+	if yields != null and not (yields as Dictionary).is_empty():
+		for k in yields:
+			world.stock[k] = int(world.stock.get(k, 0)) + int(yields[k])
 	var mess: Dictionary = action["mess"]
 	if not mess.is_empty() and world.rng.chance(float(mess.get("chance", 0.0))):
 		var room := str(world.object(int(p.current.get("object_uid", -1))).get("room", ""))
@@ -635,6 +661,8 @@ static func _first_free_target(world: World, a: Dictionary, p: Person) -> int:
 			return CollectibleSystem.first_free(world, p)
 		"person":
 			return tend_target_for(world, a, p)
+		"dish":
+			return DishSystem.first_free(world, a["eats"], p)
 	return -1
 
 

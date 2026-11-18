@@ -15,7 +15,7 @@ const FILES := {
 	"collectibles": "collectibles.json", "goals": "goals.json",
 }
 ## Files a pack may leave out; without them the feature is simply absent.
-const OPTIONAL_FILES := {"wishes": "wishes.json", "stories": "stories.json"}
+const OPTIONAL_FILES := {"wishes": "wishes.json", "stories": "stories.json", "dishes": "dishes.json"}
 
 const DEFAULT_CONFIG := {
 	"hours_per_year": 2.0, "offline_cap_hours": 48, "offline_need_floor": 15,
@@ -62,10 +62,12 @@ const DEFAULT_CONFIG := {
 const ENTRY_DEFAULTS := {
 	"actions": {"object": "", "needs": {}, "base": 0, "hours": [], "tags": [], "praiseable": true,
 		"consumes": {}, "work": {}, "mess": {}, "cleans": "", "picks": false, "requires": {},
-		"slow": false, "rooms": [], "completes_story": "", "tends": {}},
+		"slow": false, "rooms": [], "completes_story": "", "tends": {}, "serves": "", "eats": [],
+		"yields": {}},
 	"object_types": {"outdoor": false, "capacity": 1, "fixed": false, "keepsake": false},
 	"collectibles": {"rooms": []},
 	"wishes": {"likes": [], "stages": [], "weight": 1.0},
+	"dishes": {"on": [], "leaves": "", "ttl_hours": 0, "max_out": 1},
 	"rooms": {"outdoor": false, "props": [], "outside": false},
 	"items": {"stock": {}, "cures": "", "needs": {}, "work": {}, "childhood": {}},
 	"needs": {"when_empty": {}},
@@ -80,6 +82,7 @@ const INT_FIELDS := {
 	"illnesses": ["weight"],
 	"collectibles": ["value", "weight"],
 	"goals": ["reward"],
+	"dishes": ["portions", "max_out"],
 }
 
 var id := ""
@@ -97,6 +100,8 @@ var collectibles: Dictionary = {}
 var goals: Dictionary = {}
 var wishes: Dictionary = {}
 var stories: Dictionary = {}
+## Cooked food that waits on a table to be eaten (optional dishes.json; see `DishSystem`).
+var dishes: Dictionary = {}
 var names: Dictionary = {}
 ## Raw parsed file contents by file name, as read; used by the validator.
 var raw: Dictionary = {}
@@ -306,6 +311,9 @@ func _apply_defaults() -> void:
 		if a["consumes"] is Dictionary:
 			for k in a["consumes"]:
 				a["consumes"][k] = _as_int(a["consumes"][k])
+		if a["yields"] is Dictionary:
+			for k in a["yields"]:
+				a["yields"][k] = _as_int(a["yields"][k])
 	for it in items.values():
 		if it["stock"] is Dictionary:
 			for k in it["stock"]:
