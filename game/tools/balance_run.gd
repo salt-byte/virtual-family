@@ -71,6 +71,8 @@ static func run(pack_id: String, families: int, days: int, seed0: int) -> Dictio
 	var weather_hours := {}  # weather id -> hours it was the weather at the hourly look
 	var season_hours := {}  # season id -> hours
 	var weather_changes := 0
+	var clean_rewards := 0  # times a household was paid for a clean house
+	var clean_money := 0
 	var weather_only := {}  # action id -> starts, for actions tied to a weather
 	beds_bought = 0
 	for i in families:
@@ -96,6 +98,9 @@ static func run(pack_id: String, families: int, days: int, seed0: int) -> Dictio
 			for e in w.drain_events():
 				if e.type == "weather_changed":
 					weather_changes += 1
+				elif e.type == "clean_reward":
+					clean_rewards += 1
+					clean_money += int(e.amount)
 				if e.type == "action_started":
 					seen[e.action] = true
 					if not (w.pack.actions[e.action].get("weather", []) as Array).is_empty():
@@ -150,6 +155,7 @@ static func run(pack_id: String, families: int, days: int, seed0: int) -> Dictio
 		"deaths_by_cause": deaths,
 		"weather_hours": weather_hours, "season_hours": season_hours, "weather_changes": weather_changes,
 		"weather_only_actions": weather_only,
+		"clean_rewards": clean_rewards, "clean_reward_money": clean_money,
 	}
 
 

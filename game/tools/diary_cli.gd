@@ -73,6 +73,8 @@ func _line(w: World, e: Dictionary) -> String:
 			return "✝ %s 去世（%s）" % [who, "寿终" if e.cause == "old_age" else "照看不周"]
 		"mess_spawned":
 			return "· %s多了一处脏乱（%s）" % [w.pack.rooms[e.room].get("name", e.room), w.pack.mess_types[e.kind].get("name", e.kind)]
+		"clean_reward":
+			return "$ 屋里院里收拾干净了，赏 %d 文" % int(e.amount)
 		"weather_changed":
 			return "☂ 天变了：%s" % WeatherSystem.weather_entry(w.pack, e.weather).get("name", e.weather)
 		"season_changed":

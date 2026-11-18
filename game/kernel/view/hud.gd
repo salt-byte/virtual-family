@@ -228,6 +228,9 @@ func _judge(kind: String) -> void:
 
 
 func _on_event(e: Dictionary) -> void:
+	if str(e.get("type", "")) == "clean_reward" and main.house != null and main.house.people.has(int(e.get("person", -1))):
+		# The coins float up over whoever swept the last of it.
+		main.house.people[int(e["person"])].float_text_up(session.strings.t("float.clean_reward").replace("{n}", str(int(e["amount"]))))
 	var text := session.strings.event(e, session.world)
 	if text != "":
 		toast(text)

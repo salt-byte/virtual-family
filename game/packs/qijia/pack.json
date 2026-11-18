@@ -31,6 +31,7 @@
 	"mood_neglect_floor": 10,
 	"story_interval_min": 240,
 	"story_ttl_min": 600,
+	"clean_reward": {"amount": 15},
 	"seasons": {
 		"change_min": 15, "persist": 0.4, "dry_hours": 1.5,
 		"wet_messes": {"mud": 30},

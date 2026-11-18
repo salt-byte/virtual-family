@@ -33,7 +33,8 @@ const DEFAULTS := {
 	"error.not_running": "现在做不了", "error.unknown_command": "做不了", "error.unknown": "做不了",
 	"error.no_place": "那地方还没有", "error.fixed": "这个挪不动",
 	"error.no_track": "没有这一行", "error.weather": "这会儿的天气做不了这个",
-	"sky": "{season} · {weather}", "error.same_track": "已经在做这一行了",
+	"sky": "{season} · {weather}",
+	"ev.clean_reward": "家里收拾干净了，得 {n}", "float.clean_reward": "+{n}", "error.same_track": "已经在做这一行了",
 	"family.child": "还小", "family.job": "{job} · {level}", "btn.change_track": "改行",
 	"title.change_track": "给{name}改行", "change.note": "改行要从头学起，眼下这一行的本事不留。",
 	"change.option": "{job} · 从{level}做起 · 每日 {money}",
@@ -291,6 +292,8 @@ func event(e: Dictionary, world: World) -> String:
 			return t("ev.proposal")
 		"proposal_expired":
 			return t("ev.proposal_expired")
+		"clean_reward":
+			return _f("ev.clean_reward", {"n": int(e["amount"])})
 		"goal_done":
 			var g: Dictionary = world.pack.goals.get(str(e["goal"]), {})
 			return _f("ev.goal", {"text": str(g.get("text", "")), "n": int(e["reward"])})

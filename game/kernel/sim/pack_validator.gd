@@ -146,6 +146,9 @@ func _check_pack_config() -> void:
 	else:
 		_err("pack.json", _p.id, "work_needs_min must be an object")
 	_check_stages(c["stages"])
+	var cr = c.get("clean_reward", {})
+	if not cr is Dictionary or (not cr.is_empty() and not (cr.get("amount") is int and cr["amount"] >= 0)):
+		_err("pack.json", _p.id, "clean_reward must be {} or {\"amount\": a whole number of at least 0}")
 
 
 ## Each starting piece of furniture must be placeable on its own (known type and room, room

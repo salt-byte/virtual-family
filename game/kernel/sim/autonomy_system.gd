@@ -798,7 +798,7 @@ static func _finish(world: World, p: Person) -> void:
 	var id := str(p.current["action"])
 	var action: Dictionary = world.pack.actions[id]
 	if str(action["cleans"]) != "":
-		MessSystem.clean(world, int(p.current.get("target_uid", -1)))
+		MessSystem.clean(world, int(p.current.get("target_uid", -1)), p.uid)
 	if bool(action["picks"]):
 		CollectibleSystem.collect(world, p, int(p.current.get("target_uid", -1)))
 	var eats = action.get("eats")

@@ -37,17 +37,33 @@ static func spawn(world: World, type: String, room := "", at := Vector2i(-1, -1)
 	return uid
 
 
-## Removes a mess and counts it. Unknown uids are ignored.
-static func clean(world: World, uid: int) -> void:
+## Removes a mess and counts it. Unknown uids are ignored. `by` is the uid of whoever
+## cleaned it (-1: nobody in particular). The last mess gone pays the pack's `clean_reward`,
+## at most once per local day.
+static func clean(world: World, uid: int, by := -1) -> void:
 	for i in world.messes.size():
 		if world.messes[i].uid != uid:
 			continue
 		world.messes.remove_at(i)
 		world.stats["mess_cleaned"] = int(world.stats["mess_cleaned"]) + 1
+		world.emit("mess_cleaned", {"uid": uid})
 		if world.messes.is_empty():
 			world.stats["all_clean"] = int(world.stats["all_clean"]) + 1
-		world.emit("mess_cleaned", {"uid": uid})
+			_reward(world, by)
 		return
+
+
+## The pay for a house made clean: `clean_reward.amount` coins, once per local day.
+static func _reward(world: World, by: int) -> void:
+	var amount := int(world.pack.cfg("clean_reward").get("amount", 0))
+	if amount <= 0:
+		return
+	var day := floori(float(world.now + world.utc_offset) / 86400.0)
+	if day == world.clean_paid_day:
+		return
+	world.clean_paid_day = day
+	EconomySystem.earn(world, amount, "clean")
+	world.emit("clean_reward", {"amount": amount, "person": by})
 
 
 ## The mess with this uid, or {} when missing.

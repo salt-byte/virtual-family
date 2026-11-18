@@ -272,3 +272,17 @@ func test_weather_view_follows_the_weather():
 		assert_eq(m.weather.kind(), c[1], c[0])
 		assert_eq(m.weather.drop_count() > 0, c[1] != "", c[0])
 	m.queue_free()
+
+
+## Sweeping away the last mess: the pay floats up over the sweeper and a toast says why.
+func test_clean_house_pay_floats_over_the_sweeper():
+	var m := _adopted()
+	var w := m.session.world
+	var p := w.people[0]
+	w.messes.clear()
+	MessSystem.clean(w, MessSystem.spawn(w, "dirt"), p.uid)
+	m.tick(0.016)
+	var amount := int(w.pack.cfg("clean_reward")["amount"])
+	assert_eq(m.house.people[p.uid].float_text(), m.session.strings.t("float.clean_reward").replace("{n}", str(amount)))
+	assert_true(m.hud.toasts().has(m.session.strings.t("ev.clean_reward").replace("{n}", str(amount))), str(m.hud.toasts()))
+	m.queue_free()

@@ -39,6 +39,9 @@ var season := ""
 var weather := ""
 var weather_slot := -1
 var wet_until := 0
+## The local day (days since the epoch) the house was last paid for being made clean; -1
+## for never (see `MessSystem.clean`).
+var clean_paid_day := -1
 ## Cooked food waiting to be eaten (see `DishSystem`).
 var dishes: Array[Dictionary] = []
 ## Ids of rooms that exist in the house (pack rooms with `built`, plus any built later).

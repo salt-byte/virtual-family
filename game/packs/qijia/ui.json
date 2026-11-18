@@ -21,5 +21,7 @@
 	"title.born": "添丁",
 	"title.relative": "远房亲戚上门",
 	"away.relative": "远房亲戚{name}来家里拉扯孩子",
-	"proposal.for": "给{name}说的亲"
+	"proposal.for": "给{name}说的亲",
+	"ev.clean_reward": "屋里院里拾掇得干干净净，得 {n} 文",
+	"float.clean_reward": "+{n} 文"
 }

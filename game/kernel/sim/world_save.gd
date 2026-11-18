@@ -40,6 +40,8 @@ static func _snapshot(w: World) -> Dictionary:
 		out["stories"] = w.stories.duplicate(true)
 	if w.weather_slot >= 0:  # optional: only once a pack with seasons has rolled the weather
 		out["weather"] = {"season": w.season, "now": w.weather, "slot": w.weather_slot, "wet_until": w.wet_until}
+	if w.clean_paid_day >= 0:  # optional: only once the house was paid for being clean
+		out["clean_paid_day"] = w.clean_paid_day
 	if not w.dishes.is_empty():  # optional: written only while food is out
 		out["dishes"] = w.dishes.duplicate(true)
 	if w.birth_blocked:  # optional: written only while true
@@ -141,6 +143,7 @@ static func _build(pack: Pack, d: Dictionary) -> World:
 		w.weather = str(wd["now"]) if not WeatherSystem.weather_entry(pack, str(wd["now"])).is_empty() else ""
 		w.weather_slot = int(wd["slot"]) if w.weather != "" else -1
 		w.wet_until = int(wd["wet_until"])
+	w.clean_paid_day = int(d.get("clean_paid_day", -1))  # absent in older saves
 	w.dishes.clear()
 	for dd in d.get("dishes", []):  # absent in older saves and while no food is out
 		if pack.dishes.has(str(dd.get("type", ""))) and w.object(int(dd.get("object_uid", -1))).size() > 0:
@@ -420,6 +423,8 @@ static func _valid_save(pack: Pack, d: Dictionary) -> bool:
 	if d.has("birth_blocked") and not _is_bool(d["birth_blocked"]):
 		return false
 	if d.has("weather") and not _has(d["weather"], {"season": "s", "now": "s", "slot": "i", "wet_until": "i"}):
+		return false
+	if d.has("clean_paid_day") and not _is_whole(d["clean_paid_day"]):
 		return false
 	if d.has("dishes"):  # optional: only while food is out
 		if typeof(d["dishes"]) != TYPE_ARRAY:

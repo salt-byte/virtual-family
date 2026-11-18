@@ -59,6 +59,9 @@ const DEFAULT_CONFIG := {
 	# Seasons and weather (off while empty; see `WeatherSystem` and
 	# `PackValidator._check_seasons` for the keys).
 	"seasons": {},
+	# Pay for a clean house (off while empty): `amount` coins when the last mess is cleaned
+	# away, at most once per local day.
+	"clean_reward": {},
 }
 
 ## Per-file field defaults (applied to every entry that lacks the key).
@@ -310,6 +313,7 @@ func _apply_defaults() -> void:
 						so[f] = _as_int(so[f])
 	config["site"] = _deep_ints(config["site"])
 	config["seasons"] = _deep_ints(config["seasons"])
+	config["clean_reward"] = _deep_ints(config["clean_reward"])
 	for r in rooms.values():
 		if r["props"] is Array:
 			for pr in r["props"]:
