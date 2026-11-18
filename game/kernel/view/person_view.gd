@@ -51,6 +51,8 @@ var _key := ""
 var _rng := RandomNumberGenerator.new()
 var _box := StyleBoxFlat.new()
 var _body := Color.WHITE
+## Height of the block relative to a grown-up's: babies and children are drawn smaller.
+var size_factor := 1.0
 ## Time accumulated by tick(); drives the bob.
 var _t := 0.0
 ## What the progress line follows: the action's identity, the kernel's last remaining_s, the
@@ -69,6 +71,8 @@ const BOB_AMPLITUDE := 3.0
 const BOB_PERIOD := 0.8
 const ASLEEP_DARKEN := 0.3
 const ARRIVED := 1.0
+const BABY_SIZE := 0.5
+const CHILD_SIZE := 0.75
 
 
 func setup(p: Person, s: GameSession) -> void:
@@ -110,6 +114,13 @@ func refresh() -> void:
 		elder = person.stage(w.pack) == str(stages[-1]["id"])
 	var c := FEMALE if person.gender == "female" else (MALE if person.gender == "male" else OTHER)
 	_body = c.lerp(ELDER_TINT, 0.7) if elder else c
+	match person.stage(w.pack):
+		"baby":
+			size_factor = BABY_SIZE
+		"child":
+			size_factor = CHILD_SIZE
+		_:
+			size_factor = 1.0
 	_track_progress(w)
 	_wish = session.strings.wish_text(person, w)
 	queue_redraw()
@@ -276,6 +287,11 @@ func _compute_target(w: World, l: HouseLayout) -> Vector2:
 					if int(m.uid) == tid:
 						_key = ""
 						return l.cell_center(str(m.room), int(m.x), int(m.y))
+			# Caring for a baby: over to where the baby is, just beside it.
+			var house = get_parent()
+			if house != null and "people" in house and house.people.has(tid) and house.people[tid] != self:
+				_key = ""
+				return (house.people[tid] as PersonView).base_target + Vector2(BODY.x, 0)
 	if cur.is_empty():
 		_key = ""
 		return base_target if base_target != Vector2.ZERO else position
@@ -313,7 +329,8 @@ func _draw() -> void:
 		return
 	var bob := bob_offset()
 	_box.bg_color = _body.darkened(ASLEEP_DARKEN) if asleep() else _body
-	draw_style_box(_box, Rect2(Vector2(-BODY.x * 0.5, -BODY.y + bob), BODY))
+	var body := BODY * Vector2(maxf(size_factor, 0.7), size_factor)
+	draw_style_box(_box, Rect2(Vector2(-body.x * 0.5, -body.y + bob), body))
 	if selected:
 		var ring := StyleBoxFlat.new()
 		ring.draw_center = false

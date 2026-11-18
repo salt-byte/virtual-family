@@ -329,10 +329,12 @@ func _see_cursor(screen: Vector2) -> void:
 
 ## The uid of the person under a point in the house's coordinates (the one drawn on top
 ## wins), or -1.
-func person_at(wpos: Vector2) -> int:
+func person_at(wpos: Vector2, except := -1) -> int:
 	var best := -1
 	var best_y := -INF
 	for uid in people:
+		if uid == except:
+			continue
 		var pv: PersonView = people[uid]
 		if pv.hit(wpos) and pv.position.y >= best_y:
 			best = uid
@@ -533,6 +535,10 @@ func _draw_ghost(w: World) -> void:
 func _draw_hover(w: World) -> void:
 	var rect := Rect2()
 	match str(hover.get("kind", "")):
+		"person":
+			if people.has(int(hover.uid)):
+				var pv: PersonView = people[int(hover.uid)]
+				rect = Rect2(pv.position - Vector2(PersonView.BODY.x * 0.5, PersonView.BODY.y), PersonView.BODY)
 		"object":
 			var o := w.object(int(hover.uid))
 			if not o.is_empty():

@@ -63,6 +63,14 @@ const DEFAULTS := {
 	"ev.fragment": "捡到了{name}", "ev.story_done": "「{title}」有了着落",
 	"btn.receive": "收下", "visitor.money": "留下 {money}",
 	"away.fragment": "捡到了{name}", "away.story_done": "「{title}」有了着落",
+	"status.pregnant": "有了身孕", "months": "{n} 个月",
+	"family.generation": "第{n}代", "numerals": "一,二,三,四,五,六,七,八,九,十",
+	"family.spouse": "配偶 {name}", "family.parents": "父 {father} · 母 {mother}",
+	"family.dead": "已故 · 享年 {n} 岁", "hint.no_bed": "床不够睡了，再添张床才好再要孩子",
+	"ev.conceived": "{name}有了身孕", "ev.born.male": "添了个男孩，取名{name}",
+	"ev.born.female": "添了个女孩，取名{name}", "ev.relative": "家里没了大人，{name}来照看孩子们",
+	"title.born": "家里添了人", "born.parents": "{father}和{mother}的孩子", "title.relative": "来了一位亲戚",
+	"away.born": "{name}出生了", "away.relative": "{name}来家里照看孩子", "proposal.for": "说给{name}",
 }
 
 var pack: Pack
@@ -137,7 +145,7 @@ func _job_name(track: String) -> String:
 
 
 func person_line(p: Person, world: World) -> String:
-	var out := _f("years", {"n": int(p.age)})
+	var out := _f("months", {"n": int(p.age * 12.0)}) if p.age < 1.0 else _f("years", {"n": int(p.age)})
 	var lv := _level_name(p.track, p.level) if p.track != "" else ""
 	if lv != "":
 		out += " · " + lv
@@ -153,6 +161,8 @@ func doing(p: Person, world: World) -> String:
 
 func status_line(p: Person, world: World) -> String:
 	var words: Array[String] = []
+	if p.pregnant():
+		words.append(t("status.pregnant"))
 	if p.mood != "":
 		words.append(t("mood." + p.mood))
 	for word in p.status(world.pack).values():
@@ -186,9 +196,43 @@ func story_title(sid: String, world: World) -> String:
 	return str(world.pack.stories.get(sid, {}).get("title", ""))
 
 
+## "第一代" for generation 0: the label of a generation (`family.generation` with the
+## pack's `numerals` for the first ten, digits after that).
+func generation_label(gen: int) -> String:
+	var nums := t("numerals").split(",")
+	var n := nums[gen] if gen >= 0 and gen < nums.size() else str(gen + 1)
+	return _f("family.generation", {"n": n})
+
+
+## The generation a person is shown under: a spouse who married in stands with their partner.
+func shown_generation(p: Person, world: World) -> int:
+	var g := p.generation
+	var other := world.person(p.spouse) if p.spouse > 0 else null
+	if other != null:
+		g = maxi(g, other.generation)
+	return g
+
+
+## The sentence for a birth: the child's sex and name.
+func born_line(child: Person) -> String:
+	var key := "ev.born." + child.gender
+	if not (_over.has(key) or DEFAULTS.has(key)):
+		key = "ev.born.male"
+	return _f(key, {"name": person_name(child)})
+
+
 ## One sentence for events worth telling the player; "" for the rest.
 func event(e: Dictionary, world: World) -> String:
 	match str(e.get("type", "")):
+		"conceived":
+			return _f("ev.conceived", {"name": _name_of(int(e["person"]), world)})
+		"born":
+			var child := world.person(int(e["person"]))
+			return born_line(child) if child != null else ""
+		"relative_arrived":
+			return _f("ev.relative", {"name": _name_of(int(e["person"]), world)})
+		"births_blocked":
+			return t("hint.no_bed")
 		"wish_formed":
 			return _wish_line("ev.wish_formed", e, world)
 		"wish_granted":
@@ -290,6 +334,10 @@ func summary_lines(summary: Dictionary, world: World) -> Array[String]:
 		out.append(_f("away.fragment", {"name": str(frag.get("name", ""))}))
 	for sid in summary.get("stories_done", []):
 		out.append(_f("away.story_done", {"title": story_title(str(sid), world)}))
+	for uid in summary.get("births", []):
+		out.append(_f("away.born", {"name": _name_of(int(uid), world)}))
+	for uid in summary.get("relatives", []):
+		out.append(_f("away.relative", {"name": _name_of(int(uid), world)}))
 	if summary.get("game_over", false):
 		out.append(t("away.over"))
 	return out

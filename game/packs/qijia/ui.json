@@ -11,5 +11,15 @@
 	"ev.collected_paid": "捡到{thing}，卖了 {n} 文",
 	"away.money": "钱 {n} 文",
 	"btn.stories": "旧物匣",
-	"stories.none": "旧物匣还是空的。"
+	"stories.none": "旧物匣还是空的。",
+	"status.pregnant": "怀着身孕",
+	"hint.no_bed": "炕睡不下了，再添张炕才好添丁",
+	"ev.conceived": "{name}怀上了",
+	"ev.born.male": "添了个大胖小子，取名{name}",
+	"ev.born.female": "添了个闺女，取名{name}",
+	"ev.relative": "家里只剩下孩子。远房亲戚{name}背着铺盖进了门，接过了这一家",
+	"title.born": "添丁",
+	"title.relative": "远房亲戚上门",
+	"away.relative": "远房亲戚{name}来家里拉扯孩子",
+	"proposal.for": "给{name}说的亲"
 }

@@ -196,10 +196,12 @@ func _data_signature(w: World) -> String:
 		"ledger":
 			return "%s|%s" % [str(w.goals_done), str(w.collection)]
 		"family":
-			var parts: Array[String] = [str(w.proposals.size()), str(_changing)]
+			var parts: Array[String] = [str(w.proposals.size()), str(_changing), str(BirthSystem.blocked(w))]
 			for p in w.people:
 				if p.alive:
-					parts.append("%d:%s:%s:%s" % [p.uid, s.person_line(p, w), s.status_line(p, w), s.job_line(p)])
+					parts.append("%d:%s:%s:%s:%d" % [p.uid, s.person_line(p, w), s.status_line(p, w), s.job_line(p), p.spouse])
+				else:
+					parts.append("%d:dead" % p.uid)
 			return "|".join(parts)
 	return ""
 
@@ -357,18 +359,64 @@ func _fill_family(list: VBoxContainer, w: World) -> void:
 	_changing = -1
 	if not w.proposals.is_empty():
 		_button("proposal", s.t("title.proposal"), list)
+	if BirthSystem.blocked(w):
+		var hint := ViewWidgets.wrapped(s.t("hint.no_bed"))
+		hint.add_theme_color_override("font_color", Color(0.95, 0.6, 0.3))
+		list.add_child(hint)
+	# With births the household spans generations: one heading per generation, the dead
+	# greyed out among them. Without births, the living as one list.
+	var lineage := BirthSystem.enabled(w.pack)
+	var by_gen := {}
 	for p in w.people:
-		if p.alive:
-			var b := _button("person:%d" % p.uid, "%s  %s  %s" % [s.person_name(p), s.person_line(p, w), s.status_line(p, w)], list)
-			b.alignment = HORIZONTAL_ALIGNMENT_LEFT
-			b.clip_text = true
-			b.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
-			var row := ViewWidgets.row(list)
-			if p.stage(w.pack) in ["adult", "elder"]:
-				row.add_child(ViewWidgets.name_label("    " + s.job_line(p)))
-				_button("change:%d" % p.uid, s.t("btn.change_track"), row)
+		if p.alive or lineage:
+			var g := s.shown_generation(p, w) if lineage else 0
+			if not by_gen.has(g):
+				by_gen[g] = []
+			by_gen[g].append(p)
+	var gens := by_gen.keys()
+	gens.sort()
+	for g in gens:
+		if lineage:
+			var head := ViewWidgets.wrapped(s.generation_label(int(g)))
+			head.add_theme_font_size_override("font_size", 17)
+			list.add_child(head)
+		for p in by_gen[g]:
+			if p.alive:
+				_family_row(list, w, p, lineage)
 			else:
-				row.add_child(ViewWidgets.name_label("    " + s.t("family.child")))
+				var dead := ViewWidgets.wrapped("%s  %s" % [s.person_name(p), s.t("family.dead").replace("{n}", str(int(p.age)))])
+				dead.modulate = Color(1, 1, 1, 0.45)
+				list.add_child(dead)
+
+
+## One living person in the family panel: their button, then livelihood (or "too young") and,
+## with births, whom they married and whose child they are.
+func _family_row(list: VBoxContainer, w: World, p: Person, lineage: bool) -> void:
+	var s := session.strings
+	var b := _button("person:%d" % p.uid, "%s  %s  %s" % [s.person_name(p), s.person_line(p, w), s.status_line(p, w)], list)
+	b.alignment = HORIZONTAL_ALIGNMENT_LEFT
+	b.clip_text = true
+	b.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+	var row := ViewWidgets.row(list)
+	if p.stage(w.pack) in ["adult", "elder"]:
+		row.add_child(ViewWidgets.name_label("    " + s.job_line(p)))
+		_button("change:%d" % p.uid, s.t("btn.change_track"), row)
+	else:
+		row.add_child(ViewWidgets.name_label("    " + s.t("family.child")))
+	if not lineage:
+		return
+	var ties: Array[String] = []
+	var mother := w.person(p.mother)
+	var father := w.person(p.father)
+	if mother != null and father != null:
+		ties.append(s.t("family.parents").format({"father": s.person_name(father), "mother": s.person_name(mother)}))
+	var spouse := w.person(p.spouse)
+	if spouse != null:
+		ties.append(s.t("family.spouse").replace("{name}", s.person_name(spouse)))
+	if not ties.is_empty():
+		var l := ViewWidgets.wrapped("    " + "　".join(ties))
+		l.modulate = Color(1, 1, 1, 0.75)
+		list.add_child(l)
 
 
 ## The livelihoods `p` could change to, with what each starts at; picking one changes it.

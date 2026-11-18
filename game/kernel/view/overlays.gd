@@ -20,6 +20,8 @@ var _away: Dictionary = {}
 var _proposal_id := -1
 ## Story fragments picked up while playing, waiting to be read: {story, fragment}.
 var _fragments: Array = []
+## Family news waiting to be read: the events "born" and "relative_arrived", in order.
+var _news: Array = []
 
 
 func setup(m: Main) -> void:
@@ -53,13 +55,16 @@ func setup(m: Main) -> void:
 	panel.add_child(_box)
 	session.away.connect(func(summary: Dictionary): _away = summary)
 	session.event.connect(func(e: Dictionary):
-		if str(e.get("type", "")) == "fragment_found":
-			_fragments.append({"story": str(e["story"]), "fragment": str(e["fragment"])}))
+		var type := str(e.get("type", ""))
+		if type == "fragment_found":
+			_fragments.append({"story": str(e["story"]), "fragment": str(e["fragment"])})
+		elif type == "born" or type == "relative_arrived":
+			_news.append({"type": type, "person": int(e["person"])}))
 	refresh()
 
 
-## One of "", "pack_error", "load_error", "adopt", "over", "away", "fragment", "visitor",
-## "proposal".
+## One of "", "pack_error", "load_error", "adopt", "over", "away", "fragment", "born",
+## "relative", "visitor", "proposal".
 func current() -> String:
 	return _current
 
@@ -116,6 +121,9 @@ func press(button_key: String) -> void:
 		"fragment":
 			if not _fragments.is_empty():
 				_fragments.pop_front()
+		"born", "relative":
+			if not _news.is_empty():
+				_news.pop_front()
 		"visitor":
 			var v := StorySystem.visitors(session.world)
 			if not v.is_empty():
@@ -147,6 +155,7 @@ func refresh() -> void:
 	var w := session.world
 	if w != null and w.phase == "adopting":
 		_away = {}
+		_news.clear()
 	var proposal := _find_proposal(w)
 	if proposal.is_empty():
 		_proposal_id = -1
@@ -169,6 +178,9 @@ func refresh() -> void:
 	elif not _fragments.is_empty() and w != null and w.phase == "living":
 		kind = "fragment"
 		sig = str(_fragments[0])
+	elif not _news.is_empty() and w != null and w.phase == "living":
+		kind = "born" if str(_news[0]["type"]) == "born" else "relative"
+		sig = str(_news[0])
 	elif w != null and w.phase == "living" and not StorySystem.visitors(w).is_empty():
 		kind = "visitor"
 		sig = str(StorySystem.visitors(w)[0])
@@ -237,6 +249,24 @@ func _rebuild(w: World, proposal: Dictionary) -> void:
 			_box.add_child(_label(s.t("ev.fragment").replace("{name}", str(f.get("name", "")))))
 			_box.add_child(_label(str(f.get("text", ""))))
 			_button("btn.close")
+		"born":
+			var child := w.person(int(_news[0]["person"]))
+			_title(s.t("title.born"))
+			if child != null:
+				_box.add_child(_label(s.born_line(child)))
+				var mother := w.person(child.mother)
+				var father := w.person(child.father)
+				if mother != null and father != null:
+					_box.add_child(_label(s.t("born.parents").format({"father": s.person_name(father), "mother": s.person_name(mother)})))
+				_box.add_child(_label(s.generation_label(child.generation)))
+			_button("btn.close")
+		"relative":
+			_title(s.t("title.relative"))
+			var who := w.person(int(_news[0]["person"]))
+			if who != null:
+				_box.add_child(_label(s.t("ev.relative").replace("{name}", s.person_name(who))))
+				_person_card(who)
+			_button("btn.close")
 		"visitor":
 			var sid := str(StorySystem.visitors(w)[0])
 			var fin: Dictionary = w.pack.stories[sid]["finale"]
@@ -247,6 +277,9 @@ func _rebuild(w: World, proposal: Dictionary) -> void:
 			_button("btn.receive")
 		"proposal":
 			_title(s.t("title.proposal"))
+			var target := w.person(int(proposal.get("for", -1)))
+			if target != null:
+				_box.add_child(_label(s.t("proposal.for").replace("{name}", s.person_name(target))))
 			_person_card(Person.from_dict(proposal["person"]))
 			_box.add_child(_label(s.t("label.savings").replace("{n}", s.t("money").replace("{n}", str(int(proposal["savings"]))))))
 			var row := _row()
