@@ -9,6 +9,9 @@ const CELL := Vector2(48, 36)
 const GAP := 48.0
 const WALL := 30.0
 
+## The ground plan (walls, doors, walking) when the pack has a `site`; `site.enabled` false
+## otherwise, and everything here behaves as before.
+var site: HouseSite
 var _rects: Dictionary = {}  # room id -> Rect2 (floor only)
 var _indoor: Dictionary = {}
 var _order: Array[String] = []
@@ -16,6 +19,7 @@ var _order: Array[String] = []
 ## A broken pack (a room that is not an object, or lacks a numeric w/h) must not raise an
 ## engine error here: such rooms are left out; the pack error overlay explains the rest.
 func _init(pack: Pack) -> void:
+	site = HouseSite.new(pack)
 	var valid: Array[String] = []
 	var tallest := 0.0
 	for id in pack.rooms:
@@ -49,7 +53,10 @@ static func _num(r: Dictionary, key: String) -> float:
 func room_rect(room: String) -> Rect2:
 	return _rects.get(room, Rect2())
 
+## The area the view may show: the whole map with a site, else the rooms with their walls.
 func bounds() -> Rect2:
+	if site.enabled:
+		return site.rect()
 	var out := Rect2()
 	var first := true
 	for id in _order:

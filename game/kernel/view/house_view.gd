@@ -11,7 +11,7 @@ const VIEW_SIZE := Vector2(1280, 720)
 const BOTTOM_BAR := 96.0
 ## Space kept clear around the fitted house, and the zoom range.
 const FIT_MARGIN := 24.0
-const MIN_SCALE := 0.5
+const MIN_SCALE := 0.44
 const MAX_SCALE := 2.0
 ## One wheel notch zooms by this factor.
 const WHEEL_ZOOM := 1.1
@@ -28,6 +28,11 @@ var session: GameSession
 var layout: HouseLayout
 var people: Dictionary = {}  # uid -> PersonView
 var _modulate: CanvasModulate
+## With a site plan: the ground under everything, and the standing walls (sorted by y with
+## the people). Null / empty without one.
+var ground: HouseGround
+var walls: Array[WallPiece] = []
+var _site_version := -1
 ## Moving further than this between press and release is a drag, not a click.
 const CLICK_SLOP := 6.0
 
@@ -73,6 +78,12 @@ func setup(s: GameSession) -> void:
 	layout = HouseLayout.new(s.pack)
 	_modulate = CanvasModulate.new()
 	add_child(_modulate)
+	if layout.site.enabled:
+		y_sort_enabled = true
+		ground = HouseGround.new()
+		ground.house = self
+		ground.z_index = -1
+		add_child(ground)
 	scale = Vector2.ONE * start_scale(_view_size())
 	position = _centred()
 	if fit_scale(_view_size()) < 1.0:
@@ -231,13 +242,43 @@ func refresh() -> void:
 		pv.target = t
 	if w != null and w.phase != "invalid":
 		_modulate.color = Color.WHITE.lerp(NIGHT_COLOR, night_amount(w.local_hour()))
+		_update_site(w)
 	queue_redraw()
+
+
+## Rebuilds the walls and redraws the ground when the rooms built changed.
+func _update_site(w: World) -> void:
+	if ground == null:
+		return
+	layout.site.update(w.built_set())
+	if layout.site.version == _site_version:
+		return
+	_site_version = layout.site.version
+	for p in walls:
+		remove_child(p)
+		p.queue_free()
+	walls = WallPiece.build_all(layout.site)
+	for p in walls:
+		add_child(p)
+	ground.queue_redraw()
+
+
+## Walls go see-through while someone stands behind them.
+func _fade_walls() -> void:
+	if walls.is_empty():
+		return
+	var feet: Array = []
+	for uid in people:
+		feet.append(people[uid].position)
+	for p in walls:
+		p.fade_for(feet)
 
 
 func tick(delta: float) -> void:
 	_edge_scroll(delta)
 	for uid in people:
 		people[uid].tick(delta)
+	_fade_walls()
 	_follow_step(delta)
 
 
@@ -446,7 +487,7 @@ func _draw() -> void:
 	if w == null or w.phase == "invalid":
 		return
 	var font := ThemeDB.fallback_font
-	for id in w.pack.rooms:
+	for id in ([] if ground != null else w.pack.rooms):
 		var r: Dictionary = w.pack.rooms[id]
 		var rect := layout.room_rect(id)
 		var outdoor := bool(r.get("outdoor", false))
@@ -469,7 +510,15 @@ func _draw() -> void:
 		var rect := layout.object_rect(o, w.pack)
 		var hue := float(hash(str(t.get("category", ""))) % 360) / 360.0
 		var faded := 0.35 if int(o.uid) == lifted else 1.0
-		draw_rect(rect.grow(-2), Color.from_hsv(hue, 0.4, 0.82, faded))
+		if ground != null:
+			# Standing up a little: a soft shadow under it and a darker front face.
+			var foot := Vector2(rect.get_center().x, rect.end.y - 2)
+			draw_colored_polygon(HouseGround._ellipse(Rect2(foot - Vector2(rect.size.x * 0.475, 6), Vector2(rect.size.x * 0.95, 12))), Color(HouseGround.SHADOW, 0.3 * faded))
+			draw_rect(rect.grow(-2), Color.from_hsv(hue, 0.4, 0.82, faded))
+			draw_rect(Rect2(rect.position.x + 2, rect.end.y - 12, rect.size.x - 4, 10), Color.from_hsv(hue, 0.45, 0.62, faded))
+			draw_rect(rect.grow(-2), Color(HouseGround.LINE, faded), false, 2.0)
+		else:
+			draw_rect(rect.grow(-2), Color.from_hsv(hue, 0.4, 0.82, faded))
 		draw_string(font, rect.position + Vector2(0, rect.size.y * 0.5 + 4), str(t.get("name", "")), HORIZONTAL_ALIGNMENT_CENTER, rect.size.x, 12, Color(0.15, 0.15, 0.15))
 	for m in w.messes:
 		var at := layout.cell_center(str(m.room), int(m.x), int(m.y))

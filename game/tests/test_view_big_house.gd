@@ -157,8 +157,10 @@ func test_edge_scrolling_while_holding_a_piece_in_arrange_mode():
 	m.free()
 
 
-## The coop starts off-screen in the bottom-right corner; carrying a person to the edge
-## scrolls it into view, and dropping them on it starts something there.
+## With the view panned to the west, the coop is off-screen in the bottom-right corner;
+## carrying a person to the edge scrolls it into view, and dropping them on it starts
+## something there. (In the connected house the coop is on screen at the start, so the test
+## pans away first.)
 func test_drag_onto_furniture_off_screen_after_edge_scrolling():
 	var m := _main(); m.session.command({"type": "adopt"}); m.tick(0.016)
 	var w := m.session.world
@@ -166,11 +168,14 @@ func test_drag_onto_furniture_off_screen_after_edge_scrolling():
 	AutonomySystem.cancel(w, p); m.tick(0.016)
 	var o: Dictionary = w.objects.filter(func(x): return x.type == "coop")[0]
 	var centre := m.house.layout.object_rect(o, w.pack).get_center()
+	m.house.pan(Vector2(2000, 0))
 	var screen := Rect2(Vector2.ZERO, Vector2(1280, 720 - HouseView.BOTTOM_BAR))
 	assert_true(not screen.has_point(m.house.to_screen(centre)), str(m.house.to_screen(centre)))
 	var pv: PersonView = m.house.people[p.uid]
 	var from := m.house.to_screen(pv.position + Vector2(0, -20))
-	var corner := Vector2(1270, 610)
+	# The right edge only: the coop is already level with the middle of the screen, and
+	# scrolling down as well would carry it past the top.
+	var corner := Vector2(1270, 400)
 	m.house.press(from)
 	m.house.move(corner, corner - from)
 	var guard := 0

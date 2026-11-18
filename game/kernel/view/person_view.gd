@@ -17,6 +17,12 @@ var target := Vector2.ZERO
 ## Where they would head alone; the house adds the sideways offset on top.
 var base_target := Vector2.ZERO
 var held := false
+## The corners still to walk through on the way to `target` (walls in between); empty when
+## the way is straight. Worked out again whenever the target or the position changes
+## from outside (a drop, a test).
+var path := PackedVector2Array()
+var _path_goal := Vector2(INF, INF)
+var _path_from := Vector2(INF, INF)
 var selected := false:
 	set(v):
 		selected = v
@@ -162,7 +168,27 @@ func tick(delta: float) -> void:
 		_mark = null
 	if held:
 		return
-	position = position.move_toward(target, SPEED * delta)
+	walk(SPEED * delta)
+
+
+## Moves up to `step` pixels along the way to `target`, round walls through their doors.
+func walk(step: float) -> void:
+	if target != _path_goal or position != _path_from:
+		_path_goal = target
+		var l := layout()
+		path = l.site.route(position, target) if l != null and l.site.enabled else PackedVector2Array()
+	while step > 0.0:
+		var next := path[0] if not path.is_empty() else target
+		var d := position.distance_to(next)
+		if d > step:
+			position = position.move_toward(next, step)
+			break
+		position = next
+		step -= d
+		if path.is_empty():
+			break
+		path.remove_at(0)
+	_path_from = position
 
 
 ## The "what they are doing" text on the plate (the previous action's through a short

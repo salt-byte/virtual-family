@@ -289,3 +289,29 @@ func test_smoke_save_rooms_built_round_trips_unchanged():
 	var w := _busy()
 	var r := WorldSave.restore(w.pack, _through_json(w.to_dict()))
 	assert_eq(r.world.rooms_built, w.rooms_built)
+
+## The connected house shrank the side room from 8x7 to 6x6. A save from the old layout
+## still loads: furniture that no longer fits moves to a free spot of the same room, a mess
+## or a thing lying about moves inside it.
+func test_save_from_the_old_layout_loads_with_things_moved_inside_shrunk_rooms():
+	var w := World.new(Pack.load_dir("res://packs/qijia"), 3); w.set_time(1767268800, 0)
+	w.command({type = "adopt"})
+	w.money = 5000
+	assert_true(w.command({type = "build_room", room = "side"}).ok)
+	var d := _through_json(w.to_dict())
+	var uid := int(d["next_uid"])
+	d["objects"].append({"uid": uid, "type": "stool", "room": "side", "x": 7, "y": 6})
+	d["messes"].append({"uid": uid + 1, "type": w.pack.mess_types.keys()[0], "room": "side", "x": 7, "y": 6})
+	d["collectibles"].append({"uid": uid + 2, "type": "egg", "room": "side", "x": 7, "y": 6, "expires_at": w.now + 600})
+	d["next_uid"] = uid + 3
+	var money := int(d["money"])
+	var r := WorldSave.restore(w.pack, d)
+	assert_eq(r.error, "")
+	var stool: Dictionary = r.world.object(uid)
+	assert_true(not stool.is_empty())
+	assert_eq(HouseSystem.can_place(r.world, "stool", "side", int(stool.x), int(stool.y), uid), "")
+	assert_eq(r.world.money, money)
+	for list in [r.world.messes, r.world.collectibles]:
+		for m in list:
+			if m.room == "side":
+				assert_true(int(m.x) < 6 and int(m.y) < 6, str(m))

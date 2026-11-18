@@ -48,5 +48,30 @@
 		{"type": "stove", "room": "kitchen", "x": 0, "y": 0},
 		{"type": "vat", "room": "kitchen", "x": 3, "y": 0},
 		{"type": "coop", "room": "coop_run", "x": 0, "y": 0}
-	]
+	],
+	"site": {
+		"w": 56, "h": 32, "ground": "#C4D696",
+		"compound": {"x": 11, "y": 6, "w": 34, "h": 19, "ground": "#E2C394"},
+		"doors": [
+			{"x": 27, "y": 12, "along": "x", "len": 2},
+			{"x": 35, "y": 12, "along": "x", "len": 1},
+			{"x": 33, "y": 9, "along": "y", "len": 1},
+			{"x": 13, "y": 12, "along": "x", "len": 1},
+			{"x": 17, "y": 14, "along": "y", "len": 1},
+			{"x": 23, "y": 9, "along": "y", "len": 1},
+			{"x": 19, "y": 12, "along": "x", "len": 1},
+			{"x": 39, "y": 9, "along": "y", "len": 1},
+			{"x": 41, "y": 12, "along": "x", "len": 1},
+			{"x": 17, "y": 21, "along": "y", "len": 1},
+			{"x": 39, "y": 15, "along": "y", "len": 1},
+			{"x": 27, "y": 25, "along": "x", "len": 2}
+		],
+		"fences": [
+			{"x": 39, "y": 12, "along": "y", "len": 7}
+		],
+		"decor": [
+			{"shape": "rect", "x": 27.1, "y": 12, "w": 1.8, "h": 13, "color": "#B5AFA3"},
+			{"shape": "rect", "x": 27, "y": 25, "w": 2, "h": 7, "color": "#D8B88A"}
+		]
+	}
 }

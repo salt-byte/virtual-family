@@ -387,6 +387,7 @@ func _check_rooms() -> void:
 	_check_room_positions()
 	for id in _p.rooms:
 		_check_props(id)
+	_check_site()
 
 
 static func _is_true(v) -> bool:
@@ -461,6 +462,79 @@ func _check_room_positions() -> void:
 			if rect.intersects(other[1]):
 				_err("rooms.json", id, "overlaps room '%s'" % [other[0]])
 		placed.append([id, rect])
+
+
+## The optional ground plan in pack.json `site` (read only by the view):
+## - `w`, `h`: map size in cells; every room must have a position and lie inside it.
+## - `ground`, `compound.ground`: colours ("#rrggbb").
+## - `compound`: {x, y, w, h} in cells, inside the map: a wall round it.
+## - `doors`, `fences`: lists of {x, y, along, len}: `along` "x" is a stretch of the
+##   east-west line y from cell x, "y" a stretch of the north-south line x from cell y.
+##   A door opens a wall (or fence) there; a fence is a low wall of its own.
+## - `decor`: list of {shape "rect" | "ellipse", x, y, w, h (cells, may be fractional),
+##   color, solid (blocks walking), passable (lifts `solid` under it)}.
+func _check_site() -> void:
+	var site = _p.config.get("site")
+	if not site is Dictionary:
+		_err("pack.json", "site", "must be an object")
+		return
+	if (site as Dictionary).is_empty():
+		return
+	var size := Rect2i()
+	if not (site.get("w") is int and site.get("h") is int and site["w"] >= 1 and site["h"] >= 1):
+		_err("pack.json", "site", "needs whole-number 'w' and 'h' of at least 1")
+		return
+	size = Rect2i(0, 0, site["w"], site["h"])
+	for id in _p.rooms:
+		var r: Dictionary = _p.rooms[id]
+		if not (r.get("x") is int and r.get("y") is int and r.get("w") is int and r.get("h") is int):
+			_err("pack.json", "site", "room '%s' needs a position" % [id])
+		elif not size.encloses(Rect2i(r["x"], r["y"], r["w"], r["h"])):
+			_err("pack.json", "site", "room '%s' lies outside the map" % [id])
+	for key in ["ground"]:
+		if site.has(key) and not _color_ok(site[key]):
+			_err("pack.json", "site", "'%s' must be a colour like #c4d696" % [key])
+	if site.has("compound"):
+		var c = site["compound"]
+		if not (c is Dictionary and c.get("x") is int and c.get("y") is int and c.get("w") is int \
+				and c.get("h") is int and c["w"] >= 1 and c["h"] >= 1 and size.encloses(Rect2i(c["x"], c["y"], c["w"], c["h"]))):
+			_err("pack.json", "site", "compound needs whole-number x, y, w, h inside the map")
+		elif c.has("ground") and not _color_ok(c["ground"]):
+			_err("pack.json", "site", "compound ground must be a colour like #c4d696")
+	for key in ["doors", "fences"]:
+		var list = site.get(key, [])
+		if not list is Array:
+			_err("pack.json", "site", "%s must be an array" % [key])
+			continue
+		for i in list.size():
+			var d = list[i]
+			if not (d is Dictionary and _site_int(d, "x", size.size.x) and _site_int(d, "y", size.size.y) \
+					and d.get("along") in ["x", "y"] and d.get("len") is int and d["len"] >= 1):
+				_err("pack.json", "site", "%s #%d needs whole-number x, y, len and along \"x\" or \"y\" inside the map" % [key, i])
+	var decor = site.get("decor", [])
+	if not decor is Array:
+		_err("pack.json", "site", "decor must be an array")
+		return
+	for i in decor.size():
+		var d = decor[i]
+		var ok: bool = d is Dictionary and d.get("shape") in ["rect", "ellipse"] and _color_ok(d.get("color"))
+		if ok:
+			for f in ["x", "y", "w", "h"]:
+				ok = ok and _is_num(d.get(f))
+		if ok:
+			for f in ["solid", "passable"]:
+				ok = ok and (not d.has(f) or d[f] is bool)
+		if not ok:
+			_err("pack.json", "site", "decor #%d needs shape \"rect\" or \"ellipse\", numbers x, y, w, h and a colour" % [i])
+
+
+static func _site_int(d: Dictionary, key: String, limit: int) -> bool:
+	var v = d.get(key)
+	return v is int and v >= 0 and v <= limit
+
+
+static func _color_ok(v) -> bool:
+	return v is String and v.begins_with("#") and Color.html_is_valid(v)
 
 
 func _check_livelihoods() -> void:

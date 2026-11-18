@@ -52,6 +52,10 @@ const DEFAULT_CONFIG := {
 	"story_interval_min": 240, "story_ttl_min": 600,
 	# Births (off while empty; see `BirthSystem` for the keys).
 	"births": {},
+	# The ground plan the view draws (off while empty): map size in cells, an optional
+	# compound wall, door openings, fences and ground decor. The sim never reads it; see
+	# `PackValidator._check_site` for the keys.
+	"site": {},
 }
 
 ## Per-file field defaults (applied to every entry that lacks the key).
@@ -280,6 +284,7 @@ func _apply_defaults() -> void:
 				for f in ["x", "y"]:
 					if so.has(f):
 						so[f] = _as_int(so[f])
+	config["site"] = _deep_ints(config["site"])
 	for r in rooms.values():
 		if r["props"] is Array:
 			for pr in r["props"]:
@@ -320,6 +325,18 @@ func _apply_defaults() -> void:
 			for f in ["amount", "count", "level"]:
 				if g["when"].has(f):
 					g["when"][f] = _as_int(g["when"][f])
+
+
+## `v` with every whole-number float inside it (at any depth) turned into an int.
+static func _deep_ints(v: Variant) -> Variant:
+	if v is Array:
+		return (v as Array).map(_deep_ints)
+	if v is Dictionary:
+		var out := {}
+		for k in v:
+			out[k] = _deep_ints(v[k])
+		return out
+	return _as_int(v)
 
 
 static func _as_int(v: Variant) -> Variant:

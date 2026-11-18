@@ -165,7 +165,8 @@ func test_random_cell_picked_from_nearest_room_when_in_a_gap():
 	var p := w.people[0]
 	var pv: PersonView = m.house.people[p.uid]
 	var hall := m.house.layout.room_rect("hall")
-	pv.position = Vector2(hall.end.x + 10, hall.get_center().y)
+	# Rooms share walls now: the gap is the grass just north of the compound.
+	pv.position = Vector2(hall.get_center().x, hall.position.y - 40)
 	assert_true(m.house.layout.pos_to_cell(pv.position).is_empty())
 	_wander(m, p)
 	pv.refresh()
@@ -296,9 +297,11 @@ func test_sleeping_person_is_dimmed_not_bobbing():
 func test_fit_scale_fills_the_window_and_is_capped():
 	var q := Main.create("qijia", _clean_dir(), _clock)  # not in the tree: 1280x720
 	var qs := q.house.fit_scale(Vector2(1280, 720))
-	assert_true(qs >= 0.6 and qs <= 0.7, str(qs))   # the compound is bigger than the window
-	assert_eq(q.house.fit_scale(Vector2(4000, 2400)), 2.0)
-	assert_eq(q.house.fit_scale(Vector2(200, 200)), 0.5)
+	# The whole 56 x 32 map (ART_DIRECTION section 10) fits at about 0.46; the smallest zoom
+	# went down to 0.44 so it does, and a huge window still caps at 2.
+	assert_true(qs >= 0.44 and qs <= 0.5, str(qs))   # the map is bigger than the window
+	assert_eq(q.house.fit_scale(Vector2(8000, 4800)), 2.0)
+	assert_eq(q.house.fit_scale(Vector2(200, 200)), HouseView.MIN_SCALE)
 	q.free()
 	var m := Main.create("_smoke", _clean_dir(), _clock)
 	var s := m.house.fit_scale(Vector2(1280, 720))

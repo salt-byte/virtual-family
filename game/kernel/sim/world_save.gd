@@ -93,6 +93,8 @@ static func _build(pack: Pack, d: Dictionary) -> World:
 	for id in pack.rooms:
 		if pack.rooms[id].get("built") == true and not w.rooms_built.has(str(id)):
 			w.rooms_built.append(str(id))
+	# A room that shrank since the save keeps what stood in it: see `_fit_to_rooms`.
+	_fit_to_rooms(w)
 	# ...and the fixed furniture of its rooms: each prop whose kind is missing from its room
 	# is added where it still fits (skipped silently where something now stands).
 	if bool(d["adopted_once"]):
@@ -102,6 +104,8 @@ static func _build(pack: Pack, d: Dictionary) -> World:
 	w.collectibles.clear()
 	for c in d["collectibles"]:
 		w.collectibles.append(_ints(c, ["uid", "x", "y", "expires_at"]))
+	for c in w.collectibles:
+		_clamp_into_room(pack, c)
 	w.collection = _int_values(d["collection"])
 	w.goals_done.clear()
 	for g in d["goals_done"]:
@@ -483,3 +487,59 @@ static func _all_in(a: Array, ids: Dictionary) -> bool:
 		if not ids.has(v):
 			return false
 	return true
+
+
+## Rooms may change size between versions of a pack. Furniture that no longer fits where it
+## stood moves to the first free spot of the same room (row by row); fixed furniture that
+## does not fit is dropped (the props step puts it back where it fits), and anything else
+## that fits nowhere in its room is sold back at full price. Messes move inside the room.
+static func _fit_to_rooms(w: World) -> void:
+	var keep: Array[Dictionary] = []
+	var moved: Array[Dictionary] = []
+	for o in w.objects:
+		if _fits_here(w, o, keep):
+			keep.append(o)
+		else:
+			moved.append(o)
+	w.objects = keep
+	for o in moved:
+		if HouseSystem.is_fixed(w, str(o["type"])):
+			continue
+		var r: Dictionary = w.pack.rooms[o["room"]]
+		var placed := false
+		for y in int(r["h"]):
+			for x in int(r["w"]):
+				if not placed and HouseSystem.can_place(w, str(o["type"]), str(o["room"]), x, y) == "":
+					o["x"] = x
+					o["y"] = y
+					w.objects.append(o)
+					placed = true
+		if not placed:
+			w.money += int(w.pack.object_types[o["type"]]["price"])
+	for m in w.messes:
+		_clamp_into_room(w.pack, m)
+
+
+## Whether `o` still lies inside its room and clear of the pieces in `placed`.
+static func _fits_here(w: World, o: Dictionary, placed: Array[Dictionary]) -> bool:
+	var t: Dictionary = w.pack.object_types[o["type"]]
+	var r: Dictionary = w.pack.rooms[o["room"]]
+	var x := int(o["x"])
+	var y := int(o["y"])
+	if x < 0 or y < 0 or x + int(t["w"]) > int(r["w"]) or y + int(t["h"]) > int(r["h"]):
+		return false
+	for q in placed:
+		if q["room"] != o["room"]:
+			continue
+		var qt: Dictionary = w.pack.object_types[q["type"]]
+		if x < int(q["x"]) + int(qt["w"]) and int(q["x"]) < x + int(t["w"]) \
+				and y < int(q["y"]) + int(qt["h"]) and int(q["y"]) < y + int(t["h"]):
+			return false
+	return true
+
+
+## Moves a mess or a thing lying about back inside its room when the room shrank.
+static func _clamp_into_room(pack: Pack, e: Dictionary) -> void:
+	var r: Dictionary = pack.rooms[e["room"]]
+	e["x"] = clampi(int(e["x"]), 0, int(r["w"]) - 1)
+	e["y"] = clampi(int(e["y"]), 0, int(r["h"]) - 1)

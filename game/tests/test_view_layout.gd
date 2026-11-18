@@ -5,23 +5,25 @@ func _pack() -> Pack:
 
 func test_positioned_rooms_sit_where_the_pack_puts_them():
 	var l := HouseLayout.new(_pack())
-	assert_eq(l.room_rect("hall"), Rect2(7 * 48, 0, 10 * 48, 6 * 36))
-	assert_eq(l.room_rect("yard"), Rect2(7 * 48, 7 * 36, 17 * 48, 7 * 36))
-	assert_eq(l.room_rect("bedroom"), Rect2(18 * 48, 0, 6 * 48, 6 * 36))
-	assert_eq(l.room_rect("kitchen"), Rect2(25 * 48, 0, 6 * 48, 6 * 36))
-	assert_eq(l.room_rect("side"), Rect2(31 * 48, 7 * 36, 8 * 48, 7 * 36))
-	assert_eq(l.room_rect("threshing"), Rect2(32 * 48, 15 * 36, 7 * 48, 6 * 36))
+	# The connected house (ART_DIRECTION section 10): the compound's corner sits at map (11, 6).
+	assert_eq(l.room_rect("hall"), Rect2(23 * 48, 6 * 36, 10 * 48, 6 * 36))
+	assert_eq(l.room_rect("yard"), Rect2(17 * 48, 12 * 36, 17 * 48, 7 * 36))
+	assert_eq(l.room_rect("bedroom"), Rect2(33 * 48, 6 * 36, 6 * 48, 6 * 36))
+	assert_eq(l.room_rect("kitchen"), Rect2(11 * 48, 12 * 36, 6 * 48, 6 * 36))
+	assert_eq(l.room_rect("side"), Rect2(39 * 48, 6 * 36, 6 * 48, 6 * 36))
+	assert_eq(l.room_rect("threshing"), Rect2(17 * 48, 19 * 36, 7 * 48, 6 * 36))
 
 func test_cell_roundtrip_and_outside():
 	var l := HouseLayout.new(_pack())
 	var cells := {"bedroom": Vector2i(5, 5), "hall": Vector2i(9, 2), "kitchen": Vector2i(1, 4),
-		"yard": Vector2i(16, 6), "side": Vector2i(7, 0), "gate": Vector2i(7, 5), "west_room": Vector2i(0, 0)}
+		"yard": Vector2i(16, 6), "side": Vector2i(5, 0), "gate": Vector2i(7, 5), "west_room": Vector2i(0, 0)}
 	for id in cells:
 		var c: Vector2i = cells[id]
 		assert_eq(l.pos_to_cell(l.cell_center(id, c.x, c.y)), {"room": id, "x": c.x, "y": c.y}, id)
-	# Between the first two rows, and between the hall and the bedroom.
+	# Rooms share walls now, so there are no gaps between them: outside the compound wall
+	# (north of it, and on the road south of the gate) is no room.
 	assert_eq(l.pos_to_cell(Vector2(100, 6.5 * 36)), {})
-	assert_eq(l.pos_to_cell(Vector2(17.5 * 48, 10)), {})
+	assert_eq(l.pos_to_cell(Vector2(28 * 48, 28 * 36)), {})
 
 func test_pick_priority_and_unbuilt_room():
 	var w := BalanceRun.setup("qijia", 1)
@@ -62,7 +64,8 @@ func test_bounds_cover_rooms_and_walls():
 	var b := l.bounds()
 	for id in _pack().rooms:
 		assert_true(b.encloses(l.room_rect(id)), id)
-	assert_eq(b, Rect2(0, -HouseLayout.WALL, 39 * 48, 21 * 36 + HouseLayout.WALL))
+	# With a site plan the bounds are the whole map (56 x 32 cells), not the rooms' extent.
+	assert_eq(b, Rect2(0, 0, 56 * 48, 32 * 36))
 
 
 func test_nearest_room_picks_closest_of_the_given_rooms():
@@ -70,7 +73,8 @@ func test_nearest_room_picks_closest_of_the_given_rooms():
 	var l := HouseLayout.new(pack)
 	var ids: Array = pack.rooms.keys()
 	var r := l.room_rect(ids[0])
-	assert_eq(l.nearest_room(r.end + Vector2(5, -5), ids), ids[0])
+	# Rooms touch now (shared walls); a point just north of the first room is nearest to it.
+	assert_eq(l.nearest_room(Vector2(r.get_center().x, r.position.y - 5), ids), ids[0])
 	assert_eq(l.nearest_room(Vector2.ZERO, []), "")
 	assert_eq(l.nearest_room(Vector2.ZERO, [ids[1]]), ids[1])
 
