@@ -65,6 +65,10 @@ class Info:
 	## `object` != "" and `kind` != "" (bool tests are cheaper than string ones in the hot loop)
 	var has_object := false
 	var has_kind := false
+	## position in `_table` (indexes `_flags`)
+	var idx := 0
+	## the `capacity` of the object type (1 without an object)
+	var capacity := 1
 
 
 ## The pack's actions as `Info`, in pack order, built on first use and kept on the pack
@@ -77,6 +81,7 @@ static func _table(pack: Pack) -> Array:
 	for id in pack.actions:
 		var a: Dictionary = pack.actions[id]
 		var i := Info.new()
+		i.idx = out.size()
 		i.id = str(id)
 		i.stages = a["stages"]
 		i.object = str(a["object"])
@@ -114,6 +119,8 @@ static func _table(pack: Pack) -> Array:
 		i.avoid = avoid_tag != "" and i.tags.has(avoid_tag)
 		i.tend = not i.tend_ids.is_empty()
 		i.has_object = i.object != ""
+		if i.has_object:
+			i.capacity = int(pack.object_types.get(i.object, {}).get("capacity", 1))
 		i.has_kind = i.kind != ""
 		if i.requires.has("pregnant"):
 			i.preg = 1 if bool(i.requires["pregnant"]) else 0
@@ -121,6 +128,54 @@ static func _table(pack: Pack) -> Array:
 	pack.autonomy_table = out
 	pack.autonomy_by_stage = {}
 	pack.autonomy_by_stage_track = {}
+	pack.autonomy_flags = {}
+	pack.autonomy_index = {}
+	for i: Info in out:
+		pack.autonomy_index[i.id] = i.idx
+	pack.autonomy_whole_hours = out.all(func(i: Info):
+		return not i.has_hours or (i.hour_from == floorf(i.hour_from) and i.hour_to == floorf(i.hour_to)))
+	return out
+
+
+const _F_TAGS := 1  ## a tag of the action is among the person's likes or dislikes
+const _F_HOURS := 2  ## the hour is outside the action's `hours`
+const _F_NOWHERE := 4  ## the action names rooms and none of them is built
+
+
+## Per action of `_table` (by `Info.idx`), the `_F_*` bits for someone with these likes and
+## dislikes at this hour in a house with these rooms built: the tests `candidates` would
+## otherwise repeat for every action on every choice. With whole-hour windows only (the
+## usual case) the hour bits hold for the whole hour, so the result is kept on the pack.
+static func _flags(world: World, p: Person, hour: float) -> PackedByteArray:
+	var pack := world.pack
+	var table := _table(pack)
+	var hkey: Variant = int(hour) if pack.autonomy_whole_hours else hour
+	var key := "%s|%s|%s|%s" % [p.likes, p.dislikes, hkey, world.rooms_built]
+	var f = pack.autonomy_flags.get(key)
+	if f != null:
+		return f
+	var built := world.built_set()
+	var out := PackedByteArray()
+	out.resize(table.size())
+	for i: Info in table:
+		var b := 0
+		for t in i.tags:
+			if t in p.likes or t in p.dislikes:
+				b |= _F_TAGS
+		if i.has_hours and not _in_hours(hour, i.hours):
+			b |= _F_HOURS
+		if not i.has_object and i.has_rooms:
+			var somewhere := false
+			for r in i.rooms:
+				if built.has(r):
+					somewhere = true
+					break
+			if not somewhere:
+				b |= _F_NOWHERE
+		out[i.idx] = b
+	if pack.autonomy_flags.size() > 4096:
+		pack.autonomy_flags = {}
+	pack.autonomy_flags[key] = out
 	return out
 
 
@@ -175,15 +230,28 @@ static func candidates(world: World, p: Person, pool := 0) -> Array[Dictionary]:
 	var stage := p.stage(pack)
 	var hour := world.local_hour()
 	var damp := _repeat_damping(p, int(pack.cfg("repeat_memory")), float(pack.cfg("repeat_factor")))
+	# The damping by `Info.idx` (1.0: none), so the loop needs no lookup by action id.
+	var table := _table(pack)
+	var dmp := PackedFloat64Array()
+	dmp.resize(table.size())
+	dmp.fill(1.0)
+	for id in damp:
+		var ix = pack.autonomy_index.get(id)
+		if ix != null:
+			dmp[ix] = float(damp[id])
 	var low := float(pack.cfg("mood_depressed_factor")) if p.mood == "depressed" else 1.0
 	var needs := p.needs
 	var habits := p.habits
+	var any_habits := not habits.is_empty()
 	var likes := p.likes
 	var dislikes := p.dislikes
 	var pregnant := p.pregnant_until > 0
-	var built := world.built_set()
 	var free := {}  # object type -> first object of that type free for `p` (-1: none)
 	var users := {}  # object uid -> people other than `p` using it (filled on first need)
+	var by_type := {}  # object type -> uids of the objects of that type, in `objects` order (filled with `users`)
+	var flags := _flags(world, p, hour)
+	var top_s := PackedFloat64Array()  # with `pool`: the best scores so far, best first
+	var top_e: Array = []  # [action id, object uid, target uid] for each of `top_s`
 	# The cheap yes/no tests come first; only what passes them is scored.
 	for i: Info in _stage_track_table(pack, stage, p.track, p.mood, pregnant, not world.babies().is_empty()):
 		if i.gated:
@@ -191,26 +259,35 @@ static func candidates(world: World, p: Person, pool := 0) -> Array[Dictionary]:
 				continue
 			if i.has_story and not StorySystem.finale_open(world, i.story):
 				continue
+		var fl := flags[i.idx]
+		if fl & _F_NOWHERE:
+			continue
 		var uid := -1
 		if i.has_object:
-			if not free.has(i.object):
+			var fu = free.get(i.object)
+			if fu == null:
 				if users.is_empty():
 					users[-1] = 0
 					for q in world.people:
 						if q != p and q.alive and not q.current.is_empty():
 							var ou := int(q.current.get("object_uid", -1))
 							users[ou] = int(users.get(ou, 0)) + 1
-				free[i.object] = _first_unoccupied(world, i.object, users)
-			uid = free[i.object]
+					for o in world.objects:
+						var ol = by_type.get(o.type)
+						if ol == null:
+							by_type[o.type] = [o.uid]
+						else:
+							ol.append(o.uid)
+				fu = -1  # `_first_unoccupied`, written out
+				var uids = by_type.get(i.object)
+				if uids != null:
+					for ouid in uids:
+						if int(users.get(ouid, 0)) < i.capacity:
+							fu = ouid
+							break
+				free[i.object] = fu
+			uid = fu
 			if uid < 0:
-				continue
-		elif i.has_rooms:
-			var somewhere := false
-			for r in i.rooms:
-				if built.has(r):
-					somewhere = true
-					break
-			if not somewhere:
 				continue
 		if i.has_work and i.track != p.track:
 			continue
@@ -230,25 +307,27 @@ static func candidates(world: World, p: Person, pool := 0) -> Array[Dictionary]:
 			if nv != null:
 				var room := 100.0 - float(nv)
 				gain += minf(i.need_gains[k], room) * room / 100.0
-		var s := (i.base + gain) * float(habits.get(i.id, 1.0))
-		for t in i.tags:
-			if t in likes:
-				s *= 1.5
-			if t in dislikes:
-				s *= 0.5
-		if i.has_hours:
-			if i.hours_wrap:
-				if not (hour >= i.hour_from or hour < i.hour_to):
-					s *= 0.1
-			elif not (hour >= i.hour_from and hour < i.hour_to):
+		var s := i.base + gain
+		if any_habits:  # x1.0 for an action without a habit changes nothing
+			s *= float(habits.get(i.id, 1.0))
+		if fl != 0:
+			if fl & _F_TAGS:
+				for t in i.tags:
+					if t in likes:
+						s *= 1.5
+					if t in dislikes:
+						s *= 0.5
+			if fl & _F_HOURS:
 				s *= 0.1
-		var dv = damp.get(i.id)
-		if dv != null:
-			s *= float(dv)
+		var dv := dmp[i.idx]
+		if dv != 1.0:
+			s *= dv
 		if low != 1.0 and not i.mood_req:
 			s *= low
 		if s <= 0.0:
 			continue
+		if pool > 0 and top_s.size() == pool and s <= top_s[pool - 1]:
+			continue  # would not make the pool whatever the tests below say
 		if i.has_kind and not i.tend:
 			target = _first_free_target(world, pack.actions[i.id], p)
 			if target < 0:
@@ -264,23 +343,29 @@ static func candidates(world: World, p: Person, pool := 0) -> Array[Dictionary]:
 		if pool <= 0:
 			out.append({"action": i.id, "object_uid": uid, "target_uid": target, "score": s})
 			continue
-		if out.size() == pool and s <= float(out[pool - 1].score):
-			continue
-		var j := out.size()
-		while j > 0 and s > float(out[j - 1].score):
+		var j := top_s.size()
+		while j > 0 and s > top_s[j - 1]:
 			j -= 1
-		out.insert(j, {"action": i.id, "object_uid": uid, "target_uid": target, "score": s})
-		if out.size() > pool:
-			out.pop_back()
+		top_s.insert(j, s)
+		top_e.insert(j, [i.id, uid, target])
+		if top_s.size() > pool:
+			top_s.resize(pool)
+			top_e.pop_back()
+	for k in top_s.size():
+		var e: Array = top_e[k]
+		out.append({"action": e[0], "object_uid": e[1], "target_uid": e[2], "score": top_s[k]})
 	return out
 
 
 ## `_free_object` for any object of `type`, with the other users per object counted once.
-static func _first_unoccupied(world: World, type: String, users: Dictionary) -> int:
-	var capacity := int(world.pack.object_types.get(type, {}).get("capacity", 1))
-	for o in world.objects:
-		if o.type == type and int(users.get(o.uid, 0)) < capacity:
-			return o.uid
+## `uids` are the objects of that type in `world.objects` order (null: none).
+static func _first_unoccupied(pack: Pack, type: String, uids: Variant, users: Dictionary) -> int:
+	if uids == null:
+		return -1
+	var capacity := int(pack.object_types.get(type, {}).get("capacity", 1))
+	for uid in uids:
+		if int(users.get(uid, 0)) < capacity:
+			return uid
 	return -1
 
 

@@ -31,11 +31,19 @@ static func is_met(world: World, goal: Dictionary) -> bool:
 		"money_at_least":
 			return world.money >= int(w.get("amount", 0))
 		"objects_owned":
+			# Counts the furniture that is not fixed (`HouseSystem.is_fixed`), stopping at enough.
+			var count := int(w.get("count", 0))
 			var owned := 0
+			if owned >= count:
+				return true
+			var types := world.pack.object_types
 			for o in world.objects:
-				if not HouseSystem.is_fixed(world, str(o["type"])):
+				var ot = types.get(o["type"])
+				if ot == null or not bool(ot.get("fixed", false)):
 					owned += 1
-			return owned >= int(w.get("count", 0))
+					if owned >= count:
+						return true
+			return false
 		"room_built":
 			return world.rooms_built.has(str(w.get("room", "")))
 		"level_reached":

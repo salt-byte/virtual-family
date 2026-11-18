@@ -106,6 +106,12 @@ var autonomy_table: Array = []
 var autonomy_by_stage: Dictionary = {}
 ## "stage|track" -> `autonomy_by_stage[stage]` without the work actions of other tracks.
 var autonomy_by_stage_track: Dictionary = {}
+## "likes|dislikes|hour|rooms built" -> per action the yes/no bits `AutonomySystem` reuses.
+var autonomy_flags: Dictionary = {}
+## action id -> its position in `autonomy_table`.
+var autonomy_index: Dictionary = {}
+## True when every action's `hours` window has whole-hour bounds (set with `autonomy_table`).
+var autonomy_whole_hours := true
 ## livelihood id -> {action id: affinity matches}, prepared by `LivelihoodSystem`.
 var affinity_table: Dictionary = {}
 ## The needs' drains as plain arrays, prepared by `NeedsSystem` on first use.
