@@ -520,7 +520,7 @@ func _draw() -> void:
 		else:
 			draw_rect(rect.grow(-2), Color.from_hsv(hue, 0.4, 0.82, faded))
 		draw_string(font, rect.position + Vector2(0, rect.size.y * 0.5 + 4), str(t.get("name", "")), HORIZONTAL_ALIGNMENT_CENTER, rect.size.x, 12, Color(0.15, 0.15, 0.15))
-	_draw_dishes(w, font)
+	_draw_dishes(w)
 	for m in w.messes:
 		var at := layout.cell_center(str(m.room), int(m.x), int(m.y))
 		var mt: Dictionary = w.pack.mess_types.get(str(m.type), {})
@@ -547,8 +547,8 @@ func _draw() -> void:
 
 
 ## Cooked food on the table it was served to: bowls side by side on the top face, each in
-## the dish's `color`, with the portions left drawn as small rims (whitebox until the art).
-func _draw_dishes(w: World, font: Font) -> void:
+## the dish's `color`, with one dot under it per portion left (whitebox until the art).
+func _draw_dishes(w: World) -> void:
 	var on_object := {}  # object uid -> how many dishes already drawn on it
 	for d in w.dishes:
 		var o := w.object(int(d.object_uid))
@@ -557,14 +557,13 @@ func _draw_dishes(w: World, font: Font) -> void:
 		var n := int(on_object.get(int(d.object_uid), 0))
 		on_object[int(d.object_uid)] = n + 1
 		var rect := layout.object_rect(o, w.pack)
-		var at := Vector2(rect.position.x + 22.0 + n * 34.0, rect.position.y + 18.0)
+		var at := Vector2(rect.position.x + 22.0 + n * 38.0, rect.position.y + 18.0)
 		var dt: Dictionary = w.pack.dishes.get(str(d.type), {})
 		draw_colored_polygon(HouseGround._ellipse(Rect2(at - Vector2(14, 8), Vector2(28, 16))), Color(0.97, 0.96, 0.93))
 		draw_colored_polygon(HouseGround._ellipse(Rect2(at - Vector2(10, 5), Vector2(20, 10))), pack_color(dt, DISH_COLOR))
 		draw_arc(at, 14.0, 0.0, TAU, 20, Color(0.35, 0.3, 0.25), 1.5)
 		for k in int(d.portions):
 			draw_circle(at + Vector2(-8 + k * 8, 13), 2.5, Color(0.35, 0.3, 0.25))
-		_small_name(font, at + Vector2(0, 6), str(dt.get("name", "")))
 
 
 const MESS_COLOR := Color(0.45, 0.3, 0.18)
