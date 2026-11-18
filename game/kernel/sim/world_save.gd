@@ -38,6 +38,8 @@ static func _snapshot(w: World) -> Dictionary:
 	# Optional: written only once a story has unlocked (older saves and story-less packs lack it).
 	if not w.stories.is_empty():
 		out["stories"] = w.stories.duplicate(true)
+	if w.birth_blocked:  # optional: written only while true
+		out["birth_blocked"] = true
 	return out
 
 
@@ -108,8 +110,11 @@ static func _build(pack: Pack, d: Dictionary) -> World:
 	w.candidate = {} if d["candidate"].is_empty() else Person.from_dict(d["candidate"]).to_dict()
 	w.proposals.clear()
 	for pr in d["proposals"]:
-		w.proposals.append({"id": int(pr["id"]), "person": Person.from_dict(pr["person"]).to_dict(),
-			"savings": int(pr["savings"]), "expires_at": int(pr["expires_at"])})
+		var prop := {"id": int(pr["id"]), "person": Person.from_dict(pr["person"]).to_dict(),
+			"savings": int(pr["savings"]), "expires_at": int(pr["expires_at"])}
+		if pr.has("for"):  # optional: only with births on, and absent in older saves
+			prop["for"] = int(pr["for"])
+		w.proposals.append(prop)
 	w.next_proposal_at = int(d["next_proposal_at"])
 	w.declined_once = d["declined_once"]
 	w.adopted_once = d["adopted_once"]
@@ -121,11 +126,33 @@ static func _build(pack: Pack, d: Dictionary) -> World:
 			found.append(str(f))
 		w.stories[str(sid)] = {"found": found, "stage": str(sd[sid]["stage"])}
 	w.blessing_illness = StorySystem.illness_factor(w)
+	w.birth_blocked = bool(d.get("birth_blocked", false))
+	if BirthSystem.enabled(pack):
+		_link_old_couple(w)
 	if MoodSystem.enabled(pack):
 		for p in w.people:
 			MoodSystem.refresh_cap(w, p)
 	w._events = []
 	return w
+
+
+## A save from before spouses were linked: a household that had its wedding links its first
+## man and first woman who are grown-ups (that is who the couple was: nobody was born yet).
+static func _link_old_couple(w: World) -> void:
+	if not w.married or w.people.any(func(p: Person): return p.spouse != 0):
+		return
+	var man: Person = null
+	var woman: Person = null
+	for p in w.people:
+		if not (p.stage(w.pack) in ["adult", "elder"]):
+			continue
+		if p.gender == "male" and man == null:
+			man = p
+		elif p.gender == "female" and woman == null:
+			woman = p
+	if man != null and woman != null:
+		man.spouse = woman.uid
+		woman.spouse = man.uid
 
 
 static func _encode(v: Variant) -> Variant:
@@ -293,7 +320,8 @@ static func _valid_person(p) -> bool:
 		return false
 	if p.has("mood") and not (_is_str(p["mood"]) and p["mood"] in ["", "sad", "depressed"]):
 		return false
-	for k in ["thanks_until", "mood_low_s", "mood_ok_s", "generation", "cared_at"]:
+	for k in ["thanks_until", "mood_low_s", "mood_ok_s", "generation", "cared_at",
+			"spouse", "mother", "father", "pregnant_until", "pregnant_by"]:
 		if p.has(k) and not (_is_whole(p[k]) and float(p[k]) >= 0.0):
 			return false
 	var c: Dictionary = p["current"]
@@ -369,6 +397,10 @@ static func _valid_save(pack: Pack, d: Dictionary) -> bool:
 		if not _has(pr, {"id": "i", "person": "d", "savings": "i", "expires_at": "i"}) \
 				or not _valid_person(pr["person"]):
 			return false
+		if pr.has("for") and not (_is_whole(pr["for"]) and float(pr["for"]) > 0.0):
+			return false
+	if d.has("birth_blocked") and not _is_bool(d["birth_blocked"]):
+		return false
 	# The uid counter must lie above every uid in use, or new things would collide.
 	var top := 0
 	for key in ["people", "objects", "messes", "collectibles"]:

@@ -71,6 +71,7 @@ func _run() -> void:
 	_check_wishes()
 	_check_stories()
 	_check_mood_config()
+	_check_births()
 
 
 func _check_required() -> void:
@@ -318,6 +319,7 @@ func _check_actions() -> void:
 			if not a["rooms"].is_empty() and a["object"] is String and a["object"] != "":
 				_err("actions.json", id, "an action with an object may not also list rooms")
 		_check_requires(id, a["requires"])
+		_check_tends(id, a)
 		var cs = a.get("completes_story", "")
 		if not cs is String:
 			_err("actions.json", id, "completes_story must be a story id")
@@ -329,6 +331,23 @@ func _check_actions() -> void:
 				_err("actions.json", id, "completes_story '%s' needs an offering or dig finale" % [cs])
 
 
+## `tends`: need id -> amount given to the baby the action is aimed at.
+func _check_tends(id: String, a: Dictionary) -> void:
+	var t = a.get("tends", {})
+	if not t is Dictionary:
+		_err("actions.json", id, "tends must be an object")
+		return
+	if t.is_empty():
+		return
+	for n in t:
+		if not _p.needs.has(n) or not _is_num(t[n]):
+			_err("actions.json", id, "tends key '%s' must be a need with a number" % [n])
+	if (a["cleans"] is String and a["cleans"] != "") or a["picks"] == true:
+		_err("actions.json", id, "an action that tends a baby may not also clean or pick up")
+	if a["stages"] is Array and (a["stages"] as Array).has("baby"):
+		_err("actions.json", id, "babies cannot tend babies")
+
+
 func _check_requires(id: String, r) -> void:
 	if not r is Dictionary:
 		_err("actions.json", id, "requires must be an object")
@@ -338,6 +357,9 @@ func _check_requires(id: String, r) -> void:
 			"sick":
 				if not r[k] is bool:
 					_err("actions.json", id, "requires.sick must be true or false")
+			"pregnant":
+				if not r[k] is bool:
+					_err("actions.json", id, "requires.pregnant must be true or false")
 			"illness":
 				if not _p.illnesses.has(r[k]):
 					_err("actions.json", id, "requires.illness '%s' is not an illness" % [r[k]])
@@ -711,3 +733,45 @@ func _check_mood_config() -> void:
 		for k in d:
 			if not _p.needs.has(k) or not _is_num(d[k]):
 				_err("pack.json", _p.id, "mood_depressed_drain key '%s' must be a need with a number" % [k])
+
+
+## The optional `births` object (see `BirthSystem`).
+func _check_births() -> void:
+	var b = _p.config.get("births")
+	if not b is Dictionary:
+		_err("pack.json", _p.id, "births must be an object")
+		return
+	if b.is_empty():
+		return
+	var fa = b.get("fertile_age", BirthSystem.DEFAULT_FERTILE)
+	if not (fa is Array and fa.size() == 2 and _is_num(fa[0]) and _is_num(fa[1]) and float(fa[0]) >= 0.0 and float(fa[0]) < float(fa[1])):
+		_err("pack.json", _p.id, "births.fertile_age must be [from, to] with 0 <= from < to")
+	var c = b.get("chance_per_day", 0.0)
+	if not (_is_num(c) and float(c) >= 0.0 and float(c) <= 1.0):
+		_err("pack.json", _p.id, "births.chance_per_day must be a number from 0 to 1")
+	var py = b.get("pregnancy_years", 0.75)
+	if not (_is_num(py) and float(py) > 0.0):
+		_err("pack.json", _p.id, "births.pregnancy_years must be a number above 0")
+	var beds = b.get("beds", [])
+	if not (beds is Array and not beds.is_empty()):
+		_err("pack.json", _p.id, "births.beds must list at least one object type")
+	else:
+		for t in beds:
+			if not (t is String and _p.object_types.has(t)):
+				_err("pack.json", _p.id, "births.beds: '%s' is not an object type" % [str(t)])
+	if not str(b.get("surname_from", "father")) in ["father", "mother"]:
+		_err("pack.json", _p.id, "births.surname_from must be father or mother")
+	if not b.get("avoid_tag", "") is String:
+		_err("pack.json", _p.id, "births.avoid_tag must be a string")
+	var d = b.get("drain", {})
+	if not d is Dictionary:
+		_err("pack.json", _p.id, "births.drain must be an object")
+	else:
+		for k in d:
+			if not _p.needs.has(k) or not _is_num(d[k]):
+				_err("pack.json", _p.id, "births.drain key '%s' must be a need with a number" % [k])
+	if not b.get("guardian", false) is bool:
+		_err("pack.json", _p.id, "births.guardian must be true or false")
+	for k in b:
+		if not k in ["fertile_age", "chance_per_day", "pregnancy_years", "beds", "surname_from", "avoid_tag", "drain", "guardian"]:
+			_err("pack.json", _p.id, "unknown births key '%s'" % [k])

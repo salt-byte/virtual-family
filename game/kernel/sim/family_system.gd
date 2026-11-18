@@ -1,7 +1,10 @@
 class_name FamilySystem
 extends RefCounted
 ## The game's beginning and its matchmaker: candidates to adopt, then marriage proposals
-## while exactly one unmarried adult lives in the house. Commands: adopt, reroll, answer_proposal.
+## while exactly one unmarried adult lives in the house (with births on: for each grown-up
+## who never married, one at a time; the proposal names them in `for`). The spouse moves in,
+## takes the house's family name, and the two are linked (`Person.spouse`).
+## Commands: adopt, reroll, answer_proposal.
 
 
 ## A random person with a pack name, a livelihood track at level 0 (see `LivelihoodSystem`
@@ -96,9 +99,17 @@ static func answer_proposal(world: World, cmd: Dictionary) -> Dictionary:
 		return Commands.success()
 	var spouse := Person.from_dict(pr["person"])
 	var head := _lone_adult(world)
+	if pr.has("for"):
+		head = world.person(int(pr["for"]))
+		if head == null or not head.alive or head.spouse != 0:
+			world.proposals.remove_at(idx)
+			return Commands.fail("no_proposal")
 	if head != null:
 		spouse.family = head.family
 	world.add_person(spouse)
+	if head != null:
+		head.spouse = spouse.uid
+		spouse.spouse = head.uid
 	EconomySystem.earn(world, int(pr["savings"]), "savings")
 	world.married = true
 	world.proposals.clear()
@@ -115,21 +126,36 @@ static func step(world: World, _dt: float) -> void:
 			world.proposals.erase(pr)
 			world.next_proposal_at = world.now + int(world.pack.cfg("proposal_interval_hours")) * 3600
 			world.emit("proposal_expired", {"id": pr["id"]})
-	if world.married or not world.proposals.is_empty() or world.now < world.next_proposal_at:
+	if not world.proposals.is_empty() or world.now < world.next_proposal_at:
 		return
-	var head := _lone_adult(world)
+	var head := proposal_target(world)
 	if head == null:
 		return
 	var person := make_person(world, world.pack.cfg("adopt_age"))
 	person.gender = "female" if head.gender == "male" else "male"
 	person.given = str(world.rng.pick(world.pack.names.get(person.gender, [])))
 	var id := world.next_uid()
-	world.proposals.append({
+	var pr := {
 		"id": id, "person": person.to_dict(),
 		"savings": world.rng.randi_range(0, int(world.pack.cfg("start_money"))),
 		"expires_at": world.now + int(world.pack.cfg("proposal_ttl_hours")) * 3600,
-	})
+	}
+	if BirthSystem.enabled(world.pack):
+		pr["for"] = head.uid
+	world.proposals.append(pr)
 	world.emit("proposal_arrived", {"id": id})
+
+
+## Whom the next proposal is for: without births, the lone grown-up of a household that has
+## had no wedding; with births, the first living adult (not yet an elder) who never married.
+## null for nobody.
+static func proposal_target(world: World) -> Person:
+	if not BirthSystem.enabled(world.pack):
+		return null if world.married else _lone_adult(world)
+	for p in world.people:
+		if p.alive and p.spouse == 0 and p.stage(world.pack) == "adult":
+			return p
+	return null
 
 
 ## The only living adult (stage adult or elder), or null when there are none or several.

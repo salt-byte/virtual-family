@@ -56,6 +56,14 @@ var mood_cap := 100.0
 ## 0 for someone who came from outside (adopted, married in); a person born in the house is
 ## one more than the higher of their parents' generations.
 var generation := 0
+## uid of the person they married (0: never married); kept after that person dies.
+var spouse := 0
+## uids of the parents of someone born in the house (0: came from outside).
+var mother := 0
+var father := 0
+## `now` at which the baby is due (0: not with child), and the father's uid.
+var pregnant_until := 0
+var pregnant_by := 0
 
 
 ## Status bar: need id -> the label word that applies to the current value.
@@ -73,6 +81,11 @@ func status(pack: Pack) -> Dictionary:
 				break
 		out[nid] = text
 	return out
+
+
+## True while carrying a child (see `BirthSystem`).
+func pregnant() -> bool:
+	return pregnant_until > 0
 
 
 ## True while thanking the player (see `thanks_until`).
@@ -101,6 +114,8 @@ func to_dict() -> Dictionary:
 		"recent_actions": recent_actions.duplicate(), "childhood": childhood.duplicate(),
 		"wish": wish.duplicate(true), "wish_last": wish_last, "thanks_until": thanks_until,
 		"mood": mood, "mood_low_s": mood_low_s, "mood_ok_s": mood_ok_s, "generation": generation, "cared_at": cared_at,
+		"spouse": spouse, "mother": mother, "father": father,
+		"pregnant_until": pregnant_until, "pregnant_by": pregnant_by,
 	}
 
 
@@ -159,4 +174,10 @@ static func from_dict(d: Dictionary) -> Person:
 	p.mood_ok_s = int(d.get("mood_ok_s", 0))
 	p.generation = int(d.get("generation", 0))
 	p.cared_at = int(d.get("cared_at", 0))
+	# Absent in saves from before births existed.
+	p.spouse = int(d.get("spouse", 0))
+	p.mother = int(d.get("mother", 0))
+	p.father = int(d.get("father", 0))
+	p.pregnant_until = int(d.get("pregnant_until", 0))
+	p.pregnant_by = int(d.get("pregnant_by", 0))
 	return p

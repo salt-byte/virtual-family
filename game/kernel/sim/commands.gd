@@ -55,6 +55,8 @@ static func _try_drag(world: World, cmd: Dictionary) -> Dictionary:
 		return _drag_to_collectible(world, p, int(cmd["collectible"]))
 	if cmd.has("story"):
 		return _drag_to_story(world, p, str(cmd["story"]))
+	if cmd.has("tend"):
+		return _drag_to_baby(world, p, int(cmd["tend"]))
 	var object_uid := int(cmd.get("object", -1))
 	var o := world.object(object_uid)
 	if o.is_empty():
@@ -138,6 +140,38 @@ static func _drag_to_collectible(world: World, p: Person, uid: int) -> Dictionar
 		if why == "":
 			AutonomySystem.start(world, p, id, -1, uid)
 			return success({"action": id})
+		if first_reason == "no_action":
+			first_reason = why
+	return fail(first_reason)
+
+
+## Dropping someone on a baby: of the actions that care for babies (`tends`), the one that
+## gives this baby most of what it lacks (pack order on a tie) that `p` can do now.
+static func _drag_to_baby(world: World, p: Person, uid: int) -> Dictionary:
+	var b := world.person(uid)
+	if b == null or b == p or not b.alive or b.stage(world.pack) != "baby":
+		return fail("no_target")
+	if AutonomySystem.target_claimed(world, uid, "person", p):
+		return fail("busy")
+	var ranked: Array = []
+	for id in world.pack.actions:
+		var tends: Dictionary = world.pack.actions[id].get("tends", {})
+		if tends.is_empty():
+			continue
+		var g := 0.0
+		for n in tends:
+			var room := 100.0 - float(b.needs.get(n, 100.0))
+			g += minf(maxf(float(tends[n]), 0.0), room) * room / 100.0
+		var j := ranked.size()
+		while j > 0 and g > float(ranked[j - 1][1]):
+			j -= 1
+		ranked.insert(j, [id, g])
+	var first_reason := "no_action"
+	for r in ranked:
+		var why := AutonomySystem.can_do(world, p, str(r[0]), -1)
+		if why == "":
+			AutonomySystem.start(world, p, str(r[0]), -1, uid)
+			return success({"action": str(r[0])})
 		if first_reason == "no_action":
 			first_reason = why
 	return fail(first_reason)

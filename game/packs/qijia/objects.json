@@ -1,6 +1,6 @@
 [
 	{"id": "stove", "name": "灶台", "category": "灶间", "price": 480, "w": 2, "h": 1},
-	{"id": "kang", "name": "土炕", "category": "卧处", "price": 600, "w": 3, "h": 2, "capacity": 2},
+	{"id": "kang", "name": "土炕", "category": "卧处", "price": 600, "w": 3, "h": 2, "capacity": 3},
 	{"id": "desk", "name": "书案", "category": "营生", "price": 360, "w": 2, "h": 1},
 	{"id": "loom", "name": "织机", "category": "营生", "price": 720, "w": 2, "h": 2},
 	{"id": "vat", "name": "水缸", "category": "灶间", "price": 180, "w": 1, "h": 1},

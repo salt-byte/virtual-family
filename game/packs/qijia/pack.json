@@ -31,6 +31,16 @@
 	"mood_neglect_floor": 10,
 	"story_interval_min": 240,
 	"story_ttl_min": 600,
+	"births": {
+		"fertile_age": [18, 40],
+		"chance_per_day": 0.8,
+		"pregnancy_years": 0.75,
+		"beds": ["kang"],
+		"surname_from": "father",
+		"avoid_tag": "重活",
+		"drain": {"energy": 1},
+		"guardian": true
+	},
 	"start_objects": [
 		{"type": "kang", "room": "bedroom", "x": 0, "y": 0},
 		{"type": "desk", "room": "hall", "x": 3, "y": 0},

@@ -12,8 +12,8 @@ static func step(world: World, dt: float) -> void:
 			continue  # someone thanking the player pauses whatever they were doing
 		if not p.current.is_empty():
 			_progress(world, p, dt)
-		elif p.stage(world.pack) != "baby":
-			_choose(world, p)
+		elif p.stage(world.pack) != "baby" or not _stage_table(world.pack, "baby").is_empty():
+			_choose(world, p)  # babies only in a pack that gives them things to do
 
 
 ## The constant parts of one action, read once per pack so the hot path does no
@@ -53,6 +53,11 @@ class Info:
 	## true when `requires` names a mood: such actions are not damped for the depressed
 	var mood_req := false
 	var mood := ""
+	## what the action does for the baby it is aimed at (`tends`): need ids and amounts
+	var tend_ids: Array[String] = []
+	var tend_gains: Array[float] = []
+	## carries the pack's births `avoid_tag`: the pregnant leave it alone
+	var avoid := false
 
 
 ## The pack's actions as `Info`, in pack order, built on first use and kept on the pack
@@ -61,6 +66,7 @@ static func _table(pack: Pack) -> Array:
 	if pack.autonomy_table.size() == pack.actions.size() and not pack.autonomy_table.is_empty():
 		return pack.autonomy_table
 	var out: Array = []
+	var avoid_tag := _avoid_tag(pack)
 	for id in pack.actions:
 		var a: Dictionary = pack.actions[id]
 		var i := Info.new()
@@ -94,11 +100,22 @@ static func _table(pack: Pack) -> Array:
 		i.gated = i.slow_in_hours or i.has_story
 		i.mood_req = i.requires.has("mood")
 		i.mood = str(i.requires.get("mood", ""))
+		var tends: Dictionary = a.get("tends", {})
+		for n in tends:
+			i.tend_ids.append(str(n))
+			i.tend_gains.append(maxf(float(tends[n]), 0.0))
+		i.avoid = avoid_tag != "" and i.tags.has(avoid_tag)
 		out.append(i)
 	pack.autonomy_table = out
 	pack.autonomy_by_stage = {}
 	pack.autonomy_by_stage_track = {}
 	return out
+
+
+## The births `avoid_tag` of the pack ("" for none).
+static func _avoid_tag(pack: Pack) -> String:
+	var b = pack.cfg("births")
+	return str((b as Dictionary).get("avoid_tag", "")) if b is Dictionary else ""
 
 
 ## `_table` cut down to the actions open to `stage`, in pack order.
@@ -143,6 +160,7 @@ static func candidates(world: World, p: Person, pool := 0) -> Array[Dictionary]:
 	var habits := p.habits
 	var likes := p.likes
 	var dislikes := p.dislikes
+	var pregnant := p.pregnant_until > 0
 	var built := world.built_set()
 	var free := {}  # object type -> first object of that type free for `p` (-1: none)
 	var users := {}  # object uid -> people other than `p` using it (filled on first need)
@@ -153,6 +171,8 @@ static func candidates(world: World, p: Person, pool := 0) -> Array[Dictionary]:
 				continue
 			if i.has_story and not StorySystem.finale_open(world, i.story):
 				continue
+		if pregnant and i.avoid:
+			continue
 		var uid := -1
 		if i.object != "":
 			if not free.has(i.object):
@@ -180,6 +200,13 @@ static func candidates(world: World, p: Person, pool := 0) -> Array[Dictionary]:
 			continue
 		# The score: `_score`'s arithmetic in the same order, written out here.
 		var gain := 0.0
+		var target := -1
+		if i.kind == "person":
+			# Caring for a baby scores by what the baby lacks, not by the carer's own needs.
+			target = _tend_target(world, i.tend_ids, i.tend_gains, p)
+			if target < 0:
+				continue
+			gain = _tend_gain
 		for k in i.need_ids.size():
 			var nv = needs.get(i.need_ids[k])
 			if nv != null:
@@ -204,8 +231,7 @@ static func candidates(world: World, p: Person, pool := 0) -> Array[Dictionary]:
 			s *= low
 		if s <= 0.0:
 			continue
-		var target := -1
-		if i.kind != "":
+		if i.kind != "" and i.kind != "person":
 			target = _first_free_target(world, pack.actions[i.id], p)
 			if target < 0:
 				continue
@@ -311,6 +337,8 @@ static func can_do(world: World, p: Person, action_id: String, object_uid: int) 
 		return "wrong_track"
 	if not _requires_ok(p, a["requires"]):
 		return "requires"
+	if p.pregnant_until > 0 and _avoid_tag(world.pack) != "" and (a.get("tags", []) as Array).has(_avoid_tag(world.pack)):
+		return "requires"
 	if str(a.get("completes_story", "")) != "" and not StorySystem.finale_open(world, str(a["completes_story"])):
 		return "requires"
 	if target_kind(a) != "" and _first_free_target(world, a, p) < 0:
@@ -320,14 +348,59 @@ static func can_do(world: World, p: Person, action_id: String, object_uid: int) 
 	return ""
 
 
-## What an action aims at: "mess" (`cleans`), "collectible" (`picks`) or "" (nothing).
-## An action has at most one target kind.
+## What an action aims at: "mess" (`cleans`), "collectible" (`picks`), "person" (`tends`: a
+## baby) or "" (nothing). An action has at most one target kind.
 static func target_kind(a: Dictionary) -> String:
 	if str(a["cleans"]) != "":
 		return "mess"
 	if bool(a["picks"]):
 		return "collectible"
+	if not (a.get("tends", {}) as Dictionary).is_empty():
+		return TARGET_PERSON
 	return ""
+
+
+## The target kind of an action that cares for a baby.
+const TARGET_PERSON := "person"
+
+
+## The gain `_tend_target` found for its pick (read right after the call).
+static var _tend_gain := 0.0
+
+
+## The baby `p` could care for with an action that tends `ids` by `gains`: of the living
+## babies nobody else is caring for, the one that lacks most of what it gives (the first such
+## on a tie); -1 for none. Sets `_tend_gain` to that baby's gain, scored like a need gain.
+static func _tend_target(world: World, ids: Array[String], gains: Array[float], p: Person) -> int:
+	var best := -1
+	var best_gain := -1.0
+	for b in world.people:
+		if b == p or not b.alive or b.stage(world.pack) != "baby":
+			continue
+		if target_claimed(world, b.uid, "person", p):
+			continue
+		var g := 0.0
+		for k in ids.size():
+			var nv = b.needs.get(ids[k])
+			if nv != null:
+				var room := 100.0 - float(nv)
+				g += minf(gains[k], room) * room / 100.0
+		if g > best_gain:
+			best_gain = g
+			best = b.uid
+	_tend_gain = maxf(best_gain, 0.0)
+	return best
+
+
+## `_tend_target` for an action's `tends`.
+static func tend_target_for(world: World, a: Dictionary, p: Person) -> int:
+	var ids: Array[String] = []
+	var gains: Array[float] = []
+	var tends: Dictionary = a.get("tends", {})
+	for n in tends:
+		ids.append(str(n))
+		gains.append(maxf(float(tends[n]), 0.0))
+	return _tend_target(world, ids, gains, p)
 
 
 ## True when a living person other than `except` is going for target `uid` with an action
@@ -412,6 +485,13 @@ static func _progress(world: World, p: Person, dt: float) -> void:
 				# Without the player's attention, one's own doings only lift the mood so far.
 				nv = minf(nv, maxf(float(p.needs[n]), p.mood_cap))
 			p.needs[n] = nv
+	var tends: Dictionary = a.get("tends", {})
+	if not tends.is_empty():
+		var t := world.person(int(p.current.get("target_uid", -1)))
+		if t != null and t.alive:
+			for n in tends:
+				if t.needs.has(n):
+					t.needs[n] = clampf(float(t.needs[n]) + float(tends[n]) * gain_frac, 0.0, 100.0)
 	p.current["remaining_s"] = remaining - int(dt)
 	if int(p.current["remaining_s"]) <= 0:
 		_finish(world, p)
@@ -449,6 +529,8 @@ static func _first_free_target(world: World, a: Dictionary, p: Person) -> int:
 			return MessSystem.first_free(world, str(a["cleans"]), p)
 		"collectible":
 			return CollectibleSystem.first_free(world, p)
+		"person":
+			return tend_target_for(world, a, p)
 	return -1
 
 
@@ -509,6 +591,8 @@ static func _requires_ok(p: Person, req: Dictionary) -> bool:
 	if req.has("mood") and p.mood != str(req["mood"]):
 		return false
 	if req.has("illness") and p.illness != str(req["illness"]):
+		return false
+	if req.has("pregnant") and bool(req["pregnant"]) != (p.pregnant_until > 0):
 		return false
 	var below: Dictionary = req.get("need_below", {})
 	for n in below:

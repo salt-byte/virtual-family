@@ -89,6 +89,17 @@ func _line(w: World, e: Dictionary) -> String:
 			return "☁ %s %s" % [who, {"sad": "难过起来", "depressed": "这几天闷闷不乐（抑郁）", "": "心绪好了"}.get(e.mood, e.mood) if not (e.was == "depressed") else "缓过来了"]
 		"fragment_found":
 			return "◆ %s 捡到了%s" % [who, StorySystem.fragment(w.pack, e.story, e.fragment)["name"]]
+		"conceived":
+			return "✿ %s 怀上了" % who
+		"born":
+			var c := w.person(int(e.person))
+			return "✿ 添丁：%s（%s，第 %d 代）" % [who, "男" if c.gender == "male" else "女", c.generation + 1]
+		"births_blocked":
+			return "✿ 炕睡不下了，添不了丁"
+		"relative_arrived":
+			return "✿ 只剩下孩子，远房亲戚 %s 进了门" % who
+		"took_up":
+			return "★ %s 长大成人，做了%s" % [who, w.pack.livelihoods[e.track]["name"]]
 		"story_unlocked", "story_finale", "story_done":
 			return "◆ 旧事「%s」：%s" % [w.pack.stories[e.story]["title"], {"story_unlocked": "露了头", "story_finale": "凑齐了", "story_done": "了结"}[e.type]]
 	return str(e)

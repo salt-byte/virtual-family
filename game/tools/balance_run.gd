@@ -15,6 +15,13 @@ const LOW_MOOD := 30.0
 ## need this much more again.
 const WISH_RESERVE := 300
 const FURNITURE_RESERVE := 400
+## Money the caretaker keeps back before buying another bed so a couple can have a child.
+const BED_RESERVE := 1000
+## A baby whose need for food is below this gets someone dragged over to feed it.
+const BABY_HUNGRY := 35.0
+
+## Beds the caretaker has bought since the last `run` began.
+static var beds_bought := 0
 
 
 ## A world that is already living: one adopted person and one of each object type (the
@@ -55,6 +62,13 @@ static func run(pack_id: String, families: int, days: int, seed0: int) -> Dictio
 	var tracks := {}  # livelihood id -> living people following it at the end
 	var wishes := {"wish_formed": 0, "wish_granted": 0, "wish_expired": 0}
 	var low := {"sad": 0, "depressed": 0}  # people who were ever sad / depressed
+	var births := {"conceived": 0, "born": 0, "relative_arrived": 0}
+	var gens := {}  # generation -> living people at the end
+	var top_gen := 0
+	var house_born_took_up := 0
+	var unlocked := {}  # story id -> households where it unlocked
+	var babies_end := 0
+	beds_bought = 0
 	for i in families:
 		var w := setup(pack_id, seed0 + i)
 		var bag_size := _food_bag_size(w)
@@ -76,6 +90,10 @@ static func run(pack_id: String, families: int, days: int, seed0: int) -> Dictio
 					seen[e.action] = true
 				elif e.type == "person_died":
 					deaths[e.cause] = int(deaths.get(e.cause, 0)) + 1
+				elif births.has(e.type):
+					births[e.type] += 1
+				elif e.type == "took_up" and w.person(int(e.person)) != null and w.person(int(e.person)).generation > 0:
+					house_born_took_up += 1
 				elif wishes.has(e.type):
 					wishes[e.type] += 1
 				elif e.type == "mood_changed" and low.has(e.mood) and not ever.has("%d%s" % [e.person, e.mood]):
@@ -87,10 +105,16 @@ static func run(pack_id: String, families: int, days: int, seed0: int) -> Dictio
 		if w.married:
 			married += 1
 		for p in w.people:
+			top_gen = maxi(top_gen, p.generation)
 			if p.alive:
 				levels += p.level
 				living += 1
 				tracks[p.track] = int(tracks.get(p.track, 0)) + 1
+				gens[p.generation] = int(gens.get(p.generation, 0)) + 1
+				if p.stage(w.pack) == "baby":
+					babies_end += 1
+		for sid in w.stories:
+			unlocked[sid] = int(unlocked.get(sid, 0)) + 1
 		messes += w.messes.size()
 	money.sort()
 	return {
@@ -107,6 +131,11 @@ static func run(pack_id: String, families: int, days: int, seed0: int) -> Dictio
 		"max_food_bought_in_a_day": max_bags_day, "livelihoods": tracks,
 		"wishes_formed": wishes["wish_formed"], "wishes_granted": wishes["wish_granted"],
 		"wishes_expired": wishes["wish_expired"], "people_sad": low["sad"], "people_depressed": low["depressed"], "actions_in_pack": Pack.load_dir("res://packs/" + pack_id).actions.size(),
+		"pregnancies": births["conceived"], "births": births["born"], "babies_at_end": babies_end,
+		"people_at_end": living, "alive_by_generation": gens, "max_generation": top_gen,
+		"house_born_took_up": house_born_took_up, "relatives_arrived": births["relative_arrived"],
+		"beds_bought": beds_bought, "stories_unlocked": unlocked,
+		"deaths_by_cause": deaths,
 	}
 
 
@@ -135,6 +164,41 @@ static func caretake(w: World) -> void:
 			_give(w, p, _first_item(w, func(it): return it["cures"] == "" and (it["stock"] as Dictionary).is_empty() \
 					and (it["needs"] as Dictionary).has(MOOD_NEED)))
 		_grant_wish(w, p)
+	_care_for_babies(w)
+	_buy_bed_if_needed(w)
+
+
+## A hungry baby nobody is looking after gets the first grown-up who is free to come over.
+static func _care_for_babies(w: World) -> void:
+	for b in w.people:
+		if not b.alive or b.stage(w.pack) != "baby" or float(b.needs.get("fed", 100.0)) >= BABY_HUNGRY:
+			continue
+		if AutonomySystem.target_claimed(w, b.uid, "person", null):
+			continue
+		for p in w.people:
+			if p.alive and p.stage(w.pack) in ["adult", "elder"] and int(p.current.get("target_uid", -1)) < 0:
+				if w.command({"type": "drag", "person": p.uid, "tend": b.uid}).ok:
+					break
+
+
+## With births on, a couple that could have a child but has no place for one gets another
+## bed once the money stays above BED_RESERVE.
+static func _buy_bed_if_needed(w: World) -> void:
+	if not BirthSystem.blocked(w):
+		return
+	var beds: Array = w.pack.cfg("births").get("beds", [])
+	var type := str(beds[0])
+	if w.money < int(w.pack.object_types[type]["price"]) + BED_RESERVE:
+		return
+	for room in w.rooms_built:
+		if bool(w.pack.rooms[room].get("outdoor", false)) != bool(w.pack.object_types[type].get("outdoor", false)):
+			continue
+		var r: Dictionary = w.pack.rooms[room]
+		for y in int(r["h"]):
+			for x in int(r["w"]):
+				if w.command({"type": "place", "object_type": type, "room": room, "x": x, "y": y}).ok:
+					beds_bought += 1
+					return
 
 
 static func _grant_wish(w: World, p: Person) -> void:

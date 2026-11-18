@@ -34,6 +34,8 @@ static func catch_up(world: World, elapsed_seconds: float) -> Dictionary:
 			"goal_done": summary["goals_done"].append(e.goal)
 			"fragment_found": summary["fragments"].append({"story": e.story, "fragment": e.fragment})
 			"story_done": summary["stories_done"].append(e.story)
+			"born": summary["births"].append(e.person)
+			"relative_arrived": summary["relatives"].append(e.person)
 	summary["proposals_waiting"] = world.proposals.size()
 	summary["messes_now"] = world.messes.size()
 	return summary
@@ -51,4 +53,4 @@ static func _empty() -> Dictionary:
 	return {"simulated_seconds": 0, "capped": false, "years_passed": 0.0, "money_delta": 0,
 		"deaths": [], "illnesses": [], "level_ups": [], "proposals_expired": 0,
 		"proposals_waiting": 0, "goals_done": [], "messes_now": 0, "game_over": false,
-		"fragments": [], "stories_done": []}
+		"fragments": [], "stories_done": [], "births": [], "relatives": []}

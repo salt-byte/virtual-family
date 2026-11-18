@@ -60,6 +60,9 @@ var adopted_once := false
 var stories: Dictionary = {}
 ## The factor on the illness chance from finished stories' blessings (kept by `StorySystem`).
 var blessing_illness := 1.0
+## True while some couple could have a child but the beds have no place for one (see
+## `BirthSystem`); kept so the hint is given once each time it starts.
+var birth_blocked := false
 
 var _built := {}
 var _built_n := -1
@@ -236,6 +239,7 @@ func kill_person(p: Person, cause: String) -> void:
 	AutonomySystem.cancel(self, p)
 	p.alive = false
 	emit("person_died", {"person": p.uid, "cause": cause})
+	BirthSystem.on_death(self, p)
 	if phase == "living" and not people.any(func(q: Person): return q.alive):
 		phase = "over"
 		emit("game_over")
@@ -255,6 +259,7 @@ func _run_systems(dt: float) -> void:
 	EconomySystem.step(self, dt)
 	CollectibleSystem.step(self, dt)
 	FamilySystem.step(self, dt)
+	BirthSystem.step(self, dt)
 	GoalSystem.step(self, dt)
 	MoodSystem.step(self, dt)
 	WishSystem.step(self, dt)

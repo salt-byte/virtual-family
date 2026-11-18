@@ -7,14 +7,15 @@ extends RefCounted
 ## - "object": the household owns an object of that type
 ## - "room": that room is built
 ## - "praise": the player praises them
-## - "married": they marry (only the household's lone unmarried grown-up may wish it)
+## - "married": they marry (only whom the next proposal would be for may wish it)
+## - "baby": a child is born to them (only a married grown-up who could have one now)
 ## - "need": a body wish, formed when that need falls below `below` and granted once it is
 ##   back above `above`; it takes the place of any other wish
 ## A mood wish that runs out (`ttl_hours`) costs `wish_miss_penalty` of the praise need; a
 ## body wish just ends. Babies and the depressed form no wishes, and nobody forms one while
 ## the player is away. A pack without wishes draws no randomness here.
 
-const KINDS := ["item", "object", "room", "praise", "need", "married"]
+const KINDS := ["item", "object", "room", "praise", "need", "married", "baby"]
 
 
 ## Runs once per game minute (on the step that starts one); granting by item or praise
@@ -103,6 +104,12 @@ static func on_married(world: World, p: Person) -> void:
 		grant(world, p)
 
 
+## A child was just born to `p`: grants a "baby" wish.
+static func on_birth(world: World, p: Person) -> void:
+	if p != null and _wants(world, p, "baby", "", ""):
+		grant(world, p)
+
+
 ## The player praised `p`: grants a praise wish.
 static func on_praised(world: World, p: Person) -> void:
 	if _wants(world, p, "praise", "", ""):
@@ -174,7 +181,10 @@ static func _eligible(world: World, p: Person, body: bool) -> Array:
 				if _met(world, p, w):
 					continue
 			"married":
-				if world.married or FamilySystem._lone_adult(world) != p:
+				if FamilySystem.proposal_target(world) != p:
+					continue
+			"baby":
+				if not BirthSystem.could_want_child(world, p):
 					continue
 		ids.append(id)
 		weights.append(weight)

@@ -63,8 +63,8 @@ static func step(world: World, dt: float) -> void:
 	var drain: Dictionary = pack.cfg("mood_depressed_drain")
 	var floor_v := float(pack.cfg("offline_need_floor"))
 	for p in world.people:
-		if not p.alive or not p.needs.has(need):
-			continue
+		if not p.alive or not p.needs.has(need) or p.stage(pack) == "baby":
+			continue  # babies cry, they do not sink into low moods
 		if p.cared_at <= 0:
 			p.cared_at = world.now
 		refresh_cap(world, p)

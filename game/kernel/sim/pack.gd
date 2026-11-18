@@ -50,13 +50,15 @@ const DEFAULT_CONFIG := {
 	# Story fragments (only with a stories.json): one per story_interval_min on average,
 	# lying about for story_ttl_min.
 	"story_interval_min": 240, "story_ttl_min": 600,
+	# Births (off while empty; see `BirthSystem` for the keys).
+	"births": {},
 }
 
 ## Per-file field defaults (applied to every entry that lacks the key).
 const ENTRY_DEFAULTS := {
 	"actions": {"object": "", "needs": {}, "base": 0, "hours": [], "tags": [], "praiseable": true,
 		"consumes": {}, "work": {}, "mess": {}, "cleans": "", "picks": false, "requires": {},
-		"slow": false, "rooms": [], "completes_story": ""},
+		"slow": false, "rooms": [], "completes_story": "", "tends": {}},
 	"object_types": {"outdoor": false, "capacity": 1, "fixed": false, "keepsake": false},
 	"collectibles": {"rooms": []},
 	"wishes": {"likes": [], "stages": [], "weight": 1.0},
