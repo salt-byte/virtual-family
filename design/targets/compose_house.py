@@ -3,6 +3,8 @@ Rooms share walls, doorways connect them, a compound wall with a gate surrounds 
 places lie outside the wall. The grid here is a PROPOSAL for the game code (rooms.json keeps its own
 positions for now). Style A pieces come from assets/ (not committed); UI helpers come from compose_targets."""
 import importlib.util
+import sys
+sys.path.insert(0, str(__import__("pathlib").Path(__file__).resolve().parent))
 import math
 import random
 from pathlib import Path
@@ -130,7 +132,7 @@ def face_strip(name, w, h, darken=1.0):
 
 
 # ---------------------------------------------------------------- map
-def render(people=(), messes=(), collectibles=()):
+def render(people=(), messes=(), collectibles=(), tall=False):
     W, H = (MAP_W + 2 * PAD) * CW, (MAP_H + 2 * PAD) * CH
     img = tile("a_grass", (W, H), soften=0.12)
     d = ImageDraw.Draw(img)
@@ -146,18 +148,21 @@ def render(people=(), messes=(), collectibles=()):
     for xx in (7, 14):
         strip(img, "a_yard", (*px(xx, 21), px(xx, 21)[0] + CW * 0.5, px(0, MAP_H)[1]), 0.1, 6)
     rx0, _ = px(51, 0)
-    strip(img, "a_water", (rx0, 0, W, H), 0.0, 0)
+    rx1, _ = px(54, 0)
+    strip(img, "a_water", (rx0, 0, rx1, H), 0.0, 0)
     d.line([(rx0, 0), (rx0, H)], fill=(120, 150, 110), width=4)
+    d.line([(rx1, 0), (rx1, H)], fill=(120, 150, 110), width=4)
     # paths: back-hill path, gate road, branches to the field and the tree, riverside path
     for box in [(px(10, 1), px(46, 3)), (px(27, 25), px(29, MAP_H + PAD)), (px(19, 28), px(29, 30)),
                 (px(29, 29), px(40, 31)), (px(44, 1), px(46, 30)), (px(40, 29), px(46, 31))]:
         (a, b), (c, e) = box
         strip(img, "a_yard", (a, b, c, e), 0.1, 14)
     bx, by = px(51, 17)
-    br = sprite("a_bridge", w=CW * 7.6)
-    img.alpha_composite(br, (int(bx - CW * 0.4), int(by)))
+    br = sprite("a_bridge", w=CW * 3.6, h=CH * 3.4)
+    img.alpha_composite(br, (int(bx + (CW * 3 - br.width) / 2), int(by)))
     for cy in range(1, MAP_H, 3):
-        put(img, sprite("a_reeds", h=58), px(50, cy)[0] + rnd.randint(-10, 10), px(0, cy)[1] + 30, False)
+        if cy not in (16, 19):
+            put(img, sprite("a_reeds", h=58), px(50, cy)[0] + rnd.randint(-10, 10), px(0, cy)[1] + 30, False)
     for (cx, cy) in [(1, 9), (3, 6), (5, 11), (7, 7), (2, 14), (8, 13), (4, 17), (9, 10), (6, 16), (1, 19)]:
         put(img, sprite("a_bamboo", h=150), px(cx, cy)[0], px(0, cy)[1] + 20)
     for (cx, cy, n) in [(12, 4, "a_rocks"), (20, 0, "a_bush"), (33, 4, "a_rocks"), (40, 0, "a_bush"), (47, 4, "a_bush"),
@@ -213,56 +218,60 @@ def render(people=(), messes=(), collectibles=()):
         f = f.resize((14, CH + 4))
         img.alpha_composite(f, (int(fx - 7), int(px(0, cyy)[1] - 2)))
 
-    # walls: built indoor rooms draw their edges; the compound wall replaces outer edges
-    house_face = face_strip("a_wall", 400, F, 0.96)
-    cap = (246, 232, 204)
-    built_in = {rid for rid, (_, k, b) in ROOMS.items() if b and k not in ("out", "paved")}
-    hw, vw = {}, {}
-    for rid in built_in:
-        (x, y, w, h), _, _ = ROOMS[rid]
-        for Y in (y, y + h):
-            if Y in (COMPOUND[1], COMPOUND[3]):
-                continue
-            hw.setdefault(Y, []).append((x, x + w))
-        for X in (x, x + w):
-            if X in (COMPOUND[0], COMPOUND[2]):
-                continue
-            vw.setdefault(X, []).append((y, y + h))
-    for X, spans in vw.items():
-        for a, b in spans:
-            for s0, s1 in wall_segments("v", X, a, b, DOORS):
-                Xp = px(OX + X, 0)[0]
-                draw_vwall(img, d, Xp, px(0, OY + s0)[1], px(0, OY + s1)[1], T, F, house_face, cap)
-    for Y, spans in sorted(hw.items()):
-        for a, b in spans:
-            for s0, s1 in wall_segments("h", Y, a, b, DOORS):
-                Yp = px(0, OY + Y)[1]
-                x0p, x1p = px(OX + s0, 0)[0], px(OX + s1, 0)[0]
-                draw_hwall(img, d, x0p, x1p, Yp, T, F, face_strip("a_wall", int(x1p - x0p + T), F, 0.96), cap)
-    for o, line, g0, g1 in DOORS:  # thresholds in the gaps
-        if o == "h":
-            Yp = px(0, OY + line)[1]
-            sill = sprite("a_door_sill", w=(g1 - g0) * CW - 6)
-            img.alpha_composite(sill, (int(px(OX + g0, 0)[0] + 3), int(Yp - sill.height / 2)))
-        else:
-            Xp = px(OX + line, 0)[0]
-            ya, yb = px(0, OY + g0)[1], px(0, OY + g1)[1]
-            d.rounded_rectangle((Xp - 7, ya + 2, Xp + 7, yb - 2), 4, fill=(150, 150, 150), outline=ct.LINE, width=2)
-    # compound wall
-    cface = face_strip("a_wall_compound", 400, CF)
-    ccap = (128, 132, 142)
-    ax0, ay0 = px(OX, OY)
-    ax1, ay1 = px(OX + COMPOUND[2], OY + COMPOUND[3])
-    draw_vwall(img, d, ax0, ay0, ay1, CT, CF, cface, ccap)
-    draw_vwall(img, d, ax1, ay0, ay1, CT, CF, cface, ccap)
-    draw_hwall(img, d, ax0, ax1, ay0, CT, CF, face_strip("a_wall_compound", ax1 - ax0 + CT, CF), ccap)
-    gl, gr = px(OX + GATE[0], 0)[0], px(OX + GATE[1], 0)[0]
-    draw_hwall(img, d, ax0, gl, ay1, CT, CF, face_strip("a_wall_compound", int(gl - ax0 + CT), CF), ccap)
-    draw_hwall(img, d, gr, ax1, ay1, CT, CF, face_strip("a_wall_compound", int(ax1 - gr + CT), CF), ccap)
-    for xx in range(int(ax0), int(ax1), 24):  # tile cap ridges
-        d.line([(xx, ay0 - CT / 2 - CF), (xx, ay0 + CT / 2 - CF)], fill=(98, 102, 112), width=1)
-    gh = sprite("a_gatehouse", w=(GATE[1] - GATE[0] + 1.6) * CW)
-    put(img, gh, (gl + gr) / 2, ay1 + CT / 2 + 4, shadow=False)
+    if tall:
+        import depth_walls
+        depth_walls.draw(img, d, sys.modules[__name__])
+    else:
+        # walls: built indoor rooms draw their edges; the compound wall replaces outer edges
+        house_face = face_strip("a_wall", 400, F, 0.96)
+        cap = (246, 232, 204)
+        built_in = {rid for rid, (_, k, b) in ROOMS.items() if b and k not in ("out", "paved")}
+        hw, vw = {}, {}
+        for rid in built_in:
+            (x, y, w, h), _, _ = ROOMS[rid]
+            for Y in (y, y + h):
+                if Y in (COMPOUND[1], COMPOUND[3]):
+                    continue
+                hw.setdefault(Y, []).append((x, x + w))
+            for X in (x, x + w):
+                if X in (COMPOUND[0], COMPOUND[2]):
+                    continue
+                vw.setdefault(X, []).append((y, y + h))
+        for X, spans in vw.items():
+            for a, b in spans:
+                for s0, s1 in wall_segments("v", X, a, b, DOORS):
+                    Xp = px(OX + X, 0)[0]
+                    draw_vwall(img, d, Xp, px(0, OY + s0)[1], px(0, OY + s1)[1], T, F, house_face, cap)
+        for Y, spans in sorted(hw.items()):
+            for a, b in spans:
+                for s0, s1 in wall_segments("h", Y, a, b, DOORS):
+                    Yp = px(0, OY + Y)[1]
+                    x0p, x1p = px(OX + s0, 0)[0], px(OX + s1, 0)[0]
+                    draw_hwall(img, d, x0p, x1p, Yp, T, F, face_strip("a_wall", int(x1p - x0p + T), F, 0.96), cap)
+        for o, line, g0, g1 in DOORS:  # thresholds in the gaps
+            if o == "h":
+                Yp = px(0, OY + line)[1]
+                sill = sprite("a_door_sill", w=(g1 - g0) * CW - 6)
+                img.alpha_composite(sill, (int(px(OX + g0, 0)[0] + 3), int(Yp - sill.height / 2)))
+            else:
+                Xp = px(OX + line, 0)[0]
+                ya, yb = px(0, OY + g0)[1], px(0, OY + g1)[1]
+                d.rounded_rectangle((Xp - 7, ya + 2, Xp + 7, yb - 2), 4, fill=(150, 150, 150), outline=ct.LINE, width=2)
+        # compound wall
+        cface = face_strip("a_wall_compound", 400, CF)
+        ccap = (128, 132, 142)
+        ax0, ay0 = px(OX, OY)
+        ax1, ay1 = px(OX + COMPOUND[2], OY + COMPOUND[3])
+        draw_vwall(img, d, ax0, ay0, ay1, CT, CF, cface, ccap)
+        draw_vwall(img, d, ax1, ay0, ay1, CT, CF, cface, ccap)
+        draw_hwall(img, d, ax0, ax1, ay0, CT, CF, face_strip("a_wall_compound", ax1 - ax0 + CT, CF), ccap)
+        gl, gr = px(OX + GATE[0], 0)[0], px(OX + GATE[1], 0)[0]
+        draw_hwall(img, d, ax0, gl, ay1, CT, CF, face_strip("a_wall_compound", int(gl - ax0 + CT), CF), ccap)
+        draw_hwall(img, d, gr, ax1, ay1, CT, CF, face_strip("a_wall_compound", int(ax1 - gr + CT), CF), ccap)
+        for xx in range(int(ax0), int(ax1), 24):  # tile cap ridges
+            d.line([(xx, ay0 - CT / 2 - CF), (xx, ay0 + CT / 2 - CF)], fill=(98, 102, 112), width=1)
+        gh = sprite("a_gatehouse", w=(GATE[1] - GATE[0] + 1.6) * CW)
+        put(img, gh, (gl + gr) / 2, ay1 + CT / 2 + 4, shadow=False)
 
     # standing things, sorted by foot y
     draw = []
@@ -293,7 +302,7 @@ def render(people=(), messes=(), collectibles=()):
             im = ct.trim(ct.load(p))
             k = min(rw * 0.9 / im.width, (rh + 24) / im.height)
             im = im.resize((round(im.width * k), round(im.height * k)), Image.LANCZOS)
-            ct.shadow(img, rx + rw / 2, ry + rh - 2, im.width * 0.8)
+            ct.shadow(img, rx + rw / 2, ry + rh - 2, im.width * (0.95 if tall else 0.8))
             img.alpha_composite(im, (round(rx + (rw - im.width) / 2), round(ry + rh - im.height + 2)))
         elif kind == "mess":
             x, y, typ = data
