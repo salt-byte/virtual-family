@@ -22,7 +22,7 @@ static func _snapshot(w: World) -> Dictionary:
 	var ppl: Array = []
 	for p in w.people:
 		ppl.append(p.to_dict())
-	return {
+	var out := {
 		"version": World.SAVE_VERSION, "pack_id": w.pack.id, "seed": w.rng.get_state()["seed"],
 		"rng": w.rng.get_state(), "phase": w.phase, "now": w.now, "utc_offset": w.utc_offset,
 		"acc": w._acc, "next_uid": w._next_uid, "money": w.money, "people": ppl,
@@ -35,6 +35,10 @@ static func _snapshot(w: World) -> Dictionary:
 		"proposals": w.proposals.duplicate(true), "next_proposal_at": w.next_proposal_at,
 		"declined_once": w.declined_once, "adopted_once": w.adopted_once,
 	}
+	# Optional: written only once a story has unlocked (older saves and story-less packs lack it).
+	if not w.stories.is_empty():
+		out["stories"] = w.stories.duplicate(true)
+	return out
 
 
 ## Rebuilds a world from `to_dict` output, also after a JSON round trip (numbers come back
@@ -109,6 +113,17 @@ static func _build(pack: Pack, d: Dictionary) -> World:
 	w.next_proposal_at = int(d["next_proposal_at"])
 	w.declined_once = d["declined_once"]
 	w.adopted_once = d["adopted_once"]
+	w.stories = {}
+	var sd: Dictionary = d.get("stories", {})  # absent in saves from before stories existed
+	for sid in sd:
+		var found: Array = []
+		for f in sd[sid]["found"]:
+			found.append(str(f))
+		w.stories[str(sid)] = {"found": found, "stage": str(sd[sid]["stage"])}
+	w.blessing_illness = StorySystem.illness_factor(w)
+	if MoodSystem.enabled(pack):
+		for p in w.people:
+			MoodSystem.refresh_cap(w, p)
 	w._events = []
 	return w
 
@@ -270,6 +285,17 @@ static func _valid_person(p) -> bool:
 		for k in p["childhood"]:
 			if not (_is_str(k) and _is_whole(p["childhood"][k]) and float(p["childhood"][k]) >= 0.0):
 				return false
+	# Optional (older saves lack them): the wish, the thanks, the mood and the generation.
+	if p.has("wish") and not (typeof(p["wish"]) == TYPE_DICTIONARY and (p["wish"].is_empty() \
+			or _has(p["wish"], {"id": "s", "expires_at": "i"}))):
+		return false
+	if p.has("wish_last") and not _is_str(p["wish_last"]):
+		return false
+	if p.has("mood") and not (_is_str(p["mood"]) and p["mood"] in ["", "sad", "depressed"]):
+		return false
+	for k in ["thanks_until", "mood_low_s", "mood_ok_s", "generation", "cared_at"]:
+		if p.has(k) and not (_is_whole(p[k]) and float(p[k]) >= 0.0):
+			return false
 	var c: Dictionary = p["current"]
 	if c.has("room") and not _is_str(c["room"]):
 		return false  # optional: saves from before actions had rooms lack it
@@ -318,6 +344,17 @@ static func _valid_save(pack: Pack, d: Dictionary) -> bool:
 	if not (_valid_placed(d["objects"], true, []) and _valid_placed(d["messes"], true, [])
 			and _valid_placed(d["collectibles"], true, ["expires_at"])):
 		return false
+	for c in d["collectibles"]:
+		if c.has("story") and not _is_str(c["story"]):
+			return false
+	if d.has("stories"):  # optional: older saves lack it
+		if typeof(d["stories"]) != TYPE_DICTIONARY:
+			return false
+		for sid in d["stories"]:
+			var st = d["stories"][sid]
+			if not _has(st, {"found": "a", "stage": "s"}) or not _all_strings(st["found"]) \
+					or not (st["stage"] in ["open", "finale", "done"]):
+				return false
 	if not (_count_map(d["stock"]) and _count_map(d["inventory"]) and _count_map(d["collection"])):
 		return false
 	if not _count_map(d["income_carry"], true):
@@ -362,8 +399,20 @@ static func _ids_known(pack: Pack, d: Dictionary) -> bool:
 		if not (pack.mess_types.has(m["type"]) and pack.rooms.has(m["room"])):
 			return false
 	for c in d["collectibles"]:
-		if not (pack.collectibles.has(c["type"]) and pack.rooms.has(c["room"])):
+		if not pack.rooms.has(c["room"]):
 			return false
+		if c.has("story"):
+			if StorySystem.fragment(pack, c["story"], c["type"]).is_empty():
+				return false
+		elif not pack.collectibles.has(c["type"]):
+			return false
+	var sd: Dictionary = d.get("stories", {})
+	for sid in sd:
+		if not pack.stories.has(sid):
+			return false
+		for f in sd[sid]["found"]:
+			if StorySystem.fragment(pack, sid, f).is_empty():
+				return false
 	return _keys_in(d["inventory"], pack.items) and _keys_in(d["collection"], pack.collectibles) \
 			and _all_in(d["rooms_built"], pack.rooms) and _all_in(d["goals_done"], pack.goals)
 
@@ -384,6 +433,8 @@ static func _person_ids_known(pack: Pack, p: Dictionary) -> bool:
 	if p.has("childhood") and not _keys_in(p["childhood"], pack.actions):
 		return false
 	if p["current"].has("room") and not pack.rooms.has(p["current"]["room"]):
+		return false
+	if p.has("wish") and not p["wish"].is_empty() and not pack.wishes.has(p["wish"]["id"]):
 		return false
 	return p["current"].is_empty() or pack.actions.has(p["current"]["action"])
 

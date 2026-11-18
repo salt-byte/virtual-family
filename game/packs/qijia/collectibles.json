@@ -1,5 +1,10 @@
 [
-	{"id": "egg", "name": "鸡窝外的鸡蛋", "value": 1, "weight": 6},
+	{"id": "egg", "name": "鸡窝外的鸡蛋", "value": 2, "weight": 6, "rooms": ["coop_run", "yard"]},
 	{"id": "coins", "name": "一串铜钱", "value": 4, "weight": 3},
-	{"id": "hairpin", "name": "旧银簪", "value": 15, "weight": 1}
+	{"id": "greens", "name": "一捆野菜", "value": 3, "weight": 4, "rooms": ["veg_plot", "yard", "gate"]},
+	{"id": "herbs", "name": "一把草药", "value": 6, "weight": 3, "rooms": ["veg_plot", "well", "yard"]},
+	{"id": "cicada_shell", "name": "蝉蜕", "value": 5, "weight": 3, "rooms": ["yard"]},
+	{"id": "purse", "name": "别人掉的荷包", "value": 20, "weight": 1, "rooms": ["gate"]},
+	{"id": "hairpin", "name": "旧银簪", "value": 15, "weight": 1},
+	{"id": "bronze_mirror", "name": "半面旧铜镜", "value": 30, "weight": 1, "rooms": ["well", "yard"]}
 ]

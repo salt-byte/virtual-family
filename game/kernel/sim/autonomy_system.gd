@@ -8,8 +8,8 @@ extends RefCounted
 
 static func step(world: World, dt: float) -> void:
 	for p in world.people:
-		if not p.alive:
-			continue
+		if not p.alive or p.thanks_until > world.now:
+			continue  # someone thanking the player pauses whatever they were doing
 		if not p.current.is_empty():
 			_progress(world, p, dt)
 		elif p.stage(world.pack) != "baby":
@@ -45,6 +45,14 @@ class Info:
 	## the rooms an action without an object happens in ([]: anywhere)
 	var rooms: Array = []
 	var has_rooms := false
+	## the story this action completes ("": none); only possible while its finale is open
+	var story := ""
+	var has_story := false
+	## slow_in_hours or has_story: one test in the hot loop for the rare special cases
+	var gated := false
+	## true when `requires` names a mood: such actions are not damped for the depressed
+	var mood_req := false
+	var mood := ""
 
 
 ## The pack's actions as `Info`, in pack order, built on first use and kept on the pack
@@ -81,6 +89,11 @@ static func _table(pack: Pack) -> Array:
 		i.slow_in_hours = bool(a.get("slow", false)) and i.has_hours
 		i.rooms = a.get("rooms", [])
 		i.has_rooms = not i.rooms.is_empty()
+		i.story = str(a.get("completes_story", ""))
+		i.has_story = i.story != ""
+		i.gated = i.slow_in_hours or i.has_story
+		i.mood_req = i.requires.has("mood")
+		i.mood = str(i.requires.get("mood", ""))
 		out.append(i)
 	pack.autonomy_table = out
 	pack.autonomy_by_stage = {}
@@ -97,11 +110,13 @@ static func _stage_table(pack: Pack, stage: String) -> Array:
 
 
 ## `_stage_table` without the work actions of livelihoods other than `track`, in pack order.
-static func _stage_track_table(pack: Pack, stage: String, track: String) -> Array:
-	var key := stage + "|" + track
+## Actions that require a mood other than `mood` are left out too.
+static func _stage_track_table(pack: Pack, stage: String, track: String, mood := "") -> Array:
+	var key := stage + "|" + track + "|" + mood
 	var t = pack.autonomy_by_stage_track.get(key)
 	if t == null:
-		t = _stage_table(pack, stage).filter(func(i: Info): return not i.has_work or i.track == track)
+		t = _stage_table(pack, stage).filter(func(i: Info):
+			return (not i.has_work or i.track == track) and (not i.mood_req or i.mood == mood))
 		pack.autonomy_by_stage_track[key] = t
 	return t
 
@@ -123,19 +138,21 @@ static func candidates(world: World, p: Person, pool := 0) -> Array[Dictionary]:
 	var stage := p.stage(pack)
 	var hour := world.local_hour()
 	var damp := _repeat_damping(p, int(pack.cfg("repeat_memory")), float(pack.cfg("repeat_factor")))
+	var low := float(pack.cfg("mood_depressed_factor")) if p.mood == "depressed" else 1.0
 	var needs := p.needs
 	var habits := p.habits
 	var likes := p.likes
 	var dislikes := p.dislikes
-	var built := {}
-	for r in world.rooms_built:
-		built[r] = true
+	var built := world.built_set()
 	var free := {}  # object type -> first object of that type free for `p` (-1: none)
 	var users := {}  # object uid -> people other than `p` using it (filled on first need)
 	# The cheap yes/no tests come first; only what passes them is scored.
-	for i: Info in _stage_track_table(pack, stage, p.track):
-		if i.slow_in_hours and not _in_hours(hour, i.hours):
-			continue
+	for i: Info in _stage_track_table(pack, stage, p.track, p.mood):
+		if i.gated:
+			if i.slow_in_hours and not _in_hours(hour, i.hours):
+				continue
+			if i.has_story and not StorySystem.finale_open(world, i.story):
+				continue
 		var uid := -1
 		if i.object != "":
 			if not free.has(i.object):
@@ -183,6 +200,8 @@ static func candidates(world: World, p: Person, pool := 0) -> Array[Dictionary]:
 		var dv = damp.get(i.id)
 		if dv != null:
 			s *= float(dv)
+		if low != 1.0 and not i.mood_req:
+			s *= low
 		if s <= 0.0:
 			continue
 		var target := -1
@@ -229,11 +248,26 @@ static func _repeat_damping(p: Person, memory: int, rf: float) -> Dictionary:
 	if memory == 1:
 		out[p.last_action] = rf
 		return out
+	var powers := _damp_powers(memory, rf)
 	for k in mini(memory, p.recent_actions.size()):
 		var id: String = p.recent_actions[k]
 		if not out.has(id):
-			out[id] = pow(rf, float(memory - k) / float(memory))
+			out[id] = powers[k]
 	return out
+
+
+## rf^((memory - k) / memory) for k = 0 .. memory - 1, worked out once per (memory, rf).
+static var _powers_memory := -1
+static var _powers_rf := -1.0
+static var _powers: Array[float] = []
+static func _damp_powers(memory: int, rf: float) -> Array[float]:
+	if memory != _powers_memory or rf != _powers_rf:
+		_powers = []
+		for k in memory:
+			_powers.append(pow(rf, float(memory - k) / float(memory)))
+		_powers_memory = memory
+		_powers_rf = rf
+	return _powers
 
 
 ## True when at least one of `rooms` is built.
@@ -276,6 +310,8 @@ static func can_do(world: World, p: Person, action_id: String, object_uid: int) 
 	if not work.is_empty() and str(work.get("track", "")) != p.track:
 		return "wrong_track"
 	if not _requires_ok(p, a["requires"]):
+		return "requires"
+	if str(a.get("completes_story", "")) != "" and not StorySystem.finale_open(world, str(a["completes_story"])):
 		return "requires"
 	if target_kind(a) != "" and _first_free_target(world, a, p) < 0:
 		return "no_target"
@@ -371,7 +407,11 @@ static func _progress(world: World, p: Person, dt: float) -> void:
 	for n in a["needs"]:
 		if p.needs.has(n):
 			var v := float(a["needs"][n])
-			p.needs[n] = clampf(float(p.needs[n]) + v * (gain_frac if v >= 0.0 else cost_frac), 0.0, 100.0)
+			var nv := clampf(float(p.needs[n]) + v * (gain_frac if v >= 0.0 else cost_frac), 0.0, 100.0)
+			if v > 0.0 and p.mood_cap < 100.0 and n == world.pack.cfg("praise_need"):
+				# Without the player's attention, one's own doings only lift the mood so far.
+				nv = minf(nv, maxf(float(p.needs[n]), p.mood_cap))
+			p.needs[n] = nv
 	p.current["remaining_s"] = remaining - int(dt)
 	if int(p.current["remaining_s"]) <= 0:
 		_finish(world, p)
@@ -391,6 +431,8 @@ static func _finish(world: World, p: Person) -> void:
 		MessSystem.spawn(world, str(mess["type"]), room)
 	if not action["work"].is_empty():
 		EconomySystem.on_work_finished(world, p, duration_s(world, action) / 60.0)
+	if str(action.get("completes_story", "")) != "":
+		StorySystem.complete(world, str(action["completes_story"]), p)
 	p.current = {}
 	p.last_action = id
 	p.last_action_t = world.now
@@ -447,6 +489,8 @@ static func _score(world: World, p: Person, a: Dictionary, hour := -1.0) -> floa
 		var k := p.recent_actions.find(a["id"])
 		if k >= 0 and k < memory:
 			score *= pow(float(world.pack.cfg("repeat_factor")), float(memory - k) / float(memory))
+	if p.mood == "depressed" and not (a["requires"] as Dictionary).has("mood"):
+		score *= float(world.pack.cfg("mood_depressed_factor"))
 	return score
 
 
@@ -461,6 +505,8 @@ static func _in_hours(h: float, hours: Array) -> bool:
 
 static func _requires_ok(p: Person, req: Dictionary) -> bool:
 	if req.has("sick") and bool(req["sick"]) != (p.illness != ""):
+		return false
+	if req.has("mood") and p.mood != str(req["mood"]):
 		return false
 	if req.has("illness") and p.illness != str(req["illness"]):
 		return false

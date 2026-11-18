@@ -14,6 +14,8 @@ const FILES := {
 	"illnesses": "illnesses.json", "mess_types": "messes.json",
 	"collectibles": "collectibles.json", "goals": "goals.json",
 }
+## Files a pack may leave out; without them the feature is simply absent.
+const OPTIONAL_FILES := {"wishes": "wishes.json", "stories": "stories.json"}
 
 const DEFAULT_CONFIG := {
 	"hours_per_year": 2.0, "offline_cap_hours": 48, "offline_need_floor": 15,
@@ -28,16 +30,38 @@ const DEFAULT_CONFIG := {
 	"step_seconds": 60,
 	"action_speed": 1.0,
 	"repeat_memory": 1, "choice_pool": 3,
+	# Wishes (only with a wishes.json): the chance per game hour that someone without a wish
+	# forms one, the mood lost when a mood wish runs out, and how long the thanks lasts
+	# (game minutes on the fast action clock).
+	"wish_chance_per_hour": 0.3, "wish_miss_penalty": 10, "wish_thanks_min": 2,
+	# Low mood (off while mood_low_below is 0): the praise need below the line for
+	# mood_sad_after_hours makes a person sad, for mood_depressed_after_hours depressed; above
+	# mood_recover_above for mood_recover_hours lifts depression to sadness, and sadness clears
+	# after mood_sad_recover_hours. While depressed, actions that do not require the mood
+	# score x mood_depressed_factor and mood_depressed_drain adds need drain per hour.
+	"mood_low_below": 0, "mood_sad_after_hours": 6, "mood_depressed_after_hours": 24,
+	"mood_recover_above": 50, "mood_recover_hours": 12, "mood_sad_recover_hours": 3,
+	"mood_depressed_factor": 1.0, "mood_depressed_drain": {},
+	# Attention (off while mood_care_hours is 0): once nobody has praised a person, used
+	# something on them or granted their wish for mood_care_hours, their own actions only
+	# lift the praise need up to a ceiling that sinks mood_neglect_per_hour per further hour,
+	# down to mood_neglect_floor.
+	"mood_care_hours": 0, "mood_neglect_per_hour": 2.0, "mood_neglect_floor": 10,
+	# Story fragments (only with a stories.json): one per story_interval_min on average,
+	# lying about for story_ttl_min.
+	"story_interval_min": 240, "story_ttl_min": 600,
 }
 
 ## Per-file field defaults (applied to every entry that lacks the key).
 const ENTRY_DEFAULTS := {
 	"actions": {"object": "", "needs": {}, "base": 0, "hours": [], "tags": [], "praiseable": true,
 		"consumes": {}, "work": {}, "mess": {}, "cleans": "", "picks": false, "requires": {},
-		"slow": false, "rooms": []},
-	"object_types": {"outdoor": false, "capacity": 1, "fixed": false},
+		"slow": false, "rooms": [], "completes_story": ""},
+	"object_types": {"outdoor": false, "capacity": 1, "fixed": false, "keepsake": false},
+	"collectibles": {"rooms": []},
+	"wishes": {"likes": [], "stages": [], "weight": 1.0},
 	"rooms": {"outdoor": false, "props": []},
-	"items": {"stock": {}, "cures": "", "needs": {}},
+	"items": {"stock": {}, "cures": "", "needs": {}, "work": {}, "childhood": {}},
 	"needs": {"when_empty": {}},
 }
 
@@ -65,6 +89,8 @@ var illnesses: Dictionary = {}
 var mess_types: Dictionary = {}
 var collectibles: Dictionary = {}
 var goals: Dictionary = {}
+var wishes: Dictionary = {}
+var stories: Dictionary = {}
 var names: Dictionary = {}
 ## Raw parsed file contents by file name, as read; used by the validator.
 var raw: Dictionary = {}
@@ -97,6 +123,17 @@ static func load_dir(dir: String) -> Pack:
 		p.errors.append("names.json: *: must be a JSON object")
 	for key in FILES:
 		var file: String = FILES[key]
+		var data = p._read_json(base, file)
+		if data == null:
+			continue
+		if not data is Array:
+			p.errors.append("%s: *: must be a JSON array" % file)
+			continue
+		p.set(key, p._index(file, key, data))
+	for key in OPTIONAL_FILES:
+		var file: String = OPTIONAL_FILES[key]
+		if not FileAccess.file_exists(base + "/" + file):
+			continue
 		var data = p._read_json(base, file)
 		if data == null:
 			continue

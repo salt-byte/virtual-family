@@ -103,6 +103,7 @@ static func answer_proposal(world: World, cmd: Dictionary) -> Dictionary:
 	world.married = true
 	world.proposals.clear()
 	world.emit("married", {"person": spouse.uid})
+	WishSystem.on_married(world, head)
 	return Commands.success({"person": spouse.uid})
 
 

@@ -35,6 +35,27 @@ var recent_actions: Array = []
 ## While a child, in a pack with several livelihoods: action id -> times finished. Read at
 ## coming of age to choose a livelihood (see `LivelihoodSystem`).
 var childhood: Dictionary = {}
+## The wish this person has right now: {} for none, else {id, expires_at} (a pack wish id).
+var wish: Dictionary = {}
+## Id of the last wish that ended (granted or not), so the next one is a different wish.
+var wish_last := ""
+## `now` until which this person stops to thank the player (0: not thanking). While it lasts
+## they do nothing else; the view shows them turned to the screen, waving.
+var thanks_until := 0
+## Low mood that has set in: "" (none), "sad", or "depressed" (see `MoodSystem`).
+var mood := ""
+## Seconds the mood need has stayed below the pack's low line, and above its recovery line.
+var mood_low_s := 0
+var mood_ok_s := 0
+## `now` of the player's last attention to this person (a praise, something used on them, a
+## wish granted); 0 until the mood system first sees them.
+var cared_at := 0
+## Not saved: `MoodSystem.ceiling` as of the start of the current game minute (or the last
+## attention), kept so the action hot path needs no lookups. Rebuilt on load.
+var mood_cap := 100.0
+## 0 for someone who came from outside (adopted, married in); a person born in the house is
+## one more than the higher of their parents' generations.
+var generation := 0
 
 
 ## Status bar: need id -> the label word that applies to the current value.
@@ -52,6 +73,11 @@ func status(pack: Pack) -> Dictionary:
 				break
 		out[nid] = text
 	return out
+
+
+## True while thanking the player (see `thanks_until`).
+func thanking(now: int) -> bool:
+	return thanks_until > now
 
 
 ## Life stage id, from the pack's `stages` thresholds (years).
@@ -73,6 +99,8 @@ func to_dict() -> Dictionary:
 		"illness": illness, "current": current.duplicate(true),
 		"last_action": last_action, "last_action_t": last_action_t,
 		"recent_actions": recent_actions.duplicate(), "childhood": childhood.duplicate(),
+		"wish": wish.duplicate(true), "wish_last": wish_last, "thanks_until": thanks_until,
+		"mood": mood, "mood_low_s": mood_low_s, "mood_ok_s": mood_ok_s, "generation": generation, "cared_at": cared_at,
 	}
 
 
@@ -120,4 +148,15 @@ static func from_dict(d: Dictionary) -> Person:
 	var ch: Dictionary = d.get("childhood", {})  # absent in saves from before it existed
 	for k in ch:
 		p.childhood[str(k)] = int(ch[k])
+	# The rest are absent in saves from before wishes, moods and generations existed.
+	var wd: Dictionary = d.get("wish", {})
+	if not wd.is_empty():
+		p.wish = {"id": str(wd.get("id", "")), "expires_at": int(wd.get("expires_at", 0))}
+	p.wish_last = str(d.get("wish_last", ""))
+	p.thanks_until = int(d.get("thanks_until", 0))
+	p.mood = str(d.get("mood", ""))
+	p.mood_low_s = int(d.get("mood_low_s", 0))
+	p.mood_ok_s = int(d.get("mood_ok_s", 0))
+	p.generation = int(d.get("generation", 0))
+	p.cared_at = int(d.get("cared_at", 0))
 	return p

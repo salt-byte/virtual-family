@@ -11,6 +11,10 @@ const FOOD_STOCK := "food"
 const MOOD_NEED := "happy"
 const LOW_FOOD := 3
 const LOW_MOOD := 30.0
+## Money the caretaker keeps back before buying what someone wishes for; furniture wishes
+## need this much more again.
+const WISH_RESERVE := 300
+const FURNITURE_RESERVE := 400
 
 
 ## A world that is already living: one adopted person and one of each object type (the
@@ -49,10 +53,13 @@ static func run(pack_id: String, families: int, days: int, seed0: int) -> Dictio
 	var bags := 0
 	var max_bags_day := 0
 	var tracks := {}  # livelihood id -> living people following it at the end
+	var wishes := {"wish_formed": 0, "wish_granted": 0, "wish_expired": 0}
+	var low := {"sad": 0, "depressed": 0}  # people who were ever sad / depressed
 	for i in families:
 		var w := setup(pack_id, seed0 + i)
 		var bag_size := _food_bag_size(w)
 		var bags_today := 0
+		var ever := {}
 		for h in days * 24:
 			if h % 24 == 0:
 				bags_today = 0
@@ -69,6 +76,11 @@ static func run(pack_id: String, families: int, days: int, seed0: int) -> Dictio
 					seen[e.action] = true
 				elif e.type == "person_died":
 					deaths[e.cause] = int(deaths.get(e.cause, 0)) + 1
+				elif wishes.has(e.type):
+					wishes[e.type] += 1
+				elif e.type == "mood_changed" and low.has(e.mood) and not ever.has("%d%s" % [e.person, e.mood]):
+					ever["%d%s" % [e.person, e.mood]] = true
+					low[e.mood] += 1
 		money.append(w.money)
 		if w.people.any(func(p: Person): return p.alive):
 			alive += 1
@@ -92,17 +104,24 @@ static func run(pack_id: String, families: int, days: int, seed0: int) -> Dictio
 		"deaths_neglect": int(deaths["neglect"]), "deaths_old_age": int(deaths["old_age"]),
 		"distinct_actions": seen.size(),
 		"food_bought_per_day": snappedf(float(bags) / (families * days), 0.01) if families * days > 0 else 0.0,
-		"max_food_bought_in_a_day": max_bags_day, "livelihoods": tracks, "actions_in_pack": Pack.load_dir("res://packs/" + pack_id).actions.size(),
+		"max_food_bought_in_a_day": max_bags_day, "livelihoods": tracks,
+		"wishes_formed": wishes["wish_formed"], "wishes_granted": wishes["wish_granted"],
+		"wishes_expired": wishes["wish_expired"], "people_sad": low["sad"], "people_depressed": low["depressed"], "actions_in_pack": Pack.load_dir("res://packs/" + pack_id).actions.size(),
 	}
 
 
-## The caretaker's hourly round: accept any proposal, keep food stocked, give the right
-## medicine to the sick and a treat to the gloomy. Never drags, praises, scolds or furnishes.
+## The caretaker's hourly round: accept any proposal and any visitor's gift, keep food stocked, give the right
+## medicine to the sick and a treat to the gloomy, and grant the wishes it can: a wished-for
+## shop item when the money stays above WISH_RESERVE, a praise when there is something to
+## praise, a wished-for piece of furniture with FURNITURE_RESERVE more in hand. Rooms are
+## never built for a wish. Never drags or scolds, and furnishes only for a wish.
 static func caretake(w: World) -> void:
 	if w.phase != "living":
 		return
 	if not w.proposals.is_empty():
 		w.command({"type": "answer_proposal", "id": w.proposals[0]["id"], "accept": true})
+	for sid in StorySystem.visitors(w):
+		w.command({"type": "receive_visitor", "story": sid})
 	var food := _first_item(w, func(it): return (it["stock"] as Dictionary).has(FOOD_STOCK))
 	if food != "" and int(w.stock.get(FOOD_STOCK, 0)) < LOW_FOOD:
 		w.command({"type": "buy", "item": food})
@@ -115,6 +134,29 @@ static func caretake(w: World) -> void:
 		if float(p.needs.get(MOOD_NEED, 100.0)) < LOW_MOOD:
 			_give(w, p, _first_item(w, func(it): return it["cures"] == "" and (it["stock"] as Dictionary).is_empty() \
 					and (it["needs"] as Dictionary).has(MOOD_NEED)))
+		_grant_wish(w, p)
+
+
+static func _grant_wish(w: World, p: Person) -> void:
+	if not p.alive:
+		return
+	var wish := WishSystem.current(w, p)
+	match str(wish.get("kind", "")):
+		"item":
+			var item := str(wish["item"])
+			if w.money >= int(w.pack.items[item]["price"]) + WISH_RESERVE:
+				_give(w, p, item)
+		"praise":
+			w.command({"type": "praise", "person": p.uid})
+		"object":
+			var type := str(wish["object"])
+			if w.money >= int(w.pack.object_types[type]["price"]) + FURNITURE_RESERVE:
+				for room in w.rooms_built:
+					var r: Dictionary = w.pack.rooms[room]
+					for y in int(r["h"]):
+						for x in int(r["w"]):
+							if w.command({"type": "place", "object_type": type, "room": room, "x": x, "y": y}).ok:
+								return
 
 
 ## Food units one purchase of the caretaker's food item adds (0 when the pack has none).
@@ -138,8 +180,8 @@ static func _first_item(w: World, pred: Callable) -> String:
 
 
 static func _place_first_fit(w: World, type: String) -> void:
-	if HouseSystem.is_fixed(w, type):
-		return  # fixed furniture comes with its room
+	if HouseSystem.is_fixed(w, type) or bool(w.pack.object_types[type].get("keepsake", false)):
+		return  # fixed furniture comes with its room, a keepsake with its story
 	for room in w.rooms_built:
 		var r: Dictionary = w.pack.rooms[room]
 		for y in int(r["h"]):

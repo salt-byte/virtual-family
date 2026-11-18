@@ -15,14 +15,15 @@ func test_qijia_action_table_has_all_three_kinds():
 	assert_true(n.trouble >= 4)
 	assert_true(n.flavor >= 6)
 
-## Trouble actions are gated by a state (sick / need_below / a named illness); flavor
+## Trouble actions are gated by a state (sick / need_below / a named illness / a mood); flavor
 ## actions run on `base` alone, without filling any need.
 func test_qijia_action_kinds_are_honest():
 	var p := Pack.load_dir("res://packs/qijia")
 	for a in p.actions.values():
 		match a.kind:
 			"trouble":
-				assert_true(a.requires.has("sick") or a.requires.has("need_below") or a.requires.has("illness"), a.id)
+				assert_true(a.requires.has("sick") or a.requires.has("need_below") or a.requires.has("illness") \
+						or a.requires.has("mood"), a.id)
 			"flavor":
 				assert_true(a.base > 0 and a.needs.is_empty() and a.requires.is_empty(), a.id)
 
@@ -131,7 +132,8 @@ func _starts_by_person(events: Array) -> Dictionary:
 			out[e.person] = int(out.get(e.person, 0)) + 1
 	return out
 
-## One of each object type, except fixed furniture, which only comes with its (built) room.
+## One of each object type, except fixed furniture, which only comes with its (built) room,
+## and keepsakes, which only come with their story.
 func test_setup_places_one_of_each_object_and_adopts():
 	for id in PACKS:
 		var w: World = BalanceRun.setup(id, 7)
@@ -139,7 +141,7 @@ func test_setup_places_one_of_each_object_and_adopts():
 		assert_eq(w.people.size(), 1, id)
 		var expected := {}
 		for t in w.pack.object_types:
-			if not w.pack.object_types[t]["fixed"]:
+			if not w.pack.object_types[t]["fixed"] and not w.pack.object_types[t]["keepsake"]:
 				expected[t] = true
 		for room in w.rooms_built:
 			for pr in w.pack.rooms[room]["props"]:

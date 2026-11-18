@@ -22,6 +22,7 @@ static var handlers: Dictionary = {
 	"reroll": FamilySystem.reroll,
 	"answer_proposal": FamilySystem.answer_proposal,
 	"change_track": LivelihoodSystem.change_track,
+	"receive_visitor": StorySystem.receive_visitor,
 }
 
 
@@ -52,6 +53,8 @@ static func _try_drag(world: World, cmd: Dictionary) -> Dictionary:
 		return _drag_to_mess(world, p, int(cmd["mess"]))
 	if cmd.has("collectible"):
 		return _drag_to_collectible(world, p, int(cmd["collectible"]))
+	if cmd.has("story"):
+		return _drag_to_story(world, p, str(cmd["story"]))
 	var object_uid := int(cmd.get("object", -1))
 	var o := world.object(object_uid)
 	if o.is_empty():
@@ -78,6 +81,12 @@ static func _try_drag(world: World, cmd: Dictionary) -> Dictionary:
 static func _pick_object_action(world: World, p: Person, o: Dictionary) -> Dictionary:
 	var first_reason := ""
 	var stage_only := false
+	# A story's finale on this object comes first while it is open.
+	for id in world.pack.actions:
+		var a: Dictionary = world.pack.actions[id]
+		if str(a.get("completes_story", "")) != "" and str(a["object"]) == str(o["type"]) \
+				and AutonomySystem.can_do(world, p, id, int(o["uid"])) == "":
+			return {"action": id, "error": ""}
 	for id in world.pack.actions:
 		if str(world.pack.actions[id]["object"]) != str(o["type"]):
 			continue
@@ -134,8 +143,32 @@ static func _drag_to_collectible(world: World, p: Person, uid: int) -> Dictionar
 	return fail(first_reason)
 
 
+## Dropping someone on a story's dig mark starts the action that completes that story there.
+static func _drag_to_story(world: World, p: Person, sid: String) -> Dictionary:
+	var mark := {}
+	for m in StorySystem.marks(world):
+		if m["story"] == sid and m.get("dig", false):
+			mark = m
+	if mark.is_empty():
+		return fail("no_target")
+	var id := StorySystem.finale_action(world.pack, sid)
+	if id == "":
+		return fail("no_action")
+	if world.people.any(func(q: Person): return q != p and q.alive and not q.current.is_empty() and q.current["action"] == id):
+		return fail("busy")
+	var why := AutonomySystem.can_do(world, p, id, -1)
+	if why != "":
+		return fail(why)
+	AutonomySystem.start(world, p, id, -1)
+	p.current["room"] = str(mark["room"])
+	return success({"action": id})
+
+
 static func _praise(world: World, cmd: Dictionary) -> Dictionary:
-	return _judge(world, cmd, true)
+	var r := _judge(world, cmd, true)
+	if r.ok:
+		WishSystem.on_praised(world, world.person(int(cmd.get("person", -1))))
+	return r
 
 
 static func _scold(world: World, cmd: Dictionary) -> Dictionary:
@@ -164,6 +197,7 @@ static func _judge(world: World, cmd: Dictionary, praise: bool) -> Dictionary:
 		if p.praise_times.size() >= int(world.pack.cfg("praise_annoy_count")):
 			return fail("annoyed")
 		p.praise_times.append(world.now)
+		MoodSystem.cared(world, p)
 		if need != "" and p.needs.has(need):
 			p.needs[need] = clampf(float(p.needs[need]) + float(world.pack.cfg("praise_gain")), 0.0, 100.0)
 	var factor := 1.25 if praise else 0.8
@@ -208,4 +242,16 @@ static func _use_item(world: World, cmd: Dictionary) -> Dictionary:
 	for n in needs:
 		if p.needs.has(n):
 			p.needs[n] = clampf(float(p.needs[n]) + float(needs[n]), 0.0, 100.0)
+	# Learning from it: progress for a grown-up in that livelihood (when fit to work), a tally
+	# toward choosing a livelihood for a child.
+	var work: Dictionary = item.get("work", {})
+	if not work.is_empty() and p.track == str(work.get("track", "")) and p.stage(world.pack) in ["adult", "elder"] \
+			and EconomySystem._fit_to_work(world, p):
+		EconomySystem.add_progress(world, p, float(work.get("minutes", 0)))
+	if p.stage(world.pack) == "child" and LivelihoodSystem.has_choice(world.pack):
+		var tally: Dictionary = item.get("childhood", {})
+		for a in tally:
+			p.childhood[str(a)] = int(p.childhood.get(str(a), 0)) + int(tally[a])
+	MoodSystem.cared(world, p)
+	WishSystem.on_item_used(world, p, id)
 	return success()

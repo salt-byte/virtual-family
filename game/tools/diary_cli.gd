@@ -79,4 +79,16 @@ func _line(w: World, e: Dictionary) -> String:
 			return "· %s 捡到%s（%s）" % [who, w.pack.collectibles[e.kind].get("name", e.kind), "头一件，收进藏品" if e.first else "卖了 %d 文" % int(e.value)]
 		"goal_done":
 			return "✓ 达成「%s」，赏 %d 文" % [w.pack.goals[e.goal]["text"], int(e.reward)]
+		"wish_formed":
+			return "♡ %s 心里想着：%s" % [who, w.pack.wishes[e.wish]["text"]]
+		"wish_granted":
+			return "♡ %s 如愿了（%s），朝屏幕招手道谢" % [who, w.pack.wishes[e.wish]["text"]]
+		"wish_expired":
+			return "♡ %s 没等到：%s" % [who, w.pack.wishes[e.wish]["text"]]
+		"mood_changed":
+			return "☁ %s %s" % [who, {"sad": "难过起来", "depressed": "这几天闷闷不乐（抑郁）", "": "心绪好了"}.get(e.mood, e.mood) if not (e.was == "depressed") else "缓过来了"]
+		"fragment_found":
+			return "◆ %s 捡到了%s" % [who, StorySystem.fragment(w.pack, e.story, e.fragment)["name"]]
+		"story_unlocked", "story_finale", "story_done":
+			return "◆ 旧事「%s」：%s" % [w.pack.stories[e.story]["title"], {"story_unlocked": "露了头", "story_finale": "凑齐了", "story_done": "了结"}[e.type]]
 	return str(e)

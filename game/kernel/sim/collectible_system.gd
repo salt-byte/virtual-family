@@ -8,13 +8,23 @@ extends RefCounted
 static func step(world: World, dt: float) -> void:
 	_expire(world)
 	# One drop per `collectible_interval_min` on average, per minute scaled to the step.
-	if world.collectibles.size() < int(world.pack.cfg("collectible_max")) \
+	if _ordinary_count(world) < int(world.pack.cfg("collectible_max")) \
 			and world.rng.chance(1.0 / float(world.pack.cfg("collectible_interval_min")) * (dt / 60.0)):
 		spawn(world)
 
 
-## Adds one collectible of `type` ("" picks by weight) in a random built outdoor room and
-## returns its uid; -1 when the type is unknown or there is no outdoor room.
+## Ordinary collectibles on the ground (story fragments do not count toward the cap).
+static func _ordinary_count(world: World) -> int:
+	var n := 0
+	for c in world.collectibles:
+		if not c.has("story"):
+			n += 1
+	return n
+
+
+## Adds one collectible of `type` ("" picks by weight) in a random built outdoor room (one of
+## the type's `rooms` when any of those is built and outdoor) and returns its uid; -1 when
+## the type is unknown or there is no outdoor room.
 static func spawn(world: World, type := "") -> int:
 	var rooms: Array = world.rooms_built.filter(func(r): return bool(world.pack.rooms[r]["outdoor"]))
 	if rooms.is_empty() or world.pack.collectibles.is_empty():
@@ -25,6 +35,11 @@ static func spawn(world: World, type := "") -> int:
 		type = str(world.rng.weighted_pick(ids, weights))
 	elif not world.pack.collectibles.has(type):
 		return -1
+	var preferred: Array = world.pack.collectibles[type].get("rooms", [])
+	if not preferred.is_empty():
+		var there := rooms.filter(func(r): return preferred.has(r))
+		if not there.is_empty():
+			rooms = there
 	var room := str(world.rng.pick(rooms))
 	var r: Dictionary = world.pack.rooms[room]
 	var uid := world.next_uid()
@@ -63,6 +78,9 @@ static func collect(world: World, p: Person, uid: int) -> void:
 	if c.is_empty():
 		return
 	world.collectibles.erase(c)
+	if c.has("story"):
+		StorySystem.found(world, p, c)
+		return
 	var type := str(c["type"])
 	var value := int(world.pack.collectibles[type]["value"])
 	var first := int(world.collection.get(type, 0)) == 0

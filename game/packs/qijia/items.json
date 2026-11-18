@@ -3,5 +3,17 @@
 	{"id": "ginger_pill", "name": "老姜红枣丸", "category": "药铺", "price": 30, "cures": "chill", "needs": {"health": 15}},
 	{"id": "indigo_salve", "name": "青黛药膏", "category": "药铺", "price": 36, "cures": "itch", "needs": {"health": 15}},
 	{"id": "sugar_figure", "name": "糖人", "category": "零嘴", "price": 12, "needs": {"happy": 30}},
-	{"id": "osmanthus_cake", "name": "桂花糕", "category": "零嘴", "price": 18, "needs": {"happy": 20, "fed": 15}}
+	{"id": "osmanthus_cake", "name": "桂花糕", "category": "零嘴", "price": 18, "needs": {"happy": 20, "fed": 15}},
+	{"id": "melon_seeds", "name": "一包炒瓜子", "category": "零嘴", "price": 6, "needs": {"happy": 10}},
+	{"id": "rice_wine", "name": "一壶米酒", "category": "零嘴", "price": 15, "needs": {"happy": 15, "fed": 5}},
+	{"id": "silk_flower", "name": "一朵绢花", "category": "杂货", "price": 20, "needs": {"happy": 25}},
+	{"id": "storybook", "name": "一本旧话本", "category": "书铺", "price": 30, "needs": {"happy": 30}},
+	{"id": "sanzijing", "name": "一本《三字经》", "category": "书铺", "price": 25, "needs": {"happy": 15}, "childhood": {"trace_characters": 3}},
+	{"id": "qianjiashi", "name": "一本《千家诗》", "category": "书铺", "price": 40, "needs": {"happy": 20}, "work": {"track": "reading", "minutes": 30}, "childhood": {"trace_characters": 2}},
+	{"id": "shijing", "name": "一部《诗经》", "category": "书铺", "price": 60, "needs": {"happy": 25}, "work": {"track": "reading", "minutes": 60}},
+	{"id": "brush_set", "name": "一套笔墨纸砚", "category": "书铺", "price": 50, "needs": {"happy": 15}, "work": {"track": "reading", "minutes": 30}, "childhood": {"trace_characters": 2}},
+	{"id": "new_clothes", "name": "一身新衣裳", "category": "布庄", "price": 80, "needs": {"happy": 35}},
+	{"id": "embroidered_shoes", "name": "一双绣花鞋", "category": "布庄", "price": 45, "needs": {"happy": 25}},
+	{"id": "felt_hat", "name": "一顶毡帽", "category": "布庄", "price": 30, "needs": {"happy": 20}},
+	{"id": "new_hairpin", "name": "一支新银簪", "category": "布庄", "price": 70, "needs": {"happy": 30}}
 ]

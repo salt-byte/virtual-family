@@ -85,6 +85,8 @@ static func sell(world: World, cmd: Dictionary) -> Dictionary:
 		return Commands.fail("no_object")
 	if is_fixed(world, str(o["type"])):
 		return Commands.fail("fixed")
+	if bool(world.pack.object_types[o["type"]].get("keepsake", false)):
+		return Commands.fail("keepsake")
 	_release_users(world, uid)
 	var price := int(world.pack.object_types[o["type"]]["price"])
 	world.objects.erase(o)

@@ -55,7 +55,15 @@ var next_proposal_at := 0
 var declined_once := false
 ## True once the first adoption happened: only that one sets the starting money.
 var adopted_once := false
+## Old stories of the house that have unlocked: story id -> {found: [fragment ids], stage}
+## (see `StorySystem`).
+var stories: Dictionary = {}
+## The factor on the illness chance from finished stories' blessings (kept by `StorySystem`).
+var blessing_illness := 1.0
 
+var _built := {}
+var _built_n := -1
+var _built_src: Array[String] = []
 var _acc := 0.0
 var _next_uid := 1
 var _events: Array = []
@@ -114,6 +122,17 @@ func set_time(unix: int, offset: int) -> void:
 	if unix < now and phase == "living" and not people.is_empty():
 		return
 	now = unix
+
+
+## `rooms_built` as a set (room id -> true), rebuilt only when rooms are added.
+func built_set() -> Dictionary:
+	if _built_n != rooms_built.size() or not is_same(_built_src, rooms_built):
+		_built_src = rooms_built
+		_built = {}
+		for r in rooms_built:
+			_built[r] = true
+		_built_n = rooms_built.size()
+	return _built
 
 
 ## Local hour of day as 0..24.
@@ -237,6 +256,9 @@ func _run_systems(dt: float) -> void:
 	CollectibleSystem.step(self, dt)
 	FamilySystem.step(self, dt)
 	GoalSystem.step(self, dt)
+	MoodSystem.step(self, dt)
+	WishSystem.step(self, dt)
+	StorySystem.step(self, dt)
 
 
 ## Everything that decides what happens next, as plain JSON-safe data; see `WorldSave`.

@@ -20,6 +20,8 @@ const REQUIRED := {
 	"messes.json": {"name": TYPE_STRING, "spawn_per_day": TYPE_NIL, "outdoor": TYPE_BOOL, "penalty": TYPE_DICTIONARY},
 	"collectibles.json": {"name": TYPE_STRING, "value": TYPE_NIL, "weight": TYPE_NIL},
 	"goals.json": {"text": TYPE_STRING, "reward": TYPE_NIL, "when": TYPE_DICTIONARY},
+	"wishes.json": {"text": TYPE_STRING, "kind": TYPE_STRING, "ttl_hours": TYPE_NIL, "joy": TYPE_NIL},
+	"stories.json": {"title": TYPE_STRING, "unlock": TYPE_DICTIONARY, "fragments": TYPE_ARRAY, "finale": TYPE_DICTIONARY},
 }
 ## Whole-number fields and their minimum (money, sizes and durations are never fractional or negative).
 const MIN_INT := {
@@ -31,6 +33,8 @@ const MIN_INT := {
 	"goals.json": {"reward": 0},
 }
 const LEVEL_FIELDS := ["name", "daily_income", "work_bonus_per_hour", "progress_to_next"]
+## The moods an action may require (see `MoodSystem`).
+const MOODS := ["sad", "depressed"]
 ## Stage ids the kernel itself relies on (babies idle and never fall ill; adults and elders
 ## earn and marry).
 const REQUIRED_STAGES := ["baby", "adult", "elder"]
@@ -63,6 +67,10 @@ func _run() -> void:
 	_check_illnesses()
 	_check_messes()
 	_check_goals()
+	_check_collectibles()
+	_check_wishes()
+	_check_stories()
+	_check_mood_config()
 
 
 func _check_required() -> void:
@@ -72,10 +80,11 @@ func _check_required() -> void:
 		_check_fields("pack.json", str(pj.get("id", "pack")), pj)
 		if str(pj.get("id", "")) == "":
 			_err("pack.json", "pack", "missing id")
-	for key in Pack.FILES:
-		var file: String = Pack.FILES[key]
-		for e in (_p.get(key) as Dictionary).values():
-			_check_fields(file, e["id"], e)
+	for files in [Pack.FILES, Pack.OPTIONAL_FILES]:
+		for key in files:
+			var file: String = files[key]
+			for e in (_p.get(key) as Dictionary).values():
+				_check_fields(file, e["id"], e)
 
 
 func _check_int(file: String, eid: String, field: String, v: Variant, minimum: int) -> void:
@@ -309,6 +318,15 @@ func _check_actions() -> void:
 			if not a["rooms"].is_empty() and a["object"] is String and a["object"] != "":
 				_err("actions.json", id, "an action with an object may not also list rooms")
 		_check_requires(id, a["requires"])
+		var cs = a.get("completes_story", "")
+		if not cs is String:
+			_err("actions.json", id, "completes_story must be a story id")
+		elif cs != "":
+			var st = _p.stories.get(cs)
+			if not st is Dictionary:
+				_err("actions.json", id, "completes_story '%s' is not a story" % [cs])
+			elif not (st.get("finale") is Dictionary and str(st["finale"].get("kind", "")) in ["offering", "dig"]):
+				_err("actions.json", id, "completes_story '%s' needs an offering or dig finale" % [cs])
 
 
 func _check_requires(id: String, r) -> void:
@@ -323,6 +341,9 @@ func _check_requires(id: String, r) -> void:
 			"illness":
 				if not _p.illnesses.has(r[k]):
 					_err("actions.json", id, "requires.illness '%s' is not an illness" % [r[k]])
+			"mood":
+				if not MOODS.has(r[k]):
+					_err("actions.json", id, "requires.mood must be one of %s" % [", ".join(MOODS)])
 			"need_below":
 				if r[k] is Dictionary:
 					for n in r[k]:
@@ -467,6 +488,12 @@ func _check_items() -> void:
 			for k in it["needs"]:
 				if not _p.needs.has(k):
 					_err("items.json", it["id"], "needs key '%s' is not a need" % [k])
+		var wk = it.get("work", {})
+		if not (wk is Dictionary and (wk.is_empty() or (_p.livelihoods.has(wk.get("track", "")) and _is_num(wk.get("minutes"))))):
+			_err("items.json", it["id"], "work needs a livelihood track and minutes")
+		var ch = it.get("childhood", {})
+		if not ch is Dictionary or not ch.keys().all(func(a): return _p.actions.has(a) and _is_num(ch[a])):
+			_err("items.json", it["id"], "childhood must map action ids to counts")
 
 
 func _check_illnesses() -> void:
@@ -512,3 +539,175 @@ func _check_goals() -> void:
 			var param: String = {"money_at_least": "amount", "objects_owned": "count", "level_reached": "level", "collected": "count"}.get(t, "")
 			if param != "" and not w.has(param):
 				_err("goals.json", g["id"], "when.%s is required for %s" % [param, t])
+
+
+func _rooms_list(file: String, id: String, field: String, v) -> void:
+	if not v is Array:
+		_err(file, id, "%s must be an array of room ids" % [field])
+		return
+	for r in v:
+		if not (r is String and _p.rooms.has(r)):
+			_err(file, id, "%s: '%s' is not a room" % [field, str(r)])
+
+
+func _is_num(v) -> bool:
+	return v is int or v is float
+
+
+func _check_collectibles() -> void:
+	for c in _p.collectibles.values():
+		_rooms_list("collectibles.json", c["id"], "rooms", c["rooms"])
+
+
+func _check_wishes() -> void:
+	var stage_ids := []
+	if _p.config["stages"] is Array:
+		for s in _p.config["stages"]:
+			if s is Dictionary:
+				stage_ids.append(s.get("id"))
+	for w in _p.wishes.values():
+		var id: String = w["id"]
+		var kind = w.get("kind")
+		if kind is String and not WishSystem.KINDS.has(kind):
+			_err("wishes.json", id, "kind '%s' must be one of %s" % [kind, ", ".join(WishSystem.KINDS)])
+		if _is_num(w.get("ttl_hours")) and float(w["ttl_hours"]) <= 0.0:
+			_err("wishes.json", id, "ttl_hours must be above 0")
+		if not _is_num(w["weight"]) or float(w["weight"]) <= 0.0:
+			_err("wishes.json", id, "weight must be a number above 0")
+		if not (w["likes"] is Array and (w["likes"] as Array).all(func(t): return t is String)):
+			_err("wishes.json", id, "likes must be an array of tags")
+		if w["stages"] is Array:
+			for s in w["stages"]:
+				if not stage_ids.has(s):
+					_err("wishes.json", id, "stage '%s' is not defined in pack stages" % [s])
+		else:
+			_err("wishes.json", id, "stages must be an array")
+		match kind:
+			"item":
+				if not _p.items.has(w.get("item", "")):
+					_err("wishes.json", id, "item '%s' is not an item" % [str(w.get("item", ""))])
+			"object":
+				if not _p.object_types.has(w.get("object", "")):
+					_err("wishes.json", id, "object '%s' is not an object type" % [str(w.get("object", ""))])
+			"room":
+				if not _p.rooms.has(w.get("room", "")):
+					_err("wishes.json", id, "room '%s' is not a room" % [str(w.get("room", ""))])
+			"need":
+				if not _p.needs.has(w.get("need", "")):
+					_err("wishes.json", id, "need '%s' is not a need" % [str(w.get("need", ""))])
+				if not (_is_num(w.get("below")) and _is_num(w.get("above")) and float(w["below"]) <= float(w["above"])):
+					_err("wishes.json", id, "a need wish needs numbers below <= above")
+
+
+func _check_stories() -> void:
+	var ids := {}
+	for c in _p.collectibles:
+		ids[c] = true
+	for st in _p.stories.values():
+		var id: String = st["id"]
+		var u = st.get("unlock")
+		if u is Dictionary:
+			var t = u.get("type")
+			if not StorySystem.UNLOCKS.has(t):
+				_err("stories.json", id, "unlock.type '%s' must be one of %s" % [str(t), ", ".join(StorySystem.UNLOCKS)])
+			elif t == "room_built" and not _p.rooms.has(u.get("room", "")):
+				_err("stories.json", id, "unlock.room '%s' is not a room" % [str(u.get("room", ""))])
+			elif t == "generation_at_least" and not (u.get("generation") is int or (u.get("generation") is float and u["generation"] == floorf(u["generation"]))):
+				_err("stories.json", id, "unlock.generation must be a whole number")
+		if st.has("rooms"):
+			_rooms_list("stories.json", id, "rooms", st["rooms"])
+		if st.has("hours") and not _hours_ok(st["hours"]):
+			_err("stories.json", id, "hours must be [from, to]")
+		var frags = st.get("fragments")
+		if frags is Array:
+			if frags.is_empty():
+				_err("stories.json", id, "fragments must not be empty")
+			for f in frags:
+				if not (f is Dictionary and f.get("id") is String and f.get("name") is String and f.get("text") is String):
+					_err("stories.json", id, "every fragment needs a string id, name and text")
+					continue
+				if ids.has(f["id"]):
+					_err("stories.json", id, "fragment id '%s' is used twice (fragments and collectibles share ids)" % [f["id"]])
+				ids[f["id"]] = true
+				if f.has("rooms"):
+					_rooms_list("stories.json", id, "fragment %s rooms" % f["id"], f["rooms"])
+				if f.has("hours") and not _hours_ok(f["hours"]):
+					_err("stories.json", id, "fragment %s hours must be [from, to]" % f["id"])
+		if st.has("mark"):
+			_check_mark(id, "mark", st["mark"])
+		var fin = st.get("finale")
+		if fin is Dictionary:
+			_check_finale(id, fin)
+
+
+func _hours_ok(h) -> bool:
+	return h is Array and h.size() == 2 and _is_num(h[0]) and _is_num(h[1])
+
+
+## A cell inside a room: {room, x, y}.
+func _check_mark(id: String, what: String, m) -> void:
+	if not (m is Dictionary and _p.rooms.has(m.get("room", ""))):
+		_err("stories.json", id, "%s needs a room" % [what])
+		return
+	var r: Dictionary = _p.rooms[m["room"]]
+	for k in ["x", "y"]:
+		if not (_is_num(m.get(k)) and float(m[k]) == floorf(float(m[k])) and m[k] >= 0):
+			_err("stories.json", id, "%s.%s must be a whole number of at least 0" % [what, k])
+			return
+	if not (_is_num(r.get("w")) and _is_num(r.get("h")) and m["x"] < r["w"] and m["y"] < r["h"]):
+		_err("stories.json", id, "%s lies outside its room" % [what])
+	if m.has("hours") and not _hours_ok(m["hours"]):
+		_err("stories.json", id, "%s.hours must be [from, to]" % [what])
+
+
+func _check_finale(id: String, fin: Dictionary) -> void:
+	var kind = fin.get("kind")
+	if not StorySystem.FINALES.has(kind):
+		_err("stories.json", id, "finale.kind '%s' must be one of %s" % [str(kind), ", ".join(StorySystem.FINALES)])
+		return
+	if fin.has("money") and not (fin["money"] is int or (fin["money"] is float and fin["money"] == floorf(fin["money"]))) or float(fin.get("money", 0)) < 0.0:
+		_err("stories.json", id, "finale.money must be a whole number of at least 0")
+	match kind:
+		"visitor_gift":
+			var o = fin.get("object", "")
+			if o != "":
+				if not _p.object_types.has(o):
+					_err("stories.json", id, "finale.object '%s' is not an object type" % [str(o)])
+				elif not bool(_p.object_types[o].get("keepsake", false)):
+					_err("stories.json", id, "finale.object '%s' must be a keepsake" % [str(o)])
+			if fin.has("room") and not _p.rooms.has(fin["room"]):
+				_err("stories.json", id, "finale.room '%s' is not a room" % [str(fin["room"])])
+		"offering", "dig":
+			var act := StorySystem.finale_action(_p, id)
+			if act == "":
+				_err("stories.json", id, "no action completes_story this story")
+			elif kind == "offering" and str(_p.actions[act]["object"]) == "":
+				_err("stories.json", id, "the offering action needs an object")
+			elif kind == "dig" and str(_p.actions[act]["object"]) != "":
+				_err("stories.json", id, "the dig action must not need an object")
+			if kind == "dig":
+				_check_mark(id, "finale", fin)
+	var b = fin.get("blessing", {})
+	if not (b is Dictionary and (not b.has("illness_factor") or (_is_num(b["illness_factor"]) and b["illness_factor"] >= 0))):
+		_err("stories.json", id, "finale.blessing.illness_factor must be a number of at least 0")
+
+
+func _check_mood_config() -> void:
+	var c := _p.config
+	for k in ["wish_chance_per_hour", "wish_miss_penalty", "wish_thanks_min", "mood_low_below",
+			"mood_sad_after_hours", "mood_depressed_after_hours", "mood_recover_above",
+			"mood_recover_hours", "mood_sad_recover_hours", "mood_depressed_factor",
+			"mood_care_hours", "mood_neglect_per_hour", "mood_neglect_floor",
+			"story_interval_min", "story_ttl_min"]:
+		if not _is_num(c.get(k)) or float(c[k]) < 0.0:
+			_err("pack.json", _p.id, "%s must be a number of at least 0" % [k])
+	for k in ["story_interval_min", "story_ttl_min"]:
+		if _is_num(c.get(k)) and float(c[k]) <= 0.0:
+			_err("pack.json", _p.id, "%s must be above 0" % [k])
+	var d = c.get("mood_depressed_drain")
+	if not d is Dictionary:
+		_err("pack.json", _p.id, "mood_depressed_drain must be an object")
+	else:
+		for k in d:
+			if not _p.needs.has(k) or not _is_num(d[k]):
+				_err("pack.json", _p.id, "mood_depressed_drain key '%s' must be a need with a number" % [k])

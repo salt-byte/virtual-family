@@ -8,6 +8,7 @@ static func step(world: World, dt: float) -> void:
 	var pack := world.pack
 	# Per-minute chance scaled to the step (x1.0 at 60 s steps, so those draw exactly as before).
 	var chance := float(pack.cfg("illness_daily_chance")) / 1440.0 * (dt / 60.0)
+	chance *= world.blessing_illness
 	var floor_v := float(pack.cfg("offline_need_floor"))
 	for p in world.people:
 		if not p.alive:

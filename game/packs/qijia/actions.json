@@ -401,5 +401,13 @@
 	 "tags": ["爱热闹"], "stages": ["adult", "elder"]},
 	{"id": "shoulder_pole", "label": "挑起货担出门转一圈", "kind": "daily", "duration_min": 40, "object": "peddler_pole",
 	 "base": 4, "needs": {"energy": -5}, "work": {"track": "peddling"}, "hours": [8, 17],
-	 "tags": ["爱热闹"], "stages": ["adult", "elder"]}
+	 "tags": ["爱热闹"], "stages": ["adult", "elder"]},
+	{"id": "hide_under_quilt", "label": "蒙着被子躺着不想动", "kind": "trouble", "duration_min": 60, "object": "kang", "base": 30, "needs": {"energy": 10}, "praiseable": false, "requires": {"mood": "depressed"}},
+	{"id": "stare_at_bowl", "label": "对着碗发呆不动筷子", "kind": "trouble", "duration_min": 20, "object": "dining_table", "base": 25, "praiseable": false, "requires": {"mood": "depressed"}},
+	{"id": "sit_on_threshold_long", "label": "坐在门槛上一坐就是半天", "kind": "trouble", "duration_min": 40, "object": "threshold", "base": 20, "praiseable": false, "requires": {"mood": "depressed"}},
+	{"id": "face_in_knees", "label": "把脸埋在膝盖里不吭声", "kind": "trouble", "duration_min": 25, "rooms": ["bedroom", "hall", "side"], "base": 25, "praiseable": false, "requires": {"mood": "depressed"}},
+	{"id": "face_the_wall", "label": "背过身去对着墙不说话", "kind": "trouble", "duration_min": 20, "rooms": ["hall", "west_room", "side"], "base": 20, "praiseable": false, "requires": {"mood": "depressed"}},
+	{"id": "trace_old_hoop", "label": "对着旧绣绷描花样", "kind": "flavor", "duration_min": 15, "object": "ayun_hoop", "base": 4, "tags": ["喜静"]},
+	{"id": "incense_for_douzi", "label": "给小豆子上香摆块糖", "kind": "flavor", "duration_min": 8, "object": "altar", "base": 6, "praiseable": false, "completes_story": "little_shadow", "stages": ["adult", "elder"]},
+	{"id": "dig_for_silver", "label": "抡着锄头刨开院里的土", "kind": "daily", "duration_min": 30, "needs": {"energy": -10}, "praiseable": false, "completes_story": "scholar_silver", "stages": ["adult", "elder"]}
 ]

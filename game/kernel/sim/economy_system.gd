@@ -56,6 +56,14 @@ static func on_work_finished(world: World, p: Person, minutes: float) -> void:
 	earn(world, bonus, "work", p.uid)
 	if not _fit_to_work(world, p):
 		return
+	add_progress(world, p, minutes)
+
+
+## Adds `minutes` of work (times aptitude) to `p`'s progress and levels them up when due.
+static func add_progress(world: World, p: Person, minutes: float) -> void:
+	var lvl := _level(world, p)
+	if lvl.is_empty():
+		return
 	p.progress += float(minutes) * p.aptitude
 	var need := int(lvl["progress_to_next"])
 	var levels: Array = world.pack.livelihoods[p.track]["levels"]
@@ -66,7 +74,7 @@ static func on_work_finished(world: World, p: Person, minutes: float) -> void:
 
 
 static func _fit_to_work(world: World, p: Person) -> bool:
-	if p.illness != "":
+	if p.illness != "" or p.mood == "depressed":
 		return false
 	var mins: Dictionary = world.pack.cfg("work_needs_min")
 	for n in mins:
