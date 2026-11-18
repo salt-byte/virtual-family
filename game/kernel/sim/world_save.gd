@@ -83,6 +83,10 @@ static func _build(pack: Pack, d: Dictionary) -> World:
 	w.rooms_built.clear()
 	for r in d["rooms_built"]:
 		w.rooms_built.append(str(r))
+	# A save from before the pack built more rooms from the start gains them.
+	for id in pack.rooms:
+		if pack.rooms[id].get("built") == true and not w.rooms_built.has(str(id)):
+			w.rooms_built.append(str(id))
 	w.stats = _int_values(d["stats"])
 	w.collectibles.clear()
 	for c in d["collectibles"]:

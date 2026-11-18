@@ -270,3 +270,21 @@ func test_recent_actions_round_trip_and_old_saves_derive_them():
 	assert_eq(WorldSave.restore(w.pack, bad).error, "corrupt")
 	var gone := _through_json(w.to_dict()); gone["people"][0]["recent_actions"] = ["no_such_action"]
 	assert_eq(WorldSave.restore(w.pack, gone).error, "pack_changed")
+
+## A save from before the pack built more rooms from the start gains them on load (after
+## the saved ones, in pack order); a room the pack no longer has is still pack_changed.
+func test_old_save_gains_rooms_the_pack_now_builds_from_the_start():
+	var w := World.new(Pack.load_dir("res://packs/qijia"), 3); w.set_time(1767268800, 0)
+	w.command({type = "adopt"})
+	var d := _through_json(w.to_dict())
+	d["rooms_built"] = ["yard", "hall"]
+	var r := WorldSave.restore(w.pack, d)
+	assert_eq(r.error, "")
+	assert_eq(r.world.rooms_built, ["yard", "hall", "bedroom", "kitchen"] as Array[String])
+	d["rooms_built"] = ["yard", "hall", "attic"]
+	assert_eq(WorldSave.restore(w.pack, d).error, "pack_changed")
+
+func test_smoke_save_rooms_built_round_trips_unchanged():
+	var w := _busy()
+	var r := WorldSave.restore(w.pack, _through_json(w.to_dict()))
+	assert_eq(r.world.rooms_built, w.rooms_built)
