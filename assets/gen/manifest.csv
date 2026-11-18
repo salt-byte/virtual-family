@@ -75,3 +75,18 @@ a_floor_earth,地块,tile,192x144,A 灶间柴房夯土地,a_floor_earth,0,已处
 a_wall,地块,tile,160x160,A 室内石灰墙,a_wall,0,已处理,ark doubao-seedream-5-0-flash-260915 2026-11-18,处理前裁掉四边 80 像素
 a_father_parts,小人拆件,parts,,A 父亲 6 块拆件,a_father_parts,0,已拆件,ark doubao-seedream-5-0-flash-260915 2026-11-18,肩口圆洞已修；父亲上臂略宽于袖口
 a_mother_parts,小人拆件,parts,,A 母亲 6 块拆件,a_mother_parts,0,已拆件,ark doubao-seedream-5-0-flash-260915 2026-11-18,肩口圆洞已修；父亲上臂略宽于袖口
+a_gatehouse,院墙,prop,,A 门楼,a_outdoor_big,0,已处理,ark doubao-seedream-5-0-flash-260915 2026-11-18,
+a_big_tree,院外,prop,,A 村口老槐树,a_outdoor_big,1,已处理,ark doubao-seedream-5-0-flash-260915 2026-11-18,
+a_bamboo,院外,prop,,A 竹丛,a_outdoor_big,2,已处理,ark doubao-seedream-5-0-flash-260915 2026-11-18,
+a_reeds,院外,prop,,A 芦苇丛,a_outdoor_big,3,已处理,ark doubao-seedream-5-0-flash-260915 2026-11-18,
+a_rocks,院外,prop,,A 石头,a_outdoor_small,0,已处理,ark doubao-seedream-5-0-flash-260915 2026-11-18,
+a_bush,院外,prop,,A 灌木,a_outdoor_small,1,已处理,ark doubao-seedream-5-0-flash-260915 2026-11-18,
+a_fence,院里,prop,,A 竹篱笆一段,a_outdoor_small,2,已处理,ark doubao-seedream-5-0-flash-260915 2026-11-18,
+a_door_sill,门口,prop,,A 石门槛,a_outdoor_small,3,已处理,ark doubao-seedream-5-0-flash-260915 2026-11-18,
+a_scarecrow,院外,prop,,A 稻草人,a_outdoor_small,4,已处理,ark doubao-seedream-5-0-flash-260915 2026-11-18,
+a_bridge,院外,prop,,A 小木桥,a_outdoor_small,5,已处理,ark doubao-seedream-5-0-flash-260915 2026-11-18,
+a_grass,地块,tile,192x144,A 院外草地,a_grass,0,已处理,ark doubao-seedream-5-0-flash-260915 2026-11-18,
+a_path,地块,tile,192x144,A 石板路,a_path,0,已处理,ark doubao-seedream-5-0-flash-260915 2026-11-18,
+a_wall_compound,地块,tile,160x160,A 院墙墙面,a_wall_compound,0,已处理,ark doubao-seedream-5-0-flash-260915 2026-11-18,
+a_water,地块,tile,192x144,A 河水,a_water,0,已处理,ark doubao-seedream-5-0-flash-260915 2026-11-18,
+a_field,地块,tile,192x144,A 田地,a_field,0,已处理,ark doubao-seedream-5-0-flash-260915 2026-11-18,
