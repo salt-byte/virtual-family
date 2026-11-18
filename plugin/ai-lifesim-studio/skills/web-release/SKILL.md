@@ -15,37 +15,46 @@ description: 把生活模拟游戏发布成网页版（GitHub Pages），让人�
 ```
 platform="Web"
 export_filter="all_resources"
-include_filter="*.yarn, *.json, *.csv"    ← 必须：Godot 只打包它认识的资源，自定义格式会被漏掉 <!-- TODO(lifesim): 原文是 graveholme 的 yarn 对白文件；本项目的主题包是 game/packs/<id>/ 下的 json，过滤规则要按需核对 -->
+include_filter="*.json"                   ← 必须：Godot 只打包它认识的资源，主题包的 json 不写这行会被漏掉
 exclude_filter="tools/*"
 variant/thread_support=false              ← GitHub Pages 不能设跨域隔离头，必须关线程
 ```
-需要对应版本的导出模板（版本要求另查）<!-- TODO(lifesim): 原文指向 godot-project-structure，本插件暂无对应技能 -->。
+需要和编辑器同版本的导出模板（本项目是 4.7.2）。`game/tools/export_web.sh` 会先检查，缺了就说缺什么、怎么装，然后退出，不会自己下载。
 
-## 步骤
-1. 内容改完：跑 `build_fonts.py`，以及项目里的内容检查脚本<!-- TODO(lifesim): 原文指向 dialogue-authoring / game-data-schema 的 yarn_lines.py、check_content.py，本插件暂无对应技能 -->。
-2. 重新导入：`godot --headless --path . --import`。
-3. 导出：`godot --headless --path . --export-release "Web" docs/index.html`。产物约 42MB（`index.wasm` 35MB、`index.pck` 7MB）。`docs/` 里放一个空的 `.gdignore`，免得 Godot 把导出的文件当资源导入。
-4. **测导出版**（`playtest-automation` 第 3 层<!-- TODO(lifesim): 原文指向 playtest-automation，本插件暂无对应技能 -->），确认能进游戏、能看到小人在房子里动。
-5. 仓库结构：已建好的仓库的根目录就是项目源码<!-- TODO(lifesim): 原文指向 producer 流程里的步骤号，本插件暂无对应技能 -->（`.godot/` 和生成的 `.translation` 由 `.gitignore` 挡掉）；网页版放 `docs/`，加一个 `.nojekyll`。README、DEVLOG、素材署名本来就在根目录。不另建发布仓库（`producer/references/github-sync.md`<!-- TODO(lifesim): 原文指向 producer，本插件暂无对应技能 -->）。
-6. 提交并推送。提交信息写清本轮改了什么。
-7. **先看 GAME_BRIEF 的「版权与发布」**，并在「怎么做」块补「交付形式」一行<!-- TODO(lifesim): 原文指向 producer 产出的 GAME_BRIEF.md / TASKS.md，本插件暂无对应技能 -->。 写着「只自己玩」或原作在版权期内的，不开 GitHub Pages（公开链接谁都能打开），只给用户本人能打开的试玩方式：claude.ai 的私有页面，或导出包发给用户本人。用户这时改口要公开，先提醒版权风险，确认后改 GAME_BRIEF 再发。
-8. 第一次发布时请用户在仓库 Settings → Pages 选 main 分支、`/docs` 目录（这一步 API 可能被代理拦住，需要用户手动点）。链接：`https://<用户>.github.io/<仓库>/`。
+## 步骤（本项目跑通的路线）
+1. 内容改完：`python3 game/tools/build_font.py`，把主题包和界面用到的字截进 `game/assets/fonts/ui.otf`。它列出缺的字时必须一个都不缺，否则网页上是方块。
+2. 导出：`./game/tools/export_web.sh`，产物在 `build/web/`（`build/` 不进 git）。约 38MB，大头是 `index.wasm`。
+3. **先在本地测导出版**：`python3 -m http.server -d build/web 8060`，打开 http://localhost:8060，确认能进游戏、能看到小人在房子里动。直接双击 html 打不开，必须走 http 服务器。
+4. **先看 GAME_BRIEF 的「版权与发布」**<!-- TODO(lifesim): 原文指向 producer 产出的 GAME_BRIEF.md，本插件暂无对应技能 -->。写着「只自己玩」或原作在版权期内的，不开 GitHub Pages（公开链接谁都能打开），只给本地链接或导出包。
+5. 推源码：`git push origin main`。
+6. 推网页版到 `gh-pages` 分支，**不放进 main**。不用切分支、不用另建目录，用一个临时索引把 `build/web` 直接做成一个提交：
+   ```bash
+   touch build/web/.nojekyll
+   TREE=$(GIT_INDEX_FILE=$(mktemp -u) sh -c 'git --work-tree=build/web add -A . && git write-tree')
+   C=$(git commit-tree "$TREE" -m "web build from main@$(git rev-parse --short HEAD)")
+   git push -f origin "${C}:refs/heads/gh-pages"
+   ```
+   `gh-pages` 只放导出产物，每次整个替换，所以用 `-f`。推之前先问用户（推送就是公开），用户说过「做完直接推」的照办。
+7. 第一次发布时，请用户在仓库 Settings → Pages 选 `gh-pages` 分支、根目录 `/`（API 可能被拦，需要用户手动点）。链接：`https://<用户>.github.io/<仓库>/`。部署要一两分钟，看到旧版就让用户按 Cmd+Shift+R 强制刷新。
 
 ## 推送踩过的坑
 - 403：用户要先在 GitHub 给 Claude 的 GitHub App 授权这个仓库（settings/installations）。
 - 推送偶尔返回 `remote rejected (failure)`，原样重试一次就好。
 - 没有 rsync 时用 `tar cf - … | (cd 目标 && tar xf -)` 复制。
+- **zsh 里变量后面紧跟冒号要加花括号**：`"$C:refs/heads/gh-pages"` 会被 zsh 当成 `$C` 加修饰符 `:r`，推送报 `src refspec … does not match any`。写成 `"${C}:refs/heads/gh-pages"`。
+- 本机 `gh auth status` 显示钥匙串登录失败时，`git push` 走 git 自己的凭据，照样能推，不用先修 gh。
+- 线上是不是旧版：`curl -sI https://<用户>.github.io/<仓库>/index.pck | grep -i last-modified`。
 
 ## 发布前清单（全过才到发布的停靠点）<!-- TODO(lifesim): 原文指向 producer 的「停靠点 D」，本插件暂无对应技能 -->
 | 项 | 怎么查 |
 |---|---|
-| `qa/verification.json` 六项 PASS，run_id 是本次改动之后的<!-- TODO(lifesim): 原文指向 playtest-automation，本插件暂无对应技能 --> | 看文件；旧的 run 不算 |
-| 旧存档能读 | 用上一版的 `save.json` 起游戏，`--playtest` 或手动进到地图 |
-| 没有方块字 | `--autotest` 截图里每屏看一眼；新加的字要在 `build_fonts.py` 的字表里 |
-| 导出包含内容文件 | `grep -a -o "res://content/dialogue/[A-Za-z]*\.yarn" index.pck \| sort -u` 数量 = 源文件数；json / csv 同理<!-- TODO(lifesim): 原文是 graveholme 的对白文件路径，本项目改查 packs 下的 json，待定 --> |
+| 验收过了 | `pack-verification` 四样都过，且是本次改动之后跑的 |
+| 旧存档能读 | 测试里有旧存档用例（`run.sh save`）；改了房子再用上一版的 `save_<包名>.json` 实际开一次 |
+| 没有方块字 | `build_font.py` 报零个缺字；本地导出版里翻一遍商店、家人面板、动作名 |
+| 导出包含主题包 | `strings -n 6 build/web/index.pck \| grep -o "packs/[a-z_]*/[a-z_]*\.json" \| sort -u \| wc -l` 等于 `ls game/packs/*/*.json \| wc -l`（包里存的路径不带 `res://`） |
 | CREDITS 齐 | 新用的素材、新借的 skill 都在 CREDITS.md 里 |
-| 首页有操作说明 | README / 页面上有拖拽、夸、骂、快捷键的说明 |
-| 网页版冒烟 | `web_smoke.js` 能进游戏、能看到小人在动<!-- TODO(lifesim): 原文指向 playtest-automation，本插件暂无对应技能 --> |
+| 首页有操作说明 | README / 页面上有拖拽、夸、骂、拖动画面、滚轮缩放、点人跟随的说明 |
+| 网页版冒烟 | 第 3 步的本地导出版能进游戏、能看到小人在动<!-- TODO(lifesim): 自动化的网页冒烟测试还没有 --> |
 | DEVLOG 本节写了 | 含决策和证据路径 |
 这张表来自 claude-code-game-studios 的 release-checklist，按我们的项目重写。
 
