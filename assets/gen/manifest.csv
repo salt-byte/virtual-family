@@ -30,3 +30,15 @@ col_hairpin,掉落物,prop,32x32,旧银簪,small_01,4,已处理,ark doubao-seedr
 icon_ill,界面图标,ui,32x32,药碗：病了的标记,small_01,5,已处理,ark doubao-seedream-5-0-flash-260915 2026-11-18,
 father_parts,小人拆件,parts,,父亲 6 块拆件：头、躯干、上臂、前臂、大腿、小腿,father_parts,0,已拆件,ark doubao-seedream-5-0-flash-260915 2026-11-18,第二版提示词（每格只有一条胳膊或腿）；躯干肩口露出圆洞，膝盖接缝有台阶，正式批量前再调一次
 mother_parts,小人拆件,parts,,母亲 6 块拆件：头、躯干、上臂、前臂、大腿、小腿,mother_parts,0,已拆件,ark doubao-seedream-5-0-flash-260915 2026-11-18,第二版提示词（每格只有一条胳膊或腿）；躯干肩口露出圆洞，膝盖接缝有台阶，正式批量前再调一次
+cmp_a_person,画风对比,character,,A 暖色卡通：父亲侧身站立,cmp_a_person,0,已处理,ark doubao-seedream-5-0-flash-260915 2026-11-18,
+cmp_a_well,画风对比,prop,,A 暖色卡通：井,cmp_a_props,0,已处理,ark doubao-seedream-5-0-flash-260915 2026-11-18,
+cmp_a_table,画风对比,prop,,A 暖色卡通：饭桌,cmp_a_props,1,已处理,ark doubao-seedream-5-0-flash-260915 2026-11-18,
+cmp_a_yard,画风对比,tile,,A 暖色卡通：院子泥地,cmp_a_yard,0,已处理,ark doubao-seedream-5-0-flash-260915 2026-11-18,
+cmp_b_person,画风对比,character,,B 扁平插画：父亲侧身站立,cmp_b_person,0,已处理,ark doubao-seedream-5-0-flash-260915 2026-11-18,
+cmp_b_well,画风对比,prop,,B 扁平插画：井,cmp_b_props,0,已处理,ark doubao-seedream-5-0-flash-260915 2026-11-18,
+cmp_b_table,画风对比,prop,,B 扁平插画：饭桌,cmp_b_props,1,已处理,ark doubao-seedream-5-0-flash-260915 2026-11-18,
+cmp_b_yard,画风对比,tile,,B 扁平插画：院子泥地,cmp_b_yard,0,已处理,ark doubao-seedream-5-0-flash-260915 2026-11-18,
+cmp_c_person,画风对比,character,,C 淡水彩：父亲侧身站立,cmp_c_person,0,已处理,ark doubao-seedream-5-0-flash-260915 2026-11-18,
+cmp_c_well,画风对比,prop,,C 淡水彩：井,cmp_c_props,0,已处理,ark doubao-seedream-5-0-flash-260915 2026-11-18,
+cmp_c_table,画风对比,prop,,C 淡水彩：饭桌,cmp_c_props,1,已处理,ark doubao-seedream-5-0-flash-260915 2026-11-18,
+cmp_c_yard,画风对比,tile,,C 淡水彩：院子泥地,cmp_c_yard,0,已处理,ark doubao-seedream-5-0-flash-260915 2026-11-18,
