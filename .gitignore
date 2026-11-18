@@ -4,3 +4,6 @@ game/.godot/
 *.tmp
 build/
 .cache/
+.env
+assets/gen/inbox/
+assets/gen/review/
