@@ -1,0 +1,15 @@
+{
+  "provider": "ark",
+  "base_url": "https://ark.cn-beijing.volces.com/api/v3",
+  "model": "doubao-seedream-5-0-flash-260915",
+  "size": "1536x1536",
+  "quality": null,
+  "native_transparent": false,
+  "price_per_image": 0.12,
+  "currency": "元",
+  "budget": 10,
+  "max_images": 80,
+  "pixel_size": null,
+  "out_dirs": {},
+  "extra": {}
+}

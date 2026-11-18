@@ -1,0 +1,32 @@
+id,role,type,size,description,sheet,sheet_pos,status,source,note
+fam_father,小人,character,128x128,父亲：青灰短褂，灰布裤，黑布鞋，头裹灰布巾,fam_ref,0,已处理,ark doubao-seedream-5-0-flash-260915 2026-11-18,只当参考图用：脚下留了一团绿影，进游戏的人物走拆件
+fam_mother,小人,character,128x128,母亲：赭石色大襟袄，深蓝围裙，脑后发髻,fam_ref,1,已处理,ark doubao-seedream-5-0-flash-260915 2026-11-18,只当参考图用：脚下留了一团绿影，进游戏的人物走拆件
+fam_grandma,小人,character,128x128,祖母：灰褐夹袄，白发髻，背微驼,fam_ref,2,已处理,ark doubao-seedream-5-0-flash-260915 2026-11-18,只当参考图用：脚下留了一团绿影，进游戏的人物走拆件
+fam_child,小人,character,96x96,孩子：藤黄小褂，扎两个小抓髻,fam_ref,3,已处理,ark doubao-seedream-5-0-flash-260915 2026-11-18,只当参考图用：脚下留了一团绿影，进游戏的人物走拆件
+tile_brick,地块,tile,192x144,堂屋青砖地，旧，有磨损,tile_brick,0,已处理,ark doubao-seedream-5-0-flash-260915 2026-11-18,生图自带一圈纸边，处理前先裁掉四边 64 像素再跑 make_seamless
+tile_yard,地块,tile,192x144,院子夯土地，碎石子和稀草,tile_yard,0,已处理,ark doubao-seedream-5-0-flash-260915 2026-11-18,生图自带一圈纸边，处理前先裁掉四边 64 像素再跑 make_seamless
+wall_lime,地块,tile,192x60,室内旧白灰墙面,wall_lime,0,已处理,ark doubao-seedream-5-0-flash-260915 2026-11-18,生图自带一圈纸边，处理前先裁掉四边 64 像素再跑 make_seamless
+well_head,固定物件,prop,96x96,井：青石井台，木辘轳，井绳,props_fixed,0,已处理,ark doubao-seedream-5-0-flash-260915 2026-11-18,
+millstone,固定物件,prop,96x96,石磨：两扇青石磨盘，木推杆,props_fixed,1,已处理,ark doubao-seedream-5-0-flash-260915 2026-11-18,
+grape_trellis,固定物件,prop,192x120,葡萄架：竹木架子，藤蔓和几串葡萄,props_fixed,2,已处理,ark doubao-seedream-5-0-flash-260915 2026-11-18,
+clothesline,固定物件,prop,192x72,晾衣绳：两根木桩一根绳，挂两件衣服,props_fixed,3,已处理,ark doubao-seedream-5-0-flash-260915 2026-11-18,
+altar,固定物件,prop,96x72,供桌：深色长条案，香炉、一对烛台,props_fixed,4,已处理,ark doubao-seedream-5-0-flash-260915 2026-11-18,
+dining_table,固定物件,prop,144x96,饭桌：方木桌，旧,props_fixed,5,已处理,ark doubao-seedream-5-0-flash-260915 2026-11-18,
+stone_bench,固定物件,prop,96x48,石凳：一条青石长凳,props_fixed,6,已处理,ark doubao-seedream-5-0-flash-260915 2026-11-18,
+woodpile,固定物件,prop,144x96,柴垛：码好的木柴堆,props_fixed,7,已处理,ark doubao-seedream-5-0-flash-260915 2026-11-18,
+kang,家具,prop,144x96,土炕：土坯炕，铺草席和蓝花被,furn_01,0,已处理,ark doubao-seedream-5-0-flash-260915 2026-11-18,
+stove,家具,prop,96x72,灶台：土灶，一口铁锅，灶门,furn_01,1,已处理,ark doubao-seedream-5-0-flash-260915 2026-11-18,
+vat,家具,prop,48x60,水缸：粗陶大缸，木盖,furn_01,2,已处理,ark doubao-seedream-5-0-flash-260915 2026-11-18,
+desk,家具,prop,96x60,书案：窄木案，砚台和一卷书,furn_01,3,已处理,ark doubao-seedream-5-0-flash-260915 2026-11-18,
+stool,家具,prop,48x48,矮凳：四条腿的小木凳,furn_01,4,已处理,ark doubao-seedream-5-0-flash-260915 2026-11-18,
+loom,家具,prop,96x96,织机：木织机，挂着经线,furn_01,5,已处理,ark doubao-seedream-5-0-flash-260915 2026-11-18,
+coop,家具,prop,96x96,鸡笼：竹编鸡笼,furn_01,6,已处理,ark doubao-seedream-5-0-flash-260915 2026-11-18,
+garden,家具,prop,144x96,菜畦：一小块垄起的菜地,furn_01,7,已处理,ark doubao-seedream-5-0-flash-260915 2026-11-18,
+mess_dirt,脏乱,prop,48x36,满地碎屑：一摊焦墨碎点和土渣,small_01,0,已处理,ark doubao-seedream-5-0-flash-260915 2026-11-18,
+mess_droppings,脏乱,prop,48x36,鸡粪落叶：几片枯叶和墨点,small_01,1,已处理,ark doubao-seedream-5-0-flash-260915 2026-11-18,
+col_egg,掉落物,prop,32x32,鸡蛋,small_01,2,已处理,ark doubao-seedream-5-0-flash-260915 2026-11-18,白色高光被 #F0F0F0 底一起抠穿，下次提示词写「高光用米白，不留纯白」
+col_coins,掉落物,prop,32x32,一串铜钱,small_01,3,已处理,ark doubao-seedream-5-0-flash-260915 2026-11-18,
+col_hairpin,掉落物,prop,32x32,旧银簪,small_01,4,已处理,ark doubao-seedream-5-0-flash-260915 2026-11-18,
+icon_ill,界面图标,ui,32x32,药碗：病了的标记,small_01,5,已处理,ark doubao-seedream-5-0-flash-260915 2026-11-18,
+father_parts,小人拆件,parts,,父亲 6 块拆件：头、躯干、上臂、前臂、大腿、小腿,father_parts,0,已拆件,ark doubao-seedream-5-0-flash-260915 2026-11-18,第二版提示词（每格只有一条胳膊或腿）；躯干肩口露出圆洞，膝盖接缝有台阶，正式批量前再调一次
+mother_parts,小人拆件,parts,,母亲 6 块拆件：头、躯干、上臂、前臂、大腿、小腿,mother_parts,0,已拆件,ark doubao-seedream-5-0-flash-260915 2026-11-18,第二版提示词（每格只有一条胳膊或腿）；躯干肩口露出圆洞，膝盖接缝有台阶，正式批量前再调一次

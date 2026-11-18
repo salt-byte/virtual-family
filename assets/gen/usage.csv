@@ -1,0 +1,26 @@
+time,sheet,provider,model,images,est_cost,result
+2026-11-18T14:53:22,fam_ref,ark,doubao-seedream-5-0-flash-260915,0,0,error 2
+2026-11-18T14:53:32,fam_ref,ark,doubao-seedream-5-0-flash-260915,0,0,error 2
+2026-11-18T14:53:57,fam_ref,ark,doubao-seedream-5-0-flash-260915,1,0.1200,ok
+2026-11-18T14:54:20,tile_brick,ark,doubao-seedream-5-0-flash-260915,1,0.1200,ok
+2026-11-18T14:54:35,tile_yard,ark,doubao-seedream-5-0-flash-260915,1,0.1200,ok
+2026-11-18T14:54:50,wall_lime,ark,doubao-seedream-5-0-flash-260915,1,0.1200,ok
+2026-11-18T14:55:05,props_fixed,ark,doubao-seedream-5-0-flash-260915,1,0.1200,ok
+2026-11-18T14:55:23,furn_01,ark,doubao-seedream-5-0-flash-260915,1,0.1200,ok
+2026-11-18T14:55:38,small_01,ark,doubao-seedream-5-0-flash-260915,1,0.1200,ok
+2026-11-18T14:57:10,fam_ref,ark,doubao-seedream-5-0-flash-260915,1,0.1200,ok
+2026-11-18T14:57:23,tile_brick,ark,doubao-seedream-5-0-flash-260915,1,0.1200,ok
+2026-11-18T14:57:34,tile_yard,ark,doubao-seedream-5-0-flash-260915,1,0.1200,ok
+2026-11-18T14:57:49,props_fixed,ark,doubao-seedream-5-0-flash-260915,1,0.1200,ok
+2026-11-18T14:59:21,fam_ref,ark,doubao-seedream-5-0-flash-260915,1,0.1200,ok
+2026-11-18T14:59:39,props_fixed,ark,doubao-seedream-5-0-flash-260915,1,0.1200,ok
+2026-11-18T14:59:55,furn_01,ark,doubao-seedream-5-0-flash-260915,1,0.1200,ok
+2026-11-18T15:00:11,small_01,ark,doubao-seedream-5-0-flash-260915,1,0.1200,ok
+2026-11-18T15:00:23,tile_yard,ark,doubao-seedream-5-0-flash-260915,1,0.1200,ok
+2026-11-18T15:01:43,tile_brick,ark,doubao-seedream-5-0-flash-260915,1,0.1200,ok
+2026-11-18T15:01:53,tile_yard,ark,doubao-seedream-5-0-flash-260915,1,0.1200,ok
+2026-11-18T15:02:03,wall_lime,ark,doubao-seedream-5-0-flash-260915,1,0.1200,ok
+2026-11-18T15:03:38,father_parts,ark,doubao-seedream-5-0-flash-260915,1,0.1200,ok
+2026-11-18T15:03:51,mother_parts,ark,doubao-seedream-5-0-flash-260915,1,0.1200,ok
+2026-11-18T15:04:27,father_parts,ark,doubao-seedream-5-0-flash-260915,1,0.1200,ok
+2026-11-18T15:05:29,mother_parts,ark,doubao-seedream-5-0-flash-260915,1,0.1200,ok
