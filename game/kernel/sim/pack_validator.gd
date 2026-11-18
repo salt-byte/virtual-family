@@ -284,8 +284,8 @@ func _check_actions() -> void:
 		if a["work"] is Dictionary and not a["work"].is_empty():
 			if not _p.livelihoods.has(a["work"].get("track", "")):
 				_err("actions.json", id, "work.track '%s' is not a livelihood" % [a["work"].get("track", "")])
-			if a["object"] == "":
-				_err("actions.json", id, "a work action needs an object")
+			if a["object"] == "" and (not a["rooms"] is Array or a["rooms"].is_empty()):
+				_err("actions.json", id, "a work action needs an object or rooms")
 		elif not a["work"] is Dictionary:
 			_err("actions.json", id, "work must be an object")
 		if a["mess"] is Dictionary and not a["mess"].is_empty():
@@ -439,6 +439,24 @@ func _check_livelihoods() -> void:
 					_err("livelihoods.json", l["id"], "level field '%s' must be a number" % [f])
 		if levels[-1] is Dictionary and levels[-1].get("progress_to_next", 0) != 0:
 			_err("livelihoods.json", l["id"], "last level progress_to_next must be 0")
+		_check_affinity(l)
+
+
+## Optional `affinity`: an array of action ids and/or tags some action carries.
+func _check_affinity(l: Dictionary) -> void:
+	if not l.has("affinity"):
+		return
+	if not l["affinity"] is Array:
+		_err("livelihoods.json", l["id"], "affinity must be an array of action ids or tags")
+		return
+	var tags := {}
+	for a in _p.actions.values():
+		if a.get("tags") is Array:
+			for t in a["tags"]:
+				tags[t] = true
+	for entry in l["affinity"]:
+		if not (entry is String and (_p.actions.has(entry) or tags.has(entry))):
+			_err("livelihoods.json", l["id"], "affinity: '%s' is neither an action id nor an action tag" % [str(entry)])
 
 
 func _check_items() -> void:

@@ -10,6 +10,7 @@ static func step(world: World, dt: float) -> void:
 	var age_per_step := dt / (float(pack.cfg("hours_per_year")) * 3600.0)
 	var praise_need := str(pack.cfg("praise_need"))
 	var praise_drain := float(pack.cfg("praise_decay_per_hour")) * dt / 3600.0
+	var grown := LivelihoodSystem.adult_age(pack) if LivelihoodSystem.has_choice(pack) else -1.0
 	for p in world.people:
 		if not p.alive:
 			continue
@@ -28,7 +29,10 @@ static func step(world: World, dt: float) -> void:
 		if world.offline:
 			for nid in p.needs:
 				p.needs[nid] = maxf(float(p.needs[nid]), floor_v)
+		var was := p.age
 		p.age += age_per_step
+		if grown >= 0.0 and was < grown and p.age >= grown:
+			LivelihoodSystem.come_of_age(world, p)
 		if vital != "" and p.needs.has(vital) and float(p.needs[vital]) <= 0.0:
 			world.kill_person(p, "neglect")
 		elif p.age >= p.lifespan:

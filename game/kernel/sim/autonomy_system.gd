@@ -84,6 +84,7 @@ static func _table(pack: Pack) -> Array:
 		out.append(i)
 	pack.autonomy_table = out
 	pack.autonomy_by_stage = {}
+	pack.autonomy_by_stage_track = {}
 	return out
 
 
@@ -93,6 +94,16 @@ static func _stage_table(pack: Pack, stage: String) -> Array:
 	if not pack.autonomy_by_stage.has(stage):
 		pack.autonomy_by_stage[stage] = all.filter(func(i: Info): return stage in i.stages)
 	return pack.autonomy_by_stage[stage]
+
+
+## `_stage_table` without the work actions of livelihoods other than `track`, in pack order.
+static func _stage_track_table(pack: Pack, stage: String, track: String) -> Array:
+	var key := stage + "|" + track
+	var t = pack.autonomy_by_stage_track.get(key)
+	if t == null:
+		t = _stage_table(pack, stage).filter(func(i: Info): return not i.has_work or i.track == track)
+		pack.autonomy_by_stage_track[key] = t
+	return t
 
 
 ## Everything `p` could start right now, scored. Order is stable (pack action order).
@@ -122,7 +133,7 @@ static func candidates(world: World, p: Person, pool := 0) -> Array[Dictionary]:
 	var free := {}  # object type -> first object of that type free for `p` (-1: none)
 	var users := {}  # object uid -> people other than `p` using it (filled on first need)
 	# The cheap yes/no tests come first; only what passes them is scored.
-	for i: Info in _stage_table(pack, stage):
+	for i: Info in _stage_track_table(pack, stage, p.track):
 		if i.slow_in_hours and not _in_hours(hour, i.hours):
 			continue
 		var uid := -1
@@ -385,6 +396,7 @@ static func _finish(world: World, p: Person) -> void:
 	p.last_action_t = world.now
 	p.recent_actions.push_front(id)
 	p.recent_actions.resize(mini(p.recent_actions.size(), int(world.pack.cfg("repeat_memory"))))
+	LivelihoodSystem.on_finished(world, p, id)
 	world.emit("action_finished", {"person": p.uid, "action": id})
 
 

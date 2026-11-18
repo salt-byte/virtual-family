@@ -48,6 +48,7 @@ static func run(pack_id: String, families: int, days: int, seed0: int) -> Dictio
 	var seen := {}
 	var bags := 0
 	var max_bags_day := 0
+	var tracks := {}  # livelihood id -> living people following it at the end
 	for i in families:
 		var w := setup(pack_id, seed0 + i)
 		var bag_size := _food_bag_size(w)
@@ -77,6 +78,7 @@ static func run(pack_id: String, families: int, days: int, seed0: int) -> Dictio
 			if p.alive:
 				levels += p.level
 				living += 1
+				tracks[p.track] = int(tracks.get(p.track, 0)) + 1
 		messes += w.messes.size()
 	money.sort()
 	return {
@@ -90,7 +92,7 @@ static func run(pack_id: String, families: int, days: int, seed0: int) -> Dictio
 		"deaths_neglect": int(deaths["neglect"]), "deaths_old_age": int(deaths["old_age"]),
 		"distinct_actions": seen.size(),
 		"food_bought_per_day": snappedf(float(bags) / (families * days), 0.01) if families * days > 0 else 0.0,
-		"max_food_bought_in_a_day": max_bags_day, "actions_in_pack": Pack.load_dir("res://packs/" + pack_id).actions.size(),
+		"max_food_bought_in_a_day": max_bags_day, "livelihoods": tracks, "actions_in_pack": Pack.load_dir("res://packs/" + pack_id).actions.size(),
 	}
 
 

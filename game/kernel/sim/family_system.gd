@@ -4,7 +4,8 @@ extends RefCounted
 ## while exactly one unmarried adult lives in the house. Commands: adopt, reroll, answer_proposal.
 
 
-## A random person with a pack name, a livelihood track at level 0, and start-value needs.
+## A random person with a pack name, a livelihood track at level 0 (see `LivelihoodSystem`
+## for packs with several), and start-value needs.
 static func make_person(world: World, age_range: Array) -> Person:
 	var names := world.pack.names
 	var p := Person.new()
@@ -12,12 +13,18 @@ static func make_person(world: World, age_range: Array) -> Person:
 	p.given = str(world.rng.pick(names.get(p.gender, [])))
 	p.family = str(world.rng.pick(names.get("family", [])))
 	p.age = _range_f(world, age_range)
-	p.track = str(world.rng.pick(world.pack.livelihoods.keys()))
+	var choose := LivelihoodSystem.has_choice(world.pack)
+	if not choose:
+		p.track = str(world.rng.pick(world.pack.livelihoods.keys()))
 	p.level = 0
 	p.aptitude = 0.6 + world.rng.randf() * 0.8
 	var tags: Array = (names.get("tags", []) as Array).duplicate()
 	p.likes = _take_tags(world, tags)
 	p.dislikes = _take_tags(world, tags)
+	# With a choice of livelihoods a grown-up arrives with the one their tags point to;
+	# a child has none until coming of age.
+	if choose and p.age >= LivelihoodSystem.adult_age(world.pack):
+		p.track = LivelihoodSystem.track_for_likes(world, p.likes, p.dislikes)
 	p.lifespan = _range_f(world, world.pack.cfg("lifespan"))
 	for nid in world.pack.needs:
 		p.needs[nid] = float(world.pack.needs[nid]["start"])

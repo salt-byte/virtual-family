@@ -264,6 +264,12 @@ static func _valid_person(p) -> bool:
 		return false  # optional: older saves lack it
 	if p.has("work_carry") and not (_is_num(p["work_carry"]) and float(p["work_carry"]) >= 0.0 and float(p["work_carry"]) < 1.0):
 		return false
+	if p.has("childhood"):  # optional: older saves lack it; action id -> whole count >= 0
+		if typeof(p["childhood"]) != TYPE_DICTIONARY:
+			return false
+		for k in p["childhood"]:
+			if not (_is_str(k) and _is_whole(p["childhood"][k]) and float(p["childhood"][k]) >= 0.0):
+				return false
 	var c: Dictionary = p["current"]
 	if c.has("room") and not _is_str(c["room"]):
 		return false  # optional: saves from before actions had rooms lack it
@@ -374,6 +380,8 @@ static func _person_ids_known(pack: Pack, p: Dictionary) -> bool:
 	if p["last_action"] != "" and not pack.actions.has(p["last_action"]):
 		return false
 	if p.has("recent_actions") and not _all_in(p["recent_actions"], pack.actions):
+		return false
+	if p.has("childhood") and not _keys_in(p["childhood"], pack.actions):
 		return false
 	if p["current"].has("room") and not pack.rooms.has(p["current"]["room"]):
 		return false

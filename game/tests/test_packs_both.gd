@@ -87,10 +87,13 @@ func test_qijia_day_is_varied_and_night_is_mostly_sleep():
 ## at least 1.5 action starts per minute, at least 15 different actions, never the same
 ## action three times in a row, and at least four switches in every ten minutes.
 func test_qijia_lone_adult_daytime_hour_is_varied():
-	for seed in [1, 2]:
+	# Every livelihood's day is varied: each seed's household is run once per livelihood.
+	var tracks: Array = Pack.load_dir("res://packs/qijia").livelihoods.keys()
+	for run in tracks.size() * 2:
+		var seed := 1 + run % 2
 		var w: World = BalanceRun.setup("qijia", seed)   # 08:00
 		var p: Person = w.people[0]
-		assert_eq(p.track, "reading")
+		p.track = str(tracks[run / 2])
 		for h in 2:
 			_decline_and_care(w)
 			w.advance(3600.0)
@@ -105,7 +108,7 @@ func test_qijia_lone_adult_daytime_hour_is_varied():
 					seq.append(e.action)
 					per_ten[m / 10] += 1
 		assert_eq(w.people.size(), 1, "seed %d" % seed)
-		var msg := "seed %d: %s" % [seed, seq]
+		var msg := "seed %d, %s: %s" % [seed, p.track, seq]
 		assert_true(seq.size() >= 90, "%.2f starts per minute; %s" % [seq.size() / 60.0, msg])
 		var distinct := {}
 		for a in seq:
@@ -165,6 +168,8 @@ func test_qijia_two_adults_share_one_kang_overnight():
 ## The step length must not change how fast things happen: the same qijia content at 60 s
 ## and at 5 s steps gives about the same average number of illnesses, messes, drops and
 ## proposals per household over two days (wide margin: the random sequences differ).
+const HOUSEHOLDS := 20
+
 func test_qijia_event_rates_do_not_depend_on_step_length():
 	var at60 := _qijia_event_averages(60)
 	var at5 := _qijia_event_averages(5)
@@ -173,7 +178,7 @@ func test_qijia_event_rates_do_not_depend_on_step_length():
 		assert_true(at60[k] > 0.0 and at5[k] > 0.0, msg)
 		assert_true(absf(at5[k] - at60[k]) <= 0.35 * at60[k], msg)
 
-## Per-household averages of the dice-driven events, 10 households x 2 days with the
+## Per-household averages of the dice-driven events, 20 households x 2 days with the
 ## hourly caretaker, the qijia pack run at `step` seconds and action speed 1.
 func _qijia_event_averages(step: int) -> Dictionary:
 	var pack := Pack.load_dir("res://packs/qijia")
@@ -184,7 +189,8 @@ func _qijia_event_averages(step: int) -> Dictionary:
 	# Illness is rare (0.3 a day): raised in both arms so each counts enough cases to compare.
 	pack.config["illness_daily_chance"] = 2.0
 	var counts := {"fell_ill": 0.0, "mess_spawned": 0.0, "collectible_spawned": 0.0, "proposal_arrived": 0.0}
-	for i in 10:
+	# 20 households: with 10 the mess counts swung by more than the tolerance on dice alone.
+	for i in HOUSEHOLDS:
 		var w := BalanceRun.setup_pack(pack, 300 + i)
 		assert_eq(w.step_s, step)
 		for h in 48:
@@ -194,7 +200,7 @@ func _qijia_event_averages(step: int) -> Dictionary:
 				if counts.has(e.type):
 					counts[e.type] += 1.0
 	for k in counts:
-		counts[k] /= 10.0
+		counts[k] /= float(HOUSEHOLDS)
 	return counts
 
 ## Every qijia label is a short phrase (4-12 characters) and no two are the same.

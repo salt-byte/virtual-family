@@ -21,6 +21,7 @@ static var handlers: Dictionary = {
 	"adopt": FamilySystem.adopt,
 	"reroll": FamilySystem.reroll,
 	"answer_proposal": FamilySystem.answer_proposal,
+	"change_track": LivelihoodSystem.change_track,
 }
 
 

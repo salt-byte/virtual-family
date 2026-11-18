@@ -32,6 +32,12 @@ const DEFAULTS := {
 	"error.no_person": "没有这个人", "error.no_proposal": "这门亲事已经作罢", "error.not_adopting": "现在不是领养的时候",
 	"error.not_running": "现在做不了", "error.unknown_command": "做不了", "error.unknown": "做不了",
 	"error.no_place": "那地方还没有", "error.fixed": "这个挪不动",
+	"error.no_track": "没有这一行", "error.same_track": "已经在做这一行了",
+	"family.child": "还小", "family.job": "{job} · {level}", "btn.change_track": "改行",
+	"title.change_track": "给{name}改行", "change.note": "改行要从头学起，眼下这一行的本事不留。",
+	"change.option": "{job} · 从{level}做起 · 每日 {money}",
+	"ev.took_up": "{name}长大成人，做起了{job}", "ev.changed_track": "{name}改行做{job}，从{level}学起",
+	"ev.married_job": "{name}进了门，{job} · {level}",
 	"gender.male": "男", "gender.female": "女", "label.likes": "喜欢", "label.dislikes": "厌恶",
 	"label.savings": "带来 {n}", "load.backup": "旧存档会留一份备份，不会丢。",
 	"load.corrupt": "存档坏了", "load.version": "存档是新版本存的，这个版本读不了",
@@ -108,6 +114,18 @@ func _level_name(track: String, level: int) -> String:
 	return ""
 
 
+## "{job} · {level}" for a person's livelihood; "" without one.
+func job_line(p: Person) -> String:
+	var job: Dictionary = pack.livelihoods.get(p.track, {})
+	if job.is_empty():
+		return ""
+	return _f("family.job", {"job": str(job.get("name", "")), "level": _level_name(p.track, p.level)})
+
+
+func _job_name(track: String) -> String:
+	return str(pack.livelihoods.get(track, {}).get("name", ""))
+
+
 func person_line(p: Person, world: World) -> String:
 	var out := _f("years", {"n": int(p.age)})
 	var lv := _level_name(p.track, p.level) if p.track != "" else ""
@@ -146,7 +164,16 @@ func event(e: Dictionary, world: World) -> String:
 			return _f("ev.level_up", {"name": _name_of(int(e["person"]), world),
 				"level": _level_name(str(e["track"]), int(e["level"]))})
 		"married":
+			var who := world.person(int(e["person"]))
+			if who != null and job_line(who) != "":
+				return _f("ev.married_job", {"name": person_name(who), "job": _job_name(who.track),
+					"level": _level_name(who.track, who.level)})
 			return _f("ev.married", {"name": _name_of(int(e["person"]), world)})
+		"took_up":
+			return _f("ev.took_up", {"name": _name_of(int(e["person"]), world), "job": _job_name(str(e["track"]))})
+		"changed_track":
+			return _f("ev.changed_track", {"name": _name_of(int(e["person"]), world),
+				"job": _job_name(str(e["track"])), "level": _level_name(str(e["track"]), 0)})
 		"person_died":
 			var key := "ev.died_old" if str(e["cause"]) == "old_age" else "ev.died_neglect"
 			return _f(key, {"name": _name_of(int(e["person"]), world)})

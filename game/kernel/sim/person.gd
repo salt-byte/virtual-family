@@ -32,6 +32,9 @@ var last_action := ""
 var last_action_t := 0
 ## The last few finished action ids, most recent first (at most the pack's `repeat_memory`).
 var recent_actions: Array = []
+## While a child, in a pack with several livelihoods: action id -> times finished. Read at
+## coming of age to choose a livelihood (see `LivelihoodSystem`).
+var childhood: Dictionary = {}
 
 
 ## Status bar: need id -> the label word that applies to the current value.
@@ -69,7 +72,7 @@ func to_dict() -> Dictionary:
 		"track": track, "level": level, "progress": progress, "aptitude": aptitude, "work_carry": work_carry,
 		"illness": illness, "current": current.duplicate(true),
 		"last_action": last_action, "last_action_t": last_action_t,
-		"recent_actions": recent_actions.duplicate(),
+		"recent_actions": recent_actions.duplicate(), "childhood": childhood.duplicate(),
 	}
 
 
@@ -114,4 +117,7 @@ static func from_dict(d: Dictionary) -> Person:
 			p.recent_actions.append(str(id))
 	elif p.last_action != "":  # saves from before it existed: the last action is all we know
 		p.recent_actions.append(p.last_action)
+	var ch: Dictionary = d.get("childhood", {})  # absent in saves from before it existed
+	for k in ch:
+		p.childhood[str(k)] = int(ch[k])
 	return p

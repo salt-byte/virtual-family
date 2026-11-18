@@ -72,6 +72,10 @@ var raw: Dictionary = {}
 var autonomy_table: Array = []
 ## stage id -> the entries of `autonomy_table` open to that stage, in pack order.
 var autonomy_by_stage: Dictionary = {}
+## "stage|track" -> `autonomy_by_stage[stage]` without the work actions of other tracks.
+var autonomy_by_stage_track: Dictionary = {}
+## livelihood id -> {action id: affinity matches}, prepared by `LivelihoodSystem`.
+var affinity_table: Dictionary = {}
 
 
 static func load_dir(dir: String) -> Pack:

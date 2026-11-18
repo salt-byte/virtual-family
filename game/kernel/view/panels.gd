@@ -21,6 +21,8 @@ var _buttons: Dictionary = {}  # id -> Button
 var _kind := ""
 var _tab := ""
 var _signature := ""
+## In the family panel: uid of the person whose livelihood is being changed (-1: none).
+var _changing := -1
 
 
 func setup(m: Main) -> void:
@@ -69,6 +71,7 @@ func open(what: String) -> void:
 	if w == null or w.phase != "living" or main.overlays.current() != "":
 		return
 	_kind = what
+	_changing = -1
 	_tab = _tabs()[0] if not _tabs().is_empty() else ""
 	_signature = ""
 	refresh()
@@ -79,6 +82,7 @@ func close() -> void:
 		return
 	_kind = ""
 	_tab = ""
+	_changing = -1
 	_signature = ""
 	_rebuild()
 
@@ -147,6 +151,16 @@ func press(id: String) -> void:
 	elif id == "proposal":
 		close()
 		main.overlays.open_proposal()
+	elif id.begins_with("change:"):
+		_changing = int(id.substr(7))
+		refresh()
+	elif id == "change.cancel":
+		_changing = -1
+		refresh()
+	elif id.begins_with("track:"):
+		session.command({"type": "change_track", "person": _changing, "track": id.substr(6)})
+		_changing = -1
+		refresh()
 
 
 ## Rebuilds only when something the panel shows has changed.
@@ -176,10 +190,10 @@ func _data_signature(w: World) -> String:
 		"ledger":
 			return "%s|%s" % [str(w.goals_done), str(w.collection)]
 		"family":
-			var parts: Array[String] = [str(w.proposals.size())]
+			var parts: Array[String] = [str(w.proposals.size()), str(_changing)]
 			for p in w.people:
 				if p.alive:
-					parts.append("%d:%s:%s" % [p.uid, s.person_line(p, w), s.status_line(p, w)])
+					parts.append("%d:%s:%s:%s" % [p.uid, s.person_line(p, w), s.status_line(p, w), s.job_line(p)])
 			return "|".join(parts)
 	return ""
 
@@ -287,6 +301,11 @@ func _fill_collection(list: VBoxContainer, w: World) -> void:
 
 func _fill_family(list: VBoxContainer, w: World) -> void:
 	var s := session.strings
+	var who := w.person(_changing)
+	if who != null and who.alive:
+		_fill_change(list, w, who)
+		return
+	_changing = -1
 	if not w.proposals.is_empty():
 		_button("proposal", s.t("title.proposal"), list)
 	for p in w.people:
@@ -295,6 +314,29 @@ func _fill_family(list: VBoxContainer, w: World) -> void:
 			b.alignment = HORIZONTAL_ALIGNMENT_LEFT
 			b.clip_text = true
 			b.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+			var row := ViewWidgets.row(list)
+			if p.stage(w.pack) in ["adult", "elder"]:
+				row.add_child(ViewWidgets.name_label("    " + s.job_line(p)))
+				_button("change:%d" % p.uid, s.t("btn.change_track"), row)
+			else:
+				row.add_child(ViewWidgets.name_label("    " + s.t("family.child")))
+
+
+## The livelihoods `p` could change to, with what each starts at; picking one changes it.
+func _fill_change(list: VBoxContainer, w: World, p: Person) -> void:
+	var s := session.strings
+	list.add_child(ViewWidgets.wrapped(s.t("title.change_track").replace("{name}", s.person_name(p))))
+	list.add_child(ViewWidgets.wrapped(s.t("change.note")))
+	for t in w.pack.livelihoods:
+		if t == p.track:
+			continue
+		var job: Dictionary = w.pack.livelihoods[t]
+		var first: Dictionary = (job["levels"] as Array)[0]
+		var text := s.t("change.option").format({"job": str(job["name"]), "level": str(first["name"]),
+			"money": s.t("money").replace("{n}", str(int(first["daily_income"])))})
+		var b := _button("track:" + str(t), text, list)
+		b.alignment = HORIZONTAL_ALIGNMENT_LEFT
+	_button("change.cancel", s.t("btn.cancel"), list)
 
 
 ## Every label that sits in a row beside other widgets; for layout tests.

@@ -241,6 +241,7 @@ func test_progress_and_bob_follow_the_action():
 	assert_eq(pv.progress(), -1.0)
 	assert_eq(pv.bob_offset(), 0.0)
 	var desk: int = w.objects.filter(func(o): return o.type == "desk")[0].uid
+	p.track = "reading"                             # 念书的人拖到书案上才念书
 	m.session.command({"type": "drag", "person": p.uid, "object": desk}); m.tick(0.016)
 	assert_near(pv.progress(), 0.0, 0.05)
 	for i in 200:                                   # 走到位
