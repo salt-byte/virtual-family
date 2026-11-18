@@ -196,7 +196,7 @@ func test_click_selects_person_and_empty_press_pans():
 	pv2.target = pv2.position
 	assert_eq(m.house.person_at(pv2.position + Vector2(0, -10)), w.people[1].uid)
 	assert_eq(m.house.person_at(pv2.position + Vector2(500, 500)), -1)
-	_click(m, m.house.position + pv2.position + Vector2(0, -10))
+	_click(m, m.house.to_screen(pv2.position + Vector2(0, -10)))
 	assert_eq(m.selected, w.people[1].uid)
 	assert_true(first.uid != m.selected)
 	m.free()

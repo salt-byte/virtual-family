@@ -185,7 +185,7 @@ func test_failed_command_mute_is_one_shot():
 # --- input state machine -------------------------------------------------
 
 func _screen_of(m: Main, uid: int) -> Vector2:
-	return m.house.people[uid].position + m.house.position + Vector2(0, -20)
+	return m.house.to_screen(m.house.people[uid].position + Vector2(0, -20))
 
 
 func test_press_release_on_person_selects():

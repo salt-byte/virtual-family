@@ -82,7 +82,8 @@ func test_pan_is_clamped_to_the_house():
 	assert_true(a != b)
 	# the house never leaves the 1280x720 screen entirely
 	var bounds := m.house.layout.bounds()
-	assert_true(a.x + bounds.position.x < 1280.0 and b.x + bounds.end.x > 0.0)
+	var s := m.house.scale.x
+	assert_true(a.x + bounds.position.x * s < 1280.0 and b.x + bounds.end.x * s > 0.0)
 	assert_eq(m.house.world_pos(m.house.position), Vector2.ZERO)
 	m.free()
 
@@ -219,8 +220,8 @@ func test_smoke_pack_through_the_view_has_no_theme_money_words():
 	var p: Person = w.people[0]
 	var o: Dictionary = w.objects[0]
 	var pv: PersonView = m.house.people[p.uid]
-	var from := m.house.position + pv.position
-	var to := m.house.position + m.house.layout.object_rect(o, w.pack).get_center()
+	var from := m.house.to_screen(pv.position)
+	var to := m.house.to_screen(m.house.layout.object_rect(o, w.pack).get_center())
 	m.house.press(from)
 	m.house.move(to, to - from)
 	assert_eq(m.drag.dragging, p.uid)
@@ -286,4 +287,78 @@ func test_sleeping_person_is_dimmed_not_bobbing():
 	pv.tick(0.2)
 	assert_true(pv.asleep())
 	assert_eq(pv.bob_offset(), 0.0)
+	m.free()
+
+
+# --- zoom ------------------------------------------------------------------
+
+func test_fit_scale_fills_the_window_and_is_capped():
+	var m := Main.create("qijia", _clean_dir(), _clock)  # not in the tree: 1280x720
+	var s := m.house.fit_scale(Vector2(1280, 720))
+	assert_true(s >= 1.0 and s <= 1.1, str(s))
+	assert_eq(m.house.fit_scale(Vector2(2560, 1440)), 2.0)
+	assert_eq(m.house.fit_scale(Vector2(200, 200)), 0.5)
+	assert_near(m.house.scale.x, s)
+	# The fitted house sits inside the area above the bottom bar.
+	var b := m.house.layout.bounds()
+	var tl := m.house.to_screen(b.position)
+	var br := m.house.to_screen(b.end)
+	assert_true(tl.x >= 23.9 and tl.y >= 23.9 and br.x <= 1256.1 and br.y <= 720 - 96 - 23.9, "%s %s" % [tl, br])
+	m.free()
+
+
+func test_world_pos_inverts_to_screen_at_any_scale():
+	var m := _main()
+	for s in [0.5, 1.07, 1.7, 2.0]:
+		m.house.zoom_to(s)
+		assert_near(m.house.scale.x, s)
+		for p in [Vector2.ZERO, Vector2(100, -20), Vector2(700, 400), Vector2(1100, 480)]:
+			var back: Vector2 = m.house.world_pos(m.house.to_screen(p))
+			assert_true(back.distance_to(p) < 0.001, "%s at %s -> %s" % [p, s, back])
+	m.free()
+
+
+func test_pan_clamp_uses_the_scaled_house():
+	var m := _main()
+	m.house.zoom_to(2.0)
+	var b := m.house.layout.bounds()
+	m.house.pan(Vector2(-100000, -100000))
+	assert_near(m.house.to_screen(b.end).x, HouseView.KEEP_VISIBLE)
+	m.house.pan(Vector2(100000, 100000))
+	assert_near(m.house.to_screen(b.position).x, 1280.0 - HouseView.KEEP_VISIBLE)
+	m.free()
+
+
+func _drag_person_onto_furniture_at(s: float) -> void:
+	var m := _main(); m.session.command({"type": "adopt"}); m.tick(0.016)
+	m.house.zoom_to(s)
+	var w := m.session.world
+	var p: Person = w.people[0]
+	AutonomySystem.cancel(w, p); m.tick(0.016)
+	var o: Dictionary = w.objects.filter(func(x): return x.type == "stove")[0]
+	var pv: PersonView = m.house.people[p.uid]
+	var from := m.house.to_screen(pv.position + Vector2(0, -20))
+	var to := m.house.to_screen(m.house.layout.object_rect(o, w.pack).get_center())
+	m.house.press(from)
+	m.house.move(to, to - from)
+	assert_eq(m.drag.dragging, p.uid, "scale %s" % s)
+	m.house.release(to)
+	assert_eq(int(p.current.get("object_uid", -1)), int(o.uid), "scale %s" % s)
+	m.free()
+
+
+func test_drag_onto_furniture_works_when_zoomed():
+	_drag_person_onto_furniture_at(1.07)
+	_drag_person_onto_furniture_at(2.0)
+
+
+func test_arrange_hover_lands_on_the_cell_under_the_pointer_when_zoomed():
+	var m := _main(); m.session.command({"type": "adopt"}); m.tick(0.016)
+	m.session.world.money = 1000
+	m.house.zoom_to(2.0)
+	m.arrange.enter(); m.arrange.press("type:stool")
+	var at := m.house.to_screen(m.house.layout.cell_center("hall", 6, 4))
+	m.house.move(at, Vector2.ZERO)
+	var g := m.arrange.ghost()
+	assert_eq([str(g.room), int(g.x), int(g.y)], ["hall", 6, 4])
 	m.free()

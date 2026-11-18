@@ -210,10 +210,10 @@ func test_hud_button_enters_and_people_cannot_be_dragged():
 	m.hud.press("arrange")
 	assert_true(m.arrange.active)
 	var pv: PersonView = m.house.people.values()[0]
-	m.house.press(m.house.position + pv.position)
-	m.house.move(m.house.position + pv.position + Vector2(40, 0), Vector2(40, 0))
+	m.house.press(m.house.to_screen(pv.position))
+	m.house.move(m.house.to_screen(pv.position) + Vector2(40, 0), Vector2(40, 0))
 	assert_eq(m.drag.dragging, -1)
-	m.house.release(m.house.position + pv.position + Vector2(40, 0))
+	m.house.release(m.house.to_screen(pv.position) + Vector2(40, 0))
 	m.hud.press("arrange")
 	assert_true(not m.arrange.active)
 	m.free()
@@ -232,8 +232,8 @@ func test_overlay_exits_arrange_mode():
 func test_pointer_flow_picks_by_press_and_drops_by_release():
 	var m := _living(); var w := m.session.world
 	var vat: Dictionary = w.objects.filter(func(o): return o.type == "vat")[0]
-	var from := m.house.position + _object_center(m, vat.uid)
-	var to := m.house.position + m.house.layout.cell_center("hall", 3, 3)
+	var from := m.house.to_screen(_object_center(m, vat.uid))
+	var to := m.house.to_screen(m.house.layout.cell_center("hall", 3, 3))
 	m.arrange.enter()
 	m.house.press(from)
 	assert_eq(m.arrange.held_uid, vat.uid)
@@ -258,7 +258,7 @@ func test_click_with_a_piece_in_hand_places_it():
 	w.money = 1000
 	var count := w.objects.size()
 	m.arrange.enter(); m.arrange.press("type:stool")
-	var at := m.house.position + _free_cell_center(m, "hall")
+	var at := m.house.to_screen(_free_cell_center(m, "hall"))
 	m.house.move(at, Vector2.ZERO)
 	m.house.press(at)
 	m.house.release(at)
@@ -272,7 +272,7 @@ func test_press_drag_with_a_piece_in_hand_pans_and_does_not_place():
 	w.money = 1000
 	var count := w.objects.size()
 	m.arrange.enter(); m.arrange.press("type:coop")
-	var from := m.house.position + _free_cell_center(m, "hall")
+	var from := m.house.to_screen(_free_cell_center(m, "hall"))
 	var to := from + Vector2(-200, 0)
 	var before := m.house.position
 	m.house.press(from)
@@ -282,7 +282,7 @@ func test_press_drag_with_a_piece_in_hand_pans_and_does_not_place():
 	assert_eq(w.objects.size(), count)
 	assert_eq(m.arrange.held_type, "coop")
 	# The ghost follows the pointer over the panned house; a click there places the piece.
-	var yard := m.house.position + _free_cell_center(m, "yard")
+	var yard := m.house.to_screen(_free_cell_center(m, "yard"))
 	m.house.move(yard, Vector2.ZERO)
 	assert_eq(str(m.arrange.ghost().room), "yard")
 	m.house.press(yard)
@@ -296,7 +296,7 @@ func test_furniture_under_a_mess_can_be_picked_up():
 	var stool: Dictionary = w.objects.filter(func(o): return o.type == "stool")[0]
 	w.messes.append({"uid": 9001, "type": "dirt", "room": stool.room, "x": stool.x, "y": stool.y})
 	m.arrange.enter()
-	m.house.press(m.house.position + m.house.layout.cell_center(stool.room, stool.x, stool.y))
+	m.house.press(m.house.to_screen(m.house.layout.cell_center(stool.room, stool.x, stool.y)))
 	assert_eq(m.arrange.held_uid, stool.uid)
 	m.free()
 

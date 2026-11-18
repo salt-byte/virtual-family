@@ -1,11 +1,17 @@
 class_name HouseView
 extends Node2D
 ## Draws the house (rooms, furniture, messes, collectibles) and keeps one PersonView per
-## living person. Panning moves this node. Reads the World, never writes it.
+## living person. Panning moves this node; its scale fits the house to the window. Reads
+## the World, never writes it.
 
+## The window size used when this node is not in a tree (tests).
 const VIEW_SIZE := Vector2(1280, 720)
 const BOTTOM_BAR := 96.0
 const KEEP_VISIBLE := 120.0
+## Space kept clear around the fitted house, and the zoom range.
+const FIT_MARGIN := 24.0
+const MIN_SCALE := 0.5
+const MAX_SCALE := 2.0
 const SPREAD := 20.0
 const NIGHT_COLOR := Color(0.45, 0.5, 0.7)
 
@@ -52,20 +58,73 @@ func setup(s: GameSession) -> void:
 	layout = HouseLayout.new(s.pack)
 	_modulate = CanvasModulate.new()
 	add_child(_modulate)
-	var b := layout.bounds()
-	var area := Vector2(VIEW_SIZE.x, VIEW_SIZE.y - BOTTOM_BAR)
-	position = area * 0.5 - b.get_center()
+	scale = Vector2.ONE * fit_scale(_view_size())
+	position = _centred()
 	pan(Vector2.ZERO)
 
 
+func _enter_tree() -> void:
+	var vp := get_viewport()
+	if not vp.size_changed.is_connected(_refit):
+		vp.size_changed.connect(_refit)
+	if layout != null:
+		_refit()
+
+
+func _exit_tree() -> void:
+	var vp := get_viewport()
+	if vp.size_changed.is_connected(_refit):
+		vp.size_changed.disconnect(_refit)
+
+
+## The visible viewport size; VIEW_SIZE when not in a tree.
+func _view_size() -> Vector2:
+	return get_viewport_rect().size if is_inside_tree() else VIEW_SIZE
+
+
+## The largest uniform scale at which the house (walls included) fits the area above the
+## bottom bar with FIT_MARGIN on every side, clamped to [MIN_SCALE, MAX_SCALE].
+func fit_scale(viewport_size: Vector2) -> float:
+	var b := layout.bounds()
+	var room := Vector2(viewport_size.x, viewport_size.y - BOTTOM_BAR) - Vector2.ONE * FIT_MARGIN * 2.0
+	if b.size.x <= 0.0 or b.size.y <= 0.0:
+		return 1.0
+	return clampf(minf(room.x / b.size.x, room.y / b.size.y), MIN_SCALE, MAX_SCALE)
+
+
+## Where this node sits so the house is centred above the bottom bar at the current scale.
+func _centred() -> Vector2:
+	var v := _view_size()
+	return Vector2(v.x, v.y - BOTTOM_BAR) * 0.5 - layout.bounds().get_center() * scale
+
+
+## Sets the zoom to `s`, keeping the player's pan (scaled along) within the clamp.
+func zoom_to(s: float) -> void:
+	var off := (position - _centred()) / scale.x
+	scale = Vector2.ONE * s
+	position = _centred() + off * s
+	pan(Vector2.ZERO)
+
+
+func _refit() -> void:
+	zoom_to(fit_scale(_view_size()))
+
+
+## A point in the house's coordinates -> the screen.
+func to_screen(house: Vector2) -> Vector2:
+	return transform * house
+
+
+## A point on the screen -> the house's coordinates.
 func world_pos(screen: Vector2) -> Vector2:
-	return screen - position
+	return transform.affine_inverse() * screen
 
 
 func pan(by: Vector2) -> void:
 	var b := layout.bounds()
-	var lo := Vector2(KEEP_VISIBLE - b.end.x, KEEP_VISIBLE - b.end.y)
-	var hi := Vector2(VIEW_SIZE.x - KEEP_VISIBLE - b.position.x, VIEW_SIZE.y - KEEP_VISIBLE - b.position.y)
+	var v := _view_size()
+	var lo := Vector2(KEEP_VISIBLE, KEEP_VISIBLE) - b.end * scale
+	var hi := v - Vector2(KEEP_VISIBLE, KEEP_VISIBLE) - b.position * scale
 	position = (position + by).clamp(lo, hi)
 
 
