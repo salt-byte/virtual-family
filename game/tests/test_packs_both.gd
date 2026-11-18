@@ -84,7 +84,7 @@ func test_qijia_day_is_varied_and_night_is_mostly_sleep():
 		assert_eq(adults, 2, "seed %d" % seed)
 
 ## A reading-track adult living alone, 10:00-11:00 of the first day (proposals declined):
-## at least 1.5 action starts per minute, at least 10 different actions, never the same
+## at least 1.5 action starts per minute, at least 15 different actions, never the same
 ## action three times in a row, and at least four switches in every ten minutes.
 func test_qijia_lone_adult_daytime_hour_is_varied():
 	for seed in [1, 2]:
@@ -110,7 +110,7 @@ func test_qijia_lone_adult_daytime_hour_is_varied():
 		var distinct := {}
 		for a in seq:
 			distinct[a] = true
-		assert_true(distinct.size() >= 10, "%d distinct; %s" % [distinct.size(), msg])
+		assert_true(distinct.size() >= 15, "%d distinct; %s" % [distinct.size(), msg])
 		for i in range(2, seq.size()):
 			assert_true(not (seq[i] == seq[i - 1] and seq[i] == seq[i - 2]), "%s three times in a row; %s" % [seq[i], msg])
 		for k in 6:
@@ -128,16 +128,24 @@ func _starts_by_person(events: Array) -> Dictionary:
 			out[e.person] = int(out.get(e.person, 0)) + 1
 	return out
 
+## One of each object type, except fixed furniture, which only comes with its (built) room.
 func test_setup_places_one_of_each_object_and_adopts():
 	for id in PACKS:
 		var w: World = BalanceRun.setup(id, 7)
 		assert_eq(w.phase, "living", id)
 		assert_eq(w.people.size(), 1, id)
-		assert_eq(w.objects.size(), w.pack.object_types.size(), id)
+		var expected := {}
+		for t in w.pack.object_types:
+			if not w.pack.object_types[t]["fixed"]:
+				expected[t] = true
+		for room in w.rooms_built:
+			for pr in w.pack.rooms[room]["props"]:
+				expected[pr["type"]] = true
+		assert_eq(w.objects.size(), expected.size(), id)
 		var types := {}
 		for o in w.objects:
 			types[o.type] = true
-		assert_eq(types.size(), w.pack.object_types.size(), id)
+		assert_eq(types, expected, id)
 
 ## A married couple sharing one kang both sleep through the night.
 func test_qijia_two_adults_share_one_kang_overnight():
@@ -188,3 +196,56 @@ func _qijia_event_averages(step: int) -> Dictionary:
 	for k in counts:
 		counts[k] /= 10.0
 	return counts
+
+## Every qijia label is a short phrase (4-12 characters) and no two are the same.
+func test_qijia_labels_are_short_and_unique():
+	var p := Pack.load_dir("res://packs/qijia")
+	var seen := {}
+	for a in p.actions.values():
+		var n := str(a.label).length()
+		assert_true(n >= 4 and n <= 12, "%s: %s" % [a.id, a.label])
+		assert_true(not seen.has(a.label), "%s repeats %s" % [a.id, a.label])
+		seen[a.label] = a.id
+
+## The compound brought at least 15 more pastimes that need no furniture (34 before it),
+## and each of those says where it happens.
+func test_qijia_has_many_pastimes_without_furniture():
+	var p := Pack.load_dir("res://packs/qijia")
+	var n := 0
+	for a in p.actions.values():
+		if a.kind == "flavor" and str(a.object) == "":
+			n += 1
+			assert_true(not (a.rooms as Array).is_empty(), a.id)
+	assert_true(n >= 34 + 15, str(n))
+
+## Every room built from the start offers at least three things to do there: actions that
+## name the room, or actions on furniture standing in it after the first adoption.
+func test_qijia_every_built_room_has_things_to_do():
+	var w := World.new(Pack.load_dir("res://packs/qijia"), 1)
+	w.set_time(1767268800, 0)
+	w.command({"type": "adopt"})
+	for room in w.rooms_built:
+		var types := {}
+		for o in w.objects:
+			if o.room == room:
+				types[o.type] = true
+		var n := 0
+		for a in w.pack.actions.values():
+			if (a.rooms as Array).has(room) or types.has(str(a.object)):
+				n += 1
+		assert_true(n >= 3, "%s: %d" % [room, n])
+
+## Rooms built later bring their own furniture and actions too.
+func test_qijia_rooms_built_later_have_things_to_do():
+	var p := Pack.load_dir("res://packs/qijia")
+	for room in p.rooms:
+		if p.rooms[room]["built"]:
+			continue
+		var types := {}
+		for pr in p.rooms[room]["props"]:
+			types[pr["type"]] = true
+		var n := 0
+		for a in p.actions.values():
+			if (a.rooms as Array).has(room) or types.has(str(a.object)):
+				n += 1
+		assert_true(n >= 2, "%s: %d" % [room, n])

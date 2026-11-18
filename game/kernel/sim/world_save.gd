@@ -87,6 +87,11 @@ static func _build(pack: Pack, d: Dictionary) -> World:
 	for id in pack.rooms:
 		if pack.rooms[id].get("built") == true and not w.rooms_built.has(str(id)):
 			w.rooms_built.append(str(id))
+	# ...and the fixed furniture of its rooms: each prop whose kind is missing from its room
+	# is added where it still fits (skipped silently where something now stands).
+	if bool(d["adopted_once"]):
+		for room in w.rooms_built:
+			HouseSystem.place_props(w, room, true)
 	w.stats = _int_values(d["stats"])
 	w.collectibles.clear()
 	for c in d["collectibles"]:
@@ -260,6 +265,8 @@ static func _valid_person(p) -> bool:
 	if p.has("work_carry") and not (_is_num(p["work_carry"]) and float(p["work_carry"]) >= 0.0 and float(p["work_carry"]) < 1.0):
 		return false
 	var c: Dictionary = p["current"]
+	if c.has("room") and not _is_str(c["room"]):
+		return false  # optional: saves from before actions had rooms lack it
 	return c.is_empty() or _has(c, {"action": "s", "object_uid": "i", "target_uid": "i", "remaining_s": "i"})
 
 
@@ -367,6 +374,8 @@ static func _person_ids_known(pack: Pack, p: Dictionary) -> bool:
 	if p["last_action"] != "" and not pack.actions.has(p["last_action"]):
 		return false
 	if p.has("recent_actions") and not _all_in(p["recent_actions"], pack.actions):
+		return false
+	if p["current"].has("room") and not pack.rooms.has(p["current"]["room"]):
 		return false
 	return p["current"].is_empty() or pack.actions.has(p["current"]["action"])
 

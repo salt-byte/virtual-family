@@ -30,8 +30,25 @@ static func can_place(world: World, type: String, room: String, x: int, y: int, 
 	return ""
 
 
+## Whether `type` is fixed furniture (part of the house: never bought, moved or sold).
+static func is_fixed(world: World, type: String) -> bool:
+	return bool(world.pack.object_types.get(type, {}).get("fixed", false))
+
+
+## Adds the room's `props` (its fixed furniture) for free; a spot that is taken is skipped.
+## `missing_only`: only props whose kind has no object in the room yet (old saves).
+static func place_props(world: World, room: String, missing_only := false) -> void:
+	for pr in world.pack.rooms.get(room, {}).get("props", []):
+		var type := str(pr["type"])
+		if missing_only and world.objects.any(func(o): return o["type"] == type and o["room"] == room):
+			continue
+		world.add_object(type, room, int(pr["x"]), int(pr["y"]))
+
+
 static func place(world: World, cmd: Dictionary) -> Dictionary:
 	var type := str(cmd.get("object_type", ""))
+	if is_fixed(world, type):
+		return Commands.fail("fixed")
 	var why := can_place(world, type, str(cmd.get("room", "")), int(cmd.get("x", 0)), int(cmd.get("y", 0)))
 	if why != "":
 		return Commands.fail(why)
@@ -46,6 +63,8 @@ static func move(world: World, cmd: Dictionary) -> Dictionary:
 	var o := world.object(uid)
 	if o.is_empty():
 		return Commands.fail("no_object")
+	if is_fixed(world, str(o["type"])):
+		return Commands.fail("fixed")
 	var room := str(cmd.get("room", ""))
 	var x := int(cmd.get("x", 0))
 	var y := int(cmd.get("y", 0))
@@ -64,6 +83,8 @@ static func sell(world: World, cmd: Dictionary) -> Dictionary:
 	var o := world.object(uid)
 	if o.is_empty():
 		return Commands.fail("no_object")
+	if is_fixed(world, str(o["type"])):
+		return Commands.fail("fixed")
 	_release_users(world, uid)
 	var price := int(world.pack.object_types[o["type"]]["price"])
 	world.objects.erase(o)
@@ -80,6 +101,7 @@ static func build_room(world: World, cmd: Dictionary) -> Dictionary:
 	if not EconomySystem.spend(world, int(world.pack.rooms[id]["build_cost"])):
 		return Commands.fail("no_money")
 	world.rooms_built.append(id)
+	place_props(world, id)
 	return Commands.success()
 
 

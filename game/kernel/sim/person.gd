@@ -25,7 +25,8 @@ var aptitude := 1.0
 var work_carry := 0.0
 ## illness id; "" means healthy
 var illness := ""
-## Empty when idle; otherwise {action, object_uid, target_uid, remaining_s}.
+## Empty when idle; otherwise {action, object_uid, target_uid, remaining_s} and, for an
+## action that names the rooms it happens in, `room` (the one picked when it started).
 var current: Dictionary = {}
 var last_action := ""
 var last_action_t := 0

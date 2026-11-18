@@ -257,7 +257,8 @@ func test_recent_actions_keep_the_last_n_finished():
 ## `candidates` (the fast path on the pack's prepared table) gives exactly what `can_do`
 ## with any object and `_score` give, for every action, person and a few world states, on
 ## both packs: same actions, same order, same objects, same targets, bit-identical scores
-## (leaving out, as `candidates` does, a slow action outside its `hours`).
+## (leaving out, as `candidates` does, a slow action outside its `hours`); and with a
+## `pool`, the best few of that list in stable score order.
 func test_candidates_match_can_do_and_score():
 	for id in ["_smoke", "qijia"]:
 		var w: World = BalanceRun.family_of_four(id, 21)
@@ -291,6 +292,12 @@ func test_candidates_match_can_do_and_score():
 				for k in mini(got.size(), expect.size()):
 					assert_eq(got[k], expect[k], "%s state %d person %d" % [id, state, p.uid])
 					checked += 1
+				# With a pool: the first entries of a stable sort of the full list by score.
+				var idx: Array = range(got.size())
+				idx.sort_custom(func(i, j): return got[i].score > got[j].score or (got[i].score == got[j].score and i < j))
+				for pool in [1, 3, 10]:
+					var best: Array = idx.slice(0, pool).map(func(i): return got[i])
+					assert_eq(AutonomySystem.candidates(w, p, pool), best, "%s state %d person %d pool %d" % [id, state, p.uid, pool])
 		assert_true(checked > 30, "%s: %d candidates compared" % [id, checked])
 
 ## Sleep (slow, with an `hours` window) is never chosen outside its window: it would end at

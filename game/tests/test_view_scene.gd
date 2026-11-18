@@ -293,11 +293,15 @@ func test_sleeping_person_is_dimmed_not_bobbing():
 # --- zoom ------------------------------------------------------------------
 
 func test_fit_scale_fills_the_window_and_is_capped():
-	var m := Main.create("qijia", _clean_dir(), _clock)  # not in the tree: 1280x720
+	var q := Main.create("qijia", _clean_dir(), _clock)  # not in the tree: 1280x720
+	var qs := q.house.fit_scale(Vector2(1280, 720))
+	assert_true(qs >= 0.6 and qs <= 0.7, str(qs))   # the compound is bigger than the window
+	assert_eq(q.house.fit_scale(Vector2(4000, 2400)), 2.0)
+	assert_eq(q.house.fit_scale(Vector2(200, 200)), 0.5)
+	q.free()
+	var m := Main.create("_smoke", _clean_dir(), _clock)
 	var s := m.house.fit_scale(Vector2(1280, 720))
-	assert_true(s >= 1.0 and s <= 1.1, str(s))
-	assert_eq(m.house.fit_scale(Vector2(2560, 1440)), 2.0)
-	assert_eq(m.house.fit_scale(Vector2(200, 200)), 0.5)
+	assert_true(s >= 1.0 and s <= 1.2, str(s))
 	assert_near(m.house.scale.x, s)
 	# The fitted house sits inside the area above the bottom bar.
 	var b := m.house.layout.bounds()
@@ -323,9 +327,9 @@ func test_pan_clamp_uses_the_scaled_house():
 	m.house.zoom_to(2.0)
 	var b := m.house.layout.bounds()
 	m.house.pan(Vector2(-100000, -100000))
-	assert_near(m.house.to_screen(b.end).x, HouseView.KEEP_VISIBLE)
+	assert_near(m.house.to_screen(b.end).x, 640.0)
 	m.house.pan(Vector2(100000, 100000))
-	assert_near(m.house.to_screen(b.position).x, 1280.0 - HouseView.KEEP_VISIBLE)
+	assert_near(m.house.to_screen(b.position).x, 640.0)
 	m.free()
 
 

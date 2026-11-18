@@ -36,8 +36,15 @@ class Info:
 	var tags: Array = []
 	var has_hours := false
 	var hours: Array = []
+	## `hours` as floats, and whether the window wraps past midnight
+	var hour_from := 0.0
+	var hour_to := 0.0
+	var hours_wrap := false
 	## slow with an `hours` window: it ends as soon as the hour is outside the window
 	var slow_in_hours := false
+	## the rooms an action without an object happens in ([]: anywhere)
+	var rooms: Array = []
+	var has_rooms := false
 
 
 ## The pack's actions as `Info`, in pack order, built on first use and kept on the pack
@@ -67,17 +74,34 @@ static func _table(pack: Pack) -> Array:
 		i.tags = a.get("tags", [])
 		i.hours = a.get("hours", [])
 		i.has_hours = not i.hours.is_empty()
+		if i.has_hours:
+			i.hour_from = float(i.hours[0])
+			i.hour_to = float(i.hours[1])
+			i.hours_wrap = i.hour_from > i.hour_to
 		i.slow_in_hours = bool(a.get("slow", false)) and i.has_hours
+		i.rooms = a.get("rooms", [])
+		i.has_rooms = not i.rooms.is_empty()
 		out.append(i)
 	pack.autonomy_table = out
+	pack.autonomy_by_stage = {}
 	return out
+
+
+## `_table` cut down to the actions open to `stage`, in pack order.
+static func _stage_table(pack: Pack, stage: String) -> Array:
+	var all := _table(pack)
+	if not pack.autonomy_by_stage.has(stage):
+		pack.autonomy_by_stage[stage] = all.filter(func(i: Info): return stage in i.stages)
+	return pack.autonomy_by_stage[stage]
 
 
 ## Everything `p` could start right now, scored. Order is stable (pack action order).
 ## Gives exactly what `can_do(..., -1)` and `_score` give, action by action, except that a
 ## slow action with an `hours` window is not chosen outside that window (it would end at
 ## the very next step, see `_progress`).
-static func candidates(world: World, p: Person) -> Array[Dictionary]:
+## `pool` > 0: only the `pool` best, best first, ties in pack order (what `_choose` needs:
+## the same entries a stable sort of the full list by score would put first).
+static func candidates(world: World, p: Person, pool := 0) -> Array[Dictionary]:
 	var out: Array[Dictionary] = []
 	if not p.alive:
 		return out
@@ -87,17 +111,19 @@ static func candidates(world: World, p: Person) -> Array[Dictionary]:
 	var pack := world.pack
 	var stage := p.stage(pack)
 	var hour := world.local_hour()
-	var memory := int(pack.cfg("repeat_memory"))
-	var rf := float(pack.cfg("repeat_factor"))
+	var damp := _repeat_damping(p, int(pack.cfg("repeat_memory")), float(pack.cfg("repeat_factor")))
+	var needs := p.needs
+	var habits := p.habits
+	var likes := p.likes
+	var dislikes := p.dislikes
+	var built := {}
+	for r in world.rooms_built:
+		built[r] = true
 	var free := {}  # object type -> first object of that type free for `p` (-1: none)
 	var users := {}  # object uid -> people other than `p` using it (filled on first need)
-	for i: Info in _table(pack):
-		if not (stage in i.stages):
-			continue
+	# The cheap yes/no tests come first; only what passes them is scored.
+	for i: Info in _stage_table(pack, stage):
 		if i.slow_in_hours and not _in_hours(hour, i.hours):
-			continue
-		var s := _score_info(p, i, hour, memory, rf)
-		if s <= 0.0:
 			continue
 		var uid := -1
 		if i.object != "":
@@ -112,9 +138,41 @@ static func candidates(world: World, p: Person) -> Array[Dictionary]:
 			uid = free[i.object]
 			if uid < 0:
 				continue
+		elif i.has_rooms:
+			var somewhere := false
+			for r in i.rooms:
+				if built.has(r):
+					somewhere = true
+					break
+			if not somewhere:
+				continue
 		if i.has_work and i.track != p.track:
 			continue
 		if i.has_requires and not _requires_ok(p, i.requires):
+			continue
+		# The score: `_score`'s arithmetic in the same order, written out here.
+		var gain := 0.0
+		for k in i.need_ids.size():
+			var nv = needs.get(i.need_ids[k])
+			if nv != null:
+				var room := 100.0 - float(nv)
+				gain += minf(i.need_gains[k], room) * room / 100.0
+		var s := (i.base + gain) * float(habits.get(i.id, 1.0))
+		for t in i.tags:
+			if t in likes:
+				s *= 1.5
+			if t in dislikes:
+				s *= 0.5
+		if i.has_hours:
+			if i.hours_wrap:
+				if not (hour >= i.hour_from or hour < i.hour_to):
+					s *= 0.1
+			elif not (hour >= i.hour_from and hour < i.hour_to):
+				s *= 0.1
+		var dv = damp.get(i.id)
+		if dv != null:
+			s *= float(dv)
+		if s <= 0.0:
 			continue
 		var target := -1
 		if i.kind != "":
@@ -129,7 +187,17 @@ static func candidates(world: World, p: Person) -> Array[Dictionary]:
 					break
 			if not ok:
 				continue
-		out.append({"action": i.id, "object_uid": uid, "target_uid": target, "score": s})
+		if pool <= 0:
+			out.append({"action": i.id, "object_uid": uid, "target_uid": target, "score": s})
+			continue
+		if out.size() == pool and s <= float(out[pool - 1].score):
+			continue
+		var j := out.size()
+		while j > 0 and s > float(out[j - 1].score):
+			j -= 1
+		out.insert(j, {"action": i.id, "object_uid": uid, "target_uid": target, "score": s})
+		if out.size() > pool:
+			out.pop_back()
 	return out
 
 
@@ -142,30 +210,27 @@ static func _first_unoccupied(world: World, type: String, users: Dictionary) -> 
 	return -1
 
 
-## `_score` from an action's `Info`: the same arithmetic in the same order.
-static func _score_info(p: Person, i: Info, hour: float, memory: int, rf: float) -> float:
-	var gain := 0.0
-	for k in i.need_ids.size():
-		var n := i.need_ids[k]
-		if p.needs.has(n):
-			var room := 100.0 - float(p.needs[n])
-			gain += minf(i.need_gains[k], room) * room / 100.0
-	var score := (i.base + gain) * float(p.habits.get(i.id, 1.0))
-	for t in i.tags:
-		if t in p.likes:
-			score *= 1.5
-		if t in p.dislikes:
-			score *= 0.5
-	if i.has_hours and not _in_hours(hour, i.hours):
-		score *= 0.1
+## action id -> the factor `_score` damps a recent repeat by: with a memory of 1 the last
+## action gets `rf`; otherwise an action first found at position k (0 = most recent) of the
+## last `memory` gets rf^((memory - k) / memory).
+static func _repeat_damping(p: Person, memory: int, rf: float) -> Dictionary:
+	var out := {}
 	if memory == 1:
-		if i.id == p.last_action:
-			score *= rf
-	else:
-		var k := p.recent_actions.find(i.id)
-		if k >= 0 and k < memory:
-			score *= pow(rf, float(memory - k) / float(memory))
-	return score
+		out[p.last_action] = rf
+		return out
+	for k in mini(memory, p.recent_actions.size()):
+		var id: String = p.recent_actions[k]
+		if not out.has(id):
+			out[id] = pow(rf, float(memory - k) / float(memory))
+	return out
+
+
+## True when at least one of `rooms` is built.
+static func _any_built(world: World, rooms: Array) -> bool:
+	for r in rooms:
+		if world.rooms_built.has(r):
+			return true
+	return false
 
 
 static func _stock_ok(world: World, a: Dictionary) -> bool:
@@ -194,6 +259,8 @@ static func can_do(world: World, p: Person, action_id: String, object_uid: int) 
 			return "no_object"
 		if _free_object(world, p, a, object_uid) < 0:
 			return "busy"
+	elif not (a["rooms"] as Array).is_empty() and not _any_built(world, a["rooms"]):
+		return "no_place"
 	var work: Dictionary = a["work"]
 	if not work.is_empty() and str(work.get("track", "")) != p.track:
 		return "wrong_track"
@@ -240,6 +307,11 @@ static func start(world: World, p: Person, action_id: String, object_uid: int, t
 		world.stock[item] = int(world.stock.get(item, 0)) - int(a["consumes"][item])
 	p.current = {"action": action_id, "object_uid": uid, "target_uid": target_uid,
 		"remaining_s": duration_s(world, a)}
+	var rooms: Array = a.get("rooms", [])
+	if not rooms.is_empty() and uid < 0:
+		var built := rooms.filter(func(r): return world.rooms_built.has(r))
+		if not built.is_empty():
+			p.current["room"] = str(world.rng.pick(built))
 	world.emit("action_started", {"person": p.uid, "action": action_id, "object": uid, "target": target_uid})
 
 
@@ -327,16 +399,13 @@ static func _first_free_target(world: World, a: Dictionary, p: Person) -> int:
 
 
 static func _choose(world: World, p: Person) -> void:
-	var c := candidates(world, p)
-	if c.is_empty():
+	# A weighted pick among the best few (`choice_pool`), best first.
+	var top: Array = candidates(world, p, int(world.pack.cfg("choice_pool")))
+	if top.is_empty():
 		return
-	var idx: Array = range(c.size())
-	idx.sort_custom(func(i, j): return c[i].score > c[j].score or (c[i].score == c[j].score and i < j))
-	var top: Array = []
 	var weights: Array = []
-	for i in idx.slice(0, int(world.pack.cfg("choice_pool"))):  # weighted pick among the best few
-		top.append(c[i])
-		weights.append(c[i].score)
+	for cand in top:
+		weights.append(cand.score)
 	var pick: Dictionary = world.rng.weighted_pick(top, weights)
 	start(world, p, pick.action, pick.object_uid, int(pick.get("target_uid", -1)))
 

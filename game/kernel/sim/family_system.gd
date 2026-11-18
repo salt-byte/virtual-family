@@ -63,6 +63,8 @@ static func adopt(world: World, _cmd: Dictionary) -> Dictionary:
 		world.money = int(world.pack.cfg("start_money"))
 		for o in world.pack.cfg("start_objects"):
 			world.add_object(str(o["type"]), str(o["room"]), int(o["x"]), int(o["y"]))
+		for room in world.rooms_built.duplicate():
+			HouseSystem.place_props(world, room)
 	world.phase = "living"
 	world.next_proposal_at = world.now + int(world.pack.cfg("proposal_first_min")) * 60
 	return Commands.success({"person": p.uid})

@@ -34,9 +34,9 @@ const DEFAULT_CONFIG := {
 const ENTRY_DEFAULTS := {
 	"actions": {"object": "", "needs": {}, "base": 0, "hours": [], "tags": [], "praiseable": true,
 		"consumes": {}, "work": {}, "mess": {}, "cleans": "", "picks": false, "requires": {},
-		"slow": false},
-	"object_types": {"outdoor": false, "capacity": 1},
-	"rooms": {"outdoor": false},
+		"slow": false, "rooms": []},
+	"object_types": {"outdoor": false, "capacity": 1, "fixed": false},
+	"rooms": {"outdoor": false, "props": []},
 	"items": {"stock": {}, "cures": "", "needs": {}},
 	"needs": {"when_empty": {}},
 }
@@ -70,6 +70,8 @@ var names: Dictionary = {}
 var raw: Dictionary = {}
 ## The actions' constant parts, prepared by `AutonomySystem` on first use.
 var autonomy_table: Array = []
+## stage id -> the entries of `autonomy_table` open to that stage, in pack order.
+var autonomy_by_stage: Dictionary = {}
 
 
 static func load_dir(dir: String) -> Pack:
@@ -180,6 +182,13 @@ func _apply_defaults() -> void:
 				for f in ["x", "y"]:
 					if so.has(f):
 						so[f] = _as_int(so[f])
+	for r in rooms.values():
+		if r["props"] is Array:
+			for pr in r["props"]:
+				if pr is Dictionary:
+					for f in ["x", "y"]:
+						if pr.has(f):
+							pr[f] = _as_int(pr[f])
 	for a in actions.values():
 		if not a.has("stages"):
 			a["stages"] = stage_ids.duplicate()

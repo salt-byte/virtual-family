@@ -31,7 +31,8 @@ static func is_met(world: World, goal: Dictionary) -> bool:
 		"money_at_least":
 			return world.money >= int(w.get("amount", 0))
 		"objects_owned":
-			return world.objects.size() >= int(w.get("count", 0))
+			var owned := world.objects.filter(func(o): return not HouseSystem.is_fixed(world, str(o["type"])))
+			return owned.size() >= int(w.get("count", 0))
 		"room_built":
 			return world.rooms_built.has(str(w.get("room", "")))
 		"level_reached":

@@ -56,6 +56,7 @@ func _run() -> void:
 	_check_names()
 	_check_needs()
 	_check_actions()
+	_check_objects()
 	_check_rooms()
 	_check_livelihoods()
 	_check_items()
@@ -155,12 +156,22 @@ func _start_object_problem(e, placed: Array) -> String:
 	var t: Dictionary = _p.object_types.get(e["type"], {})
 	if t.is_empty():
 		return "'%s' is not an object type" % [e["type"]]
+	if _is_true(t.get("fixed")):
+		return "'%s' is fixed; list it in a room's props instead" % [e["type"]]
 	var r: Dictionary = _p.rooms.get(e["room"], {})
 	if r.is_empty():
 		return "'%s' is not a room" % [e["room"]]
+	return _place_problem(e, placed, true)
+
+
+## Whether `e` ({type, room, x, y}, known type and room) fits its room clear of `placed`;
+## `must_be_built`: the room has to be built from the start.
+func _place_problem(e: Dictionary, placed: Array, must_be_built: bool) -> String:
+	var t: Dictionary = _p.object_types[e["type"]]
+	var r: Dictionary = _p.rooms[e["room"]]
 	if not (t.get("w") is int and t.get("h") is int and r.get("w") is int and r.get("h") is int):
 		return ""  # the size fields are reported on their own entries
-	if r.get("built") != true:
+	if must_be_built and r.get("built") != true:
 		return "room '%s' is not built" % [e["room"]]
 	if bool(t.get("outdoor")) != bool(r.get("outdoor")):
 		return "'%s' does not belong in room '%s' (indoor/outdoor mismatch)" % [e["type"], e["room"]]
@@ -289,6 +300,14 @@ func _check_actions() -> void:
 			_err("actions.json", id, "cleans must be a string")
 		if not a["slow"] is bool:
 			_err("actions.json", id, "slow must be true or false")
+		if not a["rooms"] is Array:
+			_err("actions.json", id, "rooms must be an array of room ids")
+		else:
+			for r in a["rooms"]:
+				if not (r is String and _p.rooms.has(r)):
+					_err("actions.json", id, "rooms: '%s' is not a room" % [str(r)])
+			if not a["rooms"].is_empty() and a["object"] is String and a["object"] != "":
+				_err("actions.json", id, "an action with an object may not also list rooms")
 		_check_requires(id, a["requires"])
 
 
@@ -323,6 +342,50 @@ func _check_rooms() -> void:
 	if not has_indoor_built:
 		_err("rooms.json", "*", "needs at least one built indoor room")
 	_check_room_positions()
+	for id in _p.rooms:
+		_check_props(id)
+
+
+static func _is_true(v) -> bool:
+	return v is bool and v
+
+
+func _check_objects() -> void:
+	for t in _p.object_types.values():
+		if not t["fixed"] is bool:
+			_err("objects.json", t["id"], "fixed must be true or false")
+
+
+## A room's fixed furniture: like start_objects, but every piece is a `fixed` type and sits
+## in this room, clear of the other props and of the start_objects placed in the room.
+func _check_props(room: String) -> void:
+	var list = _p.rooms[room]["props"]
+	if not list is Array:
+		_err("rooms.json", room, "props must be an array")
+		return
+	var placed: Array = []
+	var starts = _p.config["start_objects"]
+	if starts is Array:
+		for so in starts:
+			if so is Dictionary and so.get("room") == room and _p.object_types.has(so.get("type")) \
+					and so.get("x") is int and so.get("y") is int:
+				placed.append(so)
+	for i in list.size():
+		var e = list[i]
+		var why := ""
+		if not (e is Dictionary and e.get("type") is String and e.get("x") is int and e.get("y") is int):
+			why = "needs a string 'type' and whole-number 'x' and 'y'"
+		elif not _p.object_types.has(e["type"]):
+			why = "'%s' is not an object type" % [e["type"]]
+		elif not _is_true(_p.object_types[e["type"]].get("fixed")):
+			why = "'%s' is not a fixed object type" % [e["type"]]
+		else:
+			var as_start := {"type": e["type"], "room": room, "x": e["x"], "y": e["y"]}
+			why = _place_problem(as_start, placed, false)
+			if why == "":
+				placed.append(as_start)
+		if why != "":
+			_err("rooms.json", room, "props #%d: %s" % [i, why])
 
 
 ## Rooms may carry `x`/`y` (whole cells, top-left corner on a shared grid): all rooms or

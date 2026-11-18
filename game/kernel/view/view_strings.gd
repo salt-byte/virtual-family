@@ -31,6 +31,7 @@ const DEFAULTS := {
 	"error.already_built": "已经盖过了", "error.no_room": "没有这间房", "error.no_object_type": "没有这种东西",
 	"error.no_person": "没有这个人", "error.no_proposal": "这门亲事已经作罢", "error.not_adopting": "现在不是领养的时候",
 	"error.not_running": "现在做不了", "error.unknown_command": "做不了", "error.unknown": "做不了",
+	"error.no_place": "那地方还没有", "error.fixed": "这个挪不动",
 	"gender.male": "男", "gender.female": "女", "label.likes": "喜欢", "label.dislikes": "厌恶",
 	"label.savings": "带来 {n}", "load.backup": "旧存档会留一份备份，不会丢。",
 	"load.corrupt": "存档坏了", "load.version": "存档是新版本存的，这个版本读不了",

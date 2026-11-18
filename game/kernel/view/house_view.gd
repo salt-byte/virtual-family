@@ -1,17 +1,23 @@
 class_name HouseView
 extends Node2D
 ## Draws the house (rooms, furniture, messes, collectibles) and keeps one PersonView per
-## living person. Panning moves this node; its scale fits the house to the window. Reads
-## the World, never writes it.
+## living person. Panning moves this node; its scale fits a small house to the window, and a
+## house bigger than the window opens at scale 1 on the entrance room, zooms with the wheel
+## and scrolls by itself while something is carried near an edge. Reads the World, never
+## writes it.
 
 ## The window size used when this node is not in a tree (tests).
 const VIEW_SIZE := Vector2(1280, 720)
 const BOTTOM_BAR := 96.0
-const KEEP_VISIBLE := 120.0
 ## Space kept clear around the fitted house, and the zoom range.
 const FIT_MARGIN := 24.0
 const MIN_SCALE := 0.5
 const MAX_SCALE := 2.0
+## One wheel notch zooms by this factor.
+const WHEEL_ZOOM := 1.1
+## Carrying something this close to an edge of the house area scrolls toward that edge.
+const EDGE := 40.0
+const EDGE_SPEED := 600.0
 const SPREAD := 20.0
 const NIGHT_COLOR := Color(0.45, 0.5, 0.7)
 
@@ -41,6 +47,9 @@ var _last := Vector2.ZERO
 var _moved := false
 ## Whether the current press belongs to arrange mode (a picked piece), not to panning.
 var _arranging := false
+## The last pointer position seen over the house (screen), for edge scrolling.
+var _cursor := Vector2.ZERO
+var _has_cursor := false
 
 
 static func night_amount(hour: float) -> float:
@@ -58,8 +67,12 @@ func setup(s: GameSession) -> void:
 	layout = HouseLayout.new(s.pack)
 	_modulate = CanvasModulate.new()
 	add_child(_modulate)
-	scale = Vector2.ONE * fit_scale(_view_size())
+	scale = Vector2.ONE * start_scale(_view_size())
 	position = _centred()
+	if fit_scale(_view_size()) < 1.0:
+		var entrance := _entrance_rect()
+		if entrance.size != Vector2.ZERO:
+			position = _area_centre() - entrance.get_center() * scale
 	pan(Vector2.ZERO)
 
 
@@ -92,10 +105,37 @@ func fit_scale(viewport_size: Vector2) -> float:
 	return clampf(minf(room.x / b.size.x, room.y / b.size.y), MIN_SCALE, MAX_SCALE)
 
 
+## The scale the house opens at: the fitted scale for a house that fits at scale 1 or more,
+## else 1 (a big house is shown life-size and panned).
+func start_scale(viewport_size: Vector2) -> float:
+	return clampf(maxf(fit_scale(viewport_size), 1.0), MIN_SCALE, MAX_SCALE)
+
+
+## The smallest zoom the wheel reaches: the whole house in view, but never above 1.
+func min_zoom(viewport_size: Vector2) -> float:
+	return minf(fit_scale(viewport_size), 1.0)
+
+
+## The middle of the area above the bottom bar (screen).
+func _area_centre() -> Vector2:
+	var v := _view_size()
+	return Vector2(v.x, v.y - BOTTOM_BAR) * 0.5
+
+
 ## Where this node sits so the house is centred above the bottom bar at the current scale.
 func _centred() -> Vector2:
-	var v := _view_size()
-	return Vector2(v.x, v.y - BOTTOM_BAR) * 0.5 - layout.bounds().get_center() * scale
+	return _area_centre() - layout.bounds().get_center() * scale
+
+
+## The floor of the first built indoor room in pack order (where newcomers appear).
+func _entrance_rect() -> Rect2:
+	var w := session.world if session != null else null
+	if w == null or w.phase == "invalid":
+		return Rect2()
+	for id in w.pack.rooms:
+		if id in w.rooms_built and not bool(w.pack.rooms[id].get("outdoor", false)):
+			return layout.room_rect(id)
+	return Rect2()
 
 
 ## Sets the zoom to `s`, keeping the player's pan (scaled along) within the clamp.
@@ -106,8 +146,20 @@ func zoom_to(s: float) -> void:
 	pan(Vector2.ZERO)
 
 
+## Zooms by `factor` around a point on the screen: the house point under it stays under it
+## (unless the pan clamp has to move the house). The zoom stays within
+## [min_zoom, MAX_SCALE].
+func zoom_at(screen: Vector2, factor: float) -> void:
+	var v := _view_size()
+	var s := clampf(scale.x * factor, min_zoom(v), MAX_SCALE)
+	var under := world_pos(screen)
+	scale = Vector2.ONE * s
+	position = screen - under * s
+	pan(Vector2.ZERO)
+
+
 func _refit() -> void:
-	zoom_to(fit_scale(_view_size()))
+	zoom_to(start_scale(_view_size()))
 
 
 ## A point in the house's coordinates -> the screen.
@@ -120,12 +172,24 @@ func world_pos(screen: Vector2) -> Vector2:
 	return transform.affine_inverse() * screen
 
 
+## Moves the house by `by` (screen pixels), clamped so that every point of the house can be
+## brought to the middle of the house area and no further; on an axis where the scaled house
+## is smaller than the area it stays centred.
 func pan(by: Vector2) -> void:
 	var b := layout.bounds()
 	var v := _view_size()
-	var lo := Vector2(KEEP_VISIBLE, KEEP_VISIBLE) - b.end * scale
-	var hi := v - Vector2(KEEP_VISIBLE, KEEP_VISIBLE) - b.position * scale
-	position = (position + by).clamp(lo, hi)
+	var area := Vector2(v.x, v.y - BOTTOM_BAR)
+	var c := area * 0.5
+	var lo := c - b.end * scale
+	var hi := c - b.position * scale
+	var at := (position + by).clamp(lo, hi)
+	var size := b.size * scale
+	var mid := c - b.get_center() * scale
+	if size.x <= area.x:
+		at.x = mid.x
+	if size.y <= area.y:
+		at.y = mid.y
+	position = at
 
 
 func refresh() -> void:
@@ -163,8 +227,47 @@ func refresh() -> void:
 
 
 func tick(delta: float) -> void:
+	_edge_scroll(delta)
 	for uid in people:
 		people[uid].tick(delta)
+
+
+## Whether a person is being carried or arrange mode has a piece in hand.
+func _carrying() -> bool:
+	return (drag != null and drag.dragging >= 0) or (_arrange_on() and arrange.held_type != "")
+
+
+## While something is carried, a pointer within EDGE of an edge of the house area pans the
+## house toward that edge at EDGE_SPEED; whatever is carried keeps following the pointer.
+func _edge_scroll(delta: float) -> void:
+	if not _has_cursor or not _carrying() or delta <= 0.0:
+		return
+	var v := _view_size()
+	var area := Vector2(v.x, v.y - BOTTOM_BAR)
+	var dir := Vector2.ZERO
+	if _cursor.x <= EDGE:
+		dir.x = 1.0
+	elif _cursor.x >= area.x - EDGE:
+		dir.x = -1.0
+	if _cursor.y <= EDGE:
+		dir.y = 1.0
+	elif _cursor.y >= area.y - EDGE:
+		dir.y = -1.0
+	if dir == Vector2.ZERO:
+		return
+	var before := position
+	pan(dir * EDGE_SPEED * delta)
+	if position == before:
+		return
+	if drag != null and drag.dragging >= 0:
+		drag.move(world_pos(_cursor))
+	elif _arrange_on():
+		arrange.hover(world_pos(_cursor))
+
+
+func _see_cursor(screen: Vector2) -> void:
+	_cursor = screen
+	_has_cursor = true
 
 
 ## The uid of the person under a point in the house's coordinates (the one drawn on top
@@ -190,6 +293,7 @@ func _arrange_on() -> bool:
 
 
 func press(screen: Vector2) -> void:
+	_see_cursor(screen)
 	_pressed = true
 	_moved = false
 	_press_at = screen
@@ -202,6 +306,7 @@ func press(screen: Vector2) -> void:
 
 
 func move(screen: Vector2, relative: Vector2) -> void:
+	_see_cursor(screen)
 	if _arrange_on():
 		# A press that did not pick a piece up pans once it moves past the slop, also with a
 		# piece in hand; the ghost keeps following the pointer.
@@ -262,6 +367,8 @@ func _unhandled_input(event: InputEvent) -> void:
 			press(event.position)
 		else:
 			release(event.position)
+	elif event is InputEventMouseButton and event.pressed and event.button_index in [MOUSE_BUTTON_WHEEL_UP, MOUSE_BUTTON_WHEEL_DOWN]:
+		zoom_at(event.position, WHEEL_ZOOM if event.button_index == MOUSE_BUTTON_WHEEL_UP else 1.0 / WHEEL_ZOOM)
 	elif event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_RIGHT and event.pressed and _arrange_on():
 		arrange.cancel_held()
 	elif event is InputEventMouseMotion and _pressed:
@@ -271,6 +378,7 @@ func _unhandled_input(event: InputEvent) -> void:
 		else:
 			move(event.position, event.relative)
 	elif event is InputEventMouseMotion and _arrange_on():
+		_see_cursor(event.position)
 		arrange.hover(world_pos(event.position))
 
 

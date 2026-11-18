@@ -280,7 +280,8 @@ func test_old_save_gains_rooms_the_pack_now_builds_from_the_start():
 	d["rooms_built"] = ["yard", "hall"]
 	var r := WorldSave.restore(w.pack, d)
 	assert_eq(r.error, "")
-	assert_eq(r.world.rooms_built, ["yard", "hall", "bedroom", "kitchen"] as Array[String])
+	# every room qijia builds from the start, in pack order after the saved ones
+	assert_eq(r.world.rooms_built, ["yard", "hall", "bedroom", "kitchen", "woodshed", "well", "gate", "coop_run"] as Array[String])
 	d["rooms_built"] = ["yard", "hall", "attic"]
 	assert_eq(WorldSave.restore(w.pack, d).error, "pack_changed")
 

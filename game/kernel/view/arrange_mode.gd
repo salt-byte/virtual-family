@@ -146,7 +146,7 @@ func refresh() -> void:
 
 
 func pick_type(type: String) -> void:
-	if not active or not session.world.pack.object_types.has(type):
+	if not active or not session.world.pack.object_types.has(type) or HouseSystem.is_fixed(session.world, type):
 		return
 	held_type = type
 	held_uid = -1
@@ -291,6 +291,9 @@ func house_press(pos: Vector2) -> bool:
 	if held_type != "":
 		return false
 	var hit := main.house.layout.pick(session.world, pos, true)
+	if str(hit.kind) == "object" and HouseSystem.is_fixed(session.world, str(session.world.object(int(hit.uid)).get("type", ""))):
+		main.hud.toast(session.strings.error("fixed"))  # part of the house: it stays where it is
+		return false
 	if str(hit.kind) == "object":
 		pick_object(int(hit.uid))
 		_press_picked = true
@@ -412,6 +415,8 @@ func _rebuild() -> void:
 	scroll.add_child(list)
 	var by_cat: Dictionary = {}
 	for id in w.pack.object_types:
+		if HouseSystem.is_fixed(w, str(id)):
+			continue  # fixed furniture comes with its room and is not sold
 		var cat := str(w.pack.object_types[id].get("category", ""))
 		if not by_cat.has(cat):
 			by_cat[cat] = []

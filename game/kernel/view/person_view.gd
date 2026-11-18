@@ -247,10 +247,13 @@ func _compute_target(w: World, l: HouseLayout) -> Vector2:
 	if cur.is_empty():
 		_key = ""
 		return base_target if base_target != Vector2.ZERO else position
-	var room := l.nearest_room(position, w.rooms_built)
+	# An action that names where it happens: a random cell of that room.
+	var room := str(cur.get("room", ""))
+	if room == "" or not w.pack.rooms.has(room) or l.room_rect(room).size == Vector2.ZERO:
+		room = l.nearest_room(position, w.rooms_built)
 	if room == "":
 		return _entrance(w, l)
-	var key := str(cur.get("action", ""))
+	var key := "%s|%s" % [cur.get("action", ""), cur.get("room", "")]
 	if key != _key:
 		_key = key
 		var r: Dictionary = w.pack.rooms[room]

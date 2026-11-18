@@ -21,6 +21,6 @@
 		{"type": "stool", "room": "hall", "x": 0, "y": 5},
 		{"type": "stove", "room": "kitchen", "x": 0, "y": 0},
 		{"type": "vat", "room": "kitchen", "x": 3, "y": 0},
-		{"type": "coop", "room": "yard", "x": 12, "y": 0}
+		{"type": "coop", "room": "coop_run", "x": 0, "y": 0}
 	]
 }

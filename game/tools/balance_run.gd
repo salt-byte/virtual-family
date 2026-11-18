@@ -15,7 +15,8 @@ const LOW_MOOD := 30.0
 
 ## A world that is already living: one adopted person and one of each object type (the
 ## pack's starting furniture first, the missing types placed for free on the first spot
-## `HouseSystem.can_place` accepts: rooms in pack order, then row by row).
+## `HouseSystem.can_place` accepts: rooms in pack order, then row by row; fixed types only
+## come with their rooms).
 static func setup(pack_id: String, seed: int) -> World:
 	return setup_pack(Pack.load_dir("res://packs/" + pack_id), seed)
 
@@ -135,6 +136,8 @@ static func _first_item(w: World, pred: Callable) -> String:
 
 
 static func _place_first_fit(w: World, type: String) -> void:
+	if HouseSystem.is_fixed(w, type):
+		return  # fixed furniture comes with its room
 	for room in w.rooms_built:
 		var r: Dictionary = w.pack.rooms[room]
 		for y in int(r["h"]):
