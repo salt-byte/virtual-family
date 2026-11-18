@@ -42,3 +42,36 @@ cmp_c_person,画风对比,character,,C 淡水彩：父亲侧身站立,cmp_c_pers
 cmp_c_well,画风对比,prop,,C 淡水彩：井,cmp_c_props,0,已处理,ark doubao-seedream-5-0-flash-260915 2026-11-18,
 cmp_c_table,画风对比,prop,,C 淡水彩：饭桌,cmp_c_props,1,已处理,ark doubao-seedream-5-0-flash-260915 2026-11-18,
 cmp_c_yard,画风对比,tile,,C 淡水彩：院子泥地,cmp_c_yard,0,已处理,ark doubao-seedream-5-0-flash-260915 2026-11-18,
+a_father,小人,character,,A 父亲侧身站立,a_family,0,已处理,ark doubao-seedream-5-0-flash-260915 2026-11-18,第二版：大人 1:4.5，老人驼背，孩子 1:3；脚下绿影由拼图脚本清掉
+a_mother,小人,character,,A 母亲侧身站立,a_family,1,已处理,ark doubao-seedream-5-0-flash-260915 2026-11-18,第二版：大人 1:4.5，老人驼背，孩子 1:3；脚下绿影由拼图脚本清掉
+a_grandma,小人,character,,A 祖母侧身站立，驼背,a_family,2,已处理,ark doubao-seedream-5-0-flash-260915 2026-11-18,第二版：大人 1:4.5，老人驼背，孩子 1:3；脚下绿影由拼图脚本清掉
+a_child,小人,character,,A 孩子侧身站立,a_family,3,已处理,ark doubao-seedream-5-0-flash-260915 2026-11-18,第二版：大人 1:4.5，老人驼背，孩子 1:3；脚下绿影由拼图脚本清掉
+a_well_head,固定物件,prop,,A 井,a_props_fixed,0,已处理,ark doubao-seedream-5-0-flash-260915 2026-11-18,
+a_millstone,固定物件,prop,,A 石磨,a_props_fixed,1,已处理,ark doubao-seedream-5-0-flash-260915 2026-11-18,
+a_grape_trellis,固定物件,prop,,A 葡萄架,a_props_fixed,2,已处理,ark doubao-seedream-5-0-flash-260915 2026-11-18,
+a_clothesline,固定物件,prop,,A 晾衣绳,a_props_fixed,3,已处理,ark doubao-seedream-5-0-flash-260915 2026-11-18,
+a_altar,固定物件,prop,,A 供桌,a_props_fixed,4,已处理,ark doubao-seedream-5-0-flash-260915 2026-11-18,
+a_dining_table,固定物件,prop,,A 饭桌,a_props_fixed,5,已处理,ark doubao-seedream-5-0-flash-260915 2026-11-18,
+a_stone_bench,固定物件,prop,,A 石凳,a_props_fixed,6,已处理,ark doubao-seedream-5-0-flash-260915 2026-11-18,
+a_woodpile,固定物件,prop,,A 柴垛,a_props_fixed,7,已处理,ark doubao-seedream-5-0-flash-260915 2026-11-18,
+a_kang,家具,prop,,A 土炕,a_furn,0,已处理,ark doubao-seedream-5-0-flash-260915 2026-11-18,
+a_stove,家具,prop,,A 灶台,a_furn,1,已处理,ark doubao-seedream-5-0-flash-260915 2026-11-18,
+a_vat,家具,prop,,A 水缸,a_furn,2,已处理,ark doubao-seedream-5-0-flash-260915 2026-11-18,
+a_desk,家具,prop,,A 书案,a_furn,3,已处理,ark doubao-seedream-5-0-flash-260915 2026-11-18,
+a_stool,家具,prop,,A 矮凳,a_furn,4,已处理,ark doubao-seedream-5-0-flash-260915 2026-11-18,
+a_loom,家具,prop,,A 织机,a_furn,5,已处理,ark doubao-seedream-5-0-flash-260915 2026-11-18,
+a_coop,家具,prop,,A 鸡笼,a_furn,6,已处理,ark doubao-seedream-5-0-flash-260915 2026-11-18,
+a_garden,家具,prop,,A 菜畦,a_furn,7,已处理,ark doubao-seedream-5-0-flash-260915 2026-11-18,
+a_mess_dirt,脏乱,prop,,A 满地碎屑,a_small,0,已处理,ark doubao-seedream-5-0-flash-260915 2026-11-18,
+a_mess_droppings,脏乱,prop,,A 鸡粪落叶,a_small,1,已处理,ark doubao-seedream-5-0-flash-260915 2026-11-18,
+a_col_egg,掉落物,prop,,A 鸡蛋,a_small,2,已处理,ark doubao-seedream-5-0-flash-260915 2026-11-18,高光被 #F0F0F0 底抠穿一个小洞，下次换深一点的底色
+a_col_coins,掉落物,prop,,A 一串铜钱,a_small,3,已处理,ark doubao-seedream-5-0-flash-260915 2026-11-18,
+a_col_hairpin,掉落物,prop,,A 旧银簪,a_small,4,已处理,ark doubao-seedream-5-0-flash-260915 2026-11-18,
+a_icon_ill,界面图标,ui,,A 药碗,a_small,5,已处理,ark doubao-seedream-5-0-flash-260915 2026-11-18,
+a_yard,地块,tile,192x144,A 院子泥土地,a_yard,0,已处理,ark doubao-seedream-5-0-flash-260915 2026-11-18,处理前裁掉四边 80 像素
+a_floor_hall,地块,tile,192x144,A 堂屋方砖地,a_floor_hall,0,已处理,ark doubao-seedream-5-0-flash-260915 2026-11-18,处理前裁掉四边 80 像素
+a_floor_bed,地块,tile,192x144,A 卧房木地板,a_floor_bed,0,已处理,ark doubao-seedream-5-0-flash-260915 2026-11-18,处理前裁掉四边 80 像素
+a_floor_earth,地块,tile,192x144,A 灶间柴房夯土地,a_floor_earth,0,已处理,ark doubao-seedream-5-0-flash-260915 2026-11-18,处理前裁掉四边 80 像素
+a_wall,地块,tile,160x160,A 室内石灰墙,a_wall,0,已处理,ark doubao-seedream-5-0-flash-260915 2026-11-18,处理前裁掉四边 80 像素
+a_father_parts,小人拆件,parts,,A 父亲 6 块拆件,a_father_parts,0,已拆件,ark doubao-seedream-5-0-flash-260915 2026-11-18,肩口圆洞已修；父亲上臂略宽于袖口
+a_mother_parts,小人拆件,parts,,A 母亲 6 块拆件,a_mother_parts,0,已拆件,ark doubao-seedream-5-0-flash-260915 2026-11-18,肩口圆洞已修；父亲上臂略宽于袖口
