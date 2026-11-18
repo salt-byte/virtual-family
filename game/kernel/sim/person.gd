@@ -53,6 +53,11 @@ var cared_at := 0
 ## Not saved: `MoodSystem.ceiling` as of the start of the current game minute (or the last
 ## attention), kept so the action hot path needs no lookups. Rebuilt on load.
 var mood_cap := 100.0
+## Not saved: the likes / dislikes part of `AutonomySystem._flags`' cache key, and the lists
+## it was made from.
+var _key := ""
+var _key_likes: Variant = null
+var _key_dislikes: Variant = null
 ## 0 for someone who came from outside (adopted, married in); a person born in the house is
 ## one more than the higher of their parents' generations.
 var generation := 0

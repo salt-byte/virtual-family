@@ -38,6 +38,8 @@ static func _snapshot(w: World) -> Dictionary:
 	# Optional: written only once a story has unlocked (older saves and story-less packs lack it).
 	if not w.stories.is_empty():
 		out["stories"] = w.stories.duplicate(true)
+	if w.weather_slot >= 0:  # optional: only once a pack with seasons has rolled the weather
+		out["weather"] = {"season": w.season, "now": w.weather, "slot": w.weather_slot, "wet_until": w.wet_until}
 	if not w.dishes.is_empty():  # optional: written only while food is out
 		out["dishes"] = w.dishes.duplicate(true)
 	if w.birth_blocked:  # optional: written only while true
@@ -133,6 +135,12 @@ static func _build(pack: Pack, d: Dictionary) -> World:
 		w.stories[str(sid)] = {"found": found, "stage": str(sd[sid]["stage"])}
 	w.blessing_illness = StorySystem.illness_factor(w)
 	w.birth_blocked = bool(d.get("birth_blocked", false))
+	var wd: Dictionary = d.get("weather", {})  # absent in older saves and packs without seasons
+	if not wd.is_empty() and WeatherSystem.enabled(pack):
+		w.season = str(wd["season"])
+		w.weather = str(wd["now"]) if not WeatherSystem.weather_entry(pack, str(wd["now"])).is_empty() else ""
+		w.weather_slot = int(wd["slot"]) if w.weather != "" else -1
+		w.wet_until = int(wd["wet_until"])
 	w.dishes.clear()
 	for dd in d.get("dishes", []):  # absent in older saves and while no food is out
 		if pack.dishes.has(str(dd.get("type", ""))) and w.object(int(dd.get("object_uid", -1))).size() > 0:
@@ -410,6 +418,8 @@ static func _valid_save(pack: Pack, d: Dictionary) -> bool:
 		if pr.has("for") and not (_is_whole(pr["for"]) and float(pr["for"]) > 0.0):
 			return false
 	if d.has("birth_blocked") and not _is_bool(d["birth_blocked"]):
+		return false
+	if d.has("weather") and not _has(d["weather"], {"season": "s", "now": "s", "slot": "i", "wet_until": "i"}):
 		return false
 	if d.has("dishes"):  # optional: only while food is out
 		if typeof(d["dishes"]) != TYPE_ARRAY:

@@ -32,7 +32,8 @@ const DEFAULTS := {
 	"error.no_person": "没有这个人", "error.no_proposal": "这门亲事已经作罢", "error.not_adopting": "现在不是领养的时候",
 	"error.not_running": "现在做不了", "error.unknown_command": "做不了", "error.unknown": "做不了",
 	"error.no_place": "那地方还没有", "error.fixed": "这个挪不动",
-	"error.no_track": "没有这一行", "error.same_track": "已经在做这一行了",
+	"error.no_track": "没有这一行", "error.weather": "这会儿的天气做不了这个",
+	"sky": "{season} · {weather}", "error.same_track": "已经在做这一行了",
 	"family.child": "还小", "family.job": "{job} · {level}", "btn.change_track": "改行",
 	"title.change_track": "给{name}改行", "change.note": "改行要从头学起，眼下这一行的本事不留。",
 	"change.option": "{job} · 从{level}做起 · 每日 {money}",
@@ -173,6 +174,18 @@ func status_line(p: Person, world: World) -> String:
 func _name_of(uid: int, world: World) -> String:
 	var p := world.person(uid)
 	return person_name(p) if p != null else ""
+
+
+## The season and weather now ("{season} · {weather}"; just the season before the first
+## weather roll); "" for a pack without seasons.
+func sky_line(world: World) -> String:
+	if world == null or not WeatherSystem.enabled(world.pack):
+		return ""
+	var season := str(WeatherSystem.season_at(world.pack, world.now).get("name", ""))
+	var wx := str(WeatherSystem.weather_entry(world.pack, world.weather).get("name", ""))
+	if wx == "":
+		return season
+	return _f("sky", {"season": season, "weather": wx})
 
 
 ## The text of the wish `p` holds now; "" for none.

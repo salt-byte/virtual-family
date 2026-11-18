@@ -112,7 +112,19 @@ static func come_of_age(world: World, p: Person) -> void:
 
 ## The age (years) at which the "adult" stage starts; -1 when the pack has none.
 static func adult_age(pack: Pack) -> float:
-	for s in pack.cfg("stages"):
+	var stages = pack.cfg("stages")
+	if not stages is Array:
+		return -1.0
+	if is_same(stages, pack.adult_age_src) and (stages as Array).size() == pack.adult_age_n:
+		return pack.adult_age
+	pack.adult_age_src = stages
+	pack.adult_age_n = (stages as Array).size()
+	pack.adult_age = _adult_age(stages)
+	return pack.adult_age
+
+
+static func _adult_age(stages: Array) -> float:
+	for s in stages:
 		if str(s.get("id", "")) == "adult":
 			return float(s["from"])
 	return -1.0

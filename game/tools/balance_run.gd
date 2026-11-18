@@ -68,6 +68,10 @@ static func run(pack_id: String, families: int, days: int, seed0: int) -> Dictio
 	var house_born_took_up := 0
 	var unlocked := {}  # story id -> households where it unlocked
 	var babies_end := 0
+	var weather_hours := {}  # weather id -> hours it was the weather at the hourly look
+	var season_hours := {}  # season id -> hours
+	var weather_changes := 0
+	var weather_only := {}  # action id -> starts, for actions tied to a weather
 	beds_bought = 0
 	for i in families:
 		var w := setup(pack_id, seed0 + i)
@@ -85,9 +89,17 @@ static func run(pack_id: String, families: int, days: int, seed0: int) -> Dictio
 				bags_today += n
 				max_bags_day = maxi(max_bags_day, bags_today)
 			w.advance(3600.0)
+			if w.weather != "":
+				weather_hours[w.weather] = int(weather_hours.get(w.weather, 0)) + 1
+			if w.season != "":
+				season_hours[w.season] = int(season_hours.get(w.season, 0)) + 1
 			for e in w.drain_events():
+				if e.type == "weather_changed":
+					weather_changes += 1
 				if e.type == "action_started":
 					seen[e.action] = true
+					if not (w.pack.actions[e.action].get("weather", []) as Array).is_empty():
+						weather_only[e.action] = int(weather_only.get(e.action, 0)) + 1
 				elif e.type == "person_died":
 					deaths[e.cause] = int(deaths.get(e.cause, 0)) + 1
 				elif births.has(e.type):
@@ -136,6 +148,8 @@ static func run(pack_id: String, families: int, days: int, seed0: int) -> Dictio
 		"house_born_took_up": house_born_took_up, "relatives_arrived": births["relative_arrived"],
 		"beds_bought": beds_bought, "stories_unlocked": unlocked,
 		"deaths_by_cause": deaths,
+		"weather_hours": weather_hours, "season_hours": season_hours, "weather_changes": weather_changes,
+		"weather_only_actions": weather_only,
 	}
 
 

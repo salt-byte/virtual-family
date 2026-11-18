@@ -75,6 +75,7 @@ func _run() -> void:
 	_check_mood_config()
 	_check_births()
 	_check_dishes()
+	_check_seasons()
 
 
 func _check_required() -> void:
@@ -366,6 +367,115 @@ func _check_food(id: String, a: Dictionary) -> void:
 		for k in y:
 			if not (y[k] is int and y[k] > 0):
 				_err("actions.json", id, "yields '%s' must be a whole number above 0" % [k])
+
+
+## The pack's `seasons` (see `WeatherSystem`), then what actions and messes say about them.
+func _check_seasons() -> void:
+	var c = _p.config.get("seasons", {})
+	var season_ids := []
+	var weather_ids := []
+	if not c is Dictionary:
+		_err("pack.json", _p.id, "seasons must be an object")
+		c = {}
+	if not c.is_empty():
+		var ws = c.get("weather")
+		if not (ws is Array and not ws.is_empty()):
+			_err("pack.json", _p.id, "seasons.weather must be a non-empty array")
+			ws = []
+		for w in ws:
+			if not (w is Dictionary and w.get("id") is String and w.get("name") is String):
+				_err("pack.json", _p.id, "seasons.weather: each needs an id and a name")
+				continue
+			weather_ids.append(w["id"])
+			var wid := "seasons.weather %s" % w["id"]
+			for f in ["outdoor", "outside"]:
+				if w.has(f) and not (_is_num(w[f]) and float(w[f]) >= 0.0):
+					_err("pack.json", _p.id, "%s: %s must be a number of at least 0" % [wid, f])
+			if w.has("wet") and not w["wet"] is bool:
+				_err("pack.json", _p.id, "%s: wet must be true or false" % wid)
+			_check_rates(wid + ": boost", w.get("boost", {}), false)
+			_check_rates(wid + ": messes", w.get("messes", {}), true)
+			var v = w.get("view", {})
+			if not v is Dictionary:
+				_err("pack.json", _p.id, "%s: view must be an object" % wid)
+			elif not v.is_empty():
+				if not str(v.get("kind", "")) in ["", "rain", "snow"]:
+					_err("pack.json", _p.id, "%s: view.kind must be rain or snow" % wid)
+				if v.has("amount") and not (_is_num(v["amount"]) and float(v["amount"]) >= 0.0 and float(v["amount"]) <= 1.0):
+					_err("pack.json", _p.id, "%s: view.amount must be from 0 to 1" % wid)
+				for f in ["color", "tint"]:
+					if v.has(f) and not _color_ok(v[f]):
+						_err("pack.json", _p.id, "%s: view.%s must be a colour like \"#rrggbb\"" % [wid, f])
+		var list = c.get("list")
+		if not (list is Array and not list.is_empty()):
+			_err("pack.json", _p.id, "seasons.list must be a non-empty array")
+			list = []
+		for se in list:
+			if not (se is Dictionary and se.get("id") is String and se.get("name") is String):
+				_err("pack.json", _p.id, "seasons.list: each needs an id and a name")
+				continue
+			season_ids.append(se["id"])
+			var sid := "seasons.list %s" % se["id"]
+			var wt = se.get("weather")
+			if not (wt is Dictionary and not wt.is_empty()):
+				_err("pack.json", _p.id, "%s: weather must be a non-empty object of weather id -> weight" % sid)
+			else:
+				for k in wt:
+					if not weather_ids.has(k) or not (_is_num(wt[k]) and float(wt[k]) > 0.0):
+						_err("pack.json", _p.id, "%s: weather '%s' must be a weather id with a weight above 0" % [sid, k])
+			_check_rates(sid + ": boost", se.get("boost", {}), false)
+			_check_rates(sid + ": messes", se.get("messes", {}), true)
+			var y = se.get("yields", {})
+			if not y is Dictionary:
+				_err("pack.json", _p.id, "%s: yields must be an object" % sid)
+			else:
+				for k in y:
+					if not (_is_num(y[k]) and float(y[k]) >= 0.0):
+						_err("pack.json", _p.id, "%s: yields '%s' must be a number of at least 0" % [sid, k])
+		var cm = c.get("change_min")
+		if not (cm is int and cm >= 1):
+			_err("pack.json", _p.id, "seasons.change_min must be a whole number of at least 1")
+		var ps = c.get("persist", 0.0)
+		if not (_is_num(ps) and float(ps) >= 0.0 and float(ps) <= 1.0):
+			_err("pack.json", _p.id, "seasons.persist must be from 0 to 1")
+		var dh = c.get("dry_hours", 0.0)
+		if not (_is_num(dh) and float(dh) >= 0.0):
+			_err("pack.json", _p.id, "seasons.dry_hours must be a number of at least 0")
+		_check_rates("seasons: wet_messes", c.get("wet_messes", {}), true)
+	for a in _p.actions.values():
+		var id: String = a["id"]
+		for pair in [["seasons", season_ids], ["weather", weather_ids]]:
+			var v = a.get(pair[0], [])
+			if not v is Array:
+				_err("actions.json", id, "%s must be an array" % pair[0])
+				continue
+			for x in v:
+				if not (pair[1] as Array).has(x):
+					_err("actions.json", id, "%s: '%s' is not in the pack's seasons" % [pair[0], str(x)])
+		if not a.get("not_wet", false) is bool:
+			_err("actions.json", id, "not_wet must be true or false")
+	for m in _p.mess_types.values():
+		var v = m.get("seasons", [])
+		if not v is Array:
+			_err("messes.json", m["id"], "seasons must be an array")
+		else:
+			for x in v:
+				if not season_ids.has(x):
+					_err("messes.json", m["id"], "seasons: '%s' is not in the pack's seasons" % [str(x)])
+		if not str(m.get("look", "")) in ["", "patch"]:
+			_err("messes.json", m["id"], "look must be \"patch\" or left out")
+
+
+## `rates`: an object of numbers of at least 0; with `messes` its keys must be mess types.
+func _check_rates(where: String, rates, messes: bool) -> void:
+	if not rates is Dictionary:
+		_err("pack.json", _p.id, "%s must be an object" % where)
+		return
+	for k in rates:
+		if not (_is_num(rates[k]) and float(rates[k]) >= 0.0):
+			_err("pack.json", _p.id, "%s: '%s' must be a number of at least 0" % [where, k])
+		elif messes and not _p.mess_types.has(k):
+			_err("pack.json", _p.id, "%s: '%s' is not a mess type" % [where, k])
 
 
 func _check_dishes() -> void:

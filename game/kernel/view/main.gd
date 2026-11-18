@@ -7,6 +7,7 @@ const DEFAULT_PACK_SETTING := "lifesim/default_pack"
 
 var session: GameSession
 var house: HouseView
+var weather: WeatherView
 var hud: Hud
 var drag: DragController
 var overlays: Overlays
@@ -37,6 +38,9 @@ func _build(pack_id: String, dir: String, real_clock: Callable) -> void:
 	add_child(house)
 	house.setup(session)
 	house.person_clicked.connect(select)
+	weather = WeatherView.new()
+	add_child(weather)
+	weather.setup(session)
 	hud = Hud.new()
 	add_child(hud)
 	hud.setup(self)
@@ -139,6 +143,8 @@ func tick(delta: float) -> void:
 	drag.refresh()
 	_apply_selection()
 	house.tick(delta)
+	weather.refresh()
+	weather.tick(delta)
 	hud.refresh()
 	hud.tick(delta)
 	overlays.refresh()

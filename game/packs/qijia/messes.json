@@ -1,5 +1,10 @@
 [
 	{"id": "dirt", "name": "满地碎屑", "spawn_per_day": 2, "outdoor": false, "penalty": {"happy": 1}},
 	{"id": "droppings", "name": "鸡粪落叶", "spawn_per_day": 2, "outdoor": true, "penalty": {"happy": 0.5}},
-	{"id": "bowls", "name": "没收的碗筷", "spawn_per_day": 0, "outdoor": false, "penalty": {"happy": 0.5}, "color": "#D9D2C3"}
+	{"id": "bowls", "name": "没收的碗筷", "spawn_per_day": 0, "outdoor": false, "penalty": {"happy": 0.5}, "color": "#D9D2C3"},
+	{"id": "mud", "name": "一路泥脚印", "spawn_per_day": 0, "outdoor": false, "penalty": {"happy": 0.5}, "color": "#7A5A3A"},
+	{"id": "snow_cover", "name": "积雪", "spawn_per_day": 0, "outdoor": true, "penalty": {"happy": 0.2}, "color": "#F4F7FA",
+	 "look": "patch", "seasons": ["winter"]},
+	{"id": "leaves", "name": "落叶", "spawn_per_day": 0, "outdoor": true, "penalty": {"happy": 0.2}, "color": "#C8812F",
+	 "seasons": ["autumn", "winter"]}
 ]

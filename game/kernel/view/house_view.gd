@@ -523,7 +523,14 @@ func _draw() -> void:
 	_draw_dishes(w, font)
 	for m in w.messes:
 		var at := layout.cell_center(str(m.room), int(m.x), int(m.y))
-		draw_rect(Rect2(at - Vector2(8, 6), Vector2(16, 12)), pack_color(w.pack.mess_types.get(str(m.type), {}), MESS_COLOR))
+		var mt: Dictionary = w.pack.mess_types.get(str(m.type), {})
+		if str(mt.get("look", "")) == "patch":
+			# Lying over the ground (snow): a wide soft patch, a smaller one on top.
+			var c := pack_color(mt, MESS_COLOR)
+			draw_colored_polygon(HouseGround._ellipse(Rect2(at - HouseLayout.CELL * Vector2(1.1, 0.55), HouseLayout.CELL * Vector2(2.2, 1.1))), Color(c, 0.85))
+			draw_colored_polygon(HouseGround._ellipse(Rect2(at - HouseLayout.CELL * Vector2(0.6, 0.35), HouseLayout.CELL * Vector2(1.3, 0.6))), c.lightened(0.3))
+		else:
+			draw_rect(Rect2(at - Vector2(8, 6), Vector2(16, 12)), pack_color(mt, MESS_COLOR))
 		_small_name(font, at, thing_name(w.pack.mess_types, str(m.type)))
 	for c in w.collectibles:
 		var at := layout.cell_center(str(c.room), int(c.x), int(c.y))

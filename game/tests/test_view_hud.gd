@@ -241,3 +241,34 @@ func test_bar_never_shows_a_percentage_busy_or_asleep():
 	assert_true(w.pack.actions[str(p.current.get("action", ""))].get("slow", false))
 	assert_true(not m.hud.bar_text().contains("%"))
 	m.free()
+
+
+## The bar names the season and the weather (qijia has seasons; _smoke has none).
+func test_bar_shows_season_and_weather():
+	var m := _adopted()
+	var w := m.session.world
+	w.weather = "drizzle"
+	w.weather_slot = w.now / 900
+	m.tick(0.016)
+	var sky := m.session.strings.sky_line(w)
+	assert_true(sky.ends_with("小雨"), sky)
+	assert_true(m.hud.bar_text().contains(sky), m.hud.bar_text())
+	m.queue_free()
+	var s := _main("_smoke")
+	s.session.command({"type": "adopt"})
+	s.tick(0.016)
+	assert_eq(s.session.strings.sky_line(s.session.world), "")
+	s.queue_free()
+
+
+## Rain and snow fall over the view as the weather entry's `view` says; clear skies draw none.
+func test_weather_view_follows_the_weather():
+	var m := _adopted()
+	var w := m.session.world
+	for c in [["clear", ""], ["drizzle", "rain"], ["snowfall", "snow"]]:
+		w.weather = c[0]
+		w.weather_slot = w.now / 900
+		m.tick(0.016)
+		assert_eq(m.weather.kind(), c[1], c[0])
+		assert_eq(m.weather.drop_count() > 0, c[1] != "", c[0])
+	m.queue_free()

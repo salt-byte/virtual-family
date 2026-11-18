@@ -32,6 +32,13 @@ var inventory: Dictionary = {}
 var income_carry: Dictionary = {}
 ## Messes in the house: {uid, type, room, x, y}.
 var messes: Array[Dictionary] = []
+## Seasons and weather (see `WeatherSystem`; all stay empty / -1 / 0 with seasons off):
+## the season id as of the last step, the weather id, the weather slot it was rolled for,
+## and `now` until which the ground is still wet.
+var season := ""
+var weather := ""
+var weather_slot := -1
+var wet_until := 0
 ## Cooked food waiting to be eaten (see `DishSystem`).
 var dishes: Array[Dictionary] = []
 ## Ids of rooms that exist in the house (pack rooms with `built`, plus any built later).
@@ -68,6 +75,11 @@ var birth_blocked := false
 
 ## The living babies as of `_babies_t` (see `babies`); not saved.
 var _babies: Array[Person] = []
+## `AutonomySystem._world_key`'s cache: [now, utc_offset, rooms_built, its size, weather,
+## wet_until, key]; not saved.
+var _flags_ctx: Array = []
+## `AutonomySystem._objects_by_type`'s cache: [objects, size, last uid, uids by type]; not saved.
+var _by_type_ctx: Array = []
 var _babies_t := -1
 var _built := {}
 var _built_n := -1
@@ -270,6 +282,7 @@ func _step() -> void:
 
 ## Every per-step system, in the fixed order they must run. Later tasks add theirs here.
 func _run_systems(dt: float) -> void:
+	WeatherSystem.step(self, dt)
 	NeedsSystem.step(self, dt)
 	IllnessSystem.step(self, dt)
 	MessSystem.step(self, dt)

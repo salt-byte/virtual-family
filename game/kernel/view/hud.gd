@@ -22,6 +22,7 @@ var _status: Label
 var _wish: Label
 var _money: Label
 var _stock: Label
+var _sky: Label
 var _buttons: Dictionary = {}  # id -> Button
 var _praise: Button
 var _scold: Button
@@ -87,6 +88,8 @@ func _build() -> void:
 	row.add_child(cash)
 	_money = Label.new()
 	_stock = Label.new()
+	_sky = Label.new()
+	cash.add_child(_sky)
 	cash.add_child(_money)
 	cash.add_child(_stock)
 	for id in BAR_BUTTONS:
@@ -152,6 +155,9 @@ func refresh() -> void:
 	_money.visible = w != null and w.phase != "invalid"
 	if _money.visible:
 		_money.text = s.t("money").replace("{n}", str(w.money))
+	var sky := s.sky_line(w) if living else ""
+	_sky.visible = sky != ""
+	_sky.text = sky
 	if living:
 		var total := 0
 		for k in w.stock:

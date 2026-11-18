@@ -59,6 +59,7 @@ func test_wedding_links_the_couple():
 func test_conceives_then_gives_birth_to_a_house_born_child():
 	var w := _couple()
 	w.pack.config["births"]["chance_per_day"] = 1.0
+	w.pack.config["illness_daily_chance"] = 0.0  # the sick do not conceive; keep chance out of it
 	var wife := _wife(w)
 	var h := _husband(w)
 	h.family = "柳"
@@ -127,7 +128,11 @@ func test_the_unborn_and_everyone_take_a_place_on_the_kang():
 	assert_true(w.birth_blocked)
 	assert_true(w.add_object("kang", "west_room", 0, 0) >= 0 or w.add_object("kang", "hall", 0, 2) >= 0)
 	assert_eq(BirthSystem.free_places(w), 3)
-	w.advance(3600)
+	# The hourly chance is about 97 % (the mood factor): give it up to three hours, since the
+	# weather's draws moved this seed's next roll into the other 3 %.
+	for k in 3:
+		if not wife.pregnant():
+			w.advance(3600)
 	assert_true(wife.pregnant())
 	assert_true(not w.birth_blocked)
 
@@ -204,6 +209,11 @@ func test_dragging_a_grown_up_onto_a_baby_cares_for_it():
 	var baby: Person = _babies(w)[0]
 	var h := _husband(w)
 	baby.needs["fed"] = 10.0
+	# Nobody else is at the baby yet (with the weather drawing random numbers, the wife may
+	# have gone to feed it on her own by now).
+	for q in w.people:
+		if q != h and int(q.current.get("target_uid", -1)) == baby.uid:
+			AutonomySystem.cancel(w, q)
 	var r := w.command({"type": "drag", "person": h.uid, "tend": baby.uid})
 	assert_true(r.ok, str(r))
 	assert_eq(r.action, "feed_baby")

@@ -122,7 +122,6 @@ func test_a_dish_left_out_goes_to_waste():
 
 func test_picking_greens_fills_the_larder_for_a_plate():
 	var w := _home(); w.add_object("garden", "yard", 8, 0)
-	w.set_time(w.now - 3600, 0)  # 11:00, inside the picking hours
 	var p := TestKit.adult(w); p.needs["fed"] = 40.0
 	assert_eq(int(w.stock.get("greens", 0)), 0)
 	assert_eq(AutonomySystem.can_do(w, p, "cook_greens", -1), "no_stock")

@@ -20,7 +20,9 @@ static func step(world: World, _dt: float) -> void:
 
 ## Whether the goal's `when` condition holds right now. Unknown types are never met.
 static func is_met(world: World, goal: Dictionary) -> bool:
-	var w: Dictionary = goal.get("when", {})
+	var w = goal.get("when")  # no `{}` default: this runs for every open goal on every step
+	if not w is Dictionary:
+		return false
 	match str(w.get("type", "")):
 		"mess_cleared":
 			return int(world.stats["all_clean"]) >= 1

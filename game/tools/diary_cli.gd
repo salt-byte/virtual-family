@@ -73,6 +73,10 @@ func _line(w: World, e: Dictionary) -> String:
 			return "✝ %s 去世（%s）" % [who, "寿终" if e.cause == "old_age" else "照看不周"]
 		"mess_spawned":
 			return "· %s多了一处脏乱（%s）" % [w.pack.rooms[e.room].get("name", e.room), w.pack.mess_types[e.kind].get("name", e.kind)]
+		"weather_changed":
+			return "☂ 天变了：%s" % WeatherSystem.weather_entry(w.pack, e.weather).get("name", e.weather)
+		"season_changed":
+			return "☘ 换季了：%s" % WeatherSystem.season_at(w.pack, int(e.t)).get("name", e.season)
 		"dish_served":
 			var o := w.object(int(e.object))
 			return "· %s上摆出了%s" % [w.pack.object_types.get(str(o.get("type", "")), {}).get("name", "?"), w.pack.dishes[e.kind]["name"]]

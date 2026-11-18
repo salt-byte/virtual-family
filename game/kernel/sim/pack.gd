@@ -56,6 +56,9 @@ const DEFAULT_CONFIG := {
 	# compound wall, door openings, fences and ground decor. The sim never reads it; see
 	# `PackValidator._check_site` for the keys.
 	"site": {},
+	# Seasons and weather (off while empty; see `WeatherSystem` and
+	# `PackValidator._check_seasons` for the keys).
+	"seasons": {},
 }
 
 ## Per-file field defaults (applied to every entry that lacks the key).
@@ -63,7 +66,7 @@ const ENTRY_DEFAULTS := {
 	"actions": {"object": "", "needs": {}, "base": 0, "hours": [], "tags": [], "praiseable": true,
 		"consumes": {}, "work": {}, "mess": {}, "cleans": "", "picks": false, "requires": {},
 		"slow": false, "rooms": [], "completes_story": "", "tends": {}, "serves": "", "eats": [],
-		"yields": {}},
+		"yields": {}, "seasons": [], "weather": [], "not_wet": false},
 	"object_types": {"outdoor": false, "capacity": 1, "fixed": false, "keepsake": false},
 	"collectibles": {"rooms": []},
 	"wishes": {"likes": [], "stages": [], "weight": 1.0},
@@ -113,6 +116,16 @@ var autonomy_by_stage: Dictionary = {}
 var autonomy_by_stage_track: Dictionary = {}
 ## "likes|dislikes|hour|rooms built" -> per action the yes/no bits `AutonomySystem` reuses.
 var autonomy_flags: Dictionary = {}
+## `LivelihoodSystem.adult_age`, kept with the stages array it was read from.
+var adult_age := -1.0
+var adult_age_src: Variant = null
+var adult_age_n := -1
+## `WeatherSystem`'s prepared constants (built on first use).
+var weather_prep: Dictionary = {}
+## object type -> index, for the types actions use (see `AutonomySystem.Info.obj_ix`).
+var autonomy_obj_types: Dictionary = {}
+## The need ids in pack order (indexes of `AutonomySystem.Info.need_ix`).
+var autonomy_need_ids := PackedStringArray()
 ## action id -> its position in `autonomy_table`.
 var autonomy_index: Dictionary = {}
 ## True when every action's `hours` window has whole-hour bounds (set with `autonomy_table`).
@@ -296,6 +309,7 @@ func _apply_defaults() -> void:
 					if so.has(f):
 						so[f] = _as_int(so[f])
 	config["site"] = _deep_ints(config["site"])
+	config["seasons"] = _deep_ints(config["seasons"])
 	for r in rooms.values():
 		if r["props"] is Array:
 			for pr in r["props"]:
