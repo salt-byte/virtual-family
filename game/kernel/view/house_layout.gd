@@ -104,7 +104,8 @@ func stand_pos(o: Dictionary, pack: Pack) -> Vector2:
 		return p
 	return r.get_center()
 
-## What is under `pos`: a collectible, then a mess, then furniture, else the room.
+## What is under `pos`: a story's dig mark (with its `story`), a collectible, then a mess,
+## then furniture, else the room.
 ## `furniture_only` (arrange mode) skips messes and collectibles so the piece under them
 ## can still be picked up.
 func pick(world: World, pos: Vector2, furniture_only := false) -> Dictionary:
@@ -113,6 +114,10 @@ func pick(world: World, pos: Vector2, furniture_only := false) -> Dictionary:
 		return {"kind": "", "uid": -1, "room": ""}
 	var room: String = hit.room
 	if room in world.rooms_built:
+		if not furniture_only:
+			for m in StorySystem.marks(world):
+				if m.get("dig", false) and m.room == room and m.x == hit.x and m.y == hit.y:
+					return {"kind": "mark", "uid": -1, "room": room, "story": m.story}
 		for c in ([] if furniture_only else world.collectibles):
 			if c.room == room and c.x == hit.x and c.y == hit.y:
 				return {"kind": "collectible", "uid": c.uid, "room": room}

@@ -9,5 +9,7 @@
 	"stock": "存粮 {n}",
 	"ev.goal": "达成「{text}」，得 {n} 文",
 	"ev.collected_paid": "捡到{thing}，卖了 {n} 文",
-	"away.money": "钱 {n} 文"
+	"away.money": "钱 {n} 文",
+	"btn.stories": "旧物匣",
+	"stories.none": "旧物匣还是空的。"
 }

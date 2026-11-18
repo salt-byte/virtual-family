@@ -9,7 +9,7 @@ const DEFAULTS := {
 	"btn.arrange": "摆设", "btn.adopt": "领养", "btn.reroll": "换一位", "btn.accept": "应下",
 	"btn.decline": "回绝", "btn.close": "关闭", "btn.buy": "买", "btn.use_on": "给{name}用",
 	"btn.sell": "卖掉", "btn.build": "加盖", "btn.new_game": "新开一局", "btn.settings": "设置",
-	"idle": "闲着", "doing.progress": "{text} · {pct}%", "money": "钱 {n}", "years": "{n} 岁", "stock": "存货 {n}",
+	"idle": "闲着", "money": "钱 {n}", "years": "{n} 岁", "stock": "存货 {n}",
 	"title.adopt": "领养一位", "title.proposal": "有人提亲", "title.over": "这一家到此为止",
 	"title.away": "离开期间", "over.reason": "家里的人都已经过世了。",
 	"over.carry": "房子和钱都还在，留给下一位来的人。", "title.pack_error": "主题包有错", "title.load_error": "存档读不出来",
@@ -53,6 +53,16 @@ const DEFAULTS := {
 	"away.expired": "有 {n} 桩提亲过期作废了", "away.waiting": "有 {n} 桩提亲在等你回话",
 	"away.messes": "屋里有 {n} 处要收拾", "away.over": "家里已经没有人了",
 	"hint.drag": "把人拖到东西上，他就去用它；不拖的时候，他自己过日子",
+	"error.keepsake": "这是旧物，不卖", "error.no_visitor": "门口已经没有人了",
+	"mood.sad": "难过", "mood.depressed": "抑郁",
+	"ev.mood_depressed": "{name}这几天闷闷不乐", "ev.mood_recovered": "{name}缓过来了",
+	"ev.wish_formed": "{name}心里想着：{text}", "ev.wish_granted": "{name}如愿了：{text}",
+	"ev.wish_expired": "{name}没等到：{text}",
+	"wish.line": "心愿：{text}", "shop.wanted": "{name}想要", "thanks": "谢谢",
+	"btn.stories": "旧事", "stories.locked": "……", "stories.none": "还没有翻出什么旧事。",
+	"ev.fragment": "捡到了{name}", "ev.story_done": "「{title}」有了着落",
+	"btn.receive": "收下", "visitor.money": "留下 {money}",
+	"away.fragment": "捡到了{name}", "away.story_done": "「{title}」有了着落",
 }
 
 var pack: Pack
@@ -143,6 +153,8 @@ func doing(p: Person, world: World) -> String:
 
 func status_line(p: Person, world: World) -> String:
 	var words: Array[String] = []
+	if p.mood != "":
+		words.append(t("mood." + p.mood))
 	for word in p.status(world.pack).values():
 		words.append(str(word))
 	return "、".join(words)
@@ -153,9 +165,50 @@ func _name_of(uid: int, world: World) -> String:
 	return person_name(p) if p != null else ""
 
 
+## The text of the wish `p` holds now; "" for none.
+func wish_text(p: Person, world: World) -> String:
+	return str(WishSystem.current(world, p).get("text", ""))
+
+
+func _wish_line(key: String, e: Dictionary, world: World) -> String:
+	var w: Dictionary = world.pack.wishes.get(str(e.get("wish", "")), {})
+	return _f(key, {"name": _name_of(int(e["person"]), world), "text": str(w.get("text", ""))})
+
+
+## The name of a thing lying about: a collectible, or a story fragment.
+func thing_name(c: Dictionary, world: World) -> String:
+	if c.has("story"):
+		return str(StorySystem.fragment(world.pack, str(c["story"]), str(c["type"])).get("name", ""))
+	return str(world.pack.collectibles.get(str(c.get("type", "")), {}).get("name", ""))
+
+
+func story_title(sid: String, world: World) -> String:
+	return str(world.pack.stories.get(sid, {}).get("title", ""))
+
+
 ## One sentence for events worth telling the player; "" for the rest.
 func event(e: Dictionary, world: World) -> String:
 	match str(e.get("type", "")):
+		"wish_formed":
+			return _wish_line("ev.wish_formed", e, world)
+		"wish_granted":
+			return _wish_line("ev.wish_granted", e, world)
+		"wish_expired":
+			return _wish_line("ev.wish_expired", e, world)
+		"mood_changed":
+			if str(e["mood"]) == "depressed":
+				return _f("ev.mood_depressed", {"name": _name_of(int(e["person"]), world)})
+			if str(e["was"]) == "depressed":
+				return _f("ev.mood_recovered", {"name": _name_of(int(e["person"]), world)})
+			return ""
+		"fragment_found":
+			var f := StorySystem.fragment(world.pack, str(e["story"]), str(e["fragment"]))
+			return _f("ev.fragment", {"name": str(f.get("name", ""))})
+		"story_finale":
+			return str(world.pack.stories.get(str(e["story"]), {}).get("finale", {}).get("hint", ""))
+		"story_done":
+			var done := str(world.pack.stories.get(str(e["story"]), {}).get("finale", {}).get("done_text", ""))
+			return done if done != "" else _f("ev.story_done", {"title": story_title(str(e["story"]), world)})
 		"fell_ill":
 			return _f("ev.fell_ill", {"name": _name_of(int(e["person"]), world)})
 		"cured":
@@ -232,6 +285,11 @@ func summary_lines(summary: Dictionary, world: World) -> Array[String]:
 	var messes := int(summary.get("messes_now", 0))
 	if messes > 0:
 		out.append(_f("away.messes", {"n": messes}))
+	for f in summary.get("fragments", []):
+		var frag := StorySystem.fragment(world.pack, str(f["story"]), str(f["fragment"]))
+		out.append(_f("away.fragment", {"name": str(frag.get("name", ""))}))
+	for sid in summary.get("stories_done", []):
+		out.append(_f("away.story_done", {"title": story_title(str(sid), world)}))
 	if summary.get("game_over", false):
 		out.append(t("away.over"))
 	return out

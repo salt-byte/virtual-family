@@ -47,7 +47,7 @@ func test_bar_shows_selected_person_in_words_not_numbers():
 	var m := _adopted()
 	var w := m.session.world
 	var p := w.people[0]
-	# Busy: the bar shows how far along the action is ("… · 37%"); that is the only number.
+	# Busy: the bar names the action without a percentage (the plate's line shows progress).
 	var desk: int = w.objects.filter(func(o): return o.type == "desk")[0].uid
 	m.session.command({"type": "drag", "person": p.uid, "object": desk})
 	# Need values whose digits cannot turn up in the age, the money or the larder count.
@@ -62,7 +62,8 @@ func test_bar_shows_selected_person_in_words_not_numbers():
 	assert_eq(m.selected, p.uid)
 	var text := m.hud.bar_text()
 	assert_true(text.contains(p.given))
-	assert_true(text.contains("%"), text)
+	assert_true(not text.contains("%"), text)
+	assert_true(text.contains(str(w.pack.actions[p.current.action].label)), text)
 	for word in p.status(m.session.pack).values():
 		assert_true(text.contains(word))
 	var re := RegEx.create_from_string("\\d+%")
@@ -218,7 +219,7 @@ func test_praise_success_floats_a_character_for_one_second():
 
 
 
-func test_bar_shows_progress_for_a_quick_action_and_not_for_sleep():
+func test_bar_never_shows_a_percentage_busy_or_asleep():
 	var m := _adopted()
 	var w := m.session.world
 	var p := w.people[0]
@@ -228,7 +229,8 @@ func test_bar_shows_progress_for_a_quick_action_and_not_for_sleep():
 	var desk: int = w.objects.filter(func(o): return o.type == "desk")[0].uid
 	m.session.command({"type": "drag", "person": p.uid, "object": desk})
 	m.tick(0.016)
-	assert_true(m.hud.bar_text().contains("%"))
+	assert_true(not m.hud.bar_text().contains("%"))   # no percentage any more
+	assert_true(m.house.people[p.uid].progress() >= 0.0)   # the plate's line still runs
 	AutonomySystem.cancel(w, p)
 	# Night (local 23:00): sleep, which is slow and keeps its real length.
 	clk["offset"] = 15 * 3600

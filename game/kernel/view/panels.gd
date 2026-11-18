@@ -53,7 +53,7 @@ func setup(m: Main) -> void:
 	panel.add_child(_box)
 
 
-## One of "", "shop", "ledger", "family".
+## One of "", "shop", "ledger", "family", "stories".
 func opened() -> String:
 	return _kind
 
@@ -65,7 +65,7 @@ func blocks_input() -> bool:
 
 ## Opens a panel; ignored for an unknown name, while an overlay shows or outside a running game.
 func open(what: String) -> void:
-	if not what in ["shop", "ledger", "family"]:
+	if not what in ["shop", "ledger", "family", "stories"]:
 		return
 	var w := session.world
 	if w == null or w.phase != "living" or main.overlays.current() != "":
@@ -186,7 +186,13 @@ func _data_signature(w: World) -> String:
 			var total := 0
 			for k in w.stock:
 				total += int(w.stock[k])
-			return "%d|%d|%s|%s" % [w.money, total, str(w.inventory), s.person_name(sel) if sel != null and sel.alive else ""]
+			var wishes := ""
+			for p in w.people:
+				if p.alive:
+					wishes += str(p.wish)
+			return "%d|%d|%s|%s|%s" % [w.money, total, str(w.inventory), s.person_name(sel) if sel != null and sel.alive else "", wishes]
+		"stories":
+			return str(w.stories)
 		"ledger":
 			return "%s|%s" % [str(w.goals_done), str(w.collection)]
 		"family":
@@ -233,7 +239,7 @@ func _rebuild() -> void:
 	list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	list.add_theme_constant_override("separation", 6)
 	scroll.add_child(list)
-	match _tab if _kind != "family" else "family":
+	match _tab if not _kind in ["family", "stories"] else _kind:
 		"tab.items":
 			_fill_items(list, w)
 		"tab.inventory":
@@ -244,6 +250,8 @@ func _rebuild() -> void:
 			_fill_collection(list, w)
 		"family":
 			_fill_family(list, w)
+		"stories":
+			_fill_stories(list, w)
 
 
 func _fill_items(list: VBoxContainer, w: World) -> void:
@@ -261,8 +269,49 @@ func _fill_items(list: VBoxContainer, w: World) -> void:
 			var it: Dictionary = w.pack.items[id]
 			var row := ViewWidgets.row(list)
 			row.add_child(ViewWidgets.name_label(str(it["name"])))
+			var wanted := _wanted_by(w, str(id))
+			if wanted != "":
+				var mark := ViewWidgets.price_label(s.t("shop.wanted").replace("{name}", wanted))
+				mark.add_theme_color_override("font_color", Color(0.95, 0.6, 0.3))
+				row.add_child(mark)
 			row.add_child(ViewWidgets.price_label(s.t("money").replace("{n}", str(int(it["price"])))))
 			_button("buy:" + id, s.t("btn.buy"), row).disabled = w.money < int(it["price"])
+
+
+## The names of the living people whose wish is this item, joined; "" for nobody.
+func _wanted_by(w: World, item: String) -> String:
+	var names: Array[String] = []
+	for p in w.people:
+		if not p.alive:
+			continue
+		var wish := WishSystem.current(w, p)
+		if str(wish.get("kind", "")) == "item" and str(wish.get("item", "")) == item:
+			names.append(session.strings.person_name(p))
+	return "、".join(names)
+
+
+## Each story that has come to light: its title, the fragments found with their text, and
+## a placeholder for each one still missing.
+func _fill_stories(list: VBoxContainer, w: World) -> void:
+	var s := session.strings
+	if w.stories.is_empty():
+		list.add_child(ViewWidgets.wrapped(s.t("stories.none")))
+		return
+	for sid in w.pack.stories:
+		if not w.stories.has(sid):
+			continue
+		var title := ViewWidgets.wrapped(s.story_title(sid, w))
+		title.add_theme_font_size_override("font_size", 18)
+		list.add_child(title)
+		var found: Array = w.stories[sid]["found"]
+		for f in w.pack.stories[sid]["fragments"]:
+			if found.has(str(f["id"])):
+				list.add_child(ViewWidgets.wrapped("· " + str(f["name"])))
+				var body := ViewWidgets.wrapped("　" + str(f["text"]))
+				body.modulate = Color(1, 1, 1, 0.8)
+				list.add_child(body)
+			else:
+				list.add_child(ViewWidgets.wrapped("· " + s.t("stories.locked")))
 
 
 func _fill_inventory(list: VBoxContainer, w: World) -> void:

@@ -18,6 +18,8 @@ var _current := ""
 var _signature := ""
 var _away: Dictionary = {}
 var _proposal_id := -1
+## Story fragments picked up while playing, waiting to be read: {story, fragment}.
+var _fragments: Array = []
 
 
 func setup(m: Main) -> void:
@@ -50,10 +52,14 @@ func setup(m: Main) -> void:
 	_box.add_theme_constant_override("separation", 8)
 	panel.add_child(_box)
 	session.away.connect(func(summary: Dictionary): _away = summary)
+	session.event.connect(func(e: Dictionary):
+		if str(e.get("type", "")) == "fragment_found":
+			_fragments.append({"story": str(e["story"]), "fragment": str(e["fragment"])}))
 	refresh()
 
 
-## One of "", "pack_error", "load_error", "adopt", "over", "away", "proposal".
+## One of "", "pack_error", "load_error", "adopt", "over", "away", "fragment", "visitor",
+## "proposal".
 func current() -> String:
 	return _current
 
@@ -107,6 +113,13 @@ func press(button_key: String) -> void:
 			session.command({"type": "reroll"})
 		"away":
 			_away = {}
+		"fragment":
+			if not _fragments.is_empty():
+				_fragments.pop_front()
+		"visitor":
+			var v := StorySystem.visitors(session.world)
+			if not v.is_empty():
+				session.command({"type": "receive_visitor", "story": str(v[0])})
 		"proposal":
 			if button_key == "btn.close":
 				_proposal_id = -1
@@ -127,7 +140,7 @@ func _adopt() -> void:
 		session.set_setting("hint_seen", true)
 
 
-## Priority: pack_error, load_error, away, adopt, over, proposal. The away summary outranks the
+## Priority: pack_error, load_error, away, adopt, over, fragment, visitor, proposal. The away summary outranks the
 ## game-over card (the dead are still in the world, so names resolve) but is dropped as stale
 ## once a new game is adopting: the world it described is gone.
 func refresh() -> void:
@@ -153,6 +166,12 @@ func refresh() -> void:
 		sig = str(w.candidate)
 	elif w != null and w.phase == "over":
 		kind = "over"
+	elif not _fragments.is_empty() and w != null and w.phase == "living":
+		kind = "fragment"
+		sig = str(_fragments[0])
+	elif w != null and w.phase == "living" and not StorySystem.visitors(w).is_empty():
+		kind = "visitor"
+		sig = str(StorySystem.visitors(w)[0])
 	elif not proposal.is_empty():
 		kind = "proposal"
 		sig = str(proposal)
@@ -211,6 +230,21 @@ func _rebuild(w: World, proposal: Dictionary) -> void:
 			for line in s.summary_lines(_away, w):
 				_box.add_child(_label(line))
 			_button("btn.close")
+		"fragment":
+			var fr: Dictionary = _fragments[0]
+			_title(s.story_title(str(fr["story"]), w))
+			var f := StorySystem.fragment(w.pack, str(fr["story"]), str(fr["fragment"]))
+			_box.add_child(_label(s.t("ev.fragment").replace("{name}", str(f.get("name", "")))))
+			_box.add_child(_label(str(f.get("text", ""))))
+			_button("btn.close")
+		"visitor":
+			var sid := str(StorySystem.visitors(w)[0])
+			var fin: Dictionary = w.pack.stories[sid]["finale"]
+			_title(s.story_title(sid, w))
+			_box.add_child(_label(str(fin.get("text", ""))))
+			if int(fin.get("money", 0)) > 0:
+				_box.add_child(_label(s.t("visitor.money").replace("{money}", s.t("money").replace("{n}", str(int(fin["money"]))))))
+			_button("btn.receive")
 		"proposal":
 			_title(s.t("title.proposal"))
 			_person_card(Person.from_dict(proposal["person"]))

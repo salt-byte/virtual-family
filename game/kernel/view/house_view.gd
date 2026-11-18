@@ -475,10 +475,32 @@ func _draw() -> void:
 		_small_name(font, at, thing_name(w.pack.mess_types, str(m.type)))
 	for c in w.collectibles:
 		var at := layout.cell_center(str(c.room), int(c.x), int(c.y))
-		draw_rect(Rect2(at - Vector2(6, 6), Vector2(12, 12)), Color(0.95, 0.8, 0.2))
-		_small_name(font, at, thing_name(w.pack.collectibles, str(c.type)))
+		if c.has("story"):
+			# An old thing of the house: a pale scrap, turned on its corner.
+			draw_colored_polygon(PackedVector2Array([at + Vector2(0, -8), at + Vector2(8, 0), at + Vector2(0, 8), at + Vector2(-8, 0)]), Color(0.93, 0.88, 0.74))
+			draw_polyline(PackedVector2Array([at + Vector2(0, -8), at + Vector2(8, 0), at + Vector2(0, 8), at + Vector2(-8, 0), at + Vector2(0, -8)]), Color(0.55, 0.4, 0.25), 1.5)
+		else:
+			draw_rect(Rect2(at - Vector2(6, 6), Vector2(12, 12)), Color(0.95, 0.8, 0.2))
+		_small_name(font, at, session.strings.thing_name(c, w))
+	_draw_marks(w)
 	_draw_hover(w)
 	_draw_ghost(w)
+
+
+## Story marks: "figure" a faint small figure (placeholder for the art pass), anything else
+## (a spot to dig) a cross on the ground in a ring.
+func _draw_marks(w: World) -> void:
+	for m in StorySystem.marks(w):
+		var at := layout.cell_center(str(m.room), int(m.x), int(m.y))
+		if str(m.look) == "figure":
+			var c := Color(0.15, 0.15, 0.22, 0.35)
+			draw_circle(at + Vector2(0, -20), 6.0, c)
+			draw_colored_polygon(PackedVector2Array([at + Vector2(-7, -13), at + Vector2(7, -13), at + Vector2(9, 8), at + Vector2(-9, 8)]), c)
+		else:
+			var c2 := Color(0.55, 0.25, 0.12)
+			draw_arc(at, 15.0, 0.0, TAU, 24, c2, 2.0)
+			draw_line(at + Vector2(-8, -8), at + Vector2(8, 8), c2, 3.0)
+			draw_line(at + Vector2(-8, 8), at + Vector2(8, -8), c2, 3.0)
 
 
 ## The pack's name for a mess or collectible type; "" when the type is unknown.
@@ -515,6 +537,10 @@ func _draw_hover(w: World) -> void:
 			var o := w.object(int(hover.uid))
 			if not o.is_empty():
 				rect = layout.object_rect(o, w.pack)
+		"mark":
+			for m in StorySystem.marks(w):
+				if str(m.story) == str(hover.get("story", "")):
+					rect = Rect2(layout.cell_center(str(m.room), int(m.x), int(m.y)) - HouseLayout.CELL * 0.5, HouseLayout.CELL)
 		"mess", "collectible":
 			var list: Array = w.messes if hover.kind == "mess" else w.collectibles
 			for m in list:

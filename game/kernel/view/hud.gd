@@ -8,7 +8,7 @@ signal open(what: String)
 const BAR_HEIGHT := 96.0
 const TOAST_SECONDS := 3.0
 const TOAST_MAX := 4
-const BAR_BUTTONS := ["family", "shop", "ledger", "arrange", "settings"]
+const BAR_BUTTONS := ["family", "shop", "ledger", "stories", "arrange", "settings"]
 
 var main: Main
 var session: GameSession
@@ -19,6 +19,7 @@ var _name: Label
 var _line: Label
 var _doing: Label
 var _status: Label
+var _wish: Label
 var _money: Label
 var _stock: Label
 var _buttons: Dictionary = {}  # id -> Button
@@ -78,6 +79,9 @@ func _build() -> void:
 	_status = Label.new()
 	_status.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	mid.add_child(_status)
+	_wish = Label.new()
+	_wish.visible = false
+	mid.add_child(_wish)
 	var cash := VBoxContainer.new()
 	cash.custom_minimum_size.x = 110
 	row.add_child(cash)
@@ -143,6 +147,8 @@ func refresh() -> void:
 		c.visible = have if c != _stock else living
 	for id in _buttons:
 		_buttons[id].visible = living or id == "settings"
+	# The old-stories box only for a pack that has stories.
+	_buttons["stories"].visible = living and w != null and not w.pack.stories.is_empty()
 	_money.visible = w != null and w.phase != "invalid"
 	if _money.visible:
 		_money.text = s.t("money").replace("{n}", str(w.money))
@@ -157,6 +163,9 @@ func refresh() -> void:
 		_doing.text = _doing_text(p)
 		_status.text = s.status_line(p, w)
 		_avatar.color = PersonView.FEMALE if p.gender == "female" else (PersonView.MALE if p.gender == "male" else PersonView.OTHER)
+	var wish := s.wish_text(p, w) if have else ""
+	_wish.visible = wish != ""
+	_wish.text = s.t("wish.line").replace("{text}", wish)
 	var waiting := living and not w.proposals.is_empty()
 	_buttons["family"].text = ("● " if waiting else "") + s.t("btn.family")
 	var off := judge_disabled()
@@ -166,18 +175,13 @@ func refresh() -> void:
 	_scold.visible = living
 
 
-## The "what they are doing" sentence, with how far along it is when that is worth showing
-## (not while idle, not for slow things like sleeping).
+## The "what they are doing" sentence (the plate's progress line shows how far along).
 func _doing_text(p: Person) -> String:
 	var s := session.strings
 	var pv: PersonView = main.house.people.get(p.uid) if main.house != null else null
 	# The person's plate holds the previous action's words through the short idle gap
 	# between two actions; the bar says the same.
-	var text := pv.doing_text() if pv != null else s.doing(p, session.world)
-	if pv == null or p.current.is_empty() or pv.slow():
-		return text
-	var pct := int(pv.progress() * 100.0)
-	return s.t("doing.progress").format({"text": text, "pct": pct})
+	return pv.doing_text() if pv != null else s.doing(p, session.world)
 
 
 func judge_disabled() -> bool:

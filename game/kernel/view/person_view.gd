@@ -59,7 +59,12 @@ var _pkey := ""
 var _rem := -1.0
 var _since := 0.0
 var _maxp := 0.0
+## The wish text shown in a thought bubble ("" for none).
+var _wish := ""
 
+## The thank-you wave: a quicker, higher hop and a waving arm.
+const THANKS_HOP := 6.0
+const THANKS_PERIOD := 0.45
 const BOB_AMPLITUDE := 3.0
 const BOB_PERIOD := 0.8
 const ASLEEP_DARKEN := 0.3
@@ -106,13 +111,38 @@ func refresh() -> void:
 	var c := FEMALE if person.gender == "female" else (MALE if person.gender == "male" else OTHER)
 	_body = c.lerp(ELDER_TINT, 0.7) if elder else c
 	_track_progress(w)
+	_wish = session.strings.wish_text(person, w)
 	queue_redraw()
+
+
+## True while the person stops to thank the player (they turn to the screen and wave).
+func thanking() -> bool:
+	return person != null and session.world != null and person.thanking(session.world.now)
+
+
+## What the body is doing, for drawing: "thanks" (facing the screen, waving), "asleep",
+## "busy" (at work in place), "walking" or "idle". The art pass maps these to animations.
+func pose() -> String:
+	if person == null:
+		return "idle"
+	if thanking():
+		return "thanks"
+	if asleep():
+		return "asleep"
+	if position.distance_to(target) > ARRIVED and not held:
+		return "walking"
+	return "busy" if not person.current.is_empty() else "idle"
+
+
+## The text of the thought bubble ("" when there is no wish).
+func wish_bubble() -> String:
+	return _wish
 
 
 func tick(delta: float) -> void:
 	_t += delta
 	_since += delta
-	if not person.current.is_empty():
+	if not person.current.is_empty() or thanking():
 		_maxp = maxf(_maxp, _estimate())
 		queue_redraw()
 	if _mark != null and not _mark.tick(delta):
@@ -200,6 +230,8 @@ func asleep() -> bool:
 
 ## The vertical wobble of the block while busy in place: zero when idle, walking, held or asleep.
 func bob_offset() -> float:
+	if thanking() and not held:
+		return -absf(THANKS_HOP * sin(TAU * _t / THANKS_PERIOD))
 	if person == null or held or person.current.is_empty() or asleep():
 		return 0.0
 	if position.distance_to(target) > ARRIVED:
@@ -247,6 +279,13 @@ func _compute_target(w: World, l: HouseLayout) -> Vector2:
 	if cur.is_empty():
 		_key = ""
 		return base_target if base_target != Vector2.ZERO else position
+	# An action that finishes a story at its mark (digging): straight to the mark.
+	var sid := str(w.pack.actions.get(str(cur.get("action", "")), {}).get("completes_story", ""))
+	if sid != "":
+		for m in StorySystem.marks(w):
+			if m.story == sid and m.get("dig", false):
+				_key = ""
+				return l.cell_center(str(m.room), int(m.x), int(m.y))
 	# An action that names where it happens: a random cell of that room.
 	var room := str(cur.get("room", ""))
 	if room == "" or not w.pack.rooms.has(room) or l.room_rect(room).size == Vector2.ZERO:
@@ -282,6 +321,18 @@ func _draw() -> void:
 		ring.set_border_width_all(3)
 		ring.set_corner_radius_all(10)
 		draw_style_box(ring, Rect2(Vector2(-BODY.x * 0.5, -BODY.y + bob), BODY).grow(4.0))
+	if thanking():
+		# Facing the screen: two eyes, a raised arm waving, and a small thank-you above.
+		var top := Vector2(0, -BODY.y + bob)
+		draw_circle(top + Vector2(-6, 10), 2.5, Color(0.1, 0.1, 0.1))
+		draw_circle(top + Vector2(6, 10), 2.5, Color(0.1, 0.1, 0.1))
+		var sway := 0.5 * sin(TAU * _t / THANKS_PERIOD)
+		var shoulder := top + Vector2(BODY.x * 0.5, 14)
+		draw_line(shoulder, shoulder + Vector2(10, -16).rotated(sway), _body.darkened(0.25), 5.0)
+		draw_string(ThemeDB.fallback_font, Vector2(-40, -BODY.y - 44), session.strings.t("thanks"),
+			HORIZONTAL_ALIGNMENT_CENTER, 80, 14, Color(0.75, 0.2, 0.1))
+	elif _wish != "":
+		_draw_bubble()
 	var plate := StyleBoxFlat.new()
 	plate.bg_color = Color(1, 1, 1, 0.88)
 	plate.set_corner_radius_all(5)
@@ -292,3 +343,19 @@ func _draw() -> void:
 	var prog := progress()
 	if prog >= 0.0:
 		draw_rect(Rect2(Vector2(-70, -BODY.y - 4), Vector2(140.0 * prog, 2)), Color(0.2, 0.6, 0.3))
+
+
+## A thought bubble with the wish above the name plate.
+func _draw_bubble() -> void:
+	var font := ThemeDB.fallback_font
+	var w := font.get_string_size(_wish, HORIZONTAL_ALIGNMENT_LEFT, -1, 12).x + 16.0
+	var rect := Rect2(Vector2(-w * 0.5, -BODY.y - 66), Vector2(w, 22))
+	var box := StyleBoxFlat.new()
+	box.bg_color = Color(1, 1, 1, 0.95)
+	box.border_color = Color(0.55, 0.5, 0.45)
+	box.set_border_width_all(1)
+	box.set_corner_radius_all(10)
+	draw_style_box(box, rect)
+	draw_circle(Vector2(-6, -BODY.y - 40), 3.0, Color(1, 1, 1, 0.95))
+	draw_circle(Vector2(-10, -BODY.y - 36), 2.0, Color(1, 1, 1, 0.95))
+	draw_string(font, rect.position + Vector2(0, 16), _wish, HORIZONTAL_ALIGNMENT_CENTER, w, 12, Color(0.2, 0.15, 0.1))

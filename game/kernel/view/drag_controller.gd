@@ -53,9 +53,11 @@ func drop(world_pos: Vector2) -> Dictionary:
 	pv.held = false
 	pv.z_index = 0
 	var cmd := {"type": "drag", "person": uid}
-	var quiet := not KINDS.has(str(hit.kind))
+	var quiet := not KINDS.has(str(hit.kind)) and str(hit.kind) != "mark"
 	if quiet:
 		cmd["object"] = -1
+	elif str(hit.kind) == "mark":
+		cmd["story"] = str(hit.story)
 	else:
 		cmd[KINDS[str(hit.kind)]] = int(hit.uid)
 	var built: bool = str(hit.room) != "" and str(hit.room) in main.session.world.rooms_built
