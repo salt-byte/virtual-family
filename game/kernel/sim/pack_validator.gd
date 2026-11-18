@@ -322,6 +322,39 @@ func _check_rooms() -> void:
 			has_indoor_built = true
 	if not has_indoor_built:
 		_err("rooms.json", "*", "needs at least one built indoor room")
+	_check_room_positions()
+
+
+## Rooms may carry `x`/`y` (whole cells, top-left corner on a shared grid): all rooms or
+## none, and positioned rooms must not overlap.
+func _check_room_positions() -> void:
+	var with := 0
+	for r in _p.rooms.values():
+		if r.has("x") and r.has("y"):
+			with += 1
+		elif r.has("x") or r.has("y"):
+			with = -1
+			break
+	if with == 0:
+		return
+	if with != _p.rooms.size():
+		_err("rooms.json", "*", "every room needs a position ('x' and 'y') or none may have one")
+		return
+	var placed: Array = []
+	for id in _p.rooms:
+		var r: Dictionary = _p.rooms[id]
+		var ok := true
+		for f in ["x", "y"]:
+			if not (r[f] is int and r[f] >= 0):
+				_err("rooms.json", id, "field '%s' must be a whole number of at least 0" % [f])
+				ok = false
+		if not (ok and r.get("w") is int and r.get("h") is int):
+			continue
+		var rect := Rect2i(r["x"], r["y"], r["w"], r["h"])
+		for other in placed:
+			if rect.intersects(other[1]):
+				_err("rooms.json", id, "overlaps room '%s'" % [other[0]])
+		placed.append([id, rect])
 
 
 func _check_livelihoods() -> void:

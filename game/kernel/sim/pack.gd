@@ -45,7 +45,7 @@ const ENTRY_DEFAULTS := {
 const INT_FIELDS := {
 	"actions": ["duration_min", "base"],
 	"object_types": ["price", "w", "h", "capacity"],
-	"rooms": ["w", "h", "build_cost"],
+	"rooms": ["w", "h", "build_cost", "x", "y"],
 	"items": ["price"],
 	"illnesses": ["weight"],
 	"collectibles": ["value", "weight"],

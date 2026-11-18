@@ -1,8 +1,9 @@
 class_name HouseLayout
 extends RefCounted
 ## Pure geometry of the house view: room arrangement, cell <-> screen conversion and hit
-## testing. No rendering. Rooms sit left to right in pack order, bottom-aligned; the
-## indoor wall strip sits above the floor rect and is not part of room_rect().
+## testing. No rendering. When the pack gives every room a grid position (`x`, `y` in
+## cells) rooms sit there; otherwise they sit left to right in pack order, bottom-aligned.
+## The indoor wall strip sits above the floor rect and is not part of room_rect().
 
 const CELL := Vector2(48, 36)
 const GAP := 48.0
@@ -22,14 +23,24 @@ func _init(pack: Pack) -> void:
 		if r is Dictionary and _num(r, "w") > 0.0 and _num(r, "h") > 0.0:
 			valid.append(str(id))
 			tallest = maxf(tallest, _num(r, "h") * CELL.y)
+	var positioned := not valid.is_empty() and valid.all(func(id):
+		return _whole(pack.rooms[id], "x") and _whole(pack.rooms[id], "y"))
 	var x := 0.0
 	for id in valid:
 		var r: Dictionary = pack.rooms[id]
 		var size := Vector2(_num(r, "w") * CELL.x, _num(r, "h") * CELL.y)
-		_rects[id] = Rect2(Vector2(x, tallest - size.y), size)
+		if positioned:
+			_rects[id] = Rect2(Vector2(_num(r, "x"), _num(r, "y")) * CELL, size)
+		else:
+			_rects[id] = Rect2(Vector2(x, tallest - size.y), size)
 		_indoor[id] = not bool(r.get("outdoor", false))
 		_order.append(id)
 		x += size.x + GAP
+
+## Whether `r[key]` is a whole number of at least 0 (a usable grid coordinate).
+static func _whole(r: Dictionary, key: String) -> bool:
+	var v = r.get(key)
+	return typeof(v) in [TYPE_INT, TYPE_FLOAT] and v >= 0 and float(v) == floorf(float(v))
 
 static func _num(r: Dictionary, key: String) -> float:
 	var v = r.get(key, 0)

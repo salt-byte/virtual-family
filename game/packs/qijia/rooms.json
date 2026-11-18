@@ -1,5 +1,7 @@
 [
-	{"id": "hall", "name": "堂屋", "w": 8, "h": 6, "built": true, "build_cost": 0},
-	{"id": "side", "name": "厢房", "w": 5, "h": 4, "built": false, "build_cost": 900},
-	{"id": "yard", "name": "院子", "w": 9, "h": 6, "built": true, "build_cost": 0, "outdoor": true}
+	{"id": "hall", "name": "堂屋", "w": 10, "h": 6, "x": 7, "y": 0, "built": true, "build_cost": 0},
+	{"id": "bedroom", "name": "卧房", "w": 6, "h": 6, "x": 0, "y": 0, "built": true, "build_cost": 0},
+	{"id": "kitchen", "name": "灶间", "w": 6, "h": 6, "x": 18, "y": 0, "built": true, "build_cost": 0},
+	{"id": "yard", "name": "院子", "w": 15, "h": 7, "x": 0, "y": 7, "built": true, "build_cost": 0, "outdoor": true},
+	{"id": "side", "name": "厢房", "w": 8, "h": 7, "x": 16, "y": 7, "built": false, "build_cost": 900}
 ]

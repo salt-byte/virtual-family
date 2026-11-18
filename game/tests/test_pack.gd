@@ -278,3 +278,36 @@ func test_choice_pool_is_a_whole_number_from_one_to_thirty_two():
 	assert_eq(Pack.DEFAULT_CONFIG["choice_pool"], 3)
 	assert_eq(Pack.load_dir("res://packs/_smoke").cfg("choice_pool"), 3)
 
+
+## Places the smoke rooms on a grid: main (0,0), study (9,0), yard (0,7).
+func _place(p: Pack) -> void:
+	p.rooms["main"]["x"] = 0
+	p.rooms["main"]["y"] = 0
+	p.rooms["study"]["x"] = 9
+	p.rooms["study"]["y"] = 0
+	p.rooms["yard"]["x"] = 0
+	p.rooms["yard"]["y"] = 7
+
+func test_positioned_rooms_validate_clean():
+	assert_eq(_errs(_place), [] as Array[String])
+
+func test_rooms_must_be_all_positioned_or_none():
+	var e := _errs(func(p): _place(p); p.rooms["yard"].erase("x"); p.rooms["yard"].erase("y"))
+	assert_true(_has(e, "rooms.json: *:", "position"))
+	assert_true(_has(_errs(func(p): _place(p); p.rooms["yard"].erase("y")), "rooms.json: *:", "position"))
+	assert_true(_has(_errs(func(p): p.rooms["main"]["x"] = 0), "rooms.json: *:", "position"))
+
+func test_positioned_rooms_must_not_overlap():
+	var e := _errs(func(p): _place(p); p.rooms["study"]["x"] = 7)
+	assert_true(_has(e, "rooms.json: study:", "main"))
+	assert_true(not _has(e, "rooms.json: *:"))
+
+func test_room_position_must_be_whole_and_nonnegative():
+	assert_true(_has(_errs(func(p): _place(p); p.rooms["study"]["x"] = 9.5), "rooms.json: study:", "'x'"))
+	assert_true(_has(_errs(func(p): _place(p); p.rooms["yard"]["y"] = -1), "rooms.json: yard:", "'y'"))
+	assert_true(_has(_errs(func(p): _place(p); p.rooms["yard"]["y"] = "7"), "rooms.json: yard:", "'y'"))
+
+func test_room_positions_load_as_ints():
+	var p := Pack.load_dir("res://packs/qijia")
+	assert_true(p.rooms["hall"]["x"] is int)
+	assert_eq(p.rooms["yard"]["y"], 7)

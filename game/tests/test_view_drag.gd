@@ -78,7 +78,7 @@ func test_drop_on_busy_object_toasts_busy():
 	var a := w.people[0]
 	var b := TestKit.adult(w)
 	m.tick(0.016)
-	var c := _center(m, w.objects[0])
+	var c := _center(m, w.objects.back())
 	m.drag.begin(a.uid)
 	assert_true(m.drag.drop(c).ok)
 	m.drag.begin(b.uid)

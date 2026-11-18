@@ -3,16 +3,24 @@ extends TestCase
 func _pack() -> Pack:
 	return Pack.load_dir("res://packs/qijia")
 
-func test_rooms_sit_left_to_right_bottom_aligned():
+func test_positioned_rooms_sit_where_the_pack_puts_them():
 	var l := HouseLayout.new(_pack())
-	assert_eq(l.room_rect("hall"), Rect2(0, 0, 384, 216))
-	assert_eq(l.room_rect("side"), Rect2(432, 72, 240, 144))
-	assert_eq(l.room_rect("yard").position.x, 720.0)
+	assert_eq(l.room_rect("hall"), Rect2(7 * 48, 0, 10 * 48, 6 * 36))
+	assert_eq(l.room_rect("yard"), Rect2(0, 7 * 36, 15 * 48, 7 * 36))
+	assert_eq(l.room_rect("bedroom"), Rect2(0, 0, 6 * 48, 6 * 36))
+	assert_eq(l.room_rect("kitchen"), Rect2(18 * 48, 0, 6 * 48, 6 * 36))
+	assert_eq(l.room_rect("side"), Rect2(16 * 48, 7 * 36, 8 * 48, 7 * 36))
 
 func test_cell_roundtrip_and_outside():
 	var l := HouseLayout.new(_pack())
-	assert_eq(l.pos_to_cell(l.cell_center("yard", 8, 5)), {"room": "yard", "x": 8, "y": 5})
-	assert_eq(l.pos_to_cell(Vector2(400, 10)), {})
+	var cells := {"bedroom": Vector2i(5, 5), "hall": Vector2i(9, 2), "kitchen": Vector2i(1, 4),
+		"yard": Vector2i(14, 6), "side": Vector2i(7, 0)}
+	for id in cells:
+		var c: Vector2i = cells[id]
+		assert_eq(l.pos_to_cell(l.cell_center(id, c.x, c.y)), {"room": id, "x": c.x, "y": c.y}, id)
+	# Between the two rows, and between the bedroom and the hall.
+	assert_eq(l.pos_to_cell(Vector2(100, 6.5 * 36)), {})
+	assert_eq(l.pos_to_cell(Vector2(6.5 * 48, 10)), {})
 
 func test_pick_priority_and_unbuilt_room():
 	var w := BalanceRun.setup("qijia", 1)
@@ -44,18 +52,16 @@ func test_stand_pos_below_furniture_or_center_when_against_edge():
 	var mid := {"type": t, "room": "yard", "x": 0, "y": 0}
 	var r := l.object_rect(mid, p)
 	assert_eq(l.stand_pos(mid, p), Vector2(r.get_center().x, r.end.y + l.CELL.y * 0.5))
-	var low := {"type": t, "room": "yard", "x": 0, "y": 6 - h}
+	var low := {"type": t, "room": "yard", "x": 0, "y": 7 - h}
 	assert_eq(l.stand_pos(low, p), l.object_rect(low, p).get_center())
 	assert_true(w > 0)
 
 func test_bounds_cover_rooms_and_walls():
 	var l := HouseLayout.new(_pack())
 	var b := l.bounds()
-	for id in ["hall", "side", "yard"]:
+	for id in ["bedroom", "hall", "kitchen", "side", "yard"]:
 		assert_true(b.encloses(l.room_rect(id)), id)
-	assert_eq(b.position.y, -HouseLayout.WALL)
-	assert_eq(b.end.x, l.room_rect("yard").end.x)
-	assert_eq(b.end.y, 216.0)
+	assert_eq(b, Rect2(0, -HouseLayout.WALL, 24 * 48, 14 * 36 + HouseLayout.WALL))
 
 
 func test_nearest_room_picks_closest_of_the_given_rooms():
@@ -91,3 +97,10 @@ func test_mess_and_collectible_names_come_from_the_pack():
 	assert_eq(HouseView.thing_name(p.mess_types, "dirt"), str(p.mess_types["dirt"]["name"]))
 	assert_eq(HouseView.thing_name(p.collectibles, "egg"), str(p.collectibles["egg"]["name"]))
 	assert_eq(HouseView.thing_name(p.collectibles, "nope"), "")
+
+func test_smoke_rooms_keep_the_left_to_right_strip():
+	var l := HouseLayout.new(Pack.load_dir("res://packs/_smoke"))
+	assert_eq(l.room_rect("main"), Rect2(0, 0, 384, 216))
+	assert_eq(l.room_rect("study"), Rect2(432, 72, 240, 144))
+	assert_eq(l.room_rect("yard"), Rect2(720, 0, 384, 216))
+	assert_eq(l.bounds(), Rect2(0, -30, 1104, 246))
