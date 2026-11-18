@@ -387,6 +387,14 @@ func _check_rooms() -> void:
 	_check_room_positions()
 	for id in _p.rooms:
 		_check_props(id)
+		var r: Dictionary = _p.rooms[id]
+		if not r["outside"] is bool:
+			_err("rooms.json", id, "outside must be true or false")
+		elif r["outside"] and not (r["outdoor"] == true and r.get("built") == true):
+			# A place beyond the house (a riverbank, a grove) is open ground that is always there.
+			_err("rooms.json", id, "an outside place must be outdoor and built")
+		elif r["outside"] and r["props"] is Array and not r["props"].is_empty():
+			_err("rooms.json", id, "an outside place has no furniture (props)")
 	_check_site()
 
 

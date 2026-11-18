@@ -13,14 +13,16 @@ static func step(world: World, dt: float) -> void:
 
 
 ## Adds one mess of `type` and returns its uid, or -1 when the type is unknown or no suitable
-## room exists. `room` "" picks a random built room of the matching kind (outdoor or indoor).
+## room exists. `room` "" picks a random built room of the matching kind (outdoor or indoor),
+## never a place `outside` the house.
 static func spawn(world: World, type: String, room := "") -> int:
 	var mt: Dictionary = world.pack.mess_types.get(type, {})
 	if mt.is_empty():
 		return -1
 	var outdoor := bool(mt.get("outdoor", false))
 	if room == "" or not world.rooms_built.has(room):
-		var ok: Array = world.rooms_built.filter(func(r): return bool(world.pack.rooms[r]["outdoor"]) == outdoor)
+		var ok: Array = world.rooms_built.filter(func(r): return bool(world.pack.rooms[r]["outdoor"]) == outdoor \
+			and not bool(world.pack.rooms[r]["outside"]))
 		if ok.is_empty():
 			return -1
 		room = str(world.rng.pick(ok))

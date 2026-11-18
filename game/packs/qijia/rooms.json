@@ -21,5 +21,10 @@
 	{"id": "veg_plot", "name": "菜园", "w": 7, "h": 6, "x": 32, "y": 19, "built": false, "build_cost": 400, "outdoor": true},
 	{"id": "coop_run", "name": "鸡舍", "w": 6, "h": 7, "x": 39, "y": 12, "built": true, "build_cost": 0, "outdoor": true},
 	{"id": "threshing", "name": "晒场", "w": 7, "h": 6, "x": 17, "y": 19, "built": false, "build_cost": 700, "outdoor": true,
-	 "props": [{"type": "grain_heap", "x": 2, "y": 2}]}
+	 "props": [{"type": "grain_heap", "x": 2, "y": 2}]},
+	{"id": "riverside", "name": "河边", "w": 3, "h": 16, "x": 46, "y": 7, "built": true, "build_cost": 0, "outdoor": true, "outside": true},
+	{"id": "bamboo_grove", "name": "竹林", "w": 8, "h": 11, "x": 1, "y": 7, "built": true, "build_cost": 0, "outdoor": true, "outside": true},
+	{"id": "field_ridge", "name": "田埂", "w": 20, "h": 5, "x": 1, "y": 26, "built": true, "build_cost": 0, "outdoor": true, "outside": true},
+	{"id": "hill_path", "name": "后山小路", "w": 30, "h": 3, "x": 13, "y": 0, "built": true, "build_cost": 0, "outdoor": true, "outside": true},
+	{"id": "village_tree", "name": "村口大树下", "w": 10, "h": 5, "x": 32, "y": 26, "built": true, "build_cost": 0, "outdoor": true, "outside": true}
 ]

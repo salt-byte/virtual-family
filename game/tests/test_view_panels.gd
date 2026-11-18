@@ -142,6 +142,10 @@ func test_family_proposal_row_opens_overlay():
 	m.panels.open("family")
 	assert_true(not m.panels.has_button("proposal"))
 	m.panels.close()
+	# No old stories here: with the places outside the house the seeded dice drop the first
+	# story fragment where the lone person picks it up within these 16 minutes, and its card
+	# would outrank the proposal card these tests look at.
+	m.session.world.pack.stories = {}
 	for i in 16:
 		clk.unix += 60.0
 		m.tick(0.016)
@@ -252,6 +256,10 @@ func test_inventory_tab_refreshes_money_and_stock():
 
 func test_overlay_blocks_opening_and_closes_open_panel():
 	var m := _living()
+	# No old stories here: with the places outside the house the seeded dice drop the first
+	# story fragment where the lone person picks it up within these 16 minutes, and its card
+	# would outrank the proposal card these tests look at.
+	m.session.world.pack.stories = {}
 	for i in 16:
 		clk.unix += 60.0
 		m.tick(0.016)

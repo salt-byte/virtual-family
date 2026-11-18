@@ -331,7 +331,9 @@ func _compute_target(w: World, l: HouseLayout) -> Vector2:
 	# An action that names where it happens: a random cell of that room.
 	var room := str(cur.get("room", ""))
 	if room == "" or not w.pack.rooms.has(room) or l.room_rect(room).size == Vector2.ZERO:
-		room = l.nearest_room(position, w.rooms_built)
+		# Somewhere at home: the places outside the house are only for what is done there.
+		var home := w.rooms_built.filter(func(r): return not bool(w.pack.rooms[r].get("outside", false)))
+		room = l.nearest_room(position, home if not home.is_empty() else w.rooms_built)
 	if room == "":
 		return _entrance(w, l)
 	var key := "%s|%s" % [cur.get("action", ""), cur.get("room", "")]

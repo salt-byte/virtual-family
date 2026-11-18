@@ -66,7 +66,7 @@ const ENTRY_DEFAULTS := {
 	"object_types": {"outdoor": false, "capacity": 1, "fixed": false, "keepsake": false},
 	"collectibles": {"rooms": []},
 	"wishes": {"likes": [], "stages": [], "weight": 1.0},
-	"rooms": {"outdoor": false, "props": []},
+	"rooms": {"outdoor": false, "props": [], "outside": false},
 	"items": {"stock": {}, "cures": "", "needs": {}, "work": {}, "childhood": {}},
 	"needs": {"when_empty": {}},
 }

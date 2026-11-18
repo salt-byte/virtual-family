@@ -155,11 +155,16 @@ func _label(w: World, id: String) -> void:
 	var name := str(r.get("name", ""))
 	if id in w.rooms_built:
 		var at := rect.position + Vector2(14, 22) if not bool(r.get("outdoor", false)) else Vector2(rect.position.x + 10, rect.end.y - 10)
+		var size := 15
 		var site := house.layout.site
-		if bool(r.get("outdoor", false)) and site.has_compound and int(r.get("y", 0)) + int(r.get("h", 0)) == site.compound.end.y:
+		if bool(r.get("outside", false)):
+			# A place out on the map: a bigger name at its top-left, where nothing stands over it.
+			at = rect.position + Vector2(10, 24)
+			size = 20
+		elif bool(r.get("outdoor", false)) and site.has_compound and int(r.get("y", 0)) + int(r.get("h", 0)) == site.compound.end.y:
 			at.y -= WallPiece.COMPOUND_H + WallPiece.T_COMPOUND  # clear of the compound wall's face
-		draw_string_outline(font, at, name, HORIZONTAL_ALIGNMENT_LEFT, -1, 15, 4, CREAM)
-		draw_string(font, at, name, HORIZONTAL_ALIGNMENT_LEFT, -1, 15, LINE)
+		draw_string_outline(font, at, name, HORIZONTAL_ALIGNMENT_LEFT, -1, size, 4, CREAM)
+		draw_string(font, at, name, HORIZONTAL_ALIGNMENT_LEFT, -1, size, LINE)
 		return
 	var mid := rect.get_center()
 	draw_string_outline(font, Vector2(rect.position.x, mid.y - 4), name, HORIZONTAL_ALIGNMENT_CENTER, rect.size.x, 22, 4, CREAM)

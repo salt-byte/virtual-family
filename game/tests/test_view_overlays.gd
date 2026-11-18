@@ -29,6 +29,10 @@ func _with_proposal() -> Main:
 	var m := _main()
 	m.overlays.press("btn.adopt")
 	m.tick(0.016)
+	# No old stories here: with the places outside the house the seeded dice drop the first
+	# story fragment where the lone person picks it up within these 16 minutes, and its card
+	# would outrank the proposal card these tests look at.
+	m.session.world.pack.stories = {}
 	for i in 16:
 		clk.unix += 60.0
 		m.tick(0.016)

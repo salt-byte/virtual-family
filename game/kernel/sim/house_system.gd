@@ -14,6 +14,8 @@ static func can_place(world: World, type: String, room: String, x: int, y: int, 
 		return "no_room"
 	if not world.rooms_built.has(room):
 		return "room_not_built"
+	if bool(r["outside"]):
+		return "wrong_area"  # a place beyond the house: nothing is set down there
 	if bool(t["outdoor"]) != bool(r["outdoor"]):
 		return "wrong_area"
 	var w := int(t["w"])

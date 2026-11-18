@@ -217,3 +217,49 @@ func test_bad_site_is_reported():
 	assert_true(PackValidator.validate(p).any(func(e): return e.contains("lies outside the map")))
 	p.config["site"] = {}
 	assert_eq(PackValidator.validate(p), [] as Array[String])
+
+
+## Out through the gate to the river, the grove or the field, all round by the paths.
+func test_routes_to_the_places_outside_go_through_the_gate():
+	var m := _main()
+	var l := m.house.layout
+	var s := l.site
+	var hall := l.cell_center("hall", 2, 2)
+	for id in ["riverside", "bamboo_grove", "field_ridge", "hill_path", "village_tree"]:
+		var to := l.cell_center(id, 1, 1)
+		var way := s.route(hall, to)
+		assert_true(way.size() >= 2, id)
+		assert_true(_legs_clear(s, hall, way, to), id)
+		var through_gate := false
+		var at := hall
+		for p: Vector2 in Array(way) + [to]:
+			if at.y < 25 * 36 and p.y > 25 * 36 or at.y > 25 * 36 and p.y < 25 * 36:
+				var x := at.x + (p.x - at.x) * (25 * 36 - at.y) / (p.y - at.y)
+				through_gate = through_gate or (x > 27 * 48 and x < 29 * 48)
+			at = p
+		assert_true(through_gate, id)
+	m.free()
+
+
+## Something done "wherever they are" is done at home, not out by the river.
+func test_a_roomless_action_brings_someone_home_from_outside():
+	var m := _main()
+	var w := m.session.world
+	var p: Person = w.people[0]
+	var pv: PersonView = m.house.people[p.uid]
+	pv.position = m.house.layout.cell_center("riverside", 1, 5)
+	# qijia names a place for nearly everything; take one and drop the place it picked, as an
+	# action that names none would have it.
+	var id := ""
+	for a in w.pack.actions.values():
+		if str(a["object"]) == "" and (a["rooms"] as Array).has("yard") and a["requires"].is_empty() \
+				and str(a["cleans"]) == "" and not bool(a["picks"]) and p.stage(w.pack) in a["stages"]:
+			id = str(a.id)
+			break
+	assert_true(id != "")
+	AutonomySystem.start(w, p, id, -1)
+	p.current.erase("room")
+	pv.refresh()
+	var hit := m.house.layout.pos_to_cell(pv.target)
+	assert_true(hit.get("room", "") != "" and not bool(w.pack.rooms[hit.room]["outside"]), str(hit))
+	m.free()

@@ -108,6 +108,9 @@ func test_no_child_from_a_sick_or_gloomy_couple_or_outside_the_fertile_years():
 func test_the_unborn_and_everyone_take_a_place_on_the_kang():
 	var w := _couple()
 	w.pack.config["births"]["chance_per_day"] = 1.0
+	# Nobody falls ill (the ill do not conceive): this is about places on the kang, and with
+	# the places outside the house the seeded dice gave the wife a chill in the last hour.
+	w.pack.config["illness_daily_chance"] = 0.0
 	var wife := _wife(w)
 	# One kang sleeps three: the couple and one child on the way.
 	assert_eq(BirthSystem.free_places(w), 1)
@@ -181,7 +184,12 @@ func test_a_baby_left_unfed_dies_of_neglect():
 	for p in w.people:
 		AutonomySystem.cancel(w, p)
 	w.pack.actions["feed_baby"]["stages"] = ["elder"]   # nobody in the house can feed it now
+	# Drop every cached cut of the action table, not only the table: the per-stage cuts are
+	# kept apart and would still offer feed_baby to grown-ups (it went unnoticed while the
+	# dice happened not to pick it within the hour).
 	w.pack.autonomy_table = []
+	w.pack.autonomy_by_stage = {}
+	w.pack.autonomy_by_stage_track = {}
 	baby.needs["fed"] = 0.0
 	baby.needs["health"] = 5.0
 	w.advance(3600)
