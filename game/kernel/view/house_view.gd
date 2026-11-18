@@ -18,6 +18,9 @@ const WHEEL_ZOOM := 1.1
 ## Carrying something this close to an edge of the house area scrolls toward that edge.
 const EDGE := 40.0
 const EDGE_SPEED := 600.0
+## Following a person: the gap to the middle shrinks by this rate per second (about 99 %
+## within half a second); under a pixel it closes at once.
+const FOLLOW_RATE := 10.0
 const SPREAD := 20.0
 const NIGHT_COLOR := Color(0.45, 0.5, 0.7)
 
@@ -50,6 +53,9 @@ var _arranging := false
 ## The last pointer position seen over the house (screen), for edge scrolling.
 var _cursor := Vector2.ZERO
 var _has_cursor := false
+## The person the view follows (-1: none). Set by an explicit select; a manual pan or the
+## person leaving ends it; carrying a person or arrange mode only pauses it.
+var follow_uid := -1
 
 
 static func night_amount(hour: float) -> float:
@@ -201,6 +207,8 @@ func refresh() -> void:
 				alive[p.uid] = p
 	for uid in people.keys():
 		if not alive.has(uid):
+			if uid == follow_uid:
+				follow_uid = -1
 			people[uid].queue_free()
 			remove_child(people[uid])
 			people.erase(uid)
@@ -230,6 +238,55 @@ func tick(delta: float) -> void:
 	_edge_scroll(delta)
 	for uid in people:
 		people[uid].tick(delta)
+	_follow_step(delta)
+
+
+## Starts following `uid` (again: re-centres on them).
+func follow(uid: int) -> void:
+	follow_uid = uid
+
+
+func unfollow() -> void:
+	follow_uid = -1
+
+
+## Whether following is waiting: a person is carried or arrange mode is open.
+func _follow_paused() -> bool:
+	return _carrying() or _arrange_on()
+
+
+## The followed person's view, or null when not following (or paused).
+func _followed() -> PersonView:
+	if follow_uid < 0 or not people.has(follow_uid) or _follow_paused():
+		return null
+	return people[follow_uid]
+
+
+## Eases the pan so the followed person heads for the middle of the house area; the pan
+## clamp still applies (near the house edge they may stay off-centre).
+func _follow_step(delta: float) -> void:
+	if follow_uid >= 0 and not people.has(follow_uid):
+		follow_uid = -1
+	var pv := _followed()
+	if pv == null or delta <= 0.0:
+		return
+	var gap := _area_centre() - to_screen(pv.position)
+	if gap.length() <= 1.0:
+		pan(gap)
+	else:
+		pan(gap * (1.0 - exp(-FOLLOW_RATE * delta)))
+
+
+## A wheel notch: zooms around the followed person while following, else around `screen`.
+func wheel_zoom(screen: Vector2, factor: float) -> void:
+	var pv := _followed()
+	zoom_at(to_screen(pv.position) if pv != null else screen, factor)
+
+
+## A pan the player makes by dragging the ground: it ends following.
+func _manual_pan(by: Vector2) -> void:
+	follow_uid = -1
+	pan(by)
 
 
 ## Whether a person is being carried or arrange mode has a piece in hand.
@@ -316,9 +373,9 @@ func move(screen: Vector2, relative: Vector2) -> void:
 				if screen.distance_to(_press_at) > CLICK_SLOP:
 					_moved = true
 					if not _arranging:
-						pan(screen - _press_at)
+						_manual_pan(screen - _press_at)
 			elif not _arranging:
-				pan(relative)
+				_manual_pan(relative)
 		arrange.hover(world_pos(screen))
 		return
 	if not _pressed:
@@ -332,12 +389,12 @@ func move(screen: Vector2, relative: Vector2) -> void:
 			drag.begin(_press_uid)
 		else:
 			# Catch up on everything since the press, not only this event's step.
-			pan(screen - _press_at)
+			_manual_pan(screen - _press_at)
 			return
 	if drag != null and drag.dragging >= 0:
 		drag.move(world_pos(screen))
 	else:
-		pan(relative)
+		_manual_pan(relative)
 
 
 func release(screen: Vector2) -> void:
@@ -368,7 +425,7 @@ func _unhandled_input(event: InputEvent) -> void:
 		else:
 			release(event.position)
 	elif event is InputEventMouseButton and event.pressed and event.button_index in [MOUSE_BUTTON_WHEEL_UP, MOUSE_BUTTON_WHEEL_DOWN]:
-		zoom_at(event.position, WHEEL_ZOOM if event.button_index == MOUSE_BUTTON_WHEEL_UP else 1.0 / WHEEL_ZOOM)
+		wheel_zoom(event.position, WHEEL_ZOOM if event.button_index == MOUSE_BUTTON_WHEEL_UP else 1.0 / WHEEL_ZOOM)
 	elif event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_RIGHT and event.pressed and _arrange_on():
 		arrange.cancel_held()
 	elif event is InputEventMouseMotion and _pressed:

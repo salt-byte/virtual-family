@@ -92,9 +92,13 @@ func is_house_blocked() -> bool:
 		or settings.blocks_input()
 
 
+## An explicit choice (a click on a person, the family panel): also makes the view follow
+## them. The automatic pick in `_sync_selection` does not.
 func select(uid: int) -> void:
 	selected = uid
 	_sync_selection()
+	if selected == uid and uid >= 0:
+		house.follow(uid)
 	_apply_selection()
 	if hud != null:
 		hud.refresh()
