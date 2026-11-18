@@ -1,7 +1,7 @@
 {
   "name": "ai-lifesim-studio",
-  "version": "0.2.0",
-  "description": "Plugin for making family life-sim games on a fixed Godot kernel, one theme pack per game. Has pack-authoring skills for places and props, the action table and verification, learned from building 《起家》, plus art, UI, release and writing skills borrowed from AI RPG Studio. The producer workflow and livelihood skills are still to come. 生活模拟游戏（家庭、小人、房子、几代人）的插件：排房子、编行为表、验收这几个填主题包的技能来自《起家》的实际开发；美术、界面、发布、文风借自 AI RPG Studio。制作人流程和营生技能还没做。",
+  "version": "0.3.0",
+  "description": "Plugin for making family life-sim games on a fixed Godot kernel, one theme pack per game. Has pack-authoring skills for places and props, the action table, livelihoods and verification, learned from building 《起家》, plus art, UI, release and writing skills borrowed from AI RPG Studio. The producer workflow is still to come. 生活模拟游戏（家庭、小人、房子、几代人）的插件：排房子、编行为表、营生、验收这几个填主题包的技能来自《起家》的实际开发；美术、界面、发布、文风借自 AI RPG Studio。制作人流程还没做。",
   "author": {
     "name": "Yudie Deng"
   },
