@@ -31,12 +31,19 @@ static func is_met(world: World, goal: Dictionary) -> bool:
 		"money_at_least":
 			return world.money >= int(w.get("amount", 0))
 		"objects_owned":
-			var owned := world.objects.filter(func(o): return not HouseSystem.is_fixed(world, str(o["type"])))
-			return owned.size() >= int(w.get("count", 0))
+			var owned := 0
+			for o in world.objects:
+				if not HouseSystem.is_fixed(world, str(o["type"])):
+					owned += 1
+			return owned >= int(w.get("count", 0))
 		"room_built":
 			return world.rooms_built.has(str(w.get("room", "")))
 		"level_reached":
-			return world.people.any(func(p: Person): return p.alive and p.level >= int(w.get("level", 0)))
+			var level := int(w.get("level", 0))
+			for p in world.people:
+				if p.alive and p.level >= level:
+					return true
+			return false
 		"collected":
 			return int(world.stats["collected"]) >= int(w.get("count", 0))
 	return false

@@ -95,11 +95,7 @@ func thanking(now: int) -> bool:
 
 ## Life stage id, from the pack's `stages` thresholds (years).
 func stage(pack: Pack) -> String:
-	var result := ""
-	for s in pack.cfg("stages"):
-		if age >= float(s["from"]):
-			result = str(s["id"])
-	return result
+	return pack.stage_of(age)
 
 
 func to_dict() -> Dictionary:

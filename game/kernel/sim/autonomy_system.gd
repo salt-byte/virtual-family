@@ -58,6 +58,13 @@ class Info:
 	var tend_gains: Array[float] = []
 	## carries the pack's births `avoid_tag`: the pregnant leave it alone
 	var avoid := false
+	## `requires.pregnant`: 1 only while pregnant, 0 only while not, -1 either way
+	var preg := -1
+	## true for an action that cares for a baby (`tends`): `kind` is TARGET_PERSON
+	var tend := false
+	## `object` != "" and `kind` != "" (bool tests are cheaper than string ones in the hot loop)
+	var has_object := false
+	var has_kind := false
 
 
 ## The pack's actions as `Info`, in pack order, built on first use and kept on the pack
@@ -105,6 +112,11 @@ static func _table(pack: Pack) -> Array:
 			i.tend_ids.append(str(n))
 			i.tend_gains.append(maxf(float(tends[n]), 0.0))
 		i.avoid = avoid_tag != "" and i.tags.has(avoid_tag)
+		i.tend = not i.tend_ids.is_empty()
+		i.has_object = i.object != ""
+		i.has_kind = i.kind != ""
+		if i.requires.has("pregnant"):
+			i.preg = 1 if bool(i.requires["pregnant"]) else 0
 		out.append(i)
 	pack.autonomy_table = out
 	pack.autonomy_by_stage = {}
@@ -127,13 +139,21 @@ static func _stage_table(pack: Pack, stage: String) -> Array:
 
 
 ## `_stage_table` without the work actions of livelihoods other than `track`, in pack order.
-## Actions that require a mood other than `mood` are left out too.
-static func _stage_track_table(pack: Pack, stage: String, track: String, mood := "") -> Array:
+## Actions that require a mood other than `mood` are left out too; so are, for the pregnant,
+## the actions they avoid and, for everyone else, those only the pregnant do; and actions that
+## care for a baby while there is none (`babies` false).
+static func _stage_track_table(pack: Pack, stage: String, track: String, mood := "", pregnant := false, babies := false) -> Array:
 	var key := stage + "|" + track + "|" + mood
+	if pregnant:
+		key += "|p"
+	if babies:
+		key += "|b"
 	var t = pack.autonomy_by_stage_track.get(key)
 	if t == null:
 		t = _stage_table(pack, stage).filter(func(i: Info):
-			return (not i.has_work or i.track == track) and (not i.mood_req or i.mood == mood))
+			return (not i.has_work or i.track == track) and (not i.mood_req or i.mood == mood) \
+				and not (pregnant and i.avoid) and (i.preg < 0 or (i.preg == 1) == pregnant) \
+				and (babies or not i.tend))
 		pack.autonomy_by_stage_track[key] = t
 	return t
 
@@ -165,16 +185,14 @@ static func candidates(world: World, p: Person, pool := 0) -> Array[Dictionary]:
 	var free := {}  # object type -> first object of that type free for `p` (-1: none)
 	var users := {}  # object uid -> people other than `p` using it (filled on first need)
 	# The cheap yes/no tests come first; only what passes them is scored.
-	for i: Info in _stage_track_table(pack, stage, p.track, p.mood):
+	for i: Info in _stage_track_table(pack, stage, p.track, p.mood, pregnant, not world.babies().is_empty()):
 		if i.gated:
 			if i.slow_in_hours and not _in_hours(hour, i.hours):
 				continue
 			if i.has_story and not StorySystem.finale_open(world, i.story):
 				continue
-		if pregnant and i.avoid:
-			continue
 		var uid := -1
-		if i.object != "":
+		if i.has_object:
 			if not free.has(i.object):
 				if users.is_empty():
 					users[-1] = 0
@@ -201,7 +219,7 @@ static func candidates(world: World, p: Person, pool := 0) -> Array[Dictionary]:
 		# The score: `_score`'s arithmetic in the same order, written out here.
 		var gain := 0.0
 		var target := -1
-		if i.kind == "person":
+		if i.tend:
 			# Caring for a baby scores by what the baby lacks, not by the carer's own needs.
 			target = _tend_target(world, i.tend_ids, i.tend_gains, p)
 			if target < 0:
@@ -231,7 +249,7 @@ static func candidates(world: World, p: Person, pool := 0) -> Array[Dictionary]:
 			s *= low
 		if s <= 0.0:
 			continue
-		if i.kind != "" and i.kind != "person":
+		if i.has_kind and not i.tend:
 			target = _first_free_target(world, pack.actions[i.id], p)
 			if target < 0:
 				continue
@@ -355,7 +373,8 @@ static func target_kind(a: Dictionary) -> String:
 		return "mess"
 	if bool(a["picks"]):
 		return "collectible"
-	if not (a.get("tends", {}) as Dictionary).is_empty():
+	var tends = a.get("tends")
+	if tends != null and not (tends as Dictionary).is_empty():
 		return TARGET_PERSON
 	return ""
 
@@ -374,7 +393,7 @@ static var _tend_gain := 0.0
 static func _tend_target(world: World, ids: Array[String], gains: Array[float], p: Person) -> int:
 	var best := -1
 	var best_gain := -1.0
-	for b in world.people:
+	for b in world.babies():
 		if b == p or not b.alive or b.stage(world.pack) != "baby":
 			continue
 		if target_claimed(world, b.uid, "person", p):
@@ -485,8 +504,8 @@ static func _progress(world: World, p: Person, dt: float) -> void:
 				# Without the player's attention, one's own doings only lift the mood so far.
 				nv = minf(nv, maxf(float(p.needs[n]), p.mood_cap))
 			p.needs[n] = nv
-	var tends: Dictionary = a.get("tends", {})
-	if not tends.is_empty():
+	var tends = a.get("tends")  # no default: this runs every step for everyone busy
+	if tends != null and not (tends as Dictionary).is_empty():
 		var t := world.person(int(p.current.get("target_uid", -1)))
 		if t != null and t.alive:
 			for n in tends:

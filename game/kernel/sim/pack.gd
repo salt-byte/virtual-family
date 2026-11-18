@@ -104,6 +104,61 @@ var autonomy_by_stage: Dictionary = {}
 var autonomy_by_stage_track: Dictionary = {}
 ## livelihood id -> {action id: affinity matches}, prepared by `LivelihoodSystem`.
 var affinity_table: Dictionary = {}
+## The needs' drains as plain arrays, prepared by `NeedsSystem` on first use.
+var needs_table: Array = []
+## `stages` as parallel arrays (ids, starting ages), rebuilt when the array is replaced or
+## changes size (see `stage_of`).
+var _stage_src: Variant = null
+var _stage_n := -1
+var _stage_ids: PackedStringArray = []
+var _stage_from: PackedFloat64Array = []
+
+
+## The id of the stage someone of `age` years is in: the last stage (in `stages` order) whose
+## `from` is at most `age`; "" before the first. Called on every step, so the stages are read
+## into plain arrays once.
+func stage_of(age: float) -> String:
+	var stages = config.get("stages")
+	if not is_same(stages, _stage_src) or (stages as Array).size() != _stage_n:
+		_stage_src = stages
+		_stage_n = (stages as Array).size()
+		_stage_ids = []
+		_stage_from = []
+		for st in stages:
+			_stage_ids.append(str(st["id"]))
+			_stage_from.append(float(st["from"]))
+	var result := ""
+	for k in _stage_from.size():
+		if age >= _stage_from[k]:
+			result = _stage_ids[k]
+	return result
+
+
+## The age (years) at which the baby stage ends, worked out on first use (see `baby_until`).
+var _baby_until := -1.0
+
+
+## The age (years) at which the baby stage ends: where the next stage starts (0 when the pack
+## has no baby stage, INF when nothing follows it). Read on the hot path instead of `stage`.
+func baby_until() -> float:
+	if _baby_until < 0.0:
+		_baby_until = 0.0
+		var stages = config.get("stages")
+		if stages is Array:
+			var seen := false
+			for st in stages:
+				if not st is Dictionary:
+					continue
+				if seen:
+					_baby_until = float(st.get("from", 0.0))
+					seen = false
+					break
+				if str(st.get("id", "")) == "baby":
+					seen = true
+					_baby_until = INF
+			if seen:
+				_baby_until = INF
+	return _baby_until
 
 
 static func load_dir(dir: String) -> Pack:

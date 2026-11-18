@@ -64,6 +64,9 @@ var blessing_illness := 1.0
 ## `BirthSystem`); kept so the hint is given once each time it starts.
 var birth_blocked := false
 
+## The living babies as of `_babies_t` (see `babies`); not saved.
+var _babies: Array[Person] = []
+var _babies_t := -1
 var _built := {}
 var _built_n := -1
 var _built_src: Array[String] = []
@@ -136,6 +139,19 @@ func built_set() -> Dictionary:
 			_built[r] = true
 		_built_n = rooms_built.size()
 	return _built
+
+
+## The people in the baby stage, worked out once per step (the dead among them are left for
+## callers to skip: someone may die later in the same step).
+func babies() -> Array[Person]:
+	if _babies_t != now:
+		_babies_t = now
+		_babies = []
+		var until := pack.baby_until()
+		for p in people:
+			if p.alive and p.age < until:
+				_babies.append(p)
+	return _babies
 
 
 ## Local hour of day as 0..24.
