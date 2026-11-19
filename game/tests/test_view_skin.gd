@@ -206,3 +206,37 @@ func test_props_follow_objects_moved_and_removed():
 	assert_eq(piece.rect, before)
 	assert_eq(piece.position, house.layout.object_rect(moved, w.pack).get_center())
 	_done(m)
+
+
+## Each look of the pack draws its own rigs at its own height, every look has a portrait and
+## words, and a grown-up look's body (feet to neck) is as big as the father's within 8 %.
+func test_people_wear_their_looks():
+	var m := _main("qijia")
+	var skin := m.house.skin
+	var w := m.session.world
+	var father := skin.person_look("adult", "male")
+	var fr: CutoutRig = father.rig
+	var neck := func(look: Dictionary) -> float:
+		var r: CutoutRig = look.rig
+		var k: float = float(look.height) / r.height
+		var wd := r.world({})
+		return (-(wd["leg_upper"] as Transform2D).origin.y + r._by_id["torso"].size.y) * k
+	var base: float = neck.call(father)
+	for e in LookSystem.looks(w.pack):
+		var id := str(e["id"])
+		var look := skin.person_look(str(e["stage"]), str(e["sex"]), id)
+		assert_eq(str(look.get("look", "")), id)
+		assert_true(look.has("rig_front") and look.has("rig_back"), id)
+		assert_true(skin.portrait(id) != null, id)
+		assert_true(str(skin.look_text(id).get("name", "")) != "", id)
+		if str(e["stage"]) == "adult" and str(e["sex"]) == "male":
+			var n: float = neck.call(look)
+			assert_true(absf(n / base - 1.0) < 0.08, "%s body %.1f vs father %.1f" % [id, n, base])
+	# Whoever lives in the house is drawn in their look.
+	for uid in m.house.people:
+		var pv: PersonView = m.house.people[uid]
+		if pv.person.look != "" and pv.person.look != LookSystem.CHILD:
+			assert_eq(str(pv._look.get("look", "")), pv.person.look)
+	# No look (old saves): the stage's entry.
+	assert_eq(skin.person_look("adult", "male", ""), father)
+	_done(m)

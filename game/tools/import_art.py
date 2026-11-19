@@ -22,6 +22,11 @@ copies only the rigs (leaves the other pictures as they are).
 copies only what the 45° view adds: iso/<id>.png -> iso/<id>.png (trimmed, the longer side at
 most ISO_MAX), the facing rigs chars/a_<name>_front|_back/ -> rigs/<name>_front|_back/, and
 the animals' single facing pictures chars/a_<kind>_front|_back/<file>.png -> chars/<kind>_front|_back.png.
+    python3 game/tools/import_art.py --looks-only <assets dir> <pack art dir>
+
+copies only the looks (chars/looks.json): their rigs, all three facings, as
+rigs/<id>[_front|_back]/ (the id without its a_ prefix), and their portraits
+chars/portraits/a_<id>.png -> portraits/<id>.png (trimmed, the longer side at most 256).
 Needs Pillow.
 """
 import json
@@ -62,12 +67,14 @@ RIG_SCALE = 0.5
 RIG_KEYS = ("pivot_px", "attach_px", "root_px", "size")
 
 
-def import_rigs(src: Path, dst: Path, facing_only=False) -> None:
+def import_rigs(src: Path, dst: Path, facing_only=False, only=None) -> None:
     for d in sorted((src / "chars").glob("a_*")):
         rigs = list(d.glob("*.rig.json")) if d.is_dir() else []
         if not rigs:
             continue
         if facing_only and not (d.name.endswith("_front") or d.name.endswith("_back")):
+            continue
+        if only is not None and d.name.removesuffix("_front").removesuffix("_back") not in only:
             continue
         name = d.name[2:]
         out = dst / "rigs" / name
@@ -106,6 +113,21 @@ def import_iso(src: Path, dst: Path) -> None:
             im.resize((round(im.width * k), round(CHAR_H / 2)), Image.LANCZOS).save(dst / "chars" / f"{d.name[2:]}.png", optimize=True)
 
 
+PORTRAIT_MAX = 256
+
+
+def import_looks(src: Path, dst: Path) -> None:
+    looks = json.loads((src / "chars" / "looks.json").read_text())["looks"]
+    ids = {l["id"] for l in looks}
+    import_rigs(src, dst, only=ids)
+    (dst / "portraits").mkdir(parents=True, exist_ok=True)
+    for l in looks:
+        f = src / l["portrait"]
+        if f.exists():
+            im = trim(Image.open(f).convert("RGBA"))
+            fit(im, PORTRAIT_MAX).save(dst / "portraits" / f"{l['id'][2:]}.png", optimize=True)
+
+
 def main(src: Path, dst: Path) -> None:
     import_rigs(src, dst)
     for sub in ("tiles", "props", "chars"):
@@ -128,7 +150,8 @@ if __name__ == "__main__":
     args = sys.argv[1:]
     only = "--rigs-only" in args
     iso = "--iso-only" in args
-    args = [a for a in args if a not in ("--rigs-only", "--iso-only")]
+    looks = "--looks-only" in args
+    args = [a for a in args if a not in ("--rigs-only", "--iso-only", "--looks-only")]
     if len(args) != 2:
         sys.exit(__doc__)
-    (import_iso if iso else import_rigs if only else main)(Path(args[0]), Path(args[1]))
+    (import_looks if looks else import_iso if iso else import_rigs if only else main)(Path(args[0]), Path(args[1]))
