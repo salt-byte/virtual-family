@@ -34,7 +34,8 @@ func _draw() -> void:
 	var around := site.rect()
 	if house.iso:
 		# The 45° view shows past the map's corners: the ground goes on round it.
-		around = around.grow_individual(16 * HouseSite.CELL.x, 20 * HouseSite.CELL.y, 16 * HouseSite.CELL.x, 20 * HouseSite.CELL.y)
+		# Far enough that the screen's corners are covered at the smallest zoom.
+		around = around.grow_individual(40 * HouseSite.CELL.x, 40 * HouseSite.CELL.y, 40 * HouseSite.CELL.x, 40 * HouseSite.CELL.y)
 	_fill(around, site.ground, skin.ground_tile() if skin != null else {})
 	if site.has_compound:
 		_fill(_cells(Rect2(site.compound)), site.compound_ground, skin.compound_tile() if skin != null else {})
