@@ -150,6 +150,52 @@ func test_many_letters_fold_into_one_notice_that_opens_the_box():
 	_done(m)
 
 
+func test_two_letters_from_one_writer_are_one_notice_that_opens_the_newest():
+	var m := _main()
+	var w := m.session.world
+	var ids: Array[int] = []
+	for i in 2:
+		ids.append(w.letter_next)
+		w.letters.append({"id": w.letter_next, "t": w.now, "kind": "thanks", "template": "t", "from": 0,
+			"about": 0, "writer": "祝素纨", "hand": "", "text": "好", "sign": "", "choices": [],
+			"answer": -1, "read": false})
+		w.letter_next += 1
+	m.tick(0.016)
+	var letters := m.hud.notices().filter(func(x): return x["kind"] == "letter")
+	assert_eq(letters.size(), 1, str(_ids(m)))
+	var text := m.session.strings.t("notice.letter_n").format({"writer": "祝素纨", "n": 2})
+	assert_eq(letters[0]["text"], text)
+	m.hud.press_notice(str(letters[0]["id"]))
+	assert_eq(m.letters.opened(), "letter")
+	assert_true(bool(LetterSystem.find(w, ids[1])["read"]), "the newest opens first")
+	m.letters.close()
+	m.tick(0.016)
+	var left := m.hud.notices().filter(func(x): return x["kind"] == "letter")
+	assert_eq(left.size(), 1)
+	assert_eq(left[0]["text"], m.session.strings.t("notice.letter").replace("{writer}", "祝素纨"))
+	_done(m)
+
+
+func test_the_letter_bird_keeps_clear_of_the_notices_and_its_wing_always_fills():
+	for k in 200:
+		var wing := LetterBird.wing_points(float(k) * 0.013)
+		assert_true(not Geometry2D.triangulate_polygon(wing).is_empty(), "wing at %d" % k)
+	var m := _main()
+	var w := m.session.world
+	w.pet_offer = {"kind": "cat", "given": "花花", "age": 2.0, "expires_at": w.now + 3600}
+	w.letters.append({"id": w.letter_next, "t": w.now, "kind": "thanks", "template": "t", "from": 0,
+		"about": 0, "writer": "祝素纨", "hand": "", "text": "好", "sign": "", "choices": [],
+		"answer": -1, "read": false})
+	w.letter_next += 1
+	for i in 120:
+		m.tick(0.016)
+	assert_true(m.letters.bird.visible)
+	var r := m.letters.bird_rect(m.letters.bird.feet)
+	for c in m.hud.top_rects():
+		assert_true(not c.intersects(r), "%s over %s" % [r, c])
+	_done(m)
+
+
 func test_someone_falling_ill_or_at_their_worst_is_a_notice_that_selects_them():
 	var m := _main()
 	var w := m.session.world

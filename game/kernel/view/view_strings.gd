@@ -117,6 +117,7 @@ const DEFAULTS := {
 	"notice.proposal": "有人来给{name}提亲", "notice.proposal_from": "{writer}来给{name}提亲",
 	"notice.proposal_any": "有人上门提亲", "notice.stray": "门口来了一只{kind}",
 	"notice.letter": "{writer}的信，还没拆", "notice.reply": "{writer}的信，等你回话",
+	"notice.letter_n": "{writer}来了 {n} 封信，还没拆", "notice.reply_n": "{writer}的 {n} 封信，等你回话",
 	"notice.letters": "还有 {n} 封信等你看", "notice.thanks": "{name}如愿了，在谢你",
 	"notice.need": "{name}{word}", "notice.pet_away": "{name}跑出去了，还没回来",
 	"notice.pickup": "{room}地上有东西可捡", "notice.pickups": "地上有 {n} 样东西可捡",

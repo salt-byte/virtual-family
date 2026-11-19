@@ -525,6 +525,21 @@ func button(id: String) -> Button:
 	return _buttons.get(id)
 
 
+## Screen rects the HUD covers at the top (the notices, the festival board, the toasts),
+## for things in the scene that should keep clear of them (the letter bird).
+func top_rects() -> Array[Rect2]:
+	var out: Array[Rect2] = []
+	for c in [_notice_box, _fest_box, _toast_box]:
+		if c.visible and c.is_inside_tree():
+			var r: Rect2 = (c as Control).get_global_rect()
+			if r.size.x > 0.0 and r.size.y > 0.0:
+				out.append(r.grow(8.0))
+	# The notices may unfold: keep clear of where three of them sit even while fewer show.
+	if _notice_box.visible:
+		out.append(Rect2(_notice_box.position, Vector2(NOTICE_WIDTH, 44.0 * (NOTICES_MAX + 1) + 30.0)).grow(8.0))
+	return out
+
+
 ## The festival board's words ("" while no festival is on); for tests.
 func festival_text() -> String:
 	return "%s %s" % [_fest_title.text, _fest_left.text] if _fest_box.visible else ""

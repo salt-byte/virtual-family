@@ -121,8 +121,10 @@ static func _wants_reply(w: World, l: Dictionary) -> bool:
 	return false
 
 
-## Unread letters and letters waiting for an answer, newest first. A proposal letter is left
-## to the proposal's own notice while the proposal waits.
+## Unread letters and letters waiting for an answer, newest first, one notice per writer and
+## kind: two unread letters from one person are "X来了 2 封信，还没拆", which opens the
+## newest. A proposal letter is left to the proposal's own notice while the proposal waits.
+## More than FOLD writers fold into one notice that opens the letter box.
 static func _letters(out: Array[Dictionary], w: World, s: ViewStrings) -> void:
 	if not LetterSystem.enabled(w.pack):
 		return
@@ -130,18 +132,33 @@ static func _letters(out: Array[Dictionary], w: World, s: ViewStrings) -> void:
 	for pr in w.proposals:
 		waiting[int(pr["id"])] = true
 	var found: Array[Dictionary] = []
+	var by_key := {}
 	for i in range(w.letters.size() - 1, -1, -1):
 		var l: Dictionary = w.letters[i]
 		if waiting.has(_proposal_of(l)):
 			continue
+		var kind := ""
 		if not bool(l["read"]):
-			found.append({"kind": "letter", "id": int(l["id"]), "text": s.t("notice.letter").replace("{writer}", str(l["writer"]))})
+			kind = "letter"
 		elif _wants_reply(w, l):
-			found.append({"kind": "reply", "id": int(l["id"]), "text": s.t("notice.reply").replace("{writer}", str(l["writer"]))})
+			kind = "reply"
+		else:
+			continue
+		var key := kind + "|" + str(l["writer"])
+		if by_key.has(key):
+			by_key[key]["n"] = int(by_key[key]["n"]) + 1
+		else:
+			by_key[key] = {"kind": kind, "id": int(l["id"]), "writer": str(l["writer"]), "n": 1}
+			found.append(by_key[key])
 	for k in mini(found.size(), FOLD):
-		_add(out, found[k]["kind"], found[k]["id"], found[k]["text"])
+		var f: Dictionary = found[k]
+		var text_key := "notice.%s_n" % f["kind"] if int(f["n"]) > 1 else "notice.%s" % f["kind"]
+		_add(out, f["kind"], f["id"], s.t(text_key).format({"writer": f["writer"], "n": f["n"]}))
 	if found.size() > FOLD:
-		_add(out, "letters", 0, s.t("notice.letters").replace("{n}", str(found.size() - FOLD)))
+		var rest := 0
+		for k in range(FOLD, found.size()):
+			rest += int(found[k]["n"])
+		_add(out, "letters", 0, s.t("notice.letters").replace("{n}", str(rest)))
 
 
 ## Things lying on the ground for the player to pick up; more than FOLD fold into one.

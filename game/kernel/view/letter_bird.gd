@@ -68,6 +68,15 @@ func _ellipse(c: Vector2, r: Vector2, fill: Color, line := true, rot := 0.0) -> 
 		draw_polyline(pts, ViewWidgets.INK, 2.0, true)
 
 
+## The beating wing's outline at time `t`, offset by `o`. The down stroke stops above the
+## body line: past it the outline crossed itself and could not be filled
+## ("triangulation failed").
+static func wing_points(t: float, o := Vector2.ZERO) -> PackedVector2Array:
+	var beat := maxf(sin(t * 18.0), -0.4)
+	var tip := o + Vector2(20, 22 - beat * 18.0)
+	return PackedVector2Array([o + Vector2(22, 32), tip, o + Vector2(40, 28 - beat * 10.0), o + Vector2(38, 34)])
+
+
 func _draw() -> void:
 	var lift := -sin(_hop * PI) * 10.0
 	var bob := 0.0 if flying else sin(_t * 3.0) * 1.2
@@ -94,10 +103,9 @@ func _draw() -> void:
 	_ellipse(o + Vector2(30, 36), Vector2(17, 12), BODY)
 	# Wing: folded while sitting, beating while flying.
 	if flying:
-		var beat := sin(_t * 18.0)
-		var tip := o + Vector2(20, 22 - beat * 18.0)
-		var wing := PackedVector2Array([o + Vector2(22, 32), tip, o + Vector2(40, 30 - beat * 10.0), o + Vector2(38, 34)])
-		draw_colored_polygon(wing, WING)
+		var wing := wing_points(_t, o)
+		if not Geometry2D.triangulate_polygon(wing).is_empty():
+			draw_colored_polygon(wing, WING)
 		wing.append(wing[0])
 		draw_polyline(wing, ViewWidgets.INK, 2.0, true)
 	else:
