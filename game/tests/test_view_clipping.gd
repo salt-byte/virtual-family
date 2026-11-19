@@ -133,25 +133,46 @@ func test_routes_go_round_furniture():
 	m.free()
 
 
-func test_low_walls_sort_by_their_top_and_tall_ones_by_their_foot():
+## The 45° view sorts everything standing by how far in front it is (view y of its foot):
+## a back wall is drawn before whoever stands in the room in front of it and after whoever
+## stands outside behind it; a cut wall is drawn after the room's front row (it is only
+## ankle-high) and before whoever stands outside it.
+func test_walls_sort_with_the_people_by_depth():
 	var m := _main()
-	for wp in m.house.walls:
-		if wp.along != "x" or wp.gate:
+	var house := m.house
+	var pv: PersonView = house.people.values()[0]
+	var checked := 0
+	for wp in house.walls:
+		if wp.role != "wall" or wp.open or wp.kind == HouseSite.FENCE:
 			continue
-		var foot := float(wp.line) * HouseSite.CELL.y + WallPiece.thickness(wp.kind) * 0.5
-		if wp.heights[0] == WallPiece.BACK or wp.kind == HouseSite.FENCE:
-			assert_eq(wp.position.y, foot)
-		else:
-			# Feet on the front row (a cell's middle, 18 px from the line) are below its sort point.
-			assert_true(wp.position.y < float(wp.line) * HouseSite.CELL.y - 18.0, "%s %s" % [wp.line, wp.a])
+		var inside := Vector2i(wp.at, wp.line) if wp.along == "x" else Vector2i(wp.line, wp.at)
+		var outside := inside - (Vector2i(0, 1) if wp.along == "x" else Vector2i(1, 0))
+		var d := house.sort_depth(wp)
+		pv.position = HouseSite.CELL * (Vector2(inside) + Vector2(0.5, 0.5))
+		assert_true(house.sort_depth(pv) > d, "in front of %s %s %s" % [wp.along, wp.line, wp.at])
+		pv.position = HouseSite.CELL * (Vector2(outside) + Vector2(0.5, 0.5))
+		assert_true(house.sort_depth(pv) < d, "behind %s %s %s" % [wp.along, wp.line, wp.at])
+		if not wp.tall:
+			assert_true(wp.height <= IsoWall.COMPOUND_LOW, "cut to the ankle")
+		checked += 1
+	assert_true(checked > 50)
+	# Long furniture against a back wall is drawn over every stretch of wall behind it.
+	var w := m.session.world
+	for o in w.objects:
+		if not house.props.has(int(o.uid)):
+			continue
+		var c := HouseLayout.cells_of(house.layout.object_rect(o, w.pack))
+		for wp in house.walls:
+			if wp.role == "wall" and wp.tall and wp.along == "x" and wp.line == c.position.y and wp.at >= c.position.x and wp.at < c.end.x:
+				assert_true(house.sort_depth(house.props[int(o.uid)]) > house.sort_depth(wp), str(o.type))
 	m.free()
 
 
 func test_the_gatehouse_fades_for_someone_under_it():
 	var m := _main()
-	var gate: WallPiece = null
+	var gate: IsoWall = null
 	for wp in m.house.walls:
-		if wp.gate:
+		if wp.role == "gate":
 			gate = wp
 	assert_true(gate != null)
 	var pv: PersonView = m.house.people.values()[0]
@@ -165,22 +186,19 @@ func test_the_gatehouse_fades_for_someone_under_it():
 	m.free()
 
 
+## The 45° view: a picture stays within its footprint's diamond across the screen and stands
+## on its bottom corner, so it never reaches over a wall beside it.
 func test_pictures_keep_to_their_footprint_and_off_walls():
 	var m := _main()
 	var w := m.session.world
-	var site := m.house.layout.site
 	for uid in m.house.props:
 		var piece: PropPiece = m.house.props[uid]
 		var o := w.object(uid)
 		var r := m.house.layout.object_rect(o, w.pack)
-		assert_true(piece.rect.position.x >= r.position.x - 0.01 and piece.rect.end.x <= r.end.x + 0.01, str(o.type))
-		assert_true(piece.rect.position.y >= r.position.y - HouseView.WALL_LEAN - 0.01, str(o.type))
-		var c := HouseLayout.cells_of(r)
-		for y in range(c.position.y, c.end.y):
-			if site.v_walls.has(Vector2i(c.position.x, y)):
-				assert_true(piece.rect.position.x >= r.position.x + HouseView.WALL_GAP - 0.01, str(o.type))
-			if site.v_walls.has(Vector2i(c.end.x, y)):
-				assert_true(piece.rect.end.x <= r.end.x - HouseView.WALL_GAP + 0.01, str(o.type))
+		var d := IsoMath.diamond(r)
+		var pic := Rect2(IsoMath.to_view(piece.position) + piece.rect.position, piece.rect.size)
+		assert_true(pic.position.x >= d[3].x - 0.01 and pic.end.x <= d[1].x + 0.01, str(o.type))
+		assert_true(pic.end.y <= d[2].y + 6.01, str(o.type))
 	m.free()
 
 
@@ -252,4 +270,61 @@ func test_actions_pick_poses_from_the_pack():
 	assert_true(pv.on_object)
 	pv.position = pv.target
 	assert_true(pv.drawn_height() < pv.body_size().y - 10.0, "sitting is lower")
+	m.free()
+
+
+## The 45° view: a cell is a 64 x 32 diamond; plan x runs down-right, plan y down-left; a
+## click lands back on the plan point under it. The smoke pack (no art, no site) keeps the
+## view from above.
+func test_the_view_is_a_45_degree_projection_of_the_plan():
+	var m := _main()
+	assert_true(m.house.iso)
+	assert_eq(IsoMath.to_view(Vector2(48, 0)), Vector2(32, 16))
+	assert_eq(IsoMath.to_view(Vector2(0, 36)), Vector2(-32, 16))
+	assert_true(IsoMath.to_plan(IsoMath.to_view(Vector2(123, 45))).distance_to(Vector2(123, 45)) < 0.001)
+	for s in [0.5, 1.0, 1.7]:
+		m.house.zoom_to(s)
+		var p := Vector2(25 * 48 + 7, 9 * 36 + 11)
+		assert_true(m.house.world_pos(m.house.to_screen(p)).distance_to(p) < 0.001)
+	var smoke := Main.create("_smoke", "user://test_clip_smoke/", _clock)
+	assert_true(not smoke.house.iso)
+	assert_eq(smoke.house.proj, Transform2D.IDENTITY)
+	smoke.free()
+	m.free()
+
+
+## People turn with the way they walk: down the screen towards the camera (the front rig),
+## up it away (the back rig), across it sideways; at furniture the side rig, turned to it.
+func test_people_turn_to_the_camera_or_away_as_they_walk():
+	var m := _main()
+	var w := m.session.world
+	var p := TestKit.adult(w)
+	m.tick(0.016)
+	var pv: PersonView = m.house.people[p.uid]
+	var look := m.house.skin.person_look(p.stage(w.pack), p.gender)
+	assert_true(look.has("rig_front") and look.has("rig_back"), "the facing rigs are there")
+	assert_eq((look.rig_front as CutoutRig).facing, "front")
+	assert_eq((look.rig_back as CutoutRig).facing, "back")
+	pv._turn(Vector2(48, 36))  # south-east: straight down the screen
+	assert_eq(pv.turned, "front")
+	assert_eq(pv._rig_for("walk")[0], look.rig_front)
+	pv._turn(Vector2(-48, -36))  # north-west: up the screen
+	assert_eq(pv.turned, "back")
+	assert_eq(pv._rig_for("walk")[0], look.rig_back)
+	pv._turn(Vector2(48, -36))  # north-east: straight right
+	assert_eq(pv.turned, "side")
+	assert_eq(pv._facing, 1.0)
+	assert_eq(pv._rig_for("walk")[0], look.rig)
+	pv._turn(Vector2(0, 36))  # south: down-left, towards the camera
+	assert_eq(pv.turned, "front")
+	assert_eq(pv._facing, -1.0)
+	# Sitting, working, eating: always the side rig.
+	assert_eq(pv._rig_for("work")[0], look.rig)
+	assert_eq(pv._rig_for("sit")[0], look.rig)
+	# The front walk lifts the legs in turn instead of swinging them.
+	var front: CutoutRig = look.rig_front
+	var a := front.pose("walk", 0.15)
+	var b := front.pose("walk", 0.45)
+	assert_true((a["leg_upper"] as Vector3).z < 0.0 and (b["leg_back_upper"] as Vector3).z < 0.0)
+	assert_eq((a["leg_upper"] as Vector3).x, 0.0)
 	m.free()

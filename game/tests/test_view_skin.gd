@@ -139,11 +139,15 @@ func test_qijia_house_stands_pictures_and_people():
 			assert_true(house.props.has(int(o.uid)), str(o.type))
 			var piece: PropPiece = house.props[int(o.uid)]
 			var r := house.layout.object_rect(o, w.pack)
-			# Seats and beds sort ON_LIFT above their foot (someone on them is drawn over them).
-			assert_near(piece.position.y, piece.rect.end.y - piece.sort_lift, 0.01, "stands on its foot")
-			assert_eq(piece.sort_lift, PropPiece.ON_LIFT if house.skin.sat_on(str(o.type)) else 0.0)
-			assert_true(piece.rect.size.x <= r.size.x * 0.9 + 0.01)
-			assert_true(piece.rect.size.y <= r.size.y + 24.01)
+			# The 45° view: the piece stands at the middle of its footprint (what it sorts by),
+			# the picture upright on the footprint's bottom corner and as wide as its diamond;
+			# seats and beds sort a little further back (someone on them is drawn over them).
+			assert_eq(piece.position, r.get_center(), "stands on its footprint")
+			var d := IsoMath.diamond(r)
+			var foot := IsoMath.to_view(piece.position)
+			assert_near(foot.y + piece.rect.end.y, d[2].y + 6.0, 0.01, "on the bottom corner")
+			assert_true(piece.rect.size.x <= d[1].x - d[3].x + 0.01, str(o.type))
+			assert_eq(piece.sort_bias < HouseView.FURNITURE_BIAS, house.skin.sat_on(str(o.type)), str(o.type))
 	assert_eq(house.props.size(), pictured)
 	assert_true(pictured > 0)
 	for p in house.walls:
@@ -153,10 +157,12 @@ func test_qijia_house_stands_pictures_and_people():
 		assert_true(pv.pictured())
 		var body := pv.body_size()
 		assert_true(body.y >= 40.0 and body.y <= 90.0, str(body))
-		# The head of the taller picture is clickable, above the old block.
-		assert_true(pv.hit(pv.position + Vector2(0, -body.y + 6)))
-		assert_true(not pv.hit(pv.position + Vector2(0, -body.y - 12)))
-		assert_true(not pv.hit(pv.position + Vector2(body.x, 0)))
+		# The head of the taller picture is clickable, above the old block (upright on the
+		# screen, over the feet).
+		var feet := house.to_screen(pv.position)
+		assert_true(pv.hit(house.world_pos(feet + Vector2(0, -body.y + 6))))
+		assert_true(not pv.hit(house.world_pos(feet + Vector2(0, -body.y - 12))))
+		assert_true(not pv.hit(house.world_pos(feet + Vector2(body.x, 0))))
 	_done(m)
 
 
@@ -191,9 +197,11 @@ func test_props_follow_objects_moved_and_removed():
 	w.objects.append(moved)
 	house.refresh()
 	assert_true(house.props.has(int(o.uid)))
-	# A picture keeps WALL_GAP clear of a side wall on the edge of its footprint, so moving
-	# a piece off the wall shifts it by a cell less that gap: compare with picture_rect.
+	# In the 45° view the piece moves with its footprint: a cell east is half a diamond right
+	# and down on the screen; the picture keeps its place round the foot.
 	var piece: PropPiece = house.props[int(o.uid)]
-	assert_eq(piece.rect, house.picture_rect(moved, piece.tex, w))
-	assert_true(piece.rect.position.x > before.position.x + HouseLayout.CELL.x - HouseView.WALL_GAP - 0.01)
+	var spot := house.iso_picture(moved, piece.tex, w)
+	assert_eq(piece.rect, spot.rect)
+	assert_eq(piece.rect, before)
+	assert_eq(piece.position, house.layout.object_rect(moved, w.pack).get_center())
 	_done(m)

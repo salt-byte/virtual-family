@@ -83,8 +83,8 @@ func test_pan_is_clamped_to_the_house():
 	m.house.pan(Vector2(-100000, -100000))
 	assert_eq(m.house.position, b)
 	assert_true(a != b)
-	# the house never leaves the 1280x720 screen entirely
-	var bounds := m.house.layout.bounds()
+	# the house never leaves the 1280x720 screen entirely (its bounds as drawn)
+	var bounds := m.house.view_bounds()
 	var s := m.house.scale.x
 	assert_true(a.x + bounds.position.x * s < 1280.0 and b.x + bounds.end.x * s > 0.0)
 	assert_eq(m.house.world_pos(m.house.position), Vector2.ZERO)
@@ -312,9 +312,10 @@ func test_sleeping_person_is_dimmed_not_bobbing():
 func test_fit_scale_fills_the_window_and_is_capped():
 	var q := Main.create("qijia", _clean_dir(), _clock)  # not in the tree: 1280x720
 	var qs := q.house.fit_scale(Vector2(1280, 720))
-	# The whole 56 x 32 map (ART_DIRECTION section 10) fits at about 0.46; the smallest zoom
-	# went down to 0.44 so it does, and a huge window still caps at 2.
-	assert_true(qs >= 0.44 and qs <= 0.5, str(qs))   # the map is bigger than the window
+	# The whole 56 x 32 map in the 45° view (a 2816 x 1408 diamond plus the back walls'
+	# headroom) fits at about 0.38; the smallest zoom went down to 0.36 so it does, and a huge
+	# window still caps at 2.
+	assert_true(qs >= HouseView.MIN_SCALE and qs <= 0.5, str(qs))   # the map is bigger than the window
 	assert_eq(q.house.fit_scale(Vector2(8000, 4800)), 2.0)
 	assert_eq(q.house.fit_scale(Vector2(200, 200)), HouseView.MIN_SCALE)
 	q.free()
@@ -344,11 +345,11 @@ func test_world_pos_inverts_to_screen_at_any_scale():
 func test_pan_clamp_uses_the_scaled_house():
 	var m := _main()
 	m.house.zoom_to(2.0)
-	var b := m.house.layout.bounds()
+	var b := m.house.view_bounds()
 	m.house.pan(Vector2(-100000, -100000))
-	assert_near(m.house.to_screen(b.end).x, 640.0)
+	assert_near(m.house.view_to_screen(b.end).x, 640.0)
 	m.house.pan(Vector2(100000, 100000))
-	assert_near(m.house.to_screen(b.position).x, 640.0)
+	assert_near(m.house.view_to_screen(b.position).x, 640.0)
 	m.free()
 
 

@@ -17,6 +17,7 @@ const FALLBACK := Color(0.7, 0.6, 0.45)
 
 var pet: Pet
 var session: GameSession
+var house: HouseView
 var target := Vector2.ZERO
 var base_target := Vector2.ZERO
 var path := PackedVector2Array()
@@ -40,6 +41,8 @@ var _float_age := 0.0
 ## which way it faces (the pictures face right).
 var _look: Dictionary = {}
 var _facing := 1.0
+## The 45° view: "side", "front" or "back", for the kind's front and back pictures.
+var turned := "side"
 
 
 func setup(p: Pet, s: GameSession) -> void:
@@ -53,7 +56,15 @@ func setup(p: Pet, s: GameSession) -> void:
 
 
 func layout() -> HouseLayout:
-	return get_parent().layout if get_parent() != null and "layout" in get_parent() else null
+	var h := _house()
+	return h.layout if h != null else null
+
+
+## The house this stands in (set by the house; else the parent, as in tests that build one).
+func _house() -> HouseView:
+	if house != null:
+		return house
+	return get_parent() as HouseView
 
 
 ## The drawn body size.
@@ -72,8 +83,8 @@ func refresh() -> void:
 	var k := PetSystem.kind_of(w.pack, pet)
 	_color = HouseView.pack_color(k, FALLBACK)
 	_size = float(k.get("size", 0.6))
-	var house = get_parent()
-	var skin: PackSkin = house.skin if house != null and "skin" in house else null
+	var hv = _house()
+	var skin: PackSkin = hv.skin if hv != null and "skin" in hv else null
 	_look = skin.pet_look(str(pet.kind)) if skin != null and skin.enabled else {}
 	_name = session.strings.pet_name(pet, w)
 	_doing = session.strings.pet_doing(pet, w)
@@ -114,8 +125,14 @@ func tick(delta: float) -> void:
 			_float = ""
 	var was := position
 	walk(SPEED * delta)
-	if absf(position.x - was.x) > 0.01:
-		_facing = signf(position.x - was.x)
+	var iso := _house() != null and _house().iso
+	var v := IsoMath.basis().basis_xform(position - was) if iso else position - was
+	if absf(v.x) > 0.01:
+		_facing = signf(v.x)
+	if iso and v.length() > 0.01:
+		turned = "side" if absf(v.y) < 0.2 * v.length() else ("front" if v.y > 0.0 else "back")
+	elif iso and v.length() <= 0.01 and pose() == "idle":
+		turned = "front"
 	queue_redraw()
 
 
@@ -151,6 +168,9 @@ func walk(step: float) -> void:
 ## Whether a point in the house's coordinates lands on it.
 func hit(world_pos: Vector2) -> bool:
 	var b := body()
+	if _house() != null and _house().iso:
+		var local := IsoMath.basis().basis_xform(world_pos - position)
+		return Rect2(-Vector2(b.x * 0.5, b.y), b).grow(6.0).has_point(local)
 	return Rect2(position - Vector2(b.x * 0.5, b.y), b).grow(6.0).has_point(world_pos)
 
 
@@ -160,16 +180,16 @@ func rect() -> Rect2:
 
 
 func _compute_target(w: World, l: HouseLayout) -> Vector2:
-	var house = get_parent()
+	var hv = _house()
 	# Being looked after: it keeps still where it is.
 	for q in w.people:
 		if q.alive and not q.current.is_empty() and int(q.current.get("target_uid", -1)) == pet.uid:
 			_key = ""
 			return position
 	var cur := pet.current
-	if cur.has("follow") and house != null and "people" in house and house.people.has(int(cur["follow"])):
+	if cur.has("follow") and hv != null and "people" in hv and hv.people.has(int(cur["follow"])):
 		_key = ""
-		return (house.people[int(cur["follow"])] as PersonView).position + Vector2(-PersonView.BODY.x, 4)
+		return (hv.people[int(cur["follow"])] as PersonView).position + Vector2(-PersonView.BODY.x, 4)
 	if cur.has("object_uid"):
 		var o := w.object(int(cur["object_uid"]))
 		if not o.is_empty():
@@ -267,7 +287,11 @@ func _draw_pictured(b: Vector2, bob: float) -> void:
 	var breath := 1.0 + 0.015 * sin(TAU * _t / 2.2)
 	var tint := Color(0.85, 0.85, 0.8) if pet.sick else Color.WHITE
 	draw_set_transform(Vector2(0, bob + 2.0), 0.0, Vector2(_facing, breath))
-	draw_texture_rect(_look.tex, Rect2(-b.x * 0.5, -b.y, b.x, b.y), false, tint)
+	var pic: Texture2D = _look.get(turned, _look.tex) if turned != "side" else _look.tex
+	var pb := b
+	if pic != _look.tex:
+		pb = Vector2(b.y * pic.get_width() / pic.get_height(), b.y)
+	draw_texture_rect(pic, Rect2(-pb.x * 0.5, -pb.y, pb.x, pb.y), false, tint)
 	draw_set_transform(Vector2.ZERO)
 	var line := Color("#4A3424")
 	var font := ThemeDB.fallback_font

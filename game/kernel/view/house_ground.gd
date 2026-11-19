@@ -31,7 +31,11 @@ func _draw() -> void:
 	if not site.enabled:
 		return
 	var skin := house.skin
-	_fill(site.rect(), site.ground, skin.ground_tile() if skin != null else {})
+	var around := site.rect()
+	if house.iso:
+		# The 45° view shows past the map's corners: the ground goes on round it.
+		around = around.grow_individual(16 * HouseSite.CELL.x, 20 * HouseSite.CELL.y, 16 * HouseSite.CELL.x, 20 * HouseSite.CELL.y)
+	_fill(around, site.ground, skin.ground_tile() if skin != null else {})
 	if site.has_compound:
 		_fill(_cells(Rect2(site.compound)), site.compound_ground, skin.compound_tile() if skin != null else {})
 	for d in site.decor:
@@ -114,6 +118,9 @@ func _floor(w: World, id: String) -> void:
 ## Soft shadows on the ground: east-west walls cast south, north-south walls cast east, and
 ## the west foot of a north-south wall gets a thin dark band.
 func _shadows(site: HouseSite) -> void:
+	if house.iso:
+		_iso_shadows(site)
+		return
 	for run in site.runs():
 		var line := int(run["line"])
 		var kind := str(run["kind"])
@@ -145,6 +152,28 @@ func _shadows(site: HouseSite) -> void:
 					PackedColorArray([c0, c1, c1, c0]))
 
 
+## The 45° view: the back walls shade a band of floor inside them; cut walls only a thin one.
+func _iso_shadows(site: HouseSite) -> void:
+	for pair in [["x", site.h_walls], ["y", site.v_walls]]:
+		var al: String = pair[0]
+		for e in pair[1]:
+			var ln: int = e.y if al == "x" else e.x
+			var at: int = e.x if al == "x" else e.y
+			var k := str(pair[1][e])
+			if site.is_open(al, ln, at) or k == HouseSite.FENCE:
+				continue
+			var back := IsoWall.is_back(site, al, ln, at)
+			var half := IsoWall.thickness(k) * 0.5
+			var depth := 0.9 if back else 0.22
+			var alpha := 0.42 if back else 0.22
+			if al == "x":
+				var y := (ln + half) * HouseSite.CELL.y
+				_ramp(Rect2(at * HouseSite.CELL.x, y, HouseSite.CELL.x, depth * HouseSite.CELL.y), alpha, true)
+			else:
+				var x := (ln + half) * HouseSite.CELL.x
+				_ramp(Rect2(x, at * HouseSite.CELL.y, depth * HouseSite.CELL.x, HouseSite.CELL.y), alpha, false)
+
+
 ## A shadow that is `alpha` dark at the wall and fades to nothing across `r` (downwards, or
 ## to the right).
 func _ramp(r: Rect2, alpha: float, down: bool) -> void:
@@ -156,7 +185,8 @@ func _ramp(r: Rect2, alpha: float, down: bool) -> void:
 
 ## A grey stone sill in every open door.
 func _sills(site: HouseSite) -> void:
-	var sill := house.skin.wall_sprite("sill") if house.skin != null else null
+	# (In the 45° view a plain slab: the picture drawn from above would be slanted.)
+	var sill := house.skin.wall_sprite("sill") if house.skin != null and not house.iso else null
 	for e in site.h_open:
 		var x: float = e.x * HouseSite.CELL.x
 		var y: float = e.y * HouseSite.CELL.y
@@ -183,6 +213,9 @@ func _label(w: World, id: String) -> void:
 		return
 	var font := ThemeDB.fallback_font
 	var name := str(r.get("name", ""))
+	if house.iso:
+		_iso_label(w, id, r, rect, font, name)
+		return
 	if id in w.rooms_built:
 		var at := rect.position + Vector2(14, 22) if not bool(r.get("outdoor", false)) else Vector2(rect.position.x + 10, rect.end.y - 10)
 		var size := 15
@@ -209,6 +242,34 @@ func _label(w: World, id: String) -> void:
 	box.set_corner_radius_all(12)
 	draw_style_box(box, pill)
 	draw_string(font, Vector2(pill.position.x, pill.position.y + 17), cost, HORIZONTAL_ALIGNMENT_CENTER, tw, 13, LINE)
+
+
+## The 45° view's names, written upright: a built room's near its front-left corner (the
+## corner nearest the bottom-left of the screen), an unbuilt one's with its price in the middle.
+func _iso_label(w: World, id: String, r: Dictionary, rect: Rect2, font: Font, name: String) -> void:
+	if id in w.rooms_built:
+		var outside := bool(r.get("outside", false))
+		var at := Vector2(rect.position.x + HouseSite.CELL.x * 0.45, rect.end.y - HouseSite.CELL.y * (0.55 if outside else 0.9))
+		var size := 20 if outside else 16
+		draw_set_transform_matrix(IsoMath.upright(at))
+		draw_string_outline(font, Vector2.ZERO, name, HORIZONTAL_ALIGNMENT_LEFT, -1, size, 4, CREAM)
+		draw_string(font, Vector2.ZERO, name, HORIZONTAL_ALIGNMENT_LEFT, -1, size, LINE)
+		draw_set_transform_matrix(Transform2D.IDENTITY)
+		return
+	draw_set_transform_matrix(IsoMath.upright(rect.get_center()))
+	draw_string_outline(font, Vector2(-100, -4), name, HORIZONTAL_ALIGNMENT_CENTER, 200, 22, 4, CREAM)
+	draw_string(font, Vector2(-100, -4), name, HORIZONTAL_ALIGNMENT_CENTER, 200, 22, Color(0.51, 0.39, 0.28))
+	var cost := house.session.strings.t("money").replace("{n}", str(int(r.get("build_cost", 0))))
+	var tw := font.get_string_size(cost, HORIZONTAL_ALIGNMENT_LEFT, -1, 13).x + 22.0
+	var pill := Rect2(-tw * 0.5, 6, tw, 24)
+	var box := StyleBoxFlat.new()
+	box.bg_color = PILL
+	box.border_color = LINE
+	box.set_border_width_all(2)
+	box.set_corner_radius_all(12)
+	draw_style_box(box, pill)
+	draw_string(font, Vector2(pill.position.x, pill.position.y + 17), cost, HORIZONTAL_ALIGNMENT_CENTER, tw, 13, LINE)
+	draw_set_transform_matrix(Transform2D.IDENTITY)
 
 
 func _dashed(rect: Rect2, color: Color) -> void:

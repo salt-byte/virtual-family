@@ -2,6 +2,7 @@
 	"dir": "art",
 	"accent": "#E5533C",
 	"pickup": "#4FB3E8",
+	"view": "iso",
 	"iso": {
 		"objects": {
 			"stove": "iso_stove", "kang": "iso_kang", "desk": "iso_desk", "loom": "iso_loom", "vat": "iso_vat",

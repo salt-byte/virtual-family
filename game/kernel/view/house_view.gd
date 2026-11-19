@@ -11,7 +11,7 @@ const VIEW_SIZE := Vector2(1280, 720)
 const BOTTOM_BAR := 96.0
 ## Space kept clear around the fitted house, and the zoom range.
 const FIT_MARGIN := 24.0
-const MIN_SCALE := 0.44
+const MIN_SCALE := 0.36
 const MAX_SCALE := 2.0
 ## One wheel notch zooms by this factor.
 const WHEEL_ZOOM := 1.1
@@ -32,8 +32,15 @@ var _modulate: CanvasModulate
 ## With a site plan: the ground under everything, and the standing walls (sorted by y with
 ## the people). Null / empty without one.
 var ground: HouseGround
-var walls: Array[WallPiece] = []
+var walls: Array = []  # WallPiece (seen from above) or IsoWall (45°)
 var _site_version := -1
+## The 45° view (the pack's art asks for it and there is a site plan): everything standing
+## lives on `stage`, whose transform `proj` slants the plan into diamonds; each standing node
+## takes the inverse basis so its pictures stay upright, and the stage is sorted by how far
+## in front each one stands. Without it `stage` is this node and `proj` the identity.
+var iso := false
+var stage: Node2D
+var proj := Transform2D.IDENTITY
 ## The pack's art (`art.json`); disabled when the pack has none, and then everything is drawn
 ## the whitebox way. Pictures for furniture and scenery stand as PropPieces (sorted by y with
 ## the people); hover and the arrange ghost then go on an overlay above them.
@@ -92,6 +99,14 @@ func setup(s: GameSession) -> void:
 	skin = PackSkin.new(s.pack)
 	_modulate = CanvasModulate.new()
 	add_child(_modulate)
+	stage = self
+	if layout.site.enabled and skin.iso():
+		iso = true
+		proj = IsoMath.basis()
+		stage = Node2D.new()
+		stage.name = "Stage"
+		stage.transform = proj
+		add_child(stage)
 	if skin.enabled:
 		texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
 		_overlay = Node2D.new()
@@ -103,19 +118,19 @@ func setup(s: GameSession) -> void:
 		_labels.draw.connect(_draw_labels)
 		add_child(_labels)
 	if layout.site.enabled:
-		y_sort_enabled = true
+		y_sort_enabled = not iso
 		ground = HouseGround.new()
 		ground.house = self
 		ground.z_index = -1
 		ground.texture_repeat = CanvasItem.TEXTURE_REPEAT_ENABLED
-		add_child(ground)
+		stage.add_child(ground)
 		_build_scenery()
 	scale = Vector2.ONE * start_scale(_view_size())
 	position = _centred()
 	if fit_scale(_view_size()) < 1.0:
 		var entrance := _entrance_rect()
 		if entrance.size != Vector2.ZERO:
-			position = _area_centre() - entrance.get_center() * scale
+			position = _area_centre() - proj * entrance.get_center() * scale
 	pan(Vector2.ZERO)
 
 
@@ -141,7 +156,7 @@ func _view_size() -> Vector2:
 ## The largest uniform scale at which the house (walls included) fits the area above the
 ## bottom bar with FIT_MARGIN on every side, clamped to [MIN_SCALE, MAX_SCALE].
 func fit_scale(viewport_size: Vector2) -> float:
-	var b := layout.bounds()
+	var b := view_bounds()
 	var room := Vector2(viewport_size.x, viewport_size.y - BOTTOM_BAR) - Vector2.ONE * FIT_MARGIN * 2.0
 	if b.size.x <= 0.0 or b.size.y <= 0.0:
 		return 1.0
@@ -167,7 +182,63 @@ func _area_centre() -> Vector2:
 
 ## Where this node sits so the house is centred above the bottom bar at the current scale.
 func _centred() -> Vector2:
-	return _area_centre() - layout.bounds().get_center() * scale
+	return _area_centre() - view_bounds().get_center() * scale
+
+
+## How far the walls of the 45° view rise above the map's top corner.
+const ISO_HEADROOM := 120.0
+
+## The house's bounds as drawn (this node's coordinates): the layout's bounds, or in the 45°
+## view the rect round the map's diamond with room above for the back walls.
+func view_bounds() -> Rect2:
+	var b := layout.bounds()
+	if not iso:
+		return b
+	var r := IsoMath.view_rect(b)
+	return Rect2(r.position.x, r.position.y - ISO_HEADROOM, r.size.x, r.size.y + ISO_HEADROOM)
+
+
+## A plan point (house coordinates) -> this node's coordinates (the same without the 45° view).
+func view_of(p: Vector2) -> Vector2:
+	return proj * p
+
+
+## Adds a standing node (person, animal, picture, wall) to the stage; in the 45° view it takes
+## the inverse slant so it draws upright at its plan position.
+func _place(n: Node2D) -> void:
+	stage.add_child(n)
+	if iso:
+		var at := n.position
+		n.transform = IsoMath.inverse()
+		n.position = at
+
+
+## The 45° view: the stage's children in drawing order, back to front by `sort_depth` (the
+## ground first). Only moves the ones out of place.
+func _sort_stage() -> void:
+	if not iso:
+		return
+	var kids: Array = []
+	for c in stage.get_children():
+		if c != ground and c is Node2D:
+			kids.append(c)
+	var keyed: Array = []
+	for i in kids.size():
+		keyed.append([sort_depth(kids[i]), i, kids[i]])
+	keyed.sort_custom(func(a, b): return a[0] < b[0] if a[0] != b[0] else a[1] < b[1])
+	var base := 1 if ground != null and ground.get_parent() == stage else 0
+	for i in keyed.size():
+		var n: Node = keyed[i][2]
+		if n.get_index() != base + i:
+			stage.move_child(n, base + i)
+
+
+## How far in front a standing node is drawn (view y of its foot, plus its own bias).
+func sort_depth(n: Node2D) -> float:
+	var d := (proj * n.position).y
+	if "sort_bias" in n:
+		d += float(n.sort_bias)
+	return d
 
 
 ## The floor of the first built indoor room in pack order (where newcomers appear).
@@ -195,7 +266,7 @@ func zoom_to(s: float) -> void:
 func zoom_at(screen: Vector2, factor: float) -> void:
 	var v := _view_size()
 	var s := clampf(scale.x * factor, min_zoom(v), MAX_SCALE)
-	var under := world_pos(screen)
+	var under := proj * world_pos(screen)
 	scale = Vector2.ONE * s
 	position = screen - under * s
 	pan(Vector2.ZERO)
@@ -207,19 +278,24 @@ func _refit() -> void:
 
 ## A point in the house's coordinates -> the screen.
 func to_screen(house: Vector2) -> Vector2:
-	return transform * house
+	return transform * (proj * house)
+
+
+## A point of this node's own coordinates (the view's: see `view_of`) -> the screen.
+func view_to_screen(v: Vector2) -> Vector2:
+	return transform * v
 
 
 ## A point on the screen -> the house's coordinates.
 func world_pos(screen: Vector2) -> Vector2:
-	return transform.affine_inverse() * screen
+	return proj.affine_inverse() * (transform.affine_inverse() * screen)
 
 
 ## Moves the house by `by` (screen pixels), clamped so that every point of the house can be
 ## brought to the middle of the house area and no further; on an axis where the scaled house
 ## is smaller than the area it stays centred.
 func pan(by: Vector2) -> void:
-	var b := layout.bounds()
+	var b := view_bounds()
 	var v := _view_size()
 	var area := Vector2(v.x, v.y - BOTTOM_BAR)
 	var c := area * 0.5
@@ -249,12 +325,13 @@ func refresh() -> void:
 			if uid == follow_uid:
 				follow_uid = -1
 			people[uid].queue_free()
-			remove_child(people[uid])
+			stage.remove_child(people[uid])
 			people.erase(uid)
 	for uid in alive:
 		if not people.has(uid):
 			var pv := PersonView.new()
-			add_child(pv)
+			pv.house = self
+			_place(pv)
 			pv.setup(alive[uid], session)
 			if layout.site.enabled:
 				# Newcomers appear on an open cell nobody else stands on.
@@ -334,9 +411,14 @@ func _build_scenery() -> void:
 		var w: float = float(e["w"]) * cell.x
 		var piece := PropPiece.new()
 		var at := Vector2(float(e["x"]) * cell.x, float(e["y"]) * cell.y)
-		piece.place(e["tex"], PackSkin.fit_rect(e["tex"], at, Vector2(w, w * 3.0)))
+		if iso:
+			# Upright on its foot; a cell's diamond is TILE.x wide on the screen.
+			var vw: float = float(e["w"]) * IsoMath.TILE.x * skin.scenery_scale()
+			piece.place_at(e["tex"], PackSkin.fit_rect(e["tex"], Vector2(0, 4), Vector2(vw, vw * 3.0)), at)
+		else:
+			piece.place(e["tex"], PackSkin.fit_rect(e["tex"], at, Vector2(w, w * 3.0)))
 		scenery.append(piece)
-		add_child(piece)
+		_place(piece)
 
 
 ## The picture an object stands as, or null (drawn as a block).
@@ -362,10 +444,21 @@ func _sync_props() -> void:
 				piece.object_uid = uid
 				piece.house = self
 				props[uid] = piece
-				add_child(piece)
-			var fit := picture_rect(o, tex, w)
+				_place(piece)
 			var a := 0.35 if uid == lifted else 1.0
 			var lift := PropPiece.ON_LIFT if skin.sat_on(str(o.type)) else 0.0
+			if iso:
+				var spot := iso_picture(o, tex, w)
+				var r: Rect2 = spot.rect
+				if r != piece.rect or tex != piece.tex or a != piece.alpha or spot.flip != piece.flip or spot.at != piece.position:
+					piece.alpha = a
+					piece.flip = spot.flip
+					piece.sort_bias = FURNITURE_BIAS - lift * IsoMath.TILE.y / HouseSite.CELL.y
+					piece.place_at(tex, r, spot.at)
+				else:
+					piece.queue_redraw()
+				continue
+			var fit := picture_rect(o, tex, w)
 			if fit != piece.rect or tex != piece.tex or a != piece.alpha or lift != piece.sort_lift:
 				piece.alpha = a
 				piece.sort_lift = lift
@@ -375,7 +468,7 @@ func _sync_props() -> void:
 	for uid in props.keys():
 		if not seen.has(uid):
 			props[uid].queue_free()
-			remove_child(props[uid])
+			stage.remove_child(props[uid])
 			props.erase(uid)
 
 
@@ -401,6 +494,35 @@ func picture_rect(o: Dictionary, tex: Texture2D, w: World) -> Rect2:
 	return PackSkin.fit_rect(tex, Vector2(mid, r.end.y + 2.0), Vector2(minf(r.size.x * 0.9, span), r.size.y + WALL_LEAN))
 
 
+## The 45° view: where the picture of furniture `o` goes. {at: its plan foot (the middle of
+## the footprint, which it sorts by), rect: the picture upright round that foot (view
+## pixels), flip: mirrored}. The picture is as wide as the footprint's diamond and stands on
+## its bottom corner; a picture whose long side runs the other way than the footprint's is
+## mirrored (pictures stand against a north wall; mirrored they stand against a west one).
+const ISO_FILL := 1.0
+## Furniture sorts this far in front of its middle (0.3 of a cell's depth), so a long piece
+## against a back wall is drawn over all of the wall behind it.
+const FURNITURE_BIAS := 4.8
+func iso_picture(o: Dictionary, tex: Texture2D, w: World) -> Dictionary:
+	var r := layout.object_rect(o, w.pack)
+	var at := r.get_center()
+	var d := IsoMath.diamond(r)
+	var foot := proj * at
+	var axis := skin.object_axis(str(o.type))
+	var long_y := r.size.y / HouseSite.CELL.y > r.size.x / HouseSite.CELL.x
+	var flip := axis != "" and long_y != (axis == "y")
+	var width := (d[1].x - d[3].x) * ISO_FILL
+	if axis == "":
+		# An old picture drawn from above: no wider than the footprint's middle.
+		width = (d[1].x - d[3].x) * 0.7
+	var ts := Vector2(tex.get_size())
+	var k := width / ts.x
+	var size := ts * k
+	var mid_x := (d[1].x + d[3].x) * 0.5 - foot.x
+	var bottom := d[2].y - foot.y + 6.0
+	return {"at": at, "rect": Rect2(mid_x - size.x * 0.5, bottom - size.y, size.x, size.y), "flip": flip}
+
+
 ## One PetView per animal at home; the ones that ran off or died are taken away.
 func _refresh_pets(w: World) -> void:
 	var home := {}
@@ -410,13 +532,14 @@ func _refresh_pets(w: World) -> void:
 				home[p.uid] = p
 	for uid in pets.keys():
 		if not home.has(uid):
-			remove_child(pets[uid])
+			stage.remove_child(pets[uid])
 			pets[uid].queue_free()
 			pets.erase(uid)
 	for uid in home:
 		if not pets.has(uid):
 			var pv := PetView.new()
-			add_child(pv)
+			pv.house = self
+			_place(pv)
 			pv.setup(home[uid], session)
 			pets[uid] = pv
 		pets[uid].refresh()
@@ -428,9 +551,9 @@ func pet_at(wpos: Vector2) -> int:
 	var best_y := -INF
 	for uid in pets:
 		var pv: PetView = pets[uid]
-		if pv.hit(wpos) and pv.position.y >= best_y:
+		if pv.hit(wpos) and (proj * pv.position).y >= best_y:
 			best = uid
-			best_y = pv.position.y
+			best_y = (proj * pv.position).y
 	return best
 
 
@@ -444,13 +567,16 @@ func _update_site(w: World) -> void:
 		return
 	_site_version = layout.site.version
 	for p in walls:
-		remove_child(p)
+		p.get_parent().remove_child(p)
 		p.queue_free()
-	walls = WallPiece.build_all(layout.site)
+	if iso:
+		walls = IsoWall.build_all(layout.site, skin, session.world.pack)
+	else:
+		walls = WallPiece.build_all(layout.site)
 	for p in walls:
 		p.skin = skin
 		p.texture_repeat = CanvasItem.TEXTURE_REPEAT_ENABLED
-		add_child(p)
+		_place(p)
 	ground.queue_redraw()
 
 
@@ -461,6 +587,14 @@ func _fade_walls() -> void:
 	var feet: Array = []
 	for uid in people:
 		feet.append(people[uid].position)
+	if iso:
+		# [view foot, depth] of everyone: a wall fades for whoever stands behind it under it.
+		var seen: Array = []
+		for f in feet:
+			seen.append([proj * f, (proj * f).y])
+		for p in walls:
+			p.fade_for_view(seen, sort_depth(p))
+		return
 	for p in walls:
 		p.fade_for(feet)
 
@@ -472,6 +606,7 @@ func tick(delta: float) -> void:
 	for uid in pets:
 		pets[uid].tick(delta)
 	_fade_walls()
+	_sort_stage()
 	_follow_step(delta)
 	if _labels != null:
 		_labels.queue_redraw()
@@ -572,9 +707,9 @@ func person_at(wpos: Vector2, except := -1) -> int:
 		if uid == except:
 			continue
 		var pv: PersonView = people[uid]
-		if pv.hit(wpos) and pv.position.y >= best_y:
+		if pv.hit(wpos) and (proj * pv.position).y >= best_y:
 			best = uid
-			best_y = pv.position.y
+			best_y = (proj * pv.position).y
 	return best
 
 
@@ -711,6 +846,10 @@ func _draw() -> void:
 		var rect := layout.object_rect(o, w.pack)
 		var hue := float(hash(str(t.get("category", ""))) % 360) / 360.0
 		var faded := 0.35 if int(o.uid) == lifted else 1.0
+		if iso:
+			_iso_block(rect, Color.from_hsv(hue, 0.4, 0.82, faded), faded)
+			draw_string(font, proj * rect.get_center() + Vector2(-rect.size.x, -10), str(t.get("name", "")), HORIZONTAL_ALIGNMENT_CENTER, rect.size.x * 2.0, 12, Color(0.15, 0.15, 0.15))
+			continue
 		if ground != null:
 			# Standing up a little: a soft shadow under it and a darker front face.
 			var foot := Vector2(rect.get_center().x, rect.end.y - 2)
@@ -722,23 +861,27 @@ func _draw() -> void:
 			draw_rect(rect.grow(-2), Color.from_hsv(hue, 0.4, 0.82, faded))
 		draw_string(font, rect.position + Vector2(0, rect.size.y * 0.5 + 4), str(t.get("name", "")), HORIZONTAL_ALIGNMENT_CENTER, rect.size.x, 12, Color(0.15, 0.15, 0.15))
 	_draw_dishes(w)
+	var cellv := Vector2(IsoMath.TILE.x * 0.8, IsoMath.TILE.y * 1.3) if iso else HouseLayout.CELL * Vector2(1.15, 0.9)
 	for m in w.messes:
-		var at := layout.cell_center(str(m.room), int(m.x), int(m.y))
+		var plan_at := layout.cell_center(str(m.room), int(m.x), int(m.y))
+		var at := proj * plan_at
 		var mt: Dictionary = w.pack.mess_types.get(str(m.type), {})
 		var pic := skin.mess_sprite(str(m.type)) if skin != null else null
 		if pic != null:
 			# Flat on the ground, about a cell wide, no outline: drawn centred on the cell.
-			draw_texture_rect(pic, PackSkin.fit_rect(pic, at + Vector2(0, HouseLayout.CELL.y * 0.4), HouseLayout.CELL * Vector2(1.15, 0.9)), false)
+			draw_texture_rect(pic, PackSkin.fit_rect(pic, at + Vector2(0, (IsoMath.TILE.y if iso else HouseLayout.CELL.y) * 0.4), cellv), false)
 			continue
 		if str(mt.get("look", "")) == "patch":
 			# Lying over the ground (snow): soft irregular patches; no label, there would be
 			# one on every patch (hovering still outlines it).
-			_soft_patch(at, pack_color(mt, MESS_COLOR), int(m.uid))
+			draw_set_transform_matrix(proj)
+			_soft_patch(plan_at, pack_color(mt, MESS_COLOR), int(m.uid))
+			draw_set_transform_matrix(Transform2D.IDENTITY)
 			continue
 		draw_rect(Rect2(at - Vector2(8, 6), Vector2(16, 12)), pack_color(mt, MESS_COLOR))
 		_small_name(font, at, thing_name(w.pack.mess_types, str(m.type)))
 	for c in w.collectibles:
-		var at := layout.cell_center(str(c.room), int(c.x), int(c.y))
+		var at := proj * layout.cell_center(str(c.room), int(c.x), int(c.y))
 		if skin != null and skin.enabled and not c.has("story"):
 			var pic := skin.collectible_sprite(str(c.type))
 			_draw_pickup(at, pic)
@@ -760,8 +903,8 @@ func _draw() -> void:
 	_draw_ghost(w, self)
 
 
-## Where each pictured person's label block goes (uid -> its bottom middle, house
-## coordinates): over their head, pushed up past any block it would overlap. The selected
+## Where each pictured person's label block goes (uid -> its bottom middle, this node's
+## coordinates: the view's in the 45° view): over their head, pushed up past any block it would overlap. The selected
 ## person's block stays put, then whoever stands further south (in front) keeps theirs.
 const LABEL_GAP := 2.0
 func label_spots() -> Dictionary:
@@ -769,7 +912,8 @@ func label_spots() -> Dictionary:
 	for uid in people:
 		var pv: PersonView = people[uid]
 		if pv.pictured():
-			entries.append({"uid": uid, "size": pv.label_size(), "at": pv.position + pv.label_anchor(), "sel": pv.selected, "y": pv.position.y})
+			var foot := proj * pv.position
+			entries.append({"uid": uid, "size": pv.label_size(), "at": foot + pv.label_anchor(), "sel": pv.selected, "y": foot.y})
 	entries.sort_custom(func(a, b):
 		if a.sel != b.sel:
 			return a.sel
@@ -807,6 +951,21 @@ func _draw_overlay() -> void:
 		return
 	_draw_hover(w, _overlay)
 	_draw_ghost(w, _overlay)
+
+
+## The 45° view's whitebox furniture: its footprint's diamond raised into a low block.
+func _iso_block(rect: Rect2, c: Color, faded: float) -> void:
+	var d := IsoMath.diamond(rect)
+	var up := Vector2(0, -18)
+	var line := Color(HouseGround.LINE, faded)
+	draw_colored_polygon(PackedVector2Array([d[3], d[2], d[2] + up, d[3] + up]), c.darkened(0.25))
+	draw_colored_polygon(PackedVector2Array([d[2], d[1], d[1] + up, d[2] + up]), c.darkened(0.4))
+	var top := PackedVector2Array([d[0] + up, d[1] + up, d[2] + up, d[3] + up])
+	draw_colored_polygon(top, c)
+	top.append(top[0])
+	draw_polyline(top, line, 2.0)
+	draw_polyline(PackedVector2Array([d[3] + up, d[3], d[2], d[1], d[1] + up]), line, 2.0)
+	draw_line(d[2], d[2] + up, line, 2.0)
 
 
 ## A soft irregular patch (snow lying on the ground): a few lumpy blobs around `at`, each in
@@ -875,7 +1034,9 @@ func draw_dishes_on(ci: CanvasItem, uid: int) -> void:
 
 func _dish(ci: CanvasItem, w: World, o: Dictionary, d: Dictionary, n: int, at := Vector2(INF, INF)) -> void:
 	var rect := layout.object_rect(o, w.pack)
-	if at.x == INF:
+	if at.x == INF and iso:
+		at = proj * rect.get_center() + Vector2(-20.0 + n * 34.0, -14.0)
+	elif at.x == INF:
 		at = Vector2(rect.position.x + 22.0 + n * 38.0, rect.position.y + 18.0)
 	var dt: Dictionary = w.pack.dishes.get(str(d.type), {})
 	ci.draw_colored_polygon(HouseGround._ellipse(Rect2(at - Vector2(14, 8), Vector2(28, 16))), Color(0.97, 0.96, 0.93))
@@ -899,7 +1060,7 @@ static func pack_color(entry: Dictionary, fallback: Color) -> Color:
 ## (a spot to dig) a cross on the ground in a ring.
 func _draw_marks(w: World) -> void:
 	for m in StorySystem.marks(w):
-		var at := layout.cell_center(str(m.room), int(m.x), int(m.y))
+		var at := proj * layout.cell_center(str(m.room), int(m.x), int(m.y))
 		if str(m.look) == "figure":
 			var c := Color(0.15, 0.15, 0.22, 0.35)
 			draw_circle(at + Vector2(0, -20), 6.0, c)
@@ -941,21 +1102,29 @@ func _draw_ghost(w: World, ci: CanvasItem) -> void:
 		return
 	var rect := Rect2(layout.cell_to_pos(str(g.room), int(g.x), int(g.y)), Vector2(int(g.w), int(g.h)) * HouseLayout.CELL)
 	var color := Color(0.3, 0.85, 0.35) if g.ok else Color(0.9, 0.25, 0.25)
+	if iso:
+		var d := IsoMath.diamond(rect.grow(-2))
+		ci.draw_colored_polygon(d, Color(color, 0.45))
+		d.append(d[0])
+		ci.draw_polyline(d, color, 2.0)
+		return
 	ci.draw_rect(rect.grow(-2), Color(color, 0.45))
 	ci.draw_rect(rect.grow(-2), color, false, 2.0)
 
 
 func _draw_hover(w: World, ci: CanvasItem) -> void:
 	var rect := Rect2()
+	var upright := Rect2()  # people and animals: a box round the body as drawn
 	match str(hover.get("kind", "")):
 		"person":
 			if people.has(int(hover.uid)):
 				var pv: PersonView = people[int(hover.uid)]
 				var body := pv.body_size()
-				rect = Rect2(pv.position - Vector2(body.x * 0.5, body.y), body)
+				upright = Rect2(proj * pv.position - Vector2(body.x * 0.5, body.y), body)
 		"pet":
 			if pets.has(int(hover.uid)):
-				rect = (pets[int(hover.uid)] as PetView).rect()
+				var pr := (pets[int(hover.uid)] as PetView).rect()
+				upright = Rect2(proj * pets[int(hover.uid)].position + (pr.position - pets[int(hover.uid)].position), pr.size)
 		"object":
 			var o := w.object(int(hover.uid))
 			if not o.is_empty():
@@ -969,7 +1138,13 @@ func _draw_hover(w: World, ci: CanvasItem) -> void:
 			for m in list:
 				if int(m.uid) == int(hover.uid):
 					rect = Rect2(layout.cell_center(str(m.room), int(m.x), int(m.y)) - HouseLayout.CELL * 0.5, HouseLayout.CELL)
-	if rect.size != Vector2.ZERO:
+	if upright.size != Vector2.ZERO:
+		ci.draw_rect(upright.grow(2), Color(1.0, 0.85, 0.2), false, 3.0)
+	elif rect.size != Vector2.ZERO and iso:
+		var d := IsoMath.diamond(rect.grow(2))
+		d.append(d[0])
+		ci.draw_polyline(d, Color(1.0, 0.85, 0.2), 3.0)
+	elif rect.size != Vector2.ZERO:
 		ci.draw_rect(rect.grow(2), Color(1.0, 0.85, 0.2), false, 3.0)
 
 

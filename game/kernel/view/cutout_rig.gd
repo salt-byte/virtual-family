@@ -26,6 +26,11 @@ var unit := 1.0
 var height := 1.0
 ## How far the hips drop when sitting (the thigh's length, rig pixels).
 var thigh := 0.0
+## "side" (the rig faces right), "front" (faces the camera) or "back" (turned away). A front
+## or back rig only walks and stands (`pose`): the side rig does the rest.
+var facing := "side"
+## The head's height (rig pixels), to size a front or back rig like the side one.
+var head_height := 0.0
 var _by_id: Dictionary = {}
 
 
@@ -63,6 +68,10 @@ static func load_file(path: String) -> CutoutRig:
 	for id in r._by_id:
 		r._visit(id, seen)
 	r.root = _v(data.get("root_px", [0, 0]))
+	var f := str(data.get("facing", "right"))
+	r.facing = f if f in ["front", "back"] else "side"
+	if r._by_id.has("head"):
+		r.head_height = r._by_id["head"].size.y
 	for p in r.parts:
 		if p.parent == "":
 			r.unit = p.size.y / 100.0
@@ -124,6 +133,8 @@ func draw(ci: CanvasItem, pose: Dictionary, xform: Transform2D, modulate := Colo
 ## An unknown name is "idle".
 func pose(name: String, t: float) -> Dictionary:
 	var breath := sin(TAU * t / BREATH_PERIOD)
+	if facing != "side":
+		return _pose_facing(name, t, breath)
 	match name:
 		"walk":
 			var s := sin(TAU * t / WALK_PERIOD)
@@ -204,4 +215,26 @@ func pose(name: String, t: float) -> Dictionary:
 		"arm_back_upper": Vector3(-2.0 * breath, 0.0, 0.0),
 		"arm_lower": Vector3(-6.0, 0.0, 0.0),
 		"arm_back_lower": Vector3(-6.0, 0.0, 0.0),
+	}
+
+
+## Facing the camera or turned away: walking lifts each leg in turn (it cannot swing it
+## sideways) with the arms swaying a little; anything else stands breathing.
+const FRONT_WALK_PERIOD := 0.6
+func _pose_facing(name: String, t: float, breath: float) -> Dictionary:
+	if name == "walk":
+		var ph := fmod(t, FRONT_WALK_PERIOD) / FRONT_WALK_PERIOD
+		var s := sin(TAU * ph)
+		var bob := -2.5 * absf(sin(TAU * ph))
+		return {
+			"torso": Vector3(0.0, 0.0, bob),
+			"head": Vector3(-1.5 * s, 0.0, 0.0),
+			"leg_upper": Vector3(0.0, 0.0, -6.0 * maxf(0.0, s)),
+			"leg_back_upper": Vector3(0.0, 0.0, -6.0 * maxf(0.0, -s)),
+			"arm_upper": Vector3(-7.0 * s, 0.0, 0.0),
+			"arm_back_upper": Vector3(-7.0 * s, 0.0, 0.0),
+		}
+	return {
+		"torso": Vector3(0.0, 0.0, 0.8 * (breath * 0.5 + 0.5)),
+		"head": Vector3(1.5 * breath, 0.0, 0.0),
 	}
