@@ -133,8 +133,16 @@ func _living() -> bool:
 	return w != null and w.phase == "living"
 
 
+## The animal shown in the bar, or null.
+func _selected_pet() -> Pet:
+	if not _living() or main.selected_pet < 0:
+		return null
+	var pet := PetSystem.find(session.world, main.selected_pet)
+	return pet if pet != null and pet.home() else null
+
+
 func _selected() -> Person:
-	if not _living():
+	if not _living() or main.selected_pet >= 0:
 		return null
 	var p := session.world.person(main.selected)
 	return p if p != null and p.alive else null
@@ -145,7 +153,8 @@ func refresh() -> void:
 	var s := session.strings
 	var living := _living()
 	var p := _selected()
-	var have := p != null
+	var pet := _selected_pet()
+	var have := p != null or pet != null
 	for c in [_avatar, _name, _line, _doing, _status, _stock]:
 		c.visible = have if c != _stock else living
 	for id in _buttons:
@@ -163,16 +172,22 @@ func refresh() -> void:
 		for k in w.stock:
 			total += int(w.stock[k])
 		_stock.text = s.t("stock").replace("{n}", str(total))
-	if have:
+	if p != null:
 		_name.text = s.person_name(p)
 		_line.text = s.person_line(p, w)
 		_doing.text = _doing_text(p)
 		_status.text = s.status_line(p, w)
 		_avatar.color = PersonView.FEMALE if p.gender == "female" else (PersonView.MALE if p.gender == "male" else PersonView.OTHER)
-	var wish := s.wish_text(p, w) if have else ""
+	if pet != null:
+		_name.text = s.pet_name(pet, w)
+		_line.text = s.pet_line(pet, w)
+		_doing.text = s.pet_doing(pet, w)
+		_status.text = s.pet_status(pet, w)
+		_avatar.color = HouseView.pack_color(PetSystem.kind_of(w.pack, pet), PetView.FALLBACK)
+	var wish := s.wish_text(p, w) if p != null else (s.pet_wish_text(pet, w) if pet != null else "")
 	_wish.visible = wish != ""
 	_wish.text = s.t("wish.line").replace("{text}", wish)
-	var waiting := living and not w.proposals.is_empty()
+	var waiting := living and (not w.proposals.is_empty() or not w.pet_offer.is_empty())
 	_buttons["family"].text = ("● " if waiting else "") + s.t("btn.family")
 	var off := judge_disabled()
 	_praise.disabled = off
@@ -228,6 +243,10 @@ func _judge(kind: String) -> void:
 
 
 func _on_event(e: Dictionary) -> void:
+	if str(e.get("type", "")) == "pet_wish_granted" and main.house != null and main.house.pets.has(int(e.get("pet", -1))):
+		var pet := PetSystem.find(session.world, int(e["pet"]))
+		if pet != null:
+			main.house.pets[pet.uid].float_text_up(str(PetSystem.kind_of(session.world.pack, pet).get("thanks", "")))
 	if str(e.get("type", "")) == "clean_reward" and main.house != null and main.house.people.has(int(e.get("person", -1))):
 		# The coins float up over whoever swept the last of it.
 		main.house.people[int(e["person"])].float_text_up(session.strings.t("float.clean_reward").replace("{n}", str(int(e["amount"]))))

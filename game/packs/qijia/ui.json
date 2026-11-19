@@ -23,5 +23,14 @@
 	"away.relative": "远房亲戚{name}来家里拉扯孩子",
 	"proposal.for": "给{name}说的亲",
 	"ev.clean_reward": "屋里院里拾掇得干干净净，得 {n} 文",
-	"float.clean_reward": "+{n} 文"
+	"float.clean_reward": "+{n} 文",
+	"title.stray": "门口来了个不速之客",
+	"btn.take_in": "收留",
+	"btn.shoo": "撵走",
+	"shop.pets": "猫狗鸟雀",
+	"family.pets": "家里养的",
+	"pet.idle": "在院里转悠",
+	"error.no_perch": "得先买个鸟笼挂上",
+	"error.wrong_pet": "它不吃这个",
+	"ev.pet_saved": "{name}守着米缸，耗子没敢来，省下一份粮"
 }

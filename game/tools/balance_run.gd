@@ -20,6 +20,10 @@ const BED_RESERVE := 1000
 ## A baby whose need for food is below this gets someone dragged over to feed it.
 const BABY_HUNGRY := 35.0
 
+## False: the caretaker leaves the animals alone (no strays taken, none bought for a wish,
+## no medicine, no treats).
+static var look_after_pets := true
+
 ## Beds the caretaker has bought since the last `run` began.
 static var beds_bought := 0
 
@@ -74,6 +78,11 @@ static func run(pack_id: String, families: int, days: int, seed0: int) -> Dictio
 	var clean_rewards := 0  # times a household was paid for a clean house
 	var clean_money := 0
 	var weather_only := {}  # action id -> starts, for actions tied to a weather
+	var pets := {"pets_arrived": 0, "pets_bought": 0, "strays_taken": 0, "pets_ran_away": 0, "pets_came_back": 0,
+		"pets_fell_ill": 0, "pets_cured": 0}
+	var pet_deaths := {}  # cause -> pets
+	var fond_sum := 0.0
+	var pets_home_end := 0
 	beds_bought = 0
 	for i in families:
 		var w := setup(pack_id, seed0 + i)
@@ -105,6 +114,19 @@ static func run(pack_id: String, families: int, days: int, seed0: int) -> Dictio
 					seen[e.action] = true
 					if not (w.pack.actions[e.action].get("weather", []) as Array).is_empty():
 						weather_only[e.action] = int(weather_only.get(e.action, 0)) + 1
+				elif e.type == "pet_arrived":
+					pets["pets_arrived"] += 1
+					pets["pets_bought" if str(e.how) == "bought" else "strays_taken"] += 1
+				elif e.type == "pet_ran_away":
+					pets["pets_ran_away"] += 1
+				elif e.type == "pet_came_back":
+					pets["pets_came_back"] += 1
+				elif e.type == "pet_fell_ill":
+					pets["pets_fell_ill"] += 1
+				elif e.type == "pet_cured":
+					pets["pets_cured"] += 1
+				elif e.type == "pet_died":
+					pet_deaths[e.cause] = int(pet_deaths.get(e.cause, 0)) + 1
 				elif e.type == "person_died":
 					deaths[e.cause] = int(deaths.get(e.cause, 0)) + 1
 				elif births.has(e.type):
@@ -133,6 +155,11 @@ static func run(pack_id: String, families: int, days: int, seed0: int) -> Dictio
 		for sid in w.stories:
 			unlocked[sid] = int(unlocked.get(sid, 0)) + 1
 		messes += w.messes.size()
+		var love := PetSystem.role(w.pack, "love_need")
+		for pet in w.pets:
+			if pet.home():
+				pets_home_end += 1
+				fond_sum += float(pet.needs.get(love, 0.0))
 	money.sort()
 	return {
 		"families": families, "alive_at_end": alive,
@@ -156,6 +183,8 @@ static func run(pack_id: String, families: int, days: int, seed0: int) -> Dictio
 		"weather_hours": weather_hours, "season_hours": season_hours, "weather_changes": weather_changes,
 		"weather_only_actions": weather_only,
 		"clean_rewards": clean_rewards, "clean_reward_money": clean_money,
+		"pets": pets, "pet_deaths_by_cause": pet_deaths, "pets_home_at_end": pets_home_end,
+		"pets_avg_fondness": snappedf(fond_sum / pets_home_end, 0.1) if pets_home_end > 0 else 0.0,
 	}
 
 
@@ -186,6 +215,39 @@ static func caretake(w: World) -> void:
 		_grant_wish(w, p)
 	_care_for_babies(w)
 	_buy_bed_if_needed(w)
+	care_for_pets(w)
+
+
+## The caretaker's round for animals: takes in a stray while fewer than two live at home, doses a sick pet with the first item
+## that cures pets, gives a pet the item it wishes for (money above WISH_RESERVE), and keeps
+## two of each stock that the household's care actions for its pets use up, when the shop
+## sells it.
+static func care_for_pets(w: World) -> void:
+	if not look_after_pets or (w.pets.is_empty() and w.pet_offer.is_empty()):
+		return
+	if not w.pet_offer.is_empty() and PetSystem.at_home(w) < 2:
+		w.command({"type": "answer_stray", "accept": true})
+	var cure := _first_item(w, func(it): return bool((it["pet"] as Dictionary).get("cures", false)))
+	var stocks := {}
+	for pet in w.pets:
+		if not pet.home():
+			continue
+		if pet.sick and cure != "" and w.command({"type": "buy", "item": cure}).ok:
+			w.command({"type": "use_item", "item": cure, "pet": pet.uid})
+		var item := str(PetSystem.wish_of(w, pet).get("item", ""))
+		if item != "" and w.money >= int(w.pack.items[item]["price"]) + WISH_RESERVE and w.command({"type": "buy", "item": item}).ok:
+			w.command({"type": "use_item", "item": item, "pet": pet.uid})
+		for id in w.pack.actions:
+			var a: Dictionary = w.pack.actions[id]
+			if not (a["pet"] as Dictionary).is_empty() and PetSystem.suits(a, pet):
+				for s in a["consumes"]:
+					stocks[s] = true
+	for s in stocks:
+		if s == FOOD_STOCK or int(w.stock.get(s, 0)) >= 2:
+			continue
+		var it := _first_item(w, func(x): return (x["stock"] as Dictionary).has(s))
+		if it != "":
+			w.command({"type": "buy", "item": it})
 
 
 ## A hungry baby nobody is looking after gets the first grown-up who is free to come over.
@@ -232,6 +294,10 @@ static func _grant_wish(w: World, p: Person) -> void:
 				_give(w, p, item)
 		"praise":
 			w.command({"type": "praise", "person": p.uid})
+		"pet":
+			var kind := str(wish["pet"])
+			if look_after_pets and w.money >= int(w.pack.pets[kind].get("price", 0)) + WISH_RESERVE:
+				w.command({"type": "buy_pet", "kind": kind})
 		"object":
 			var type := str(wish["object"])
 			if w.money >= int(w.pack.object_types[type]["price"]) + FURNITURE_RESERVE:

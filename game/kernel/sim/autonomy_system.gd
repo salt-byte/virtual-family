@@ -86,6 +86,15 @@ class Info:
 	var req_fast := false
 	var req_ix := PackedInt32Array()
 	var req_below := PackedFloat64Array()
+	## true for an action that looks after a pet (`pet`): `kind` is TARGET_PET; the pet kinds
+	## it suits ([]: any), the pet needs it gives and whether it cures
+	var pet := false
+	var pet_kinds: Array = []
+	var pet_ids: Array[String] = []
+	var pet_gains: Array[float] = []
+	var pet_cures := false
+	## `gain_max` without the pet's part (the person's own gains)
+	var self_gain := 0.0
 
 
 ## The pack's actions as `Info`, in pack order, built on first use and kept on the pack
@@ -155,8 +164,21 @@ static func _table(pack: Pack) -> Array:
 			i.tend_gains.append(maxf(float(tends[n]), 0.0))
 		i.avoid = avoid_tag != "" and i.tags.has(avoid_tag)
 		i.tend = not i.tend_ids.is_empty()
+		var pt = a.get("pet")
+		if pt is Dictionary and not (pt as Dictionary).is_empty():
+			i.pet = true
+			i.pet_kinds = pt.get("kinds", [])
+			i.pet_cures = bool(pt.get("cures", false))
+			var pn: Dictionary = pt.get("needs", {})
+			for n in pn:
+				i.pet_ids.append(str(n))
+				i.pet_gains.append(maxf(float(pn[n]), 0.0))
+				i.gain_max += maxf(float(pn[n]), 0.0)
+			if i.pet_cures:
+				i.gain_max += PetSystem._num(PetSystem.cfg(pack), "cure_gain", 50.0)
 		for g in i.need_gains:
 			i.gain_max += g
+			i.self_gain += g
 		for g in i.tend_gains:
 			i.gain_max += g
 		i.has_object = i.object != ""
@@ -313,32 +335,54 @@ static func _stage_table(pack: Pack, stage: String) -> Array:
 ## `_stage_table` without the work actions of livelihoods other than `track`, in pack order.
 ## Actions that require a mood other than `mood` are left out too; so are, for the pregnant,
 ## the actions they avoid and, for everyone else, those only the pregnant do; and actions that
-## care for a baby while there is none (`babies` false).
-static func _stage_track_table(pack: Pack, stage: String, track: String, mood := "", pregnant := false, babies := false) -> Array:
+## care for a baby while there is none (`babies` false), or for a pet while none it suits is
+## at home (`pets`: see `PetSystem.home_key`).
+static func _stage_track_table(pack: Pack, stage: String, track: String, mood := "", pregnant := false, babies := false, pets := "") -> Array:
 	var key := stage + "|" + track + "|" + mood
 	if pregnant:
 		key += "|p"
 	if babies:
 		key += "|b"
+	if pets != "":
+		key += "|q" + pets
 	var t = pack.autonomy_by_stage_track.get(key)
 	if t == null:
 		t = _stage_table(pack, stage).filter(func(i: Info):
 			return (not i.has_work or i.track == track) and (not i.mood_req or i.mood == mood) \
 				and not (pregnant and i.avoid) and (i.preg < 0 or (i.preg == 1) == pregnant) \
-				and (babies or not i.tend))
+				and (babies or not i.tend) and (not i.pet or _pet_fits(i, pets)))
 		pack.autonomy_by_stage_track[key] = t
 	return t
 
 
+## Whether a care action suits the pets at home as `PetSystem.home_key` lists them: a pet of
+## one of its kinds (any, without kinds) lacks one of the needs it gives, or for a cure one
+## of them is ill ("!").
+static func _pet_fits(i: Info, key: String) -> bool:
+	if key == "":
+		return false
+	if i.pet_cures:
+		return key.contains("!")
+	for n in i.pet_ids:
+		if i.pet_kinds.is_empty():
+			if key.contains("." + n + ","):
+				return true
+		else:
+			for k in i.pet_kinds:
+				if key.contains("," + str(k) + "." + n + ","):
+					return true
+	return false
+
+
 ## `_stage_track_table` without the actions `_flags` rules out here and now (no place built
 ## for them, or the season / weather / wet ground says no), kept with those flags.
-static func _live(pack: Pack, flagged: Array, stage: String, track: String, mood: String, pregnant: bool, babies: bool) -> Array:
-	var key := stage + "|" + track + "|" + mood + ("|p" if pregnant else "") + ("|b" if babies else "")
+static func _live(pack: Pack, flagged: Array, stage: String, track: String, mood: String, pregnant: bool, babies: bool, pets := "") -> Array:
+	var key := stage + "|" + track + "|" + mood + ("|p" if pregnant else "") + ("|b" if babies else "") + ("|q" + pets if pets != "" else "")
 	var cache: Dictionary = flagged[2]
 	var t = cache.get(key)
 	if t == null:
 		var flags: PackedByteArray = flagged[0]
-		t = _stage_track_table(pack, stage, track, mood, pregnant, babies).filter(func(i: Info):
+		t = _stage_track_table(pack, stage, track, mood, pregnant, babies, pets).filter(func(i: Info):
 			return flags[i.idx] & (_F_NOWHERE | _F_OFF) == 0)
 		cache[key] = t
 	return t
@@ -406,7 +450,9 @@ static func candidates(world: World, p: Person, pool := 0) -> Array[Dictionary]:
 	var top_o := PackedInt32Array()
 	var top_t := PackedInt32Array()
 	# The cheap yes/no tests come first; only what passes them is scored.
-	for i: Info in _live(pack, flagged, stage, p.track, p.mood, pregnant, not world.babies().is_empty()):
+	var pets_home := PetSystem.home_key(world) if not world.pets.is_empty() else ""
+	var pet_room = null  # pet need id -> the most any pet at home lacks of it (filled on first need)
+	for i: Info in _live(pack, flagged, stage, p.track, p.mood, pregnant, not world.babies().is_empty(), pets_home):
 		if i.gated:
 			if i.slow_in_hours and not _in_hours(hour, i.hours):
 				continue
@@ -419,8 +465,14 @@ static func candidates(world: World, p: Person, pool := 0) -> Array[Dictionary]:
 			continue
 		if pool > 0 and top_s.size() == pool:
 			# Its score can be at most this (damping and low mood only lower it): when that
-			# cannot beat the pool, the action is passed over as the full scoring would.
-			var cap := (i.base + i.gain_max) * caps[i.idx]
+			# cannot beat the pool, the action is passed over as the full scoring would. For a
+			# care action the pet's part is bounded by what the pets at home lack now.
+			var gm := i.gain_max
+			if i.pet:
+				if pet_room == null:
+					pet_room = PetSystem.room_now(world)
+				gm = i.self_gain + PetSystem.gain_bound(world, i.pet_ids, i.pet_gains, i.pet_cures, pet_room)
+			var cap := (i.base + gm) * caps[i.idx]
 			if any_habits:
 				cap *= float(habits.get(i.id, 1.0))
 			if low > 1.0 and not i.mood_req:
@@ -469,6 +521,11 @@ static func candidates(world: World, p: Person, pool := 0) -> Array[Dictionary]:
 			if target < 0:
 				continue
 			gain = _tend_gain
+		elif i.pet:
+			target = PetSystem.best_target(world, i.pet_kinds, i.pet_ids, i.pet_gains, i.pet_cures, p)
+			if target < 0:
+				continue
+			gain = PetSystem.target_gain
 		for k in i.need_ix.size():
 			var ix := i.need_ix[k]
 			if ix >= 0 and has[ix] == 1:
@@ -498,7 +555,7 @@ static func candidates(world: World, p: Person, pool := 0) -> Array[Dictionary]:
 			continue
 		if pool > 0 and top_s.size() == pool and s <= top_s[pool - 1]:
 			continue  # would not make the pool whatever the tests below say
-		if i.has_kind and not i.tend:
+		if i.has_kind and not i.tend and not i.pet:
 			if i.cleans != "":
 				if not mess_seen:
 					mess_seen = true
@@ -636,7 +693,8 @@ static func can_do(world: World, p: Person, action_id: String, object_uid: int) 
 
 
 ## What an action aims at: "mess" (`cleans`), "collectible" (`picks`), "person" (`tends`: a
-## baby), "dish" (`eats`: cooked food) or "" (nothing). An action has at most one target kind.
+## baby), "dish" (`eats`: cooked food), "pet" (`pet`: an animal of the house) or ""
+## (nothing). An action has at most one target kind.
 static func target_kind(a: Dictionary) -> String:
 	if str(a["cleans"]) != "":
 		return "mess"
@@ -648,6 +706,9 @@ static func target_kind(a: Dictionary) -> String:
 	var tends = a.get("tends")
 	if tends != null and not (tends as Dictionary).is_empty():
 		return TARGET_PERSON
+	var pet = a.get("pet")
+	if pet != null and not (pet as Dictionary).is_empty():
+		return TARGET_PET
 	return ""
 
 
@@ -655,6 +716,8 @@ static func target_kind(a: Dictionary) -> String:
 const TARGET_PERSON := "person"
 ## The target kind of an action that eats a dish.
 const TARGET_DISH := "dish"
+## The target kind of an action that looks after a pet.
+const TARGET_PET := "pet"
 
 
 ## The gain `_tend_target` found for its pick (read right after the call).
@@ -718,6 +781,10 @@ static func start(world: World, p: Person, action_id: String, object_uid: int, t
 	var uid := _free_object(world, p, a, object_uid) if str(a["object"]) != "" else -1
 	for item in a["consumes"]:
 		world.stock[item] = int(world.stock.get(item, 0)) - int(a["consumes"][item])
+		if not world.pets.is_empty():
+			PetSystem.on_consumed(world, str(item), int(a["consumes"][item]))
+	if target_uid >= 0 and not world.pets.is_empty() and target_kind(a) == TARGET_PET:
+		PetSystem.on_tended(world, target_uid, p.uid)
 	if uid < 0 and target_uid >= 0 and target_kind(a) == TARGET_DISH:
 		# Eating: at the table (or stove) the dish stands on.
 		uid = int(DishSystem.find(world, target_uid).get("object_uid", -1))
@@ -806,6 +873,9 @@ static func _finish(world: World, p: Person) -> void:
 		DishSystem.eat(world, int(p.current.get("target_uid", -1)))
 	if str(action.get("serves", "")) != "":
 		DishSystem.serve(world, str(action["serves"]))
+	var pet = action.get("pet")
+	if pet != null and not (pet as Dictionary).is_empty():
+		PetSystem.cared(world, p, int(p.current.get("target_uid", -1)), id)
 	var yields = action.get("yields")
 	if yields != null and not (yields as Dictionary).is_empty():
 		for k in yields:
@@ -839,6 +909,8 @@ static func _first_free_target(world: World, a: Dictionary, p: Person) -> int:
 			return tend_target_for(world, a, p)
 		"dish":
 			return DishSystem.first_free(world, a["eats"], p)
+		"pet":
+			return PetSystem.target_for(world, a, p)
 	return -1
 
 

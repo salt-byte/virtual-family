@@ -27,6 +27,7 @@ const NIGHT_COLOR := Color(0.45, 0.5, 0.7)
 var session: GameSession
 var layout: HouseLayout
 var people: Dictionary = {}  # uid -> PersonView
+var pets: Dictionary = {}  # uid -> PetView, for the animals at home
 var _modulate: CanvasModulate
 ## With a site plan: the ground under everything, and the standing walls (sorted by y with
 ## the people). Null / empty without one.
@@ -44,6 +45,7 @@ var _overlay: Node2D
 const CLICK_SLOP := 6.0
 
 signal person_clicked(uid: int)
+signal pet_clicked(uid: int)
 
 var drag: DragController
 var arrange: ArrangeMode
@@ -57,6 +59,7 @@ var blocked: Callable = func() -> bool: return false
 
 var _pressed := false
 var _press_uid := -1
+var _press_pet := -1
 var _press_at := Vector2.ZERO
 var _last := Vector2.ZERO
 var _moved := false
@@ -256,6 +259,7 @@ func refresh() -> void:
 			t = pv.base_target + Vector2(SPREAD * n, 0)
 		taken.append(t)
 		pv.target = t
+	_refresh_pets(w)
 	if w != null and w.phase != "invalid":
 		_modulate.color = Color.WHITE.lerp(NIGHT_COLOR, night_amount(w.local_hour()))
 		_update_site(w)
@@ -324,6 +328,39 @@ func _sync_props() -> void:
 			props.erase(uid)
 
 
+## One PetView per animal at home; the ones that ran off or died are taken away.
+func _refresh_pets(w: World) -> void:
+	var home := {}
+	if w != null and w.phase != "invalid":
+		for p in w.pets:
+			if p.home():
+				home[p.uid] = p
+	for uid in pets.keys():
+		if not home.has(uid):
+			remove_child(pets[uid])
+			pets[uid].queue_free()
+			pets.erase(uid)
+	for uid in home:
+		if not pets.has(uid):
+			var pv := PetView.new()
+			add_child(pv)
+			pv.setup(home[uid], session)
+			pets[uid] = pv
+		pets[uid].refresh()
+
+
+## The uid of the animal under a point in the house's coordinates, or -1.
+func pet_at(wpos: Vector2) -> int:
+	var best := -1
+	var best_y := -INF
+	for uid in pets:
+		var pv: PetView = pets[uid]
+		if pv.hit(wpos) and pv.position.y >= best_y:
+			best = uid
+			best_y = pv.position.y
+	return best
+
+
 ## Rebuilds the walls and redraws the ground when the rooms built changed.
 func _update_site(w: World) -> void:
 	if ground == null:
@@ -358,6 +395,8 @@ func tick(delta: float) -> void:
 	_edge_scroll(delta)
 	for uid in people:
 		people[uid].tick(delta)
+	for uid in pets:
+		pets[uid].tick(delta)
 	_fade_walls()
 	_follow_step(delta)
 
@@ -483,6 +522,7 @@ func press(screen: Vector2) -> void:
 		_arranging = arrange.house_press(world_pos(screen))
 		return
 	_press_uid = person_at(world_pos(screen))
+	_press_pet = pet_at(world_pos(screen)) if _press_uid < 0 else -1
 
 
 func move(screen: Vector2, relative: Vector2) -> void:
@@ -534,8 +574,11 @@ func release(screen: Vector2) -> void:
 			drag.drop(world_pos(screen))
 	elif _press_uid >= 0:
 		person_clicked.emit(_press_uid)
+	elif _press_pet >= 0:
+		pet_clicked.emit(_press_pet)
 	_pressed = false
 	_press_uid = -1
+	_press_pet = -1
 	_moved = false
 
 
@@ -769,6 +812,9 @@ func _draw_hover(w: World, ci: CanvasItem) -> void:
 				var pv: PersonView = people[int(hover.uid)]
 				var body := pv.body_size()
 				rect = Rect2(pv.position - Vector2(body.x * 0.5, body.y), body)
+		"pet":
+			if pets.has(int(hover.uid)):
+				rect = (pets[int(hover.uid)] as PetView).rect()
 		"object":
 			var o := w.object(int(hover.uid))
 			if not o.is_empty():

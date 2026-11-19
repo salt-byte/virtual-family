@@ -18,6 +18,8 @@ var _current := ""
 var _signature := ""
 var _away: Dictionary = {}
 var _proposal_id := -1
+## True while the player has opened the card of the animal waiting at the gate.
+var _stray_open := false
 ## Story fragments picked up while playing, waiting to be read: {story, fragment}.
 var _fragments: Array = []
 ## Family news waiting to be read: the events "born" and "relative_arrived", in order.
@@ -64,7 +66,7 @@ func setup(m: Main) -> void:
 
 
 ## One of "", "pack_error", "load_error", "adopt", "over", "away", "fragment", "born",
-## "relative", "visitor", "proposal".
+## "relative", "visitor", "stray", "proposal".
 func current() -> String:
 	return _current
 
@@ -77,6 +79,14 @@ func card_style() -> StyleBoxFlat:
 ## True while an overlay covers the house.
 func blocks_input() -> bool:
 	return _current != ""
+
+
+## Opens the card of the animal waiting at the gate; does nothing when none waits.
+func open_stray() -> void:
+	var w := session.world
+	if w != null and w.phase == "living" and not w.pet_offer.is_empty():
+		_stray_open = true
+		refresh()
 
 
 ## Opens the card for the first waiting proposal; does nothing when none waits.
@@ -124,6 +134,10 @@ func press(button_key: String) -> void:
 		"born", "relative":
 			if not _news.is_empty():
 				_news.pop_front()
+		"stray":
+			if button_key != "btn.close":
+				session.command({"type": "answer_stray", "accept": button_key == "btn.take_in"})
+			_stray_open = false
 		"visitor":
 			var v := StorySystem.visitors(session.world)
 			if not v.is_empty():
@@ -156,6 +170,8 @@ func refresh() -> void:
 	if w != null and w.phase == "adopting":
 		_away = {}
 		_news.clear()
+	if w == null or w.pet_offer.is_empty():
+		_stray_open = false
 	var proposal := _find_proposal(w)
 	if proposal.is_empty():
 		_proposal_id = -1
@@ -184,6 +200,9 @@ func refresh() -> void:
 	elif w != null and w.phase == "living" and not StorySystem.visitors(w).is_empty():
 		kind = "visitor"
 		sig = str(StorySystem.visitors(w)[0])
+	elif _stray_open and w != null and w.phase == "living" and not w.pet_offer.is_empty():
+		kind = "stray"
+		sig = str(w.pet_offer)
 	elif not proposal.is_empty():
 		kind = "proposal"
 		sig = str(proposal)
@@ -275,6 +294,15 @@ func _rebuild(w: World, proposal: Dictionary) -> void:
 			if int(fin.get("money", 0)) > 0:
 				_box.add_child(_label(s.t("visitor.money").replace("{money}", s.t("money").replace("{n}", str(int(fin["money"]))))))
 			_button("btn.receive")
+		"stray":
+			var k: Dictionary = w.pack.pets.get(str(w.pet_offer["kind"]), {})
+			_title(s.t("title.stray"))
+			_box.add_child(_label(str(k.get("stray_text", k.get("name", "")))))
+			_box.add_child(_label("%s · %s" % [str(k.get("name", "")), s.t("years").replace("{n}", str(int(float(w.pet_offer["age"]))))]))
+			var row := _row()
+			_button("btn.take_in", row)
+			_button("btn.shoo", row)
+			_button("btn.close", row)
 		"proposal":
 			_title(s.t("title.proposal"))
 			var target := w.person(int(proposal.get("for", -1)))

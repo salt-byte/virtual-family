@@ -6,5 +6,6 @@
 	{"id": "snow_cover", "name": "积雪", "spawn_per_day": 0, "outdoor": true, "penalty": {"happy": 0.2}, "color": "#F4F7FA",
 	 "look": "patch", "seasons": ["winter"]},
 	{"id": "leaves", "name": "落叶", "spawn_per_day": 0, "outdoor": true, "penalty": {"happy": 0.2}, "color": "#C8812F",
-	 "seasons": ["autumn", "winter"]}
+	 "seasons": ["autumn", "winter"]},
+	{"id": "pet_hair", "name": "掉了一地的毛", "spawn_per_day": 0, "outdoor": false, "penalty": {"happy": 0.5}, "color": "#B89B6E"}
 ]

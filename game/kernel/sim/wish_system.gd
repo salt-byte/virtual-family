@@ -9,13 +9,14 @@ extends RefCounted
 ## - "praise": the player praises them
 ## - "married": they marry (only whom the next proposal would be for may wish it)
 ## - "baby": a child is born to them (only a married grown-up who could have one now)
+## - "pet": an animal of that kind (`pet`) lives in the house
 ## - "need": a body wish, formed when that need falls below `below` and granted once it is
 ##   back above `above`; it takes the place of any other wish
 ## A mood wish that runs out (`ttl_hours`) costs `wish_miss_penalty` of the praise need; a
 ## body wish just ends. Babies and the depressed form no wishes, and nobody forms one while
 ## the player is away. A pack without wishes draws no randomness here.
 
-const KINDS := ["item", "object", "room", "praise", "need", "married", "baby"]
+const KINDS := ["item", "object", "room", "praise", "need", "married", "baby", "pet"]
 
 
 ## Runs once per game minute (on the step that starts one); granting by item or praise
@@ -53,6 +54,8 @@ static func _met(world: World, p: Person, w: Dictionary) -> bool:
 			return world.objects.any(func(o): return o.type == type)
 		"room":
 			return world.rooms_built.has(str(w["room"]))
+		"pet":
+			return PetSystem.has_kind(world, str(w["pet"]))
 	return false
 
 
@@ -177,7 +180,7 @@ static func _eligible(world: World, p: Person, body: bool) -> Array:
 			"need":
 				if float(p.needs.get(str(w["need"]), 100.0)) >= float(w["below"]):
 					continue
-			"object", "room":
+			"object", "room", "pet":
 				if _met(world, p, w):
 					continue
 			"married":

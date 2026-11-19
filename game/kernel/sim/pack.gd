@@ -15,7 +15,8 @@ const FILES := {
 	"collectibles": "collectibles.json", "goals": "goals.json",
 }
 ## Files a pack may leave out; without them the feature is simply absent.
-const OPTIONAL_FILES := {"wishes": "wishes.json", "stories": "stories.json", "dishes": "dishes.json"}
+const OPTIONAL_FILES := {"wishes": "wishes.json", "stories": "stories.json", "dishes": "dishes.json",
+	"pets": "pets.json"}
 
 const DEFAULT_CONFIG := {
 	"hours_per_year": 2.0, "offline_cap_hours": 48, "offline_need_floor": 15,
@@ -62,6 +63,9 @@ const DEFAULT_CONFIG := {
 	# Pay for a clean house (off while empty): `amount` coins when the last mess is cleaned
 	# away, at most once per local day.
 	"clean_reward": {},
+	# Animals (off while empty or without a pets.json; see `PetSystem` and
+	# `PackValidator._check_pets` for the keys).
+	"pets": {},
 }
 
 ## Per-file field defaults (applied to every entry that lacks the key).
@@ -69,15 +73,21 @@ const ENTRY_DEFAULTS := {
 	"actions": {"object": "", "needs": {}, "base": 0, "hours": [], "tags": [], "praiseable": true,
 		"consumes": {}, "work": {}, "mess": {}, "cleans": "", "picks": false, "requires": {},
 		"slow": false, "rooms": [], "completes_story": "", "tends": {}, "serves": "", "eats": [],
-		"yields": {}, "seasons": [], "weather": [], "not_wet": false},
+		"yields": {}, "seasons": [], "weather": [], "not_wet": false, "pet": {}},
 	"object_types": {"outdoor": false, "capacity": 1, "fixed": false, "keepsake": false},
 	"collectibles": {"rooms": []},
 	"wishes": {"likes": [], "stages": [], "weight": 1.0},
-	"dishes": {"on": [], "leaves": "", "ttl_hours": 0, "max_out": 1},
+	"dishes": {"on": [], "leaves": "", "ttl_hours": 0, "max_out": 1, "scraps": ""},
+	"pets": {"price": 0, "stray": false, "names": [], "lifespan": [10, 14], "age": [1, 2], "drains": {},
+		"home": [], "perch": "", "actions": [], "wishes": [], "perks": {}, "thanks": "", "size": 0.6},
 	"rooms": {"outdoor": false, "props": [], "outside": false},
-	"items": {"stock": {}, "cures": "", "needs": {}, "work": {}, "childhood": {}},
+	"items": {"stock": {}, "cures": "", "needs": {}, "work": {}, "childhood": {}, "pet": {}},
 	"needs": {"when_empty": {}},
 }
+
+## Field defaults of a pet's own action (an entry of a pets.json kind's `actions`).
+const PET_ACTION_DEFAULTS := {"duration_min": 10, "base": 1, "object": "", "rooms": [], "hours": [],
+	"weather": [], "wet": false, "sick": false, "follows": "", "scraps": "", "needs": {}, "mess": {}, "above": {}, "every_hours": 0}
 
 ## Fields that are always whole numbers (JSON gives floats, so they are converted on load).
 const INT_FIELDS := {
@@ -89,6 +99,7 @@ const INT_FIELDS := {
 	"collectibles": ["value", "weight"],
 	"goals": ["reward"],
 	"dishes": ["portions", "max_out"],
+	"pets": ["price"],
 }
 
 var id := ""
@@ -108,6 +119,10 @@ var wishes: Dictionary = {}
 var stories: Dictionary = {}
 ## Cooked food that waits on a table to be eaten (optional dishes.json; see `DishSystem`).
 var dishes: Dictionary = {}
+## Kinds of animals (optional pets.json; see `PetSystem`).
+var pets: Dictionary = {}
+## pet action id -> its entry, over every kind (filled by `PetSystem.action`).
+var pet_actions: Dictionary = {}
 var names: Dictionary = {}
 ## Raw parsed file contents by file name, as read; used by the validator.
 var raw: Dictionary = {}
@@ -332,6 +347,19 @@ func _apply_defaults() -> void:
 		if a["yields"] is Dictionary:
 			for k in a["yields"]:
 				a["yields"][k] = _as_int(a["yields"][k])
+	for k in pets.values():
+		if k["actions"] is Array:
+			for a in k["actions"]:
+				if not a is Dictionary:
+					continue
+				for f in PET_ACTION_DEFAULTS:
+					if not a.has(f):
+						var d = PET_ACTION_DEFAULTS[f]
+						a[f] = d.duplicate(true) if (d is Array or d is Dictionary) else d
+				for f in ["duration_min", "base"]:
+					a[f] = _as_int(a[f])
+				if a["hours"] is Array:
+					a["hours"] = (a["hours"] as Array).map(_as_int)
 	for it in items.values():
 		if it["stock"] is Dictionary:
 			for k in it["stock"]:

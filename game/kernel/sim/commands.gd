@@ -23,6 +23,8 @@ static var handlers: Dictionary = {
 	"answer_proposal": FamilySystem.answer_proposal,
 	"change_track": LivelihoodSystem.change_track,
 	"receive_visitor": StorySystem.receive_visitor,
+	"buy_pet": PetSystem.buy,
+	"answer_stray": PetSystem.answer_stray,
 }
 
 
@@ -57,6 +59,8 @@ static func _try_drag(world: World, cmd: Dictionary) -> Dictionary:
 		return _drag_to_story(world, p, str(cmd["story"]))
 	if cmd.has("tend"):
 		return _drag_to_baby(world, p, int(cmd["tend"]))
+	if cmd.has("pet"):
+		return _drag_to_pet(world, p, int(cmd["pet"]))
 	var object_uid := int(cmd.get("object", -1))
 	var o := world.object(object_uid)
 	if o.is_empty():
@@ -197,6 +201,44 @@ static func _drag_to_baby(world: World, p: Person, uid: int) -> Dictionary:
 	return fail(first_reason)
 
 
+## Dropping someone on a pet: of the actions that look after pets and suit this one, the one
+## that gives it most of what it lacks (a cure first while it is ill; pack order on a tie)
+## that `p` can do now.
+static func _drag_to_pet(world: World, p: Person, uid: int) -> Dictionary:
+	var pet := PetSystem.find(world, uid)
+	if pet == null or not pet.home():
+		return fail("no_target")
+	if PetSystem.held(world, pet, p):
+		return fail("busy")
+	var ranked: Array = []
+	for id in world.pack.actions:
+		var a: Dictionary = world.pack.actions[id]
+		if AutonomySystem.target_kind(a) != AutonomySystem.TARGET_PET or not PetSystem.suits(a, pet):
+			continue
+		var ids: Array[String] = []
+		var gains: Array[float] = []
+		var needs: Dictionary = a["pet"].get("needs", {})
+		for n in needs:
+			ids.append(str(n))
+			gains.append(maxf(float(needs[n]), 0.0))
+		var g := PetSystem._gain_for(pet, ids, gains) + (1000.0 if bool(a["pet"].get("cures", false)) else 0.0)
+		var j := ranked.size()
+		while j > 0 and g > float(ranked[j - 1][1]):
+			j -= 1
+		ranked.insert(j, [id, g])
+	var first_reason := "no_action"
+	for r in ranked:
+		var why := AutonomySystem.can_do(world, p, str(r[0]), -1)
+		if why == "no_target":
+			why = ""  # another pet may be spoken for; this one is free
+		if why == "":
+			AutonomySystem.start(world, p, str(r[0]), -1, uid)
+			return success({"action": str(r[0])})
+		if first_reason == "no_action":
+			first_reason = why
+	return fail(first_reason)
+
+
 ## Dropping someone on a story's dig mark starts the action that completes that story there.
 static func _drag_to_story(world: World, p: Person, sid: String) -> Dictionary:
 	var mark := {}
@@ -279,6 +321,8 @@ static func _buy(world: World, cmd: Dictionary) -> Dictionary:
 
 
 static func _use_item(world: World, cmd: Dictionary) -> Dictionary:
+	if cmd.has("pet"):
+		return PetSystem.use_item(world, cmd)
 	var id := str(cmd.get("item", ""))
 	if int(world.inventory.get(id, 0)) < 1:
 		return fail("no_item")

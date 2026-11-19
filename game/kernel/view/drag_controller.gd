@@ -1,7 +1,7 @@
 class_name DragController
 extends Node
-## Picking a person up and dropping them on furniture, a mess, something lying about, or a
-## baby (to care for it).
+## Picking a person up and dropping them on furniture, a mess, something lying about, a
+## baby (to care for it) or an animal of the house (to feed, pet, wash or dose it).
 ## The drop becomes one `drag` command; the result decides nothing here except where the
 ## person is left standing. Reads the World, writes only through the session.
 
@@ -37,7 +37,13 @@ func move(world_pos: Vector2) -> void:
 		return
 	pv.position = world_pos
 	var baby := _baby_at(world_pos, dragging)
-	_hover({"kind": "person", "uid": baby} if baby >= 0 else main.house.layout.pick(main.session.world, world_pos))
+	var pet := main.house.pet_at(world_pos) if baby < 0 else -1
+	if baby >= 0:
+		_hover({"kind": "person", "uid": baby})
+	elif pet >= 0:
+		_hover({"kind": "pet", "uid": pet})
+	else:
+		_hover(main.house.layout.pick(main.session.world, world_pos))
 
 
 ## Lets go of the person at `world_pos` and returns the command's result; `{}` when nothing
@@ -58,6 +64,10 @@ func drop(world_pos: Vector2) -> Dictionary:
 	if baby >= 0:
 		_leave_at(pv, world_pos)
 		return main.session.command({"type": "drag", "person": uid, "tend": baby})
+	var pet := main.house.pet_at(world_pos)
+	if pet >= 0:
+		_leave_at(pv, world_pos)
+		return main.session.command({"type": "drag", "person": uid, "pet": pet})
 	var cmd := {"type": "drag", "person": uid}
 	var quiet := not KINDS.has(str(hit.kind)) and str(hit.kind) != "mark"
 	if quiet:

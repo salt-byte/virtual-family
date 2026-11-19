@@ -73,6 +73,20 @@ const DEFAULTS := {
 	"ev.born.female": "添了个女孩，取名{name}", "ev.relative": "家里没了大人，{name}来照看孩子们",
 	"title.born": "家里添了人", "born.parents": "{father}和{mother}的孩子", "title.relative": "来了一位亲戚",
 	"away.born": "{name}出生了", "away.relative": "{name}来家里照看孩子", "proposal.for": "说给{name}",
+	"pet.name": "{name}（{kind}）", "pet.age": "{kind} · {n} 岁", "pet.sick": "病了", "pet.idle": "到处转悠",
+	"pet.away": "跑出去了", "shop.pets": "动物", "btn.buy_pet": "买下", "pet.need_perch": "先得有{perch}",
+	"title.stray": "门口来了一只动物", "btn.take_in": "收下", "btn.shoo": "赶走",
+	"family.pets": "家里的动物", "family.pet_away": "{name} · 跑出去了，还没回来",
+	"family.pet_gone.old": "{name} · 老死了，活了 {n} 岁", "family.pet_gone.ill": "{name} · 病死了，活了 {n} 岁",
+	"family.pet_gone.lost": "{name} · 走丢了，再没回来",
+	"ev.pet_arrived": "{name}到家了", "ev.pet_ran_away": "{name}跑了", "ev.pet_came_back": "{name}自己回来了",
+	"ev.pet_died.old": "{name}老死了", "ev.pet_died.ill": "{name}病死了", "ev.pet_died.lost": "{name}再没回来",
+	"ev.pet_fell_ill": "{name}看着不大对劲", "ev.pet_cured": "{name}好了", "ev.stray_arrived": "门口来了一只{kind}",
+	"ev.stray_left": "门口的{kind}走了", "ev.pet_wish_granted": "{name}如愿了：{text}", "ev.pet_saved": "{name}看着粮食，省下一份",
+	"away.pet_died": "{name}没了", "away.pet_ill": "{name}病过", "away.pet_back": "{name}回来了", "away.pet_cured": "{name}的病好了",
+	"error.no_pet": "没有这只动物", "error.not_for_pet": "这东西不是给动物的", "error.wrong_pet": "它不吃这个",
+	"error.too_many_pets": "家里养不下更多了", "error.no_perch": "还没有它待的地方", "error.no_pet_kind": "没有这种动物",
+	"error.no_stray": "门口已经没有了",
 }
 
 var pack: Pack
@@ -175,6 +189,63 @@ func status_line(p: Person, world: World) -> String:
 func _name_of(uid: int, world: World) -> String:
 	var p := world.person(uid)
 	return person_name(p) if p != null else ""
+
+
+## A pet's name with its kind ("{name}（{kind}）").
+func pet_name(pet: Pet, world: World) -> String:
+	var k := PetSystem.kind_of(world.pack, pet)
+	return _f("pet.name", {"name": pet.given, "kind": str(k.get("name", ""))})
+
+
+func _pet_called(uid: int, world: World) -> String:
+	var pet := PetSystem.find(world, uid)
+	return pet.given if pet != null else ""
+
+
+## What the pet is doing now (its action's label).
+func pet_doing(pet: Pet, world: World) -> String:
+	if pet.state == "away":
+		return t("pet.away")
+	var a := PetSystem.action(world.pack, str(pet.current.get("action", "")))
+	if not a.is_empty():
+		return str(a.get("label", ""))
+	for q in world.people:
+		if q.alive and int(q.current.get("target_uid", -1)) == pet.uid and q.current.has("action"):
+			var qa: Dictionary = world.pack.actions.get(str(q.current["action"]), {})
+			if not (qa.get("pet", {}) as Dictionary).is_empty():
+				return person_name(q) + str(qa.get("label", ""))
+	return t("pet.idle")
+
+
+## "{kind} · {n} 岁".
+func pet_line(pet: Pet, world: World) -> String:
+	return _f("pet.age", {"kind": str(PetSystem.kind_of(world.pack, pet).get("name", "")), "n": int(pet.age)})
+
+
+func pet_status(pet: Pet, world: World) -> String:
+	var words: Array[String] = []
+	if pet.sick:
+		words.append(t("pet.sick"))
+	for word in pet.status(world.pack).values():
+		words.append(str(word))
+	return "、".join(words)
+
+
+func pet_wish_text(pet: Pet, world: World) -> String:
+	return str(PetSystem.wish_of(world, pet).get("text", ""))
+
+
+## The family record of a pet no longer at home.
+func pet_record(pet: Pet, world: World) -> String:
+	var name := pet_name(pet, world)
+	if pet.alive:
+		return _f("family.pet_away", {"name": name})
+	return _f("family.pet_gone." + _death_word(pet.cause), {"name": name, "n": int(pet.age)})
+
+
+## The text key part for how a pet died: "old", "ill" or "lost".
+static func _death_word(cause: String) -> String:
+	return {"old_age": "old", "lost": "lost"}.get(cause, "ill")
 
 
 ## The season and weather now ("{season} · {weather}"; just the season before the first
@@ -294,6 +365,20 @@ func event(e: Dictionary, world: World) -> String:
 			return t("ev.proposal_expired")
 		"clean_reward":
 			return _f("ev.clean_reward", {"n": int(e["amount"])})
+		"pet_arrived", "pet_ran_away", "pet_came_back", "pet_fell_ill", "pet_cured", "pet_saved":
+			return _f("ev." + str(e["type"]), {"name": _pet_called(int(e["pet"]), world)})
+		"pet_died":
+			return _f("ev.pet_died." + _death_word(str(e["cause"])), {"name": _pet_called(int(e["pet"]), world)})
+		"pet_wish_granted":
+			var pet := PetSystem.find(world, int(e["pet"]))
+			var text := ""
+			if pet != null:
+				for w in PetSystem.kind_of(world.pack, pet).get("wishes", []):
+					if str(w.get("id", "")) == str(e["wish"]):
+						text = str(w.get("text", ""))
+			return _f("ev.pet_wish_granted", {"name": _pet_called(int(e["pet"]), world), "text": text})
+		"stray_arrived", "stray_left":
+			return _f("ev." + str(e["type"]), {"kind": str(world.pack.pets.get(str(e["kind"]), {}).get("name", ""))})
 		"goal_done":
 			var g: Dictionary = world.pack.goals.get(str(e["goal"]), {})
 			return _f("ev.goal", {"text": str(g.get("text", "")), "n": int(e["reward"])})
@@ -354,6 +439,12 @@ func summary_lines(summary: Dictionary, world: World) -> Array[String]:
 		out.append(_f("away.born", {"name": _name_of(int(uid), world)}))
 	for uid in summary.get("relatives", []):
 		out.append(_f("away.relative", {"name": _name_of(int(uid), world)}))
+	for d in summary.get("pets_died", []):
+		out.append(_f("away.pet_died", {"name": _pet_called(int(d["pet"]), world)}))
+	for key in ["pets_ill", "pets_back", "pets_cured"]:
+		var tk: String = {"pets_ill": "away.pet_ill", "pets_back": "away.pet_back", "pets_cured": "away.pet_cured"}[key]
+		for uid in summary.get(key, []):
+			out.append(_f(tk, {"name": _pet_called(int(uid), world)}))
 	if summary.get("game_over", false):
 		out.append(t("away.over"))
 	return out

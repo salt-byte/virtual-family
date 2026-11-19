@@ -1,4 +1,4 @@
 [
-	{"id": "porridge", "name": "一锅热粥", "portions": 3, "on": ["dining_table", "stove"], "leaves": "bowls", "ttl_hours": 5, "color": "#F3E9CF"},
-	{"id": "greens", "name": "一盘炒青菜", "portions": 2, "on": ["dining_table", "stove"], "leaves": "bowls", "ttl_hours": 4, "color": "#79B04A"}
+	{"id": "porridge", "name": "一锅热粥", "portions": 3, "on": ["dining_table", "stove"], "leaves": "bowls", "scraps": "scraps", "ttl_hours": 5, "color": "#F3E9CF"},
+	{"id": "greens", "name": "一盘炒青菜", "portions": 2, "on": ["dining_table", "stove"], "leaves": "bowls", "scraps": "scraps", "ttl_hours": 4, "color": "#79B04A"}
 ]

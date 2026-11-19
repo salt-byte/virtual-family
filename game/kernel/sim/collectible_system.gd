@@ -45,9 +45,18 @@ static func spawn(world: World, type := "") -> int:
 	var uid := world.next_uid()
 	world.collectibles.append({"uid": uid, "type": type, "room": room,
 		"x": world.rng.randi_range(0, int(r["w"]) - 1), "y": world.rng.randi_range(0, int(r["h"]) - 1),
-		"expires_at": world.now + int(world.pack.cfg("collectible_ttl_min")) * 60})
+		"expires_at": world.now + _ttl_s(world)})
 	world.emit("collectible_spawned", {"uid": uid, "kind": type, "room": room})
 	return uid
+
+
+## How long a new drop lies about: `collectible_ttl_min`, longer while a well-kept pet
+## guards the house (see `PetSystem.guard_factor`).
+static func _ttl_s(world: World) -> int:
+	var s := int(world.pack.cfg("collectible_ttl_min")) * 60
+	if not world.pets.is_empty():
+		s = int(float(s) * PetSystem.guard_factor(world))
+	return s
 
 
 ## The collectible with this uid, or {} when missing.

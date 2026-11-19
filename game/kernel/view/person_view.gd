@@ -358,8 +358,15 @@ func _compute_target(w: World, l: HouseLayout) -> Vector2:
 					if int(m.uid) == tid:
 						_key = ""
 						return l.cell_center(str(m.room), int(m.x), int(m.y))
-			# Caring for a baby: over to where the baby is, just beside it.
+			# Caring for a baby or a pet: over to where it is, just beside it.
 			var house = get_parent()
+			if house != null and "pets" in house and house.pets.has(tid):
+				_key = ""
+				var pet := house.pets[tid] as PetView
+				if pictured():
+					# Clear of the animal's own name plate, so the two plates do not overlap.
+					return pet.position + Vector2(body_size().x * 0.5 + pet.body().x * 0.5 + 34.0, 0)
+				return pet.position + Vector2(BODY.x, 0)
 			if house != null and "people" in house and house.people.has(tid) and house.people[tid] != self:
 				_key = ""
 				return (house.people[tid] as PersonView).base_target + Vector2(BODY.x, 0)
