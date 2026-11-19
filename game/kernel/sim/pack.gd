@@ -151,6 +151,8 @@ var autonomy_whole_hours := true
 ## Per action of `autonomy_table` (by `Info.idx`): [flag bits, `base`, `gain_max`] as packed
 ## arrays (see `AutonomySystem._table`).
 var autonomy_soa: Array = []
+## action id -> what `AutonomySystem._progress` reads of it on every step.
+var autonomy_progress: Dictionary = {}
 ## `GoalSystem`'s goals table (built on first use).
 var goal_table: Array = []
 ## livelihood id -> {action id: affinity matches}, prepared by `LivelihoodSystem`.

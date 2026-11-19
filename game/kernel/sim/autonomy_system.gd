@@ -1044,16 +1044,17 @@ static func target_claimed(world: World, uid: int, kind: String, except: Person)
 static func start(world: World, p: Person, action_id: String, object_uid: int, target_uid := -1) -> void:
 	cancel(world, p)
 	var a: Dictionary = world.pack.actions[action_id]
-	if target_uid < 0:
+	var kind := target_kind(a)
+	if target_uid < 0 and kind != "":  # (`_first_free_target` gives -1 without a kind)
 		target_uid = _first_free_target(world, a, p)
 	var uid := _free_object(world, p, a, object_uid) if str(a["object"]) != "" else -1
 	for item in a["consumes"]:
 		world.stock[item] = int(world.stock.get(item, 0)) - int(a["consumes"][item])
 		if not world.pets.is_empty():
 			PetSystem.on_consumed(world, str(item), int(a["consumes"][item]))
-	if target_uid >= 0 and not world.pets.is_empty() and target_kind(a) == TARGET_PET:
+	if target_uid >= 0 and not world.pets.is_empty() and kind == TARGET_PET:
 		PetSystem.on_tended(world, target_uid, p.uid)
-	if uid < 0 and target_uid >= 0 and target_kind(a) == TARGET_DISH:
+	if uid < 0 and target_uid >= 0 and kind == TARGET_DISH:
 		# Eating: at the table (or stove) the dish stands on.
 		uid = int(DishSystem.find(world, target_uid).get("object_uid", -1))
 	p.current = {"action": action_id, "object_uid": uid, "target_uid": target_uid,
@@ -1093,39 +1094,66 @@ static func cancel(world: World, p: Person) -> void:
 ## that length and pays over it. At speed 1 lengths never changed, and only the last
 ## `duration_s` seconds of a longer `remaining_s` pay, as always.
 static func _progress(world: World, p: Person, dt: float) -> void:
-	var a: Dictionary = world.pack.actions[p.current["action"]]
+	var cur := p.current
+	var pack := world.pack
+	var c = pack.autonomy_progress.get(cur["action"])
+	if c == null:
+		c = _progress_entry(pack, str(cur["action"]))
+	var a: Dictionary = c[0]
 	# A slow action with an `hours` window (sleep) ends as soon as the local hour is outside
 	# it: people get up when the night is over, or when the day/night setting flips.
-	if bool(a.get("slow", false)) and not (a["hours"] as Array).is_empty() \
-			and not _in_hours(world.local_hour(), a["hours"]):
+	if c[1] and not _in_hours(world.local_hour(), c[2]):
 		_finish(world, p)
 		return
-	var dur := duration_s(world, a)
-	var remaining := int(p.current["remaining_s"])
-	if remaining > dur and float(world.pack.cfg("action_speed")) != 1.0:
+	var speed := float(pack.cfg("action_speed"))
+	var dur: int = c[6]
+	if c[7] != speed or c[8] != world.step_s:
+		dur = duration_s(world, a)
+		c[6] = dur
+		c[7] = speed
+		c[8] = world.step_s
+	var remaining := int(cur["remaining_s"])
+	if remaining > dur and speed != 1.0:
 		remaining = dur
-		p.current["remaining_s"] = remaining
-	var paid := clampf(dt - float(remaining - dur), 0.0, dt)
-	var gain_frac := paid / float(dur)
-	var cost_frac := paid / (float(a["duration_min"]) * 60.0)
-	for n in a["needs"]:
-		if p.needs.has(n):
-			var v := float(a["needs"][n])
-			var nv := clampf(float(p.needs[n]) + v * (gain_frac if v >= 0.0 else cost_frac), 0.0, 100.0)
-			if v > 0.0 and p.mood_cap < 100.0 and n == world.pack.cfg("praise_need"):
-				# Without the player's attention, one's own doings only lift the mood so far.
-				nv = minf(nv, maxf(float(p.needs[n]), p.mood_cap))
-			p.needs[n] = nv
-	var tends = a.get("tends")  # no default: this runs every step for everyone busy
-	if tends != null and not (tends as Dictionary).is_empty():
-		var t := world.person(int(p.current.get("target_uid", -1)))
-		if t != null and t.alive:
-			for n in tends:
-				if t.needs.has(n):
-					t.needs[n] = clampf(float(t.needs[n]) + float(tends[n]) * gain_frac, 0.0, 100.0)
-	p.current["remaining_s"] = remaining - int(dt)
-	if int(p.current["remaining_s"]) <= 0:
+		cur["remaining_s"] = remaining
+	var needs: Dictionary = c[3]
+	if not needs.is_empty() or c[5]:  # most actions only count down
+		var paid := clampf(dt - float(remaining - dur), 0.0, dt)
+		var gain_frac := paid / float(dur)
+		var cost_frac := paid / (float(a["duration_min"]) * 60.0)
+		for n in needs:
+			if p.needs.has(n):
+				var v := float(needs[n])
+				var nv := clampf(float(p.needs[n]) + v * (gain_frac if v >= 0.0 else cost_frac), 0.0, 100.0)
+				if v > 0.0 and p.mood_cap < 100.0 and n == pack.cfg("praise_need"):
+					# Without the player's attention, one's own doings only lift the mood so far.
+					nv = minf(nv, maxf(float(p.needs[n]), p.mood_cap))
+				p.needs[n] = nv
+		if c[5]:
+			var tends: Dictionary = c[4]
+			var t := world.person(int(cur.get("target_uid", -1)))
+			if t != null and t.alive:
+				for n in tends:
+					if t.needs.has(n):
+						t.needs[n] = clampf(float(t.needs[n]) + float(tends[n]) * gain_frac, 0.0, 100.0)
+	remaining -= int(dt)
+	cur["remaining_s"] = remaining
+	if remaining <= 0:
 		_finish(world, p)
+
+
+## What `_progress` reads of action `id` on every step, kept on the pack (a pack's content
+## does not change once worlds use it): [the action, slow with an `hours` window, its hours,
+## its needs, its tends, whether it tends, then `duration_s` and the action speed and step
+## length it was worked out for].
+static func _progress_entry(pack: Pack, id: String) -> Array:
+	var a: Dictionary = pack.actions[id]
+	var tends = a.get("tends")
+	var tending := tends != null and not (tends as Dictionary).is_empty()
+	var c := [a, bool(a.get("slow", false)) and not (a["hours"] as Array).is_empty(), a["hours"],
+		a["needs"], tends if tending else {}, tending, 0, NAN, 0]
+	pack.autonomy_progress[id] = c
+	return c
 
 
 ## Runs once when an action's time is up.
@@ -1255,22 +1283,16 @@ static func _requires_ok(p: Person, req: Dictionary) -> bool:
 ## uid of an object of the action's type that is free for `p` (`object_uid` >= 0 asks for that
 ## exact one), else -1. An object `p` is already using does not count as occupied for them.
 static func _free_object(world: World, p: Person, a: Dictionary, object_uid: int) -> int:
+	var type = a["object"]
 	for o in world.objects:
-		if o.type != a["object"] or (object_uid >= 0 and o.uid != object_uid):
+		if (object_uid >= 0 and o.uid != object_uid) or o.type != type:
 			continue
-		if not _occupied(world, o.uid, p):
+		# Occupied when it already has as many other users as its type's `capacity`.
+		var uid := int(o.uid)
+		var users := 0
+		for q in world.people:
+			if q != p and q.alive and not q.current.is_empty() and int(q.current.get("object_uid", -1)) == uid:
+				users += 1
+		if users < int(world.pack.object_types.get(o["type"], {}).get("capacity", 1)):
 			return o.uid
 	return -1
-
-
-## True when the object already has as many other users as its type's `capacity`.
-static func _occupied(world: World, uid: int, except: Person) -> bool:
-	var users := 0
-	for q in world.people:
-		if q != except and q.alive and not q.current.is_empty() and int(q.current.get("object_uid", -1)) == uid:
-			users += 1
-	var o := world.object(uid)
-	var capacity := 1
-	if not o.is_empty():
-		capacity = int(world.pack.object_types.get(o["type"], {}).get("capacity", 1))
-	return users >= capacity
