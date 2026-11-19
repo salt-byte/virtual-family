@@ -28,13 +28,19 @@ func _draw() -> void:
 	var site := house.layout.site
 	if not site.enabled:
 		return
-	draw_rect(site.rect(), site.ground)
+	var skin := house.skin
+	_fill(site.rect(), site.ground, skin.ground_tile() if skin != null else {})
 	if site.has_compound:
-		draw_rect(_cells(Rect2(site.compound)), site.compound_ground)
+		_fill(_cells(Rect2(site.compound)), site.compound_ground, skin.compound_tile() if skin != null else {})
 	for d in site.decor:
 		var r := _cells(Rect2(float(d["x"]), float(d["y"]), float(d["w"]), float(d["h"])))
 		var c := Color.html(str(d["color"]))
-		if str(d["shape"]) == "ellipse":
+		var rule := skin.decor_rule(str(d["color"])) if skin != null else {}
+		if rule.has("tile") and not skin.tile(str(rule["tile"])).is_empty():
+			PackSkin.draw_tile(self, skin.tile(str(rule["tile"])), r)
+		elif rule.has("hide") or (rule.has("sprite") and skin.sprite(str(rule["sprite"])) != null):
+			pass  # hidden, or standing up as scenery (see HouseView)
+		elif str(d["shape"]) == "ellipse":
 			draw_colored_polygon(_ellipse(r), c)
 		else:
 			draw_rect(r, c)
@@ -44,6 +50,14 @@ func _draw() -> void:
 	_sills(site)
 	for id in w.pack.rooms:
 		_label(w, str(id))
+
+
+## A plain colour, or the skin's tile when it has one.
+func _fill(r: Rect2, c: Color, t: Dictionary) -> void:
+	if t.is_empty():
+		draw_rect(r, c)
+	else:
+		PackSkin.draw_tile(self, t, r)
 
 
 static func _cells(r: Rect2) -> Rect2:
@@ -65,12 +79,15 @@ func _floor(w: World, id: String) -> void:
 		return
 	var outdoor := bool(r.get("outdoor", false))
 	var col := Color.html(str(r["floor"])) if r.get("floor") is String and Color.html_is_valid(str(r["floor"])) else Color(0, 0, 0, 0)
+	var t := house.skin.floor_tile(id) if house.skin != null else {}
 	if id in w.rooms_built:
 		if outdoor:
-			if col.a > 0.0:
+			if not t.is_empty():
+				PackSkin.draw_tile(self, t, rect)
+			elif col.a > 0.0:
 				draw_rect(rect, col)
 			return
-		draw_rect(rect, col if col.a > 0.0 else FLOOR)
+		_fill(rect, col if col.a > 0.0 else FLOOR, t)
 		# Light comes in over the back (north) wall; the far side of the room is a little darker.
 		var top := Color(SHADOW, 0.0)
 		var bottom := Color(SHADOW, FLOOR_FALLOFF)
@@ -130,10 +147,14 @@ func _ramp(r: Rect2, alpha: float, down: bool) -> void:
 
 ## A grey stone sill in every open door.
 func _sills(site: HouseSite) -> void:
+	var sill := house.skin.wall_sprite("sill") if house.skin != null else null
 	for e in site.h_open:
 		var x: float = e.x * HouseSite.CELL.x
 		var y: float = e.y * HouseSite.CELL.y
 		var r := Rect2(x + 2, y - 5, HouseSite.CELL.x - 4, 10)
+		if sill != null:
+			draw_texture_rect(sill, PackSkin.fit_rect(sill, Vector2(r.get_center().x, r.end.y + 4), Vector2(r.size.x, 24)), false)
+			continue
 		draw_rect(r, SILL)
 		draw_rect(r, LINE, false, 1.5)
 	for e in site.v_open:

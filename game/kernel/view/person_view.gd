@@ -34,6 +34,8 @@ class FloatMark:
 	const LIFETIME := 1.0
 	var text := ""
 	var age := 0.0
+	## How tall the body under it is.
+	var top := PersonView.BODY.y
 
 	func _draw() -> void:
 		var f := ThemeDB.fallback_font
@@ -41,7 +43,7 @@ class FloatMark:
 
 	func tick(delta: float) -> bool:
 		age += delta
-		position.y = -PersonView.BODY.y - 50.0 - age * 24.0
+		position.y = -top - 50.0 - age * 24.0
 		return age < LIFETIME
 
 var _mark: FloatMark
@@ -69,6 +71,14 @@ var _since := 0.0
 var _maxp := 0.0
 ## The wish text shown in a thought bubble ("" for none).
 var _wish := ""
+## With the pack's art: {tex, height} of this person's picture ({}: drawn as a block), which
+## way they face (1 right, -1 left; the pictures face right) and whether they look unwell.
+var _look: Dictionary = {}
+var _facing := 1.0
+var _unwell := false
+## Half a step of the walking bob, in seconds; how high the step lifts.
+const STEP_PERIOD := 0.36
+const STEP_LIFT := 2.5
 
 ## The thank-you wave: a quicker, higher hop and a waving arm.
 const THANKS_HOP := 6.0
@@ -129,7 +139,35 @@ func refresh() -> void:
 			size_factor = 1.0
 	_track_progress(w)
 	_wish = session.strings.wish_text(person, w)
+	var skin := _skin()
+	_look = {}
+	_unwell = false
+	if skin != null and skin.enabled:
+		_look = skin.person_look(person.stage(w.pack), person.gender)
+		var u := skin.unwell()
+		if not u.is_empty() and person.needs.has(u.need):
+			_unwell = float(person.needs[u.need]) < float(u.below)
 	queue_redraw()
+
+
+func _skin() -> PackSkin:
+	var house = get_parent()
+	return house.skin if house != null and "skin" in house else null
+
+
+## The clickable body: the picture's size with the pack's art (narrowed to the figure),
+## else the block.
+func body_size() -> Vector2:
+	if _look.is_empty():
+		return BODY
+	var tex: Texture2D = _look.tex
+	var h: float = _look.height
+	return Vector2(clampf(h * tex.get_width() / tex.get_height(), 30.0, 50.0), h)
+
+
+## Whether the pack's art draws this person (else the whitebox block).
+func pictured() -> bool:
+	return not _look.is_empty()
 
 
 ## True while the person stops to thank the player (they turn to the screen and wave).
@@ -168,7 +206,12 @@ func tick(delta: float) -> void:
 		_mark = null
 	if held:
 		return
+	var was := position
 	walk(SPEED * delta)
+	if absf(position.x - was.x) > 0.01:
+		_facing = signf(position.x - was.x)
+	if pictured() and position != was:
+		queue_redraw()
 
 
 ## Moves up to `step` pixels along the way to `target`, round walls through their doors.
@@ -279,7 +322,8 @@ func bob_offset() -> float:
 ## Whether a point in the house's coordinates lands on this person's body or name plate.
 func hit(world_pos: Vector2) -> bool:
 	var local := world_pos - position
-	return Rect2(Vector2(-BODY.x * 0.5, -BODY.y), BODY).grow(4.0).has_point(local)
+	var body := body_size()
+	return Rect2(Vector2(-body.x * 0.5, -body.y), body).grow(4.0).has_point(local)
 
 
 ## Floats `text` above the head for a second, replacing any one already showing.
@@ -289,7 +333,8 @@ func float_text_up(text: String) -> void:
 		add_child(_mark)
 	_mark.text = text
 	_mark.age = 0.0
-	_mark.position = Vector2(0, -BODY.y - 50.0)
+	_mark.top = body_size().y
+	_mark.position = Vector2(0, -_mark.top - 50.0)
 	_mark.queue_redraw()
 
 
@@ -355,6 +400,9 @@ func _entrance(w: World, l: HouseLayout) -> Vector2:
 func _draw() -> void:
 	if person == null:
 		return
+	if pictured():
+		_draw_pictured()
+		return
 	var bob := bob_offset()
 	_box.bg_color = _body.darkened(ASLEEP_DARKEN) if asleep() else _body
 	var body := BODY * Vector2(maxf(size_factor, 0.7), size_factor)
@@ -403,4 +451,88 @@ func _draw_bubble() -> void:
 	draw_style_box(box, rect)
 	draw_circle(Vector2(-6, -BODY.y - 40), 3.0, Color(1, 1, 1, 0.95))
 	draw_circle(Vector2(-10, -BODY.y - 36), 2.0, Color(1, 1, 1, 0.95))
+	draw_string(font, rect.position + Vector2(0, 16), _wish, HORIZONTAL_ALIGNMENT_CENTER, w, 12, Color(0.2, 0.15, 0.1))
+
+
+## The walking step: a small hop on every step while walking, 0 otherwise.
+func step_lift() -> float:
+	if pose() != "walking":
+		return 0.0
+	return -absf(sin(PI * _t / STEP_PERIOD)) * STEP_LIFT
+
+
+## The person drawn from the pack's art: a soft shadow, the picture (mirrored when walking
+## left, a hop per step, darker asleep), the selection ring and pointer in the skin's accent
+## colour, the unwell mark, and a cream name plate.
+func _draw_pictured() -> void:
+	var skin := _skin()
+	var accent := skin.accent if skin != null else Color("#E5533C")
+	var tex: Texture2D = _look.tex
+	var body := body_size()
+	var h: float = _look.height
+	var w := h * tex.get_width() / tex.get_height()
+	var lift := bob_offset() + step_lift()
+	var line := Color("#4A3424")
+	draw_colored_polygon(HouseGround._ellipse(Rect2(Vector2(-w * 0.45, -5), Vector2(w * 0.9, 10))), Color(HouseGround.SHADOW, 0.25))
+	if selected:
+		var ring := HouseGround._ellipse(Rect2(Vector2(-27, -10), Vector2(54, 20)), 32)
+		ring.append(ring[0])
+		draw_polyline(ring, accent, 3.5)
+	var tint := Color.WHITE.darkened(ASLEEP_DARKEN) if asleep() else Color.WHITE
+	if _unwell:
+		tint = tint.lerp(Color(0.72, 0.8, 0.7), 0.45)
+	var sway := 0.0
+	if pose() == "walking":
+		sway = 0.04 * sin(TAU * _t / (STEP_PERIOD * 2.0))
+	draw_set_transform(Vector2(0, lift), sway, Vector2(_facing, 1.0))
+	draw_texture_rect(tex, Rect2(-w * 0.5, -h + 2.0, w, h), false, tint)
+	draw_set_transform(Vector2.ZERO)
+	var top := -h + lift
+	var font := ThemeDB.fallback_font
+	if asleep():
+		for i in 3:
+			draw_string_outline(font, Vector2(10 + i * 7, top + 4 - i * 9), "z", HORIZONTAL_ALIGNMENT_LEFT, -1, 11 + i * 3, 3, Color.WHITE)
+			draw_string(font, Vector2(10 + i * 7, top + 4 - i * 9), "z", HORIZONTAL_ALIGNMENT_LEFT, -1, 11 + i * 3, line)
+	if _unwell and skin != null:
+		var u := skin.unwell()
+		if not u.is_empty():
+			var at := Vector2(body.x * 0.5 + 12, top + 6)
+			draw_circle(at, 14, Color.WHITE)
+			draw_arc(at, 14, 0, TAU, 24, accent, 2.5)
+			draw_texture_rect(u.tex, PackSkin.fit_rect(u.tex, at + Vector2(0, 11), Vector2(22, 22)), false)
+	if selected:
+		draw_colored_polygon(PackedVector2Array([Vector2(-7, top - 12), Vector2(7, top - 12), Vector2(0, top - 3)]), accent)
+	var plate_y := top - (14.0 if selected else 2.0)
+	if thanking():
+		draw_string_outline(font, Vector2(-40, plate_y - 40), session.strings.t("thanks"), HORIZONTAL_ALIGNMENT_CENTER, 80, 14, 3, Color.WHITE)
+		draw_string(font, Vector2(-40, plate_y - 40), session.strings.t("thanks"), HORIZONTAL_ALIGNMENT_CENTER, 80, 14, accent)
+	elif _wish != "":
+		_draw_bubble_at(plate_y - 36.0)
+	var pw := maxf(font.get_string_size(_doing, HORIZONTAL_ALIGNMENT_LEFT, -1, 11).x, font.get_string_size(_name, HORIZONTAL_ALIGNMENT_LEFT, -1, 13).x) + 18.0
+	pw = clampf(pw, 60.0, 170.0)
+	var plate := StyleBoxFlat.new()
+	plate.bg_color = Color("#FFF4DF", 0.94)
+	plate.border_color = accent if selected else Color(line, 0.55)
+	plate.set_border_width_all(2 if selected else 1)
+	plate.set_corner_radius_all(9)
+	var rect := Rect2(Vector2(-pw * 0.5, plate_y - 34), Vector2(pw, 32))
+	draw_style_box(plate, rect)
+	draw_string(font, Vector2(rect.position.x, plate_y - 20), _name, HORIZONTAL_ALIGNMENT_CENTER, pw, 13, line)
+	draw_string(font, Vector2(rect.position.x + 4, plate_y - 7), _doing, HORIZONTAL_ALIGNMENT_CENTER, pw - 8, 11, line.lightened(0.15))
+	var prog := progress()
+	if prog >= 0.0:
+		draw_rect(Rect2(rect.position.x + 6, plate_y - 4, (pw - 12) * prog, 3), accent)
+
+
+func _draw_bubble_at(y: float) -> void:
+	var font := ThemeDB.fallback_font
+	var w := font.get_string_size(_wish, HORIZONTAL_ALIGNMENT_LEFT, -1, 12).x + 16.0
+	var rect := Rect2(Vector2(-w * 0.5, y - 22), Vector2(w, 22))
+	var box := StyleBoxFlat.new()
+	box.bg_color = Color(1, 1, 1, 0.95)
+	box.border_color = Color(0.55, 0.5, 0.45)
+	box.set_border_width_all(1)
+	box.set_corner_radius_all(10)
+	draw_style_box(box, rect)
+	draw_circle(Vector2(-6, y + 4), 3.0, Color(1, 1, 1, 0.95))
 	draw_string(font, rect.position + Vector2(0, 16), _wish, HORIZONTAL_ALIGNMENT_CENTER, w, 12, Color(0.2, 0.15, 0.1))

@@ -63,6 +63,8 @@ var first := false
 var gate := false
 ## Where a person counts as standing behind this wall (house coordinates); empty: never.
 var behind := Rect2()
+## The pack's art (wall faces, the gatehouse); null or disabled: drawn plain.
+var skin: PackSkin
 
 
 static func thickness(k: String) -> float:
@@ -233,6 +235,17 @@ func _draw_east_west() -> void:
 
 
 func _face(r: Rect2, compound: bool) -> void:
+	var t := skin.wall_tile("compound" if compound else "house") if skin != null else {}
+	if not t.is_empty():
+		PackSkin.draw_tile(self, t, r, Color(SHADE, SHADE, SHADE))
+		if not compound:
+			if r.size.y >= 30.0:
+				draw_rect(Rect2(r.position.x, r.position.y, r.size.x, 6), BEAM)
+			var sk := minf(14.0, floorf(r.size.y / 3.0))
+			draw_rect(Rect2(r.position.x, r.end.y - sk, r.size.x, sk), SKIRT)
+			draw_line(Vector2(r.position.x, r.end.y - sk), Vector2(r.end.x, r.end.y - sk), LINE, 1.5)
+		draw_rect(r, LINE, false, 2.0)
+		return
 	if compound:
 		draw_rect(r, EARTH * SHADE)
 		var base := minf(10.0, r.size.y * 0.3)
@@ -290,6 +303,11 @@ func _eave(x0: float, x1: float, y_bottom: float) -> void:
 
 ## A small gatehouse over the opening: two posts and a tiled roof.
 func _gatehouse(g0: float, g1: float, h: float) -> void:
+	var pic := skin.wall_sprite("gate") if skin != null else null
+	if pic != null:
+		var w := g1 - g0 + 60.0
+		draw_texture_rect(pic, PackSkin.fit_rect(pic, Vector2((g0 + g1) * 0.5, 2.0), Vector2(w, w * 1.2)), false)
+		return
 	var post := 10.0
 	var top := -h - 34.0
 	for px in [g0 - post * 0.5, g1 - post * 0.5]:

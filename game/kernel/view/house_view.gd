@@ -33,6 +33,13 @@ var _modulate: CanvasModulate
 var ground: HouseGround
 var walls: Array[WallPiece] = []
 var _site_version := -1
+## The pack's art (`art.json`); disabled when the pack has none, and then everything is drawn
+## the whitebox way. Pictures for furniture and scenery stand as PropPieces (sorted by y with
+## the people); hover and the arrange ghost then go on an overlay above them.
+var skin: PackSkin
+var props: Dictionary = {}  # object uid -> PropPiece
+var scenery: Array[PropPiece] = []
+var _overlay: Node2D
 ## Moving further than this between press and release is a drag, not a click.
 const CLICK_SLOP := 6.0
 
@@ -76,14 +83,23 @@ static func night_amount(hour: float) -> float:
 func setup(s: GameSession) -> void:
 	session = s
 	layout = HouseLayout.new(s.pack)
+	skin = PackSkin.new(s.pack)
 	_modulate = CanvasModulate.new()
 	add_child(_modulate)
+	if skin.enabled:
+		texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
+		_overlay = Node2D.new()
+		_overlay.z_index = 5
+		_overlay.draw.connect(_draw_overlay)
+		add_child(_overlay)
 	if layout.site.enabled:
 		y_sort_enabled = true
 		ground = HouseGround.new()
 		ground.house = self
 		ground.z_index = -1
+		ground.texture_repeat = CanvasItem.TEXTURE_REPEAT_ENABLED
 		add_child(ground)
+		_build_scenery()
 	scale = Vector2.ONE * start_scale(_view_size())
 	position = _centred()
 	if fit_scale(_view_size()) < 1.0:
@@ -243,7 +259,69 @@ func refresh() -> void:
 	if w != null and w.phase != "invalid":
 		_modulate.color = Color.WHITE.lerp(NIGHT_COLOR, night_amount(w.local_hour()))
 		_update_site(w)
+	_sync_props()
 	queue_redraw()
+
+
+## Pictures standing on the map that the sim knows nothing of: decor shapes the skin turns
+## into sprites (as wide as the shape, standing on its bottom edge) and the skin's scenery.
+func _build_scenery() -> void:
+	if not skin.enabled:
+		return
+	var cell := HouseSite.CELL
+	var list: Array = []
+	for d in layout.site.decor:
+		var rule := skin.decor_rule(str(d["color"]))
+		var tex := skin.sprite(str(rule.get("sprite", "")))
+		if tex != null:
+			list.append({"tex": tex, "x": float(d["x"]) + float(d["w"]) * 0.5, "y": float(d["y"]) + float(d["h"]), "w": float(d["w"])})
+	list.append_array(skin.scenery())
+	for e in list:
+		var w: float = float(e["w"]) * cell.x
+		var piece := PropPiece.new()
+		var at := Vector2(float(e["x"]) * cell.x, float(e["y"]) * cell.y)
+		piece.place(e["tex"], PackSkin.fit_rect(e["tex"], at, Vector2(w, w * 3.0)))
+		scenery.append(piece)
+		add_child(piece)
+
+
+## The picture an object stands as, or null (drawn as a block).
+func object_picture(o: Dictionary) -> Texture2D:
+	return skin.object_sprite(str(o.type)) if skin != null else null
+
+
+## One PropPiece per object with a picture, kept in step with the world's objects.
+func _sync_props() -> void:
+	var w := session.world if session != null else null
+	var seen := {}
+	if w != null and w.phase != "invalid" and skin != null and skin.enabled:
+		var lifted := arrange.held_uid if _arrange_on() else -1
+		for o in w.objects:
+			var tex := object_picture(o)
+			if tex == null:
+				continue
+			var uid := int(o.uid)
+			seen[uid] = true
+			var piece: PropPiece = props.get(uid)
+			if piece == null:
+				piece = PropPiece.new()
+				piece.object_uid = uid
+				piece.house = self
+				props[uid] = piece
+				add_child(piece)
+			var r := layout.object_rect(o, w.pack)
+			var fit := PackSkin.fit_rect(tex, Vector2(r.get_center().x, r.end.y + 2.0), Vector2(r.size.x * 0.9, r.size.y + 24.0))
+			var a := 0.35 if uid == lifted else 1.0
+			if fit != piece.rect or tex != piece.tex or a != piece.alpha:
+				piece.alpha = a
+				piece.place(tex, fit)
+			else:
+				piece.queue_redraw()
+	for uid in props.keys():
+		if not seen.has(uid):
+			props[uid].queue_free()
+			remove_child(props[uid])
+			props.erase(uid)
 
 
 ## Rebuilds the walls and redraws the ground when the rooms built changed.
@@ -259,6 +337,8 @@ func _update_site(w: World) -> void:
 		p.queue_free()
 	walls = WallPiece.build_all(layout.site)
 	for p in walls:
+		p.skin = skin
+		p.texture_repeat = CanvasItem.TEXTURE_REPEAT_ENABLED
 		add_child(p)
 	ground.queue_redraw()
 
@@ -506,6 +586,8 @@ func _draw() -> void:
 			draw_string(font, rect.position + Vector2(0, rect.size.y * 0.5 + 14), cost, HORIZONTAL_ALIGNMENT_CENTER, rect.size.x, 14, Color(0.9, 0.85, 0.6))
 	var lifted := arrange.held_uid if _arrange_on() else -1
 	for o in w.objects:
+		if object_picture(o) != null:
+			continue
 		var t: Dictionary = w.pack.object_types.get(str(o.type), {})
 		var rect := layout.object_rect(o, w.pack)
 		var hue := float(hash(str(t.get("category", ""))) % 360) / 360.0
@@ -524,6 +606,11 @@ func _draw() -> void:
 	for m in w.messes:
 		var at := layout.cell_center(str(m.room), int(m.x), int(m.y))
 		var mt: Dictionary = w.pack.mess_types.get(str(m.type), {})
+		var pic := skin.mess_sprite(str(m.type)) if skin != null else null
+		if pic != null:
+			# Flat on the ground, about a cell wide, no outline: drawn centred on the cell.
+			draw_texture_rect(pic, PackSkin.fit_rect(pic, at + Vector2(0, HouseLayout.CELL.y * 0.4), HouseLayout.CELL * Vector2(1.15, 0.9)), false)
+			continue
 		if str(mt.get("look", "")) == "patch":
 			# Lying over the ground (snow): a wide soft patch, a smaller one on top.
 			var c := pack_color(mt, MESS_COLOR)
@@ -534,6 +621,11 @@ func _draw() -> void:
 		_small_name(font, at, thing_name(w.pack.mess_types, str(m.type)))
 	for c in w.collectibles:
 		var at := layout.cell_center(str(c.room), int(c.x), int(c.y))
+		if skin != null and skin.enabled and not c.has("story"):
+			var pic := skin.collectible_sprite(str(c.type))
+			_draw_pickup(at, pic)
+			if pic != null:
+				continue
 		if c.has("story"):
 			# An old thing of the house: a pale scrap, turned on its corner.
 			draw_colored_polygon(PackedVector2Array([at + Vector2(0, -8), at + Vector2(8, 0), at + Vector2(0, 8), at + Vector2(-8, 0)]), Color(0.93, 0.88, 0.74))
@@ -542,8 +634,37 @@ func _draw() -> void:
 			draw_rect(Rect2(at - Vector2(6, 6), Vector2(12, 12)), Color(0.95, 0.8, 0.2))
 		_small_name(font, at, session.strings.thing_name(c, w))
 	_draw_marks(w)
-	_draw_hover(w)
-	_draw_ghost(w)
+	if _overlay != null:
+		_overlay.queue_redraw.call_deferred()
+		_sync_props.call_deferred()
+		return
+	_draw_hover(w, self)
+	_draw_ghost(w, self)
+
+
+## Hover and the arrange ghost above the standing pictures.
+func _draw_overlay() -> void:
+	var w := session.world if session != null else null
+	if w == null or w.phase == "invalid":
+		return
+	_draw_hover(w, _overlay)
+	_draw_ghost(w, _overlay)
+
+
+## Something to pick up: a pale disc ringed in the skin's pick-up colour, two small sparkles,
+## and the picture (if any) on top.
+func _draw_pickup(at: Vector2, pic: Texture2D) -> void:
+	var c := skin.pickup
+	var disc := HouseGround._ellipse(Rect2(at - Vector2(20, 10), Vector2(40, 20)), 24)
+	draw_colored_polygon(disc, c.lerp(Color.WHITE, 0.82))
+	disc.append(disc[0])
+	draw_polyline(disc, c, 2.5)
+	for sp in [Vector2(22, -14), Vector2(-24, -6)]:
+		var p: Vector2 = at + sp
+		draw_line(p - Vector2(4, 0), p + Vector2(4, 0), c, 2.0)
+		draw_line(p - Vector2(0, 4), p + Vector2(0, 4), c, 2.0)
+	if pic != null:
+		draw_texture_rect(pic, PackSkin.fit_rect(pic, at + Vector2(0, 4), Vector2(30, 30)), false)
 
 
 ## Cooked food on the table it was served to: bowls side by side on the top face, each in
@@ -552,18 +673,37 @@ func _draw_dishes(w: World) -> void:
 	var on_object := {}  # object uid -> how many dishes already drawn on it
 	for d in w.dishes:
 		var o := w.object(int(d.object_uid))
-		if o.is_empty():
-			continue
+		if o.is_empty() or object_picture(o) != null:
+			continue  # a table with a picture draws its own dishes (PropPiece)
 		var n := int(on_object.get(int(d.object_uid), 0))
 		on_object[int(d.object_uid)] = n + 1
-		var rect := layout.object_rect(o, w.pack)
-		var at := Vector2(rect.position.x + 22.0 + n * 38.0, rect.position.y + 18.0)
-		var dt: Dictionary = w.pack.dishes.get(str(d.type), {})
-		draw_colored_polygon(HouseGround._ellipse(Rect2(at - Vector2(14, 8), Vector2(28, 16))), Color(0.97, 0.96, 0.93))
-		draw_colored_polygon(HouseGround._ellipse(Rect2(at - Vector2(10, 5), Vector2(20, 10))), pack_color(dt, DISH_COLOR))
-		draw_arc(at, 14.0, 0.0, TAU, 20, Color(0.35, 0.3, 0.25), 1.5)
-		for k in int(d.portions):
-			draw_circle(at + Vector2(-8 + k * 8, 13), 2.5, Color(0.35, 0.3, 0.25))
+		_dish(self, w, o, d, n)
+
+
+## The dishes served on object `uid`, drawn by `ci` (in house coordinates).
+func draw_dishes_on(ci: CanvasItem, uid: int) -> void:
+	var w := session.world if session != null else null
+	if w == null or w.phase == "invalid":
+		return
+	var o := w.object(uid)
+	if o.is_empty():
+		return
+	var n := 0
+	for d in w.dishes:
+		if int(d.object_uid) == uid:
+			_dish(ci, w, o, d, n)
+			n += 1
+
+
+func _dish(ci: CanvasItem, w: World, o: Dictionary, d: Dictionary, n: int) -> void:
+	var rect := layout.object_rect(o, w.pack)
+	var at := Vector2(rect.position.x + 22.0 + n * 38.0, rect.position.y + 18.0)
+	var dt: Dictionary = w.pack.dishes.get(str(d.type), {})
+	ci.draw_colored_polygon(HouseGround._ellipse(Rect2(at - Vector2(14, 8), Vector2(28, 16))), Color(0.97, 0.96, 0.93))
+	ci.draw_colored_polygon(HouseGround._ellipse(Rect2(at - Vector2(10, 5), Vector2(20, 10))), pack_color(dt, DISH_COLOR))
+	ci.draw_arc(at, 14.0, 0.0, TAU, 20, Color(0.35, 0.3, 0.25), 1.5)
+	for k in int(d.portions):
+		ci.draw_circle(at + Vector2(-8 + k * 8, 13), 2.5, Color(0.35, 0.3, 0.25))
 
 
 const MESS_COLOR := Color(0.45, 0.3, 0.18)
@@ -607,7 +747,7 @@ func _small_name(font: Font, at: Vector2, text: String) -> void:
 
 
 ## The piece in hand under the pointer: green where it can go, red where it cannot.
-func _draw_ghost(w: World) -> void:
+func _draw_ghost(w: World, ci: CanvasItem) -> void:
 	if not _arrange_on():
 		return
 	var g := arrange.ghost()
@@ -615,17 +755,18 @@ func _draw_ghost(w: World) -> void:
 		return
 	var rect := Rect2(layout.cell_to_pos(str(g.room), int(g.x), int(g.y)), Vector2(int(g.w), int(g.h)) * HouseLayout.CELL)
 	var color := Color(0.3, 0.85, 0.35) if g.ok else Color(0.9, 0.25, 0.25)
-	draw_rect(rect.grow(-2), Color(color, 0.45))
-	draw_rect(rect.grow(-2), color, false, 2.0)
+	ci.draw_rect(rect.grow(-2), Color(color, 0.45))
+	ci.draw_rect(rect.grow(-2), color, false, 2.0)
 
 
-func _draw_hover(w: World) -> void:
+func _draw_hover(w: World, ci: CanvasItem) -> void:
 	var rect := Rect2()
 	match str(hover.get("kind", "")):
 		"person":
 			if people.has(int(hover.uid)):
 				var pv: PersonView = people[int(hover.uid)]
-				rect = Rect2(pv.position - Vector2(PersonView.BODY.x * 0.5, PersonView.BODY.y), PersonView.BODY)
+				var body := pv.body_size()
+				rect = Rect2(pv.position - Vector2(body.x * 0.5, body.y), body)
 		"object":
 			var o := w.object(int(hover.uid))
 			if not o.is_empty():
@@ -640,7 +781,7 @@ func _draw_hover(w: World) -> void:
 				if int(m.uid) == int(hover.uid):
 					rect = Rect2(layout.cell_center(str(m.room), int(m.x), int(m.y)) - HouseLayout.CELL * 0.5, HouseLayout.CELL)
 	if rect.size != Vector2.ZERO:
-		draw_rect(rect.grow(2), Color(1.0, 0.85, 0.2), false, 3.0)
+		ci.draw_rect(rect.grow(2), Color(1.0, 0.85, 0.2), false, 3.0)
 
 
 func _dashed(rect: Rect2, color: Color) -> void:
