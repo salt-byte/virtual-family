@@ -6,24 +6,33 @@ extends RefCounted
 
 static func step(world: World, dt: float) -> void:
 	_apply_penalties(world, dt)
-	# A type that never appears by itself (it comes from something else) draws nothing; the
-	# others are read once per pack and step length (same draws, in pack order).
-	var t := world.pack.mess_spawn_table
-	if t.is_empty() or float(t[0]) != dt or int(t[3]) != world.pack.mess_types.size():
-		var ids := PackedStringArray()
-		var rates := PackedFloat64Array()
-		for id in world.pack.mess_types:
-			var per_step := float(world.pack.mess_types[id].get("spawn_per_day", 0)) / 1440.0 * (dt / 60.0)
-			if per_step > 0.0:
-				ids.append(str(id))
-				rates.append(per_step)
-		t = [dt, ids, rates, world.pack.mess_types.size()]
-		world.pack.mess_spawn_table = t
-	var ids: PackedStringArray = t[1]
-	var rates: PackedFloat64Array = t[2]
+	# A type that never appears by itself (it comes from something else) draws nothing, so
+	# only the types with a `spawn_per_day` above 0 are looked at, in pack order.
+	var t := _spawning(world.pack)
+	var ids: PackedStringArray = t[2]
+	var per_day: PackedFloat64Array = t[3]
 	for k in ids.size():
-		if world.rng.chance(rates[k]):
+		var per_step := per_day[k] / 1440.0 * (dt / 60.0)
+		if per_step > 0.0 and world.rng.chance(per_step):
 			spawn(world, ids[k])
+
+
+## [mess types, their count, ids of the types with `spawn_per_day` above 0, those rates], kept
+## on the pack while `mess_types` is the same dictionary with the same size (a pack's content
+## does not change once worlds use it).
+static func _spawning(pack: Pack) -> Array:
+	var t := pack.mess_spawning
+	if not t.is_empty() and is_same(t[0], pack.mess_types) and t[1] == pack.mess_types.size():
+		return t
+	var ids := PackedStringArray()
+	var per_day := PackedFloat64Array()
+	for id in pack.mess_types:
+		var n := float(pack.mess_types[id].get("spawn_per_day", 0))
+		if n > 0.0:
+			ids.append(str(id))
+			per_day.append(n)
+	pack.mess_spawning = [pack.mess_types, pack.mess_types.size(), ids, per_day]
+	return pack.mess_spawning
 
 
 ## Adds one mess of `type` and returns its uid, or -1 when the type is unknown or no suitable

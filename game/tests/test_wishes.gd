@@ -161,6 +161,10 @@ func test_expired_mood_wish_costs_mood_but_body_wish_does_not():
 	p.needs["fed"] = 20.0
 	p.needs["happy"] = 60.0
 	p.wish = {"id": "hot_meal", "expires_at": w.now + w.step_s}
+	# Held still for the minute: in this bare test house the person may otherwise be off to
+	# the market, which lifts the mood on its own.
+	p.current = {}
+	p.thanks_until = w.now + 120
 	w.advance(60)
 	assert_true(p.wish.is_empty() or p.wish.id == "hot_meal")
 	assert_near(float(p.needs["happy"]), 60.0, 0.2)

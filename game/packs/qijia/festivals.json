@@ -1,0 +1,23 @@
+[
+	{"id": "lantern", "name": "元宵", "season": "spring", "from": 0.1, "to": 0.3, "wish_chance": 0.6,
+	 "banner": "正月十五 · 元宵",
+	 "start_text": "天一擦黑，村口老槐树上挑起一串红灯笼。",
+	 "end_text": "灯笼收进了柴房，竹骨上还挂着蜡油。"},
+	{"id": "qingming", "name": "清明", "season": "spring", "from": 0.6, "to": 0.8, "wish_chance": 0.5,
+	 "banner": "清明",
+	 "start_text": "后山的坟头冒了青草，家家门楣上插着一根柳条。",
+	 "end_text": "门楣上的柳条蔫了，叶子卷成了细条。"},
+	{"id": "duanwu", "name": "端午", "season": "summer", "from": 0.3, "to": 0.5, "wish_chance": 0.6,
+	 "banner": "五月初五 · 端午",
+	 "start_text": "苇叶泡在木盆里，满屋子艾草的苦味。端午了。",
+	 "end_text": "门边的艾草晒得焦黄，一碰就掉渣。"},
+	{"id": "mid_autumn", "name": "中秋", "season": "autumn", "from": 0.4, "to": 0.6, "wish_chance": 0.6,
+	 "banner": "八月十五 · 中秋",
+	 "start_text": "月亮还没出来，院里的小桌上先摆了一碟月饼。",
+	 "end_text": "月饼剩下一角，用油纸包着搁进了碗柜。"},
+	{"id": "new_year", "name": "过年", "season": "winter", "from": 0.75, "to": 1.0, "wish_chance": 0.7,
+	 "boost": {"爱热闹": 1.3},
+	 "banner": "腊月三十 · 过年",
+	 "start_text": "不知谁家先点了一挂鞭，噼噼啪啪一路响到村口。过年了。",
+	 "end_text": "红纸屑扫成一堆，堆在门槛边，风一吹又散开几片。"}
+]

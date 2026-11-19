@@ -321,6 +321,9 @@ func test_a_runaway_pet_letter_is_written_by_a_child():
 func test_kin_send_money_now_and_then_and_a_gift_can_be_taken():
 	var w := _q()
 	w.pack.config["letters"]["kin_chance_per_day"] = 24.0
+	# Other letters waiting unread must not hold the kin back (in some random streams three
+	# arrive first and fill `unread_max`).
+	w.pack.config["letters"]["unread_max"] = 99
 	var t0 := w.now
 	while _kinds(w).find("kin") < 0 and w.now - t0 < 30 * 3600:
 		w.advance(3600)

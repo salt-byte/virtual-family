@@ -80,6 +80,7 @@ func test_cold_food_needs_no_dish():
 func test_last_portion_leaves_bowls_to_clear():
 	var w := _home(); var cook := TestKit.adult(w); cook.needs["fed"] = 40.0
 	_run(w, cook, "cook_porridge")
+	cook.needs["fed"] = 95.0  # the three portions are for the three below, not the cook
 	var at := Vector2i(int(w.dishes[0].x), int(w.dishes[0].y))
 	for i in 3:
 		var p := TestKit.adult(w); p.needs["fed"] = 30.0

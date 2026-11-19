@@ -51,7 +51,7 @@ func test_smoke_has_none_of_it():
 	var p := TestKit.adult(w)
 	assert_eq(FeelingSystem.now(w, p), "")
 	assert_true(not ShareSystem.enabled(w.pack))
-	assert_true(not bool(NeedsSystem._table(w.pack)[5]["on"]))
+	assert_true(not bool(NeedsSystem._table(w.pack)[8]["on"]))
 	assert_near(NeedsSystem.illness_factor(w, p), 1.0)
 	for id in w.pack.actions:
 		assert_true(not AutonomySystem.player_led(w.pack.actions[id]), id)

@@ -226,7 +226,19 @@ func test_layout_fits_560_and_row_labels_are_safe():
 	var m := _living()
 	m.session.world.inventory["rice"] = 2
 	m.session.world.goals_done.append("tidy_home")
-	for step in [["shop", "tab.items"], ["shop", "tab.inventory"], ["ledger", "tab.goals"], ["ledger", "tab.collection"], ["family", ""]]:
+	# Every market section's tab (the stall stocked, a ticket and a hired hand), then the rest.
+	var w := m.session.world
+	w.advance(5)
+	w.money = 5000
+	w.command({"type": "buy_service", "service": "lottery_ticket"})
+	w.command({"type": "buy_service", "service": "hire_help"})
+	m.panels.open("shop")
+	var steps: Array = []
+	for t in m.panels._tabs():
+		steps.append(["shop", t])
+	m.panels.close()
+	assert_eq(steps.size(), 8)
+	for step in steps + [["ledger", "tab.goals"], ["ledger", "tab.collection"], ["family", ""]]:
 		m.panels.open(step[0])
 		if step[1] != "":
 			m.panels.press(step[1])
@@ -293,4 +305,88 @@ func test_done_goals_sort_last():
 	var first_done := t.find(str(w.pack.goals[ids[0]]["text"]))
 	var second := t.find(str(w.pack.goals[ids[1]]["text"]))
 	assert_true(first_done > second and second >= 0)
+	m.free()
+
+
+func test_market_tabs_follow_the_catalogue_sections():
+	var m := _living()
+	var w := m.session.world
+	w.advance(5)
+	m.panels.open("shop")
+	var want: Array = MarketSystem.sections(w.pack).map(func(s): return Panels.MARKET_TAB + str(s.id))
+	assert_eq(m.panels._tabs(), want + ["tab.inventory"])
+	assert_true(m.panels.is_disabled("market:provisions"), "the first section is open")
+	assert_true(m.panels.text().contains("食物与药") and m.panels.text().contains("升级与服务"))
+	m.free()
+
+
+func test_market_buttons_build_place_and_buy_services():
+	var m := _living()
+	var w := m.session.world
+	w.advance(5)
+	w.money = 5000
+	m.panels.open("shop")
+	m.panels.press("market:house")
+	m.panels.press("build:veg_plot")
+	assert_true(w.rooms_built.has("veg_plot"))
+	assert_true(m.panels.is_disabled("build:veg_plot"))
+	assert_true(m.panels.text().contains("已盖好"))
+	# Furniture is set down by hand: the panel hands it to arrange mode.
+	m.panels.press("place:kang")
+	assert_eq(m.panels.opened(), "")
+	assert_true(m.arrange.active)
+	assert_eq(m.arrange.held_type, "kang")
+	m.arrange.exit()
+	m.panels.open("shop")
+	m.panels.press("market:upgrades")
+	var money := w.money
+	m.panels.press("service:lottery_ticket")
+	assert_eq(w.money, money - 10)
+	assert_true(m.panels.text().contains("开奖"), m.panels.text())
+	w.tickets[0].amount = 40
+	m.panels.refresh()
+	m.panels.press("ticket:%d" % int(w.tickets[0].id))
+	assert_true(w.tickets.is_empty())
+	assert_true(m.hud.toasts().any(func(t): return t.contains("中了")), str(m.hud.toasts()))
+	# Taking in another person opens the same picker as the game's start, a lot at a time.
+	m.panels.press("service:adopt_more")
+	m.tick(0.016)
+	assert_eq(m.overlays.current(), "adopt")
+	assert_eq(m.panels.opened(), "")
+	assert_eq(w.candidates.size(), FamilySystem.CHOICES)
+	var lot := w.candidates.duplicate(true)
+	m.overlays.press("btn.reroll")
+	assert_true(w.candidates != lot, "换一批")
+	var n := w.people.size()
+	var picked: Dictionary = w.candidates[2]
+	money = w.money
+	m.overlays.press("pick:2")
+	assert_eq(w.people.size(), n + 1)
+	assert_eq(w.people[-1].given, str(picked["given"]))
+	assert_eq(w.money, money - 300)
+	m.tick(0.016)
+	assert_true(m.overlays.current() != "adopt")
+	# Sent off: nobody new, nothing paid.
+	m.panels.open("shop")
+	m.panels.press("market:upgrades")
+	m.panels.press("service:adopt_more")
+	m.tick(0.016)
+	m.overlays.press("btn.dismiss")
+	assert_eq(w.people.size(), n + 1)
+	assert_true(w.candidate.is_empty() and w.candidates.is_empty())
+	m.free()
+
+
+func test_market_used_goods_tab_sells_off_the_stall():
+	var m := _living()
+	var w := m.session.world
+	w.advance(5)
+	w.money = 5000
+	m.panels.open("shop")
+	m.panels.press("market:used_goods")
+	var l: Dictionary = w.secondhand.list[0]
+	assert_true(m.panels.text().contains("原价") or m.panels.text().contains("想要"), m.panels.text())
+	m.panels.press("used:%d" % int(l.n))
+	assert_true(bool(w.secondhand.list[0].sold))
+	assert_true(m.panels.is_disabled("used:%d" % int(l.n)))
 	m.free()

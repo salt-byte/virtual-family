@@ -16,7 +16,7 @@ const FILES := {
 }
 ## Files a pack may leave out; without them the feature is simply absent.
 const OPTIONAL_FILES := {"wishes": "wishes.json", "stories": "stories.json", "dishes": "dishes.json",
-	"pets": "pets.json", "letters": "letters.json"}
+	"pets": "pets.json", "festivals": "festivals.json", "letters": "letters.json", "services": "services.json"}
 
 const DEFAULT_CONFIG := {
 	"hours_per_year": 2.0, "offline_cap_hours": 48, "offline_need_floor": 15,
@@ -35,6 +35,9 @@ const DEFAULT_CONFIG := {
 	# forms one, the mood lost when a mood wish runs out, and how long the thanks lasts
 	# (game minutes on the fast action clock).
 	"wish_chance_per_hour": 0.3, "wish_miss_penalty": 10, "wish_thanks_min": 2,
+	# A wish to do something (kind "do") makes the wished actions score this many times
+	# higher for the one who holds it.
+	"wish_do_factor": 3.0,
 	# Low mood (off while mood_low_below is 0): the praise need below the line for
 	# mood_sad_after_hours makes a person sad, for mood_depressed_after_hours depressed; above
 	# mood_recover_above for mood_recover_hours lifts depression to sadness, and sadness clears
@@ -78,6 +81,10 @@ const DEFAULT_CONFIG := {
 	"feelings": [],
 	# Sharing earnings with the player (off while empty; see `ShareSystem` for the keys).
 	"share": {},
+	# The market (off while empty: then the catalogue groups goods by what they are). See
+	# `MarketSystem` and `PackValidator._check_market` for the keys: `sections` (order and
+	# names), `default` (section per kind of goods) and `secondhand` (the used-goods stall).
+	"market": {},
 }
 
 ## Per-file field defaults (applied to every entry that lacks the key).
@@ -85,15 +92,19 @@ const ENTRY_DEFAULTS := {
 	"actions": {"object": "", "needs": {}, "base": 0, "hours": [], "tags": [], "praiseable": true,
 		"consumes": {}, "work": {}, "mess": {}, "cleans": "", "picks": false, "requires": {},
 		"slow": false, "rooms": [], "completes_story": "", "tends": {}, "serves": "", "eats": [],
-		"yields": {}, "seasons": [], "weather": [], "not_wet": false, "pet": {}},
-	"object_types": {"outdoor": false, "capacity": 1, "fixed": false, "keepsake": false},
+		"yields": {}, "seasons": [], "weather": [], "not_wet": false, "pet": {},
+		"festivals": [], "outing": {}, "mourns": false},
+	"object_types": {"outdoor": false, "capacity": 1, "fixed": false, "keepsake": false, "market": ""},
 	"collectibles": {"rooms": []},
-	"wishes": {"likes": [], "stages": [], "weight": 1.0},
+	"wishes": {"likes": [], "stages": [], "weight": 1.0, "festival": "", "actions": []},
 	"dishes": {"on": [], "leaves": "", "ttl_hours": 0, "max_out": 1, "scraps": ""},
 	"pets": {"price": 0, "stray": false, "names": [], "lifespan": [10, 14], "age": [1, 2], "drains": {},
-		"home": [], "perch": "", "actions": [], "wishes": [], "perks": {}, "thanks": "", "size": 0.6},
-	"rooms": {"outdoor": false, "props": [], "outside": false},
-	"items": {"stock": {}, "cures": "", "needs": {}, "work": {}, "childhood": {}, "pet": {}},
+		"home": [], "perch": "", "actions": [], "wishes": [], "perks": {}, "thanks": "", "size": 0.6, "market": ""},
+	"rooms": {"outdoor": false, "props": [], "outside": false, "market": ""},
+	"items": {"stock": {}, "cures": "", "needs": {}, "work": {}, "childhood": {}, "pet": {}, "market": "",
+		"festivals": []},
+	"services": {"market": "", "price_step": 0, "requires": {}, "category": ""},
+	"festivals": {"boost": {}, "wish_chance": 0.5, "banner": "", "start_text": "", "end_text": ""},
 	"needs": {"when_empty": {}},
 	"letters": {"hand": [], "weight": 1.0, "if": {}, "choices": [], "sign": "", "from": "", "story": "", "on": ""},
 }
@@ -113,6 +124,7 @@ const INT_FIELDS := {
 	"goals": ["reward"],
 	"dishes": ["portions", "max_out"],
 	"pets": ["price"],
+	"services": ["price", "price_step"],
 }
 
 var id := ""
@@ -134,8 +146,16 @@ var stories: Dictionary = {}
 var dishes: Dictionary = {}
 ## Kinds of animals (optional pets.json; see `PetSystem`).
 var pets: Dictionary = {}
+## Feast days at fixed points of the year (optional festivals.json; see `FestivalSystem`).
+var festivals: Dictionary = {}
+## `FestivalSystem`'s prepared calendar (built on first use).
+var festival_prep: Array = []
+## festival id -> `FestivalSystem.boosts` for it (built on first use).
+var festival_boosts: Dictionary = {}
 ## Letter templates (optional letters.json; see `LetterSystem`).
 var letters: Dictionary = {}
+## Services and upgrades sold at the market (optional services.json; see `ServiceSystem`).
+var services: Dictionary = {}
 ## pet action id -> its entry, over every kind (filled by `PetSystem.action`).
 var pet_actions: Dictionary = {}
 var names: Dictionary = {}
@@ -155,6 +175,8 @@ var adult_age_src: Variant = null
 var adult_age_n := -1
 ## `WeatherSystem`'s prepared constants (built on first use).
 var weather_prep: Dictionary = {}
+## `MessSystem`'s spawning mess types (built on first use).
+var mess_spawning: Array = []
 ## object type -> index, for the types actions use (see `AutonomySystem.Info.obj_ix`).
 var autonomy_obj_types: Dictionary = {}
 ## The need ids in pack order (indexes of `AutonomySystem.Info.need_ix`).
@@ -163,13 +185,17 @@ var autonomy_need_ids := PackedStringArray()
 var autonomy_index: Dictionary = {}
 ## True when every action's `hours` window has whole-hour bounds (set with `autonomy_table`).
 var autonomy_whole_hours := true
+## Per action of `autonomy_table` (by `Info.idx`): [flag bits, `base`, `gain_max`] as packed
+## arrays (see `AutonomySystem._table`).
+var autonomy_soa: Array = []
+## action id -> what `AutonomySystem._progress` reads of it on every step.
+var autonomy_progress: Dictionary = {}
+## `GoalSystem`'s goals table (built on first use).
+var goal_table: Array = []
 ## livelihood id -> {action id: affinity matches}, prepared by `LivelihoodSystem`.
 var affinity_table: Dictionary = {}
 ## The needs' drains as plain arrays, prepared by `NeedsSystem` on first use.
 var needs_table: Array = []
-## [step length, mess type ids that appear by themselves, their chance per step, number of
-## mess types], prepared by `MessSystem.step`.
-var mess_spawn_table: Array = []
 ## mess type -> [need ids, penalty per hour], prepared by `MessSystem`.
 var mess_penalties: Dictionary = {}
 ## `stages` as parallel arrays (ids, starting ages), rebuilt when the array is replaced or
@@ -349,6 +375,11 @@ func _apply_defaults() -> void:
 	config["site"] = _deep_ints(config["site"])
 	config["seasons"] = _deep_ints(config["seasons"])
 	config["clean_reward"] = _deep_ints(config["clean_reward"])
+	config["market"] = _deep_ints(config["market"])
+	for sv in services.values():
+		for f in sv:
+			if not f in ["price", "price_step"]:
+				sv[f] = _deep_ints(sv[f])
 	for r in rooms.values():
 		if r["props"] is Array:
 			for pr in r["props"]:

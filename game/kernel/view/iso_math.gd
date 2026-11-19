@@ -9,6 +9,9 @@ extends RefCounted
 const TILE := Vector2(64, 32)
 ## The screen length of one cell's edge (either axis).
 const EDGE := 35.77708764
+## Screen pixels per plan pixel of a north-south walk (EDGE / 36): walkers cover this many
+## screen pixels per plan pixel of their speed, whichever way they go.
+const ISO_PACE := 0.99380799
 
 
 ## Plan pixels -> view pixels (a linear map: the plan origin stays at the view origin).

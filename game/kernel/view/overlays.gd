@@ -6,6 +6,8 @@ extends CanvasLayer
 
 const LAYER := 10
 const PANEL_WIDTH := 460.0
+## The width of one person card in the adoption picker.
+const CARD_WIDTH := 200.0
 
 var main: Main
 var session: GameSession
@@ -34,9 +36,10 @@ func setup(m: Main) -> void:
 	_root.set_anchors_preset(Control.PRESET_FULL_RECT)
 	_root.mouse_filter = Control.MOUSE_FILTER_STOP
 	_root.visible = false
+	_root.theme = ViewWidgets.panel_theme()
 	add_child(_root)
 	var shade := ColorRect.new()
-	shade.color = Color(0, 0, 0, 0.55)
+	shade.color = Color(0.16, 0.11, 0.07, 0.5)
 	shade.set_anchors_preset(Control.PRESET_FULL_RECT)
 	shade.mouse_filter = Control.MOUSE_FILTER_STOP
 	_root.add_child(shade)
@@ -46,10 +49,7 @@ func setup(m: Main) -> void:
 	_root.add_child(center)
 	var panel := PanelContainer.new()
 	panel.custom_minimum_size.x = PANEL_WIDTH
-	_card = StyleBoxFlat.new()
-	_card.bg_color = Color(0.13, 0.12, 0.11, 1.0)
-	_card.set_corner_radius_all(8)
-	_card.set_content_margin_all(24)
+	_card = ViewWidgets.card_style(24.0)
 	panel.add_theme_stylebox_override("panel", _card)
 	center.add_child(panel)
 	_box = VBoxContainer.new()
@@ -89,12 +89,17 @@ func open_stray() -> void:
 		refresh()
 
 
-## Opens the card for the first waiting proposal; does nothing when none waits.
-func open_proposal() -> void:
+## Opens the card for the proposal `id` (-1: the first one waiting); does nothing when it
+## does not wait.
+func open_proposal(id := -1) -> void:
 	var w := session.world
-	if w != null and w.phase == "living" and not w.proposals.is_empty():
-		_proposal_id = int(w.proposals[0]["id"])
-		refresh()
+	if w == null or w.phase != "living" or w.proposals.is_empty():
+		return
+	_proposal_id = int(w.proposals[0]["id"])
+	for pr in w.proposals:
+		if int(pr["id"]) == id:
+			_proposal_id = id
+	refresh()
 
 
 ## All text of the overlay on screen, joined with newlines; for tests.
@@ -120,7 +125,11 @@ func press(button_key: String) -> void:
 				_away = {}
 		"adopt":
 			if button_key == "btn.adopt":
-				_adopt()
+				_adopt(0)
+			elif button_key.begins_with("pick:"):
+				_adopt(int(button_key.substr(5)))
+			elif button_key == "btn.dismiss":
+				session.command({"type": "dismiss_candidate"})
 			else:
 				session.command({"type": "reroll"})
 		"over":
@@ -152,11 +161,11 @@ func press(button_key: String) -> void:
 	refresh()
 
 
-## Adopts the candidate; the first adoption of a brand-new world, once per install, also
-## tells the player that people can be dragged.
-func _adopt() -> void:
+## Adopts the candidate at `pick`; the first adoption of a brand-new world, once per install,
+## also tells the player that people can be dragged.
+func _adopt(pick: int) -> void:
 	var first := not session.world.adopted_once
-	var r := session.command({"type": "adopt"})
+	var r := session.command({"type": "adopt", "pick": pick})
 	if r.get("ok", false) and first and not bool(session.settings.get("hint_seen", false)):
 		main.hud.toast(session.strings.t("hint.drag"))
 		session.set_setting("hint_seen", true)
@@ -186,9 +195,10 @@ func refresh() -> void:
 	elif not _away.is_empty() and w != null:
 		kind = "away"
 		sig = str(_away)
-	elif w != null and w.phase == "adopting":
+	elif w != null and (w.phase == "adopting" or (w.phase == "living" and not w.candidate.is_empty())):
+		# The game's first adoption, or one bought at the market later (the same picker).
 		kind = "adopt"
-		sig = str(w.candidate)
+		sig = str(w.candidate) + str(w.candidates.size())
 	elif w != null and w.phase == "over":
 		kind = "over"
 	elif not _fragments.is_empty() and w != null and w.phase == "living":
@@ -246,11 +256,41 @@ func _rebuild(w: World, proposal: Dictionary) -> void:
 			_box.add_child(_label(s.t("load.backup")))
 			_button("btn.new_game")
 		"adopt":
+			# Everyone on offer side by side, each with their picture and a button to take
+			# them in; a reroll brings a new lot.
 			_title(s.t("title.adopt"))
-			_person_card(Person.from_dict(w.candidate))
+			_box.add_child(_label(s.t("adopt.note")))
+			var cards := HBoxContainer.new()
+			cards.add_theme_constant_override("separation", 14)
+			_box.add_child(cards)
+			var offer := _offer(w)
+			for i in offer.size():
+				var col := PanelContainer.new()
+				col.add_theme_stylebox_override("panel", ViewWidgets.chip_style(ViewWidgets.PALE, ViewWidgets.WOOD))
+				col.get_theme_stylebox("panel").set_content_margin_all(12)
+				cards.add_child(col)
+				var inner := VBoxContainer.new()
+				inner.add_theme_constant_override("separation", 4)
+				col.add_child(inner)
+				var p := Person.from_dict(offer[i])
+				inner.add_child(PersonPortrait.make(p, main.house.skin if main.house != null else null, session.pack, Vector2(CARD_WIDTH, 170), str(offer[i].get("look", ""))))
+				_person_card(p, inner, CARD_WIDTH)
+				var gap := Control.new()
+				gap.size_flags_vertical = Control.SIZE_EXPAND_FILL
+				inner.add_child(gap)
+				_button("pick:%d" % i, inner, s.t("btn.adopt"))
+				if i == 0:
+					_buttons["btn.adopt"] = _buttons["pick:0"]
 			var row := _row()
-			_button("btn.adopt", row)
+			row.alignment = BoxContainer.ALIGNMENT_CENTER
 			_button("btn.reroll", row)
+			if w.phase == "living":
+				# Bought at the market: taking one in costs the service's price; or send them off.
+				var cost := ServiceSystem.price(w, w.adopt_service)
+				_box.add_child(_label(s.t("adopt.cost").replace("{n}", s.t("money").replace("{n}", str(cost)))))
+				for i in offer.size():
+					_buttons["pick:%d" % i].disabled = w.money < cost
+				_button("btn.dismiss", row)
 		"over":
 			_title(s.t("title.over"))
 			_box.add_child(_label(s.t("over.reason")))
@@ -308,7 +348,16 @@ func _rebuild(w: World, proposal: Dictionary) -> void:
 			var target := w.person(int(proposal.get("for", -1)))
 			if target != null:
 				_box.add_child(_label(s.t("proposal.for").replace("{name}", s.person_name(target))))
-			_person_card(Person.from_dict(proposal["person"]))
+			# The match with their picture beside what is known of them.
+			var side := HBoxContainer.new()
+			side.add_theme_constant_override("separation", 14)
+			_box.add_child(side)
+			var match_p := Person.from_dict(proposal["person"])
+			side.add_child(PersonPortrait.make(match_p, main.house.skin if main.house != null else null, session.pack, Vector2(130, 140), str(proposal["person"].get("look", ""))))
+			var facts := VBoxContainer.new()
+			facts.alignment = BoxContainer.ALIGNMENT_CENTER
+			side.add_child(facts)
+			_person_card(match_p, facts, PANEL_WIDTH - 48.0 - 144.0)
 			_box.add_child(_label(s.t("label.savings").replace("{n}", s.t("money").replace("{n}", str(int(proposal["savings"]))))))
 			var row := _row()
 			_button("btn.accept", row)
@@ -316,9 +365,28 @@ func _rebuild(w: World, proposal: Dictionary) -> void:
 			_button("btn.close", row)
 
 
-func _person_card(p: Person) -> void:
+## The candidates on offer (`World.candidates`; the single `candidate` after a load).
+func _offer(w: World) -> Array:
+	if not w.candidates.is_empty():
+		return w.candidates
+	return [w.candidate]
+
+
+## A person's name, sex, age, livelihood, likes and dislikes, into `parent` (the card by
+## default) at `width`.
+func _person_card(p: Person, parent: Control = null, width := PANEL_WIDTH - 48.0) -> void:
 	var s := session.strings
-	_box.add_child(_label(s.person_name(p)))
+	var into := parent if parent != null else _box
+	var head := _label(s.person_name(p), width)
+	head.add_theme_font_size_override("font_size", 20)
+	into.add_child(head)
+	for line in _person_lines(p):
+		into.add_child(_label(line, width))
+
+
+func _person_lines(p: Person) -> Array[String]:
+	var s := session.strings
+	var out: Array[String] = []
 	var gender := s.t("gender." + p.gender) if p.gender != "" else ""
 	var bits: Array[String] = []
 	if gender != "" and gender != "gender." + p.gender:
@@ -332,12 +400,14 @@ func _person_card(p: Person) -> void:
 		for part in [str(job.get("name", "")), lv]:
 			if part != "":
 				job_bits.append(part)
-		bits.append(" · ".join(job_bits))
-	_box.add_child(_label(" · ".join(bits)))
+		out.append(" · ".join(bits))
+		bits = [s.t("label.job") + "：" + " · ".join(job_bits)]
+	out.append(" · ".join(bits))
 	if not p.likes.is_empty():
-		_box.add_child(_label(s.t("label.likes") + "：" + "、".join(p.likes)))
+		out.append(s.t("label.likes") + "：" + "、".join(p.likes))
 	if not p.dislikes.is_empty():
-		_box.add_child(_label(s.t("label.dislikes") + "：" + "、".join(p.dislikes)))
+		out.append(s.t("label.dislikes") + "：" + "、".join(p.dislikes))
+	return out
 
 
 func _title(t: String) -> void:
@@ -346,11 +416,11 @@ func _title(t: String) -> void:
 	_box.add_child(l)
 
 
-func _label(t: String) -> Label:
+func _label(t: String, width := PANEL_WIDTH - 48.0) -> Label:
 	var l := Label.new()
 	l.text = t
 	l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	l.custom_minimum_size.x = PANEL_WIDTH - 48
+	l.custom_minimum_size.x = width
 	return l
 
 
@@ -361,9 +431,9 @@ func _row() -> HBoxContainer:
 	return r
 
 
-func _button(key: String, parent: Control = null) -> void:
+func _button(key: String, parent: Control = null, text := "") -> void:
 	var b := Button.new()
-	b.text = session.strings.t(key)
+	b.text = text if text != "" else session.strings.t(key)
 	b.pressed.connect(press.bind(key))
 	(parent if parent != null else _box).add_child(b)
 	_buttons[key] = b

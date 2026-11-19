@@ -81,6 +81,9 @@ var share: Dictionary = {}
 ## Not saved: the factor on the chance of falling ill from low needs, as of the start of the
 ## current game minute (see `NeedsSystem.illness_factor`); 1 until then.
 var ill_factor := 1.0
+## Which of the pack's looks they wear (`LookSystem`): "" for the stage's own picture as
+## before (old saves, packs without looks), "child" until grown up, else a look id.
+var look := ""
 
 
 ## Status bar: need id -> the label word that applies to the current value.
@@ -130,6 +133,8 @@ func to_dict() -> Dictionary:
 		"spouse": spouse, "mother": mother, "father": father,
 		"pregnant_until": pregnant_until, "pregnant_by": pregnant_by,
 	}
+	if look != "":
+		d["look"] = look
 	# Optional, written only once this person has earned something to share.
 	if earned_day >= 0:
 		d["earned"] = {"day": earned_day, "n": earned, "told": earned_told, "shared_at": shared_at}
@@ -209,4 +214,5 @@ static func from_dict(d: Dictionary) -> Person:
 	var sd: Dictionary = d.get("share", {})
 	if not sd.is_empty():
 		p.share = {"kind": str(sd.get("kind", "")), "n": int(sd.get("n", 0)), "level": int(sd.get("level", 0))}
+	p.look = str(d.get("look", ""))
 	return p

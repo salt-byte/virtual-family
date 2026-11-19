@@ -14,6 +14,7 @@
 			"peddler_pole": "iso_peddler_pole", "bookshelf": "iso_bookshelf", "trough": "iso_trough",
 			"bird_cage": "iso_bird_cage", "ayun_hoop": "iso_embroidery_frame", "washtub": "iso_washtub"
 		},
+		"scale": {"iso_woodpile": 0.75, "iso_millstone": 0.85},
 		"walls": {"gate": "iso_gatehouse", "fence_x": "iso_fence", "fence_y": "iso_fence_ns"},
 		"asleep": "iso_sleeper",
 		"decals": [
@@ -133,6 +134,18 @@
 	"pets": {"dog": {"sprite": "dog", "height": 46, "front": "dog_front", "back": "dog_back"},
 		"cat": {"sprite": "cat", "height": 36, "front": "cat_front", "back": "cat_back"},
 		"bird": {"sprite": "bird", "height": 30}},
+	"looks": {
+		"adult_1": {"stage": "adult", "sex": "male", "rig": "rigs/adult_1/adult_1.rig.json", "rig_front": "rigs/adult_1_front/adult_1_front.rig.json", "rig_back": "rigs/adult_1_back/adult_1_back.rig.json", "height": 94, "portrait": "portraits/adult_1.png", "asleep": "sleeper", "name": "斗笠农夫", "description": "斗笠压得低，赭黄短褂的袖子挽到小臂，腰里一根土红布带。裤腿卷到小腿肚，脚上一双草鞋，人晒得黝黑。"},
+		"adult_2": {"stage": "adult", "sex": "male", "rig": "rigs/adult_2/adult_2.rig.json", "rig_front": "rigs/adult_2_front/adult_2_front.rig.json", "rig_back": "rigs/adult_2_back/adult_2_back.rig.json", "height": 91, "portrait": "portraits/adult_2.png", "asleep": "sleeper", "name": "清瘦书生", "description": "又高又瘦，头戴黑方巾，月白长衫垂到脚面，领口袖口滚一道深蓝边。嘴总抿着，难得一笑。"},
+		"adult_3": {"stage": "adult", "sex": "male", "rig": "rigs/adult_3/adult_3.rig.json", "rig_front": "rigs/adult_3_front/adult_3_front.rig.json", "rig_back": "rigs/adult_3_back/adult_3_back.rig.json", "height": 92, "portrait": "portraits/adult_3.png", "asleep": "sleeper", "name": "胖货郎", "description": "圆脸圆肚子，两撇小胡子，眼睛笑成两道缝。深棕毡帽，米白衬褂外头套一件酱红坎肩，盘扣绷得紧紧的。"},
+		"adult_4": {"stage": "adult", "sex": "male", "rig": "rigs/adult_4/adult_4.rig.json", "rig_front": "rigs/adult_4_front/adult_4_front.rig.json", "rig_back": "rigs/adult_4_back/adult_4_back.rig.json", "height": 92, "portrait": "portraits/adult_4.png", "asleep": "sleeper", "name": "木匠", "description": "方下巴，一圈短胡茬，白布头巾在脑后打个结。深褐短褂外挂一条土黄帆布围裙，胸口一只小口袋，腿上打着绑腿。"},
+		"adult_5": {"stage": "adult", "sex": "female", "rig": "rigs/adult_5/adult_5.rig.json", "rig_front": "rigs/adult_5_front/adult_5_front.rig.json", "rig_back": "rigs/adult_5_back/adult_5_back.rig.json", "height": 82, "portrait": "portraits/adult_5.png", "asleep": "sleeper", "name": "绣娘", "description": "瓜子脸，脑后一个圆髻，横插一根银簪，簪头一点红绒花。桃粉大襟袄滚月白边，脚上一双绣花鞋。"},
+		"adult_6": {"stage": "adult", "sex": "female", "rig": "rigs/adult_6/adult_6.rig.json", "rig_front": "rigs/adult_6_front/adult_6_front.rig.json", "rig_back": "rigs/adult_6_back/adult_6_back.rig.json", "height": 88, "portrait": "portraits/adult_6.png", "asleep": "sleeper", "name": "豆腐娘", "description": "圆脸红扑扑，一笑露出一排牙。白布头巾把头发全包住，靛蓝碎花袄外面套着白套袖，腰里系白围裙。"},
+		"adult_7": {"stage": "adult", "sex": "female", "rig": "rigs/adult_7/adult_7.rig.json", "rig_front": "rigs/adult_7_front/adult_7_front.rig.json", "rig_back": "rigs/adult_7_back/adult_7_back.rig.json", "height": 86, "portrait": "portraits/adult_7.png", "asleep": "sleeper", "name": "采药姑娘", "description": "齐眉刘海，两条麻花辫垂在肩后，辫梢扎红头绳。砖红短袄，腰上斜挎一只浅棕布药囊，腿上打浅灰绑腿。"},
+		"adult_8": {"stage": "adult", "sex": "female", "rig": "rigs/adult_8/adult_8.rig.json", "rig_front": "rigs/adult_8_front/adult_8_front.rig.json", "rig_back": "rigs/adult_8_back/adult_8_back.rig.json", "height": 89, "portrait": "portraits/adult_8.png", "asleep": "sleeper", "name": "瘦高农妇", "description": "高个子，长脸，眉头总皱着。头顶盘大髻，插一根木簪，扎一条藏青白点头帕。藕荷色大襟袄，袖子挽到小臂。"},
+		"elder_1": {"stage": "elder", "sex": "male", "rig": "rigs/elder_1/elder_1.rig.json", "rig_front": "rigs/elder_1_front/elder_1_front.rig.json", "rig_back": "rigs/elder_1_back/elder_1_back.rig.json", "height": 78, "portrait": "portraits/elder_1.png", "asleep": "sleeper", "name": "老郎中", "description": "白胡子垂到胸口，黑瓜皮帽顶上一颗红绒结。灰蓝对襟长棉袄过了膝盖，背有点驼，笑眯眯的。", "lean": 5},
+		"elder_2": {"stage": "elder", "sex": "female", "rig": "rigs/elder_2/elder_2.rig.json", "rig_front": "rigs/elder_2_front/elder_2_front.rig.json", "rig_back": "rigs/elder_2_back/elder_2_back.rig.json", "height": 74, "portrait": "portraits/elder_2.png", "asleep": "sleeper", "name": "老婆婆", "description": "胖墩墩，满脸笑纹，银灰头发挽个小髻。额上勒一条黑抹额，正中缀一颗红珠，靛青大襟袄滚黑边。", "lean": 5}
+	},
 	"people": [
 		{"stage": "elder", "sex": "female", "sprite": "grandma", "height": 74, "rig": "rigs/grandma/grandma.rig.json",
 			"rig_front": "rigs/grandma_front/grandma_front.rig.json", "rig_back": "rigs/grandma_back/grandma_back.rig.json", "lean": 9, "asleep": "sleeper"},

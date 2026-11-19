@@ -73,11 +73,17 @@ static func _start(world: World, p: Person, share: Dictionary) -> bool:
 static func text(world: World, p: Person) -> String:
 	if p.share.is_empty() or not p.thanking(world.now):
 		return ""
+	return format(world, p, p.share)
+
+
+## The pack's words for `share` ({kind, n, level}, as in `Person.share` or the "shared"
+## event) told by `p`.
+static func format(world: World, p: Person, share: Dictionary) -> String:
 	var c := cfg(world.pack)
-	var kind := str(p.share.get("kind", ""))
+	var kind := str(share.get("kind", ""))
 	var level_name := ""
 	var levels: Array = world.pack.livelihoods.get(p.track, {}).get("levels", [])
-	var lv := int(p.share.get("level", 0))
+	var lv := int(share.get("level", 0))
 	if lv >= 0 and lv < levels.size():
 		level_name = str(levels[lv].get("name", ""))
-	return str(c.get(kind + "_text", "")).format({"n": int(p.share.get("n", 0)), "level": level_name})
+	return str(c.get(kind + "_text", "")).format({"n": int(share.get("n", 0)), "level": level_name})

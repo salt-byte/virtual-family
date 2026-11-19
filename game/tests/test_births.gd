@@ -63,9 +63,11 @@ func test_conceives_then_gives_birth_to_a_house_born_child():
 	var wife := _wife(w)
 	var h := _husband(w)
 	h.family = "柳"
+	# Both cheerful just before the hour, when the chance is rolled: it is then all but one.
+	w.advance(3540)
 	wife.needs["happy"] = 100.0
 	h.needs["happy"] = 100.0
-	w.advance(3600)
+	w.advance(60)
 	assert_true(wife.pregnant(), "conceived within the hour")
 	assert_eq(wife.pregnant_by, h.uid)
 	assert_true(w.drain_events().any(func(e): return e.type == "conceived" and e.person == wife.uid))

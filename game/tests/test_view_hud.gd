@@ -50,8 +50,9 @@ func test_bar_shows_selected_person_in_words_not_numbers():
 	# Busy: the bar names the action without a percentage (the plate's line shows progress).
 	var desk: int = w.objects.filter(func(o): return o.type == "desk")[0].uid
 	m.session.command({"type": "drag", "person": p.uid, "object": desk})
-	# Need values whose digits cannot turn up in the age, the money or the larder count.
-	var values := [61.0, 67.0, 83.0, 89.0]
+	# Need values whose digits cannot turn up in the age, the money or the larder count:
+	# two at their worst, one low, one fine.
+	var values := [11.0, 13.0, 43.0, 89.0]
 	var k := 0
 	for nid in p.needs:
 		p.needs[nid] = values[k % values.size()]
@@ -63,9 +64,19 @@ func test_bar_shows_selected_person_in_words_not_numbers():
 	var text := m.hud.bar_text()
 	assert_true(text.contains(p.given))
 	assert_true(not text.contains("%"), text)
-	assert_true(text.contains(str(w.pack.actions[p.current.action].label)), text)
-	# The status: the feeling of the moment, and need words only where something is wrong.
-	assert_true(text.contains(m.session.strings.status_line(p, w)), text)
+	# The bar's first line is how they feel right now (FeelingSystem); the action's own words
+	# are on the plate over their head.
+	assert_true(text.contains(m.hud.feeling_now(p)), text)
+	assert_eq(m.house.people[p.uid].doing_text(), str(w.pack.actions[p.current.action].label))
+	# The bar shows the words for what is wrong, loudest first, and leaves out the fine one
+	# (UI_PLAN: need words only when something is wrong).
+	var levels := {}
+	for c in m.session.strings.status_chips(p, w):
+		levels[c["word"]] = c["level"]
+	for word in p.status(m.session.pack).values():
+		assert_eq(text.contains(word), levels[word] in ["bad", "warn"], "%s (%s)" % [word, levels[word]])
+	# Five needs in qijia now (干净 is the fifth, at 11 like the first): three at their worst.
+	assert_eq(m.hud.chip_levels(), ["bad", "bad", "bad", "warn"] as Array[String])
 	var re := RegEx.create_from_string("\\d+%")
 	var stripped := re.sub(text, "", true)
 	assert_true(not stripped.contains("%"), stripped)
@@ -75,8 +86,9 @@ func test_bar_shows_selected_person_in_words_not_numbers():
 	m.free()
 
 
-## The kernel leaves a person idle for one step between two actions: the plate and the bar
-## keep the previous action's words through that gap, then fall back to the idle text.
+## The kernel leaves a person idle for one step between two actions: the plate keeps the
+## previous action's words through that gap, then falls back to the idle text (the bar
+## shows the feeling of the moment).
 func test_previous_action_shows_through_the_idle_step_between_actions():
 	var m := _adopted()
 	var w := m.session.world
@@ -91,8 +103,8 @@ func test_previous_action_shows_through_the_idle_step_between_actions():
 		w.advance(float(w.step_s))
 	m.tick(0.016)
 	assert_eq(pv.doing_text(), label)
-	assert_true(m.hud.bar_text().contains(label), m.hud.bar_text())
-	assert_true(not m.hud.bar_text().contains(idle))
+	# The bar itself shows the feeling of the moment (FeelingSystem), not the action's words.
+	assert_true(m.hud.bar_text().contains(m.hud.feeling_now(p)), m.hud.bar_text())
 	assert_eq(pv.bob_offset(), 0.0)
 	assert_eq(pv.progress(), -1.0)
 	w.advance(float(w.step_s))         # one step later they are still idle (cancelled here)
@@ -103,7 +115,7 @@ func test_previous_action_shows_through_the_idle_step_between_actions():
 	AutonomySystem.cancel(w, p)
 	m.tick(0.016)
 	assert_eq(pv.doing_text(), idle)
-	assert_true(m.hud.bar_text().contains(idle))
+	assert_true(m.hud.bar_text().contains(m.hud.feeling_now(p)), m.hud.bar_text())
 	m.free()
 
 
@@ -290,7 +302,9 @@ func test_clean_house_pay_floats_over_the_sweeper():
 
 ## Something turning up on the ground shows a toast at the top (the pack's words); clicking
 ## it brings the thing to the middle of the house area.
-func test_a_pickup_shows_a_toast_that_takes_the_view_there():
+## Was "a pickup shows a toast that takes the view there": the pickup is now told once, by
+## its notice (which takes the view there, see test_view_notices); no toast says it again.
+func test_a_pickup_is_told_by_its_notice_not_a_toast_too():
 	var m := _adopted()
 	var w := m.session.world
 	var uid := CollectibleSystem.spawn(w)
@@ -298,15 +312,28 @@ func test_a_pickup_shows_a_toast_that_takes_the_view_there():
 	m.tick(0.016)
 	var c := CollectibleSystem.find(w, uid)
 	var line: String = m.session.strings.t("ev.pickup_spotted").format({"room": str(w.pack.rooms[str(c.room)]["name"])})
-	assert_true(line.contains("闪"), line)
-	var i := m.hud.toasts().find(line)
-	assert_true(i >= 0, str(m.hud.toasts()))
-	assert_true(m.hud.click_toast(i))
-	assert_true(not m.hud.toasts().has(line), "the toast goes once clicked")
-	var at := m.house.to_screen(m.house.layout.cell_center(str(c.room), int(c.x), int(c.y)))
-	var mid := Vector2(1280, 720 - HouseView.BOTTOM_BAR) * 0.5
-	assert_true(at.distance_to(mid) < 1.0, str(at))
-	# A toast without a click does nothing when clicked.
+	assert_true(not m.hud.toasts().has(line), str(m.hud.toasts()))
+	assert_true(m.hud.notices().any(func(x): return x["id"] == "pickup:%d" % uid))
+	# A toast given a click runs it and goes; one without a click does nothing when clicked.
+	var hit := [false]
+	m.hud.toast("clickable", func(): hit[0] = true)
+	assert_true(m.hud.click_toast(m.hud.toasts().find("clickable")))
+	assert_true(hit[0])
+	assert_true(not m.hud.toasts().has("clickable"), "the toast goes once clicked")
 	m.hud.toast("plain")
 	assert_true(not m.hud.click_toast(m.hud.toasts().find("plain")))
+	m.free()
+
+
+func test_toasts_take_turns_two_at_most_and_say_nothing_twice():
+	var m := _adopted()
+	for t in ["一", "二", "三"]:
+		m.hud.toast(t)
+	m.hud.toast("二")
+	assert_eq(m.hud.toasts(), ["一", "二", "三"] as Array[String], "the same words are not queued twice")
+	assert_eq(m.hud.visible_toasts(), ["一", "二"] as Array[String])
+	m.hud.tick(Hud.TOAST_SECONDS + 0.1)
+	assert_eq(m.hud.visible_toasts(), ["三"] as Array[String], "the waiting one gets its turn")
+	m.hud.tick(Hud.TOAST_SECONDS - 0.2)
+	assert_eq(m.hud.visible_toasts(), ["三"] as Array[String], "with its full time")
 	m.free()

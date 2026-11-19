@@ -39,6 +39,8 @@ var season := ""
 var weather := ""
 var weather_slot := -1
 var wet_until := 0
+## The festival on as of the last step ("" for none; see `FestivalSystem`).
+var festival := ""
 ## The local day (days since the epoch) the house was last paid for being made clean; -1
 ## for never (see `MessSystem.clean`).
 var clean_paid_day := -1
@@ -67,6 +69,9 @@ var goals_done: Array[String] = []
 var married := false
 ## The person on offer while adopting, in `Person.to_dict()` shape; {} otherwise.
 var candidate: Dictionary = {}
+## Everyone on offer while adopting, side by side (`candidate` first); the command `adopt`
+## takes one by `pick`. Not saved: after a load only `candidate` is on offer until a reroll.
+var candidates: Array[Dictionary] = []
 ## Pending marriage proposals: {id, person: Dictionary, savings, expires_at}.
 var proposals: Array[Dictionary] = []
 ## `now` from which the next proposal may arrive.
@@ -88,14 +93,36 @@ var birth_blocked := false
 var letters: Array[Dictionary] = []
 var letter_next := 1
 var letter_minor_at := 0
+## The market (see `MarketSystem`, `ServiceSystem`; all stay empty / 0 without one): the
+## used-goods stall, service id -> times bought, lottery tickets {id, service, draw_at,
+## amount (-1 until drawn)} and the id the next one gets, until when (`now`) a hired hand
+## comes and which service hired them, and the service a candidate on offer while living
+## came from.
+var secondhand: Dictionary = {}
+var services_bought: Dictionary = {}
+var tickets: Array[Dictionary] = []
+var ticket_next := 1
+var helper_until := 0
+var helper_service := ""
+var adopt_service := ""
+## A faster clock (see `ServiceSystem` "speed"): the real unix time until which game time
+## runs `speed_factor` times as fast, and how many seconds the sim clock has run ahead of
+## the real one because of it (0 for a world that never sped up: the clocks then agree).
+var speed_until := 0
+var speed_factor := 1.0
+var clock_lead := 0
 
 ## The living babies as of `_babies_t` (see `babies`); not saved.
 var _babies: Array[Person] = []
-## `AutonomySystem._world_key`'s cache: [now, utc_offset, rooms_built, its size, weather,
-## wet_until, key]; not saved.
+## `AutonomySystem._world_key`'s cache: [hour key, rooms_built, its size, weather, wet,
+## season position, season list, key]; not saved.
 var _flags_ctx: Array = []
 ## `AutonomySystem._objects_by_type`'s cache: [objects, size, last uid, uids by type]; not saved.
 var _by_type_ctx: Array = []
+## `GoalSystem._owned`'s cache: [objects, size, last uid, object types, count]; not saved.
+var _owned_ctx: Array = []
+## `GoalSystem.step`'s cache: [goals_done, its size, goals table, open goals]; not saved.
+var _goals_open: Array = []
 var _babies_t := -1
 ## `PetSystem.home_key` and `PetSystem.room_now` as of [now, pets size]; not saved.
 var _pet_cache: Array = [-1, -1, "", {}]
@@ -135,26 +162,35 @@ func _init(p: Pack, seed: int) -> void:
 ## - A clock that did not move forward changes nothing (time never runs backwards).
 ## - While adopting (time frozen), or before the world was ever given a time (`now` 0),
 ##   `now` just jumps to `unix`.
-## - Afterwards the sim clock (`now` plus the partial step not yet simulated) equals `unix`,
-##   also after an absence beyond the cap or one that ended the game.
+## - Afterwards the sim clock (`now` plus the partial step not yet simulated) equals `unix`
+##   plus `clock_lead`, also after an absence beyond the cap or one that ended the game.
+## - While a faster clock was bought (`speed_until`), the part of the gap before it ends
+##   counts `speed_factor` times; the surplus goes into `clock_lead`. Whether the gap is an
+##   absence is judged on real time.
 func sync(unix: int, offset: int) -> Dictionary:
 	utc_offset = offset
-	var clock := float(now) + _acc
+	var clock := float(now) + _acc - float(clock_lead)
 	if float(unix) <= clock:
 		return Offline.zero_summary(self)
 	if phase == "adopting" or now == 0:
-		now = unix
+		now = unix + clock_lead
 		_acc = 0.0
 		return Offline.zero_summary(self)
 	var gap := float(unix) - clock
+	var away := gap > SYNC_OFFLINE_GAP  # judged on real time
+	# While the clock runs fast, game time gains on real time.
+	if speed_until > 0 and clock < float(speed_until):
+		var extra := roundi((minf(float(unix), float(speed_until)) - clock) * (speed_factor - 1.0))
+		clock_lead += extra
+		gap += float(extra)
 	var summary: Dictionary
-	if gap > SYNC_OFFLINE_GAP:
+	if away:
 		summary = catch_up(gap)
 	else:
 		advance(gap)
 		summary = Offline.zero_summary(self)
-	if float(now) + _acc != float(unix):  # capped, game over, or not living: snap to real time
-		now = unix
+	if float(now) + _acc != float(unix + clock_lead):  # capped, game over, or not living: snap
+		now = unix + clock_lead
 		_acc = 0.0
 	return summary
 
@@ -227,7 +263,8 @@ func command(cmd: Dictionary) -> Dictionary:
 			if type != "reroll":
 				return Commands.fail("not_running")
 		_:
-			if type == "adopt" or type == "reroll":
+			# While living, only a candidate offered by a service can be taken in or swapped.
+			if (type == "adopt" or type == "reroll") and candidate.is_empty():
 				return Commands.fail("not_adopting")
 	return handler.call(self, cmd)
 
@@ -309,6 +346,7 @@ func _step() -> void:
 ## Every per-step system, in the fixed order they must run. Later tasks add theirs here.
 func _run_systems(dt: float) -> void:
 	WeatherSystem.step(self, dt)
+	FestivalSystem.step(self, dt)
 	NeedsSystem.step(self, dt)
 	IllnessSystem.step(self, dt)
 	MessSystem.step(self, dt)
@@ -323,7 +361,9 @@ func _run_systems(dt: float) -> void:
 	WishSystem.step(self, dt)
 	StorySystem.step(self, dt)
 	PetSystem.step(self, dt)  # its hourly look for a stray draws after everything but letters
-	LetterSystem.step(self, dt)  # last: turns this step's news into letters
+	LetterSystem.step(self, dt)  # turns this step's news into letters
+	MarketSystem.step(self, dt)  # last two: draw only in packs with a market or services
+	ServiceSystem.step(self, dt)
 
 
 ## Everything that decides what happens next, as plain JSON-safe data; see `WorldSave`.

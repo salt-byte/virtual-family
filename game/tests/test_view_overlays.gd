@@ -180,18 +180,22 @@ func test_open_card_closes_when_proposal_expires():
 	m.free()
 
 
-func test_family_button_shows_a_dot_while_a_proposal_waits():
+## Was "the family button shows a dot": a waiting proposal is now a labelled notice in the
+## corner (UI_PLAN "waiting for you"), and the family button carries no dot.
+func test_a_waiting_proposal_is_a_notice_not_a_dot():
 	var m := _main()
 	m.overlays.press("btn.adopt")
 	m.tick(0.016)
-	assert_true(not m.hud.bar_text().contains("●"))
+	var waiting := func(): return m.hud.notices().any(func(x): return x["kind"] == "proposal")
+	assert_true(not waiting.call())
 	for i in 16:
 		clk.unix += 60.0
 		m.tick(0.016)
-	assert_true(m.hud.bar_text().contains("●"))
+	assert_true(waiting.call(), m.hud.notice_text())
+	assert_true(not m.hud.bar_text().contains("●"))
 	m.session.world.proposals.clear()
 	m.tick(0.016)
-	assert_true(not m.hud.bar_text().contains("●"))
+	assert_true(not waiting.call())
 	m.free()
 
 

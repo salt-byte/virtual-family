@@ -9,13 +9,13 @@
 		{"name": "佃户", "daily_income": 132, "work_bonus_per_hour": 9, "progress_to_next": 560},
 		{"name": "老把式", "daily_income": 264, "work_bonus_per_hour": 16, "progress_to_next": 0}
 	]},
-	{"id": "carpentry", "name": "木匠", "affinity": ["好侍弄", "spin_top", "hide_behind_door"], "levels": [
-		{"name": "学徒", "daily_income": 60, "work_bonus_per_hour": 5, "progress_to_next": 260},
+	{"id": "carpentry", "name": "木匠", "affinity": ["手巧", "spin_top", "hide_behind_door", "whittle_bamboo_whistle"], "levels": [
+		{"name": "学徒", "daily_income": 60, "work_bonus_per_hour": 5, "progress_to_next": 240},
 		{"name": "木匠", "daily_income": 150, "work_bonus_per_hour": 9, "progress_to_next": 640},
 		{"name": "掌墨师傅", "daily_income": 300, "work_bonus_per_hour": 16, "progress_to_next": 0}
 	]},
-	{"id": "medicine", "name": "郎中", "affinity": ["喜静", "watch_ants", "beg_for_story"], "levels": [
-		{"name": "药童", "daily_income": 54, "work_bonus_per_hour": 4, "progress_to_next": 280},
+	{"id": "medicine", "name": "郎中", "affinity": ["心细", "watch_ants", "beg_for_story", "bandage_sparrow"], "levels": [
+		{"name": "药童", "daily_income": 54, "work_bonus_per_hour": 4, "progress_to_next": 240},
 		{"name": "坐堂", "daily_income": 150, "work_bonus_per_hour": 9, "progress_to_next": 700},
 		{"name": "名医", "daily_income": 330, "work_bonus_per_hour": 18, "progress_to_next": 0}
 	]},

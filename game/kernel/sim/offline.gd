@@ -42,6 +42,9 @@ static func catch_up(world: World, elapsed_seconds: float) -> Dictionary:
 			"pet_fell_ill": summary["pets_ill"].append(e.pet)
 			"pet_came_back": summary["pets_back"].append(e.pet)
 			"pet_cured": summary["pets_cured"].append(e.pet)
+			"festival_started": summary["festivals"].append(e.festival)
+			"outing_back": summary["outings"].append({"person": e.person, "action": e.action, "item": e.item, "text": e.text})
+			"lottery_drawn": summary["lottery"].append({"ticket": e.ticket, "amount": e.amount})
 	summary["proposals_waiting"] = world.proposals.size()
 	summary["messes_now"] = world.messes.size()
 	return summary
@@ -60,4 +63,5 @@ static func _empty() -> Dictionary:
 		"deaths": [], "illnesses": [], "level_ups": [], "proposals_expired": 0,
 		"proposals_waiting": 0, "goals_done": [], "messes_now": 0, "game_over": false,
 		"fragments": [], "stories_done": [], "births": [], "relatives": [],
-		"pets_died": [], "pets_ill": [], "pets_back": [], "pets_cured": [], "letters": []}
+		"pets_died": [], "pets_ill": [], "pets_back": [], "pets_cured": [], "festivals": [], "outings": [],
+		"letters": [], "lottery": []}

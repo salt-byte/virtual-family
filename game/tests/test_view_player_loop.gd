@@ -70,4 +70,41 @@ func test_someone_sharing_earnings_says_it_over_their_head():
 	assert_true(pv.thanking())
 	assert_eq(pv.thanks_words(), "今天挣了 40 文！")
 	assert_true(pv.thanks_width() > 80.0)
+	# The bar's earnings hook: a gold toast with the same words, and no "如愿了" notice.
+	assert_true(m.hud.toasts().has("今天挣了 40 文！"), str(m.hud.toasts()))
+	assert_true(not m.hud.notices().any(func(n): return n["kind"] == "thanks"))
+	m.free()
+
+
+func test_the_bar_line_is_the_feeling_and_dirt_shows_as_a_chip_then_a_notice():
+	var m := _main()
+	var w := m.session.world
+	var p := w.people[0]
+	for nid in p.needs:
+		p.needs[nid] = 90.0
+	p.current = {"action": "study", "object_uid": -1, "target_uid": -1, "remaining_s": 60}
+	m.select(p.uid)
+	m.tick(0.016)
+	assert_eq(m.hud.feeling_now(p), "干活呢")
+	assert_true(m.hud.bar_text().contains("干活呢"), m.hud.bar_text())
+	p.needs["clean"] = 40.0
+	m.tick(0.016)
+	assert_true(m.hud.bar_text().contains("身上黏糊糊"), m.hud.bar_text())
+	assert_true(not m.hud.notices().any(func(n): return n["kind"] == "need" and int(n["target"]) == p.uid))
+	p.needs["clean"] = 10.0
+	m.tick(0.016)
+	assert_true(m.hud.notices().any(func(n): return n["kind"] == "need" and str(n["text"]).contains("一身馊味")),
+		str(m.hud.notices()))
+	m.free()
+
+
+func test_market_clothes_lift_hygiene():
+	var m := _main()
+	var w := m.session.world
+	var p := w.people[0]
+	p.needs["clean"] = 10.0
+	w.money = 500
+	assert_true(w.command({"type": "buy", "item": "spare_clothes"}).ok)
+	assert_true(w.command({"type": "use_item", "item": "spare_clothes", "person": p.uid}).ok)
+	assert_near(float(p.needs["clean"]), 55.0)
 	m.free()
