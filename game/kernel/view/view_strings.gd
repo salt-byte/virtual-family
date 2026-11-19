@@ -68,7 +68,7 @@ const DEFAULTS := {
 	"ev.wish_expired": "{name}没等到：{text}",
 	"wish.line": "心愿：{text}", "shop.wanted": "{name}想要", "thanks": "谢谢",
 	"btn.stories": "旧事", "stories.locked": "……", "stories.none": "还没有翻出什么旧事。",
-	"ev.pickup_spotted": "{room}地上好像有东西", "ev.fragment": "捡到了{name}", "ev.story_done": "「{title}」有了着落",
+	"ev.pickup_spotted": "{room}地上好像有东西", "error.blocks_view": "放这儿会挡住别的家具", "ev.fragment": "捡到了{name}", "ev.story_done": "「{title}」有了着落",
 	"btn.receive": "收下", "visitor.money": "留下 {money}",
 	"away.fragment": "捡到了{name}", "away.story_done": "「{title}」有了着落",
 	"status.pregnant": "有了身孕", "months": "{n} 个月",

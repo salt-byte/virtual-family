@@ -37,7 +37,8 @@ func _free_cell_center(m: Main, room: String) -> Vector2:
 	for y in int(r.h):
 		for x in int(r.w):
 			var type := "coop" if bool(r.get("outdoor", false)) else "stool"
-			if HouseSystem.can_place(w, type, room, x, y) == "":
+			# (and, in the 45° view, where its picture stands over nobody else's)
+			if HouseSystem.can_place(w, type, room, x, y) == "" and not m.house.picture_blocks(type, room, x, y):
 				return m.house.layout.cell_center(room, x, y)
 	return Vector2.ZERO
 

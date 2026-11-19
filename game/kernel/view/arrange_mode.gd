@@ -202,6 +202,8 @@ func can_drop() -> bool:
 	var w := session.world
 	if HouseSystem.can_place(w, held_type, t.room, t.x, t.y, held_uid) != "":
 		return false
+	if main.house.picture_blocks(held_type, t.room, t.x, t.y, held_uid):
+		return false
 	return held_uid >= 0 or w.money >= int(w.pack.object_types[held_type]["price"])
 
 
@@ -234,6 +236,12 @@ func drop(world_pos: Vector2) -> Dictionary:
 		cmd["type"] = "place"
 		cmd["object_type"] = held_type
 	var type := held_type
+	var affordable := held_uid >= 0 or session.world.money >= int(session.world.pack.object_types[held_type]["price"])
+	if affordable and HouseSystem.can_place(session.world, held_type, t.room, t.x, t.y, held_uid) == "" \
+			and main.house.picture_blocks(held_type, t.room, t.x, t.y, held_uid):
+		# It would fit, but its picture would stand over another piece's: not there.
+		main.hud.toast(session.strings.error("blocks_view"))
+		return {"ok": false, "error": "blocks_view"}
 	main.hud.mute("wrong_area")
 	var r := session.command(cmd)
 	main.hud.unmute()
