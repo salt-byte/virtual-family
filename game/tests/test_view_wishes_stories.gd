@@ -77,7 +77,15 @@ func test_shop_marks_the_wished_item():
 	m.panels.open("shop")
 	var t := m.panels.text()
 	assert_true(t.contains(m.session.strings.person_name(p) + "想要"), t)
-	assert_true(t.contains("书铺") and t.contains("布庄"), t)
+	# The goods now sit under the market's tabs (UI_PLAN); a tab that holds more than one
+	# kind of shop still names each, so the clothes tab shows the draper and the sundries.
+	var clothes := ""
+	for tab in m.panels._market_tabs(w):
+		if (tab["cats"] as Array).has("布庄"):
+			clothes = tab["id"]
+	m.panels.press(clothes)
+	t = m.panels.text()
+	assert_true(t.contains("布庄") and t.contains("杂货"), t)
 	m.free()
 
 

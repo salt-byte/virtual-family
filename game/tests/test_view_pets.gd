@@ -83,6 +83,7 @@ func test_the_shop_sells_pets_and_the_family_panel_keeps_the_dead():
 	var w := m.session.world
 	w.money = 1000
 	m.panels.open("shop")
+	m.panels.press("tab.pets")   # the market has category tabs now; animals have their own
 	assert_true(m.panels.has_button("buy_pet:dog"))
 	assert_true(m.panels.is_disabled("buy_pet:bird"), "no cage yet")
 	m.panels.press("buy_pet:dog")
@@ -102,7 +103,8 @@ func test_a_stray_at_the_gate_shows_a_card():
 	w.pet_offer = {"kind": "cat", "given": "花花", "age": 2.0, "expires_at": w.now + 3600}
 	m.tick(0.016)
 	assert_eq(m.overlays.current(), "", "the card waits for the player, like a proposal")
-	assert_true(m.hud.bar_text().contains("●"))
+	# It waits as a labelled notice (was: a dot on the family button).
+	assert_true(m.hud.notices().any(func(x): return x["kind"] == "stray"), m.hud.notice_text())
 	m.panels.open("family")
 	m.panels.press("stray")
 	assert_eq(m.overlays.current(), "stray")
