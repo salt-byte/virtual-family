@@ -21,6 +21,13 @@ var held := false
 ## the way is straight. Worked out again whenever the target or the position changes
 ## from outside (a drop, a test).
 var path := PackedVector2Array()
+## The furniture they are heading to use ({}: none), so the house can find them another
+## spot at it when theirs is taken.
+var use_object: Dictionary = {}
+## Whether they sit or lie on `use_object` (the pack's `poses.on`) rather than beside it.
+var on_object := false
+## The pose the current action asks for ("": none; see `_pick_pose`).
+var action_pose := ""
 var _path_goal := Vector2(INF, INF)
 var _path_from := Vector2(INF, INF)
 var selected := false:
@@ -88,6 +95,8 @@ const BOB_PERIOD := 0.8
 const ASLEEP_DARKEN := 0.3
 const ARRIVED := 1.0
 const BABY_SIZE := 0.5
+## A flat picture sitting is drawn this much of its height.
+const SIT_SQUASH := 0.8
 const CHILD_SIZE := 0.75
 
 
@@ -121,8 +130,13 @@ func refresh() -> void:
 		if _last_doing != "" and float(w.now - _idle_from) <= idle_grace():
 			_doing = _last_doing
 	var l := layout()
+	action_pose = _pick_pose(w)
 	if l != null:
-		base_target = _compute_target(w, l)
+		use_object = {}
+		on_object = false
+		var want := _compute_target(w, l)
+		# On a seat or a bed the spot is on the piece itself (see `on_spot`).
+		base_target = want if on_object else l.stop_point(want)
 		target = base_target
 	var elder := false
 	var stages: Array = w.pack.cfg("stages")
@@ -350,6 +364,11 @@ func _compute_target(w: World, l: HouseLayout) -> Vector2:
 			var o := w.object(oid)
 			if not o.is_empty():
 				_key = ""
+				use_object = o
+				var skin := _skin()
+				if action_pose in ["sit", "sleep"] and skin != null and skin.sat_on(str(o.type)):
+					on_object = true
+					return on_spot(l, o, w.pack)
 				return l.stand_pos(o, w.pack)
 		var tid := int(cur.get("target_uid", -1))
 		if tid >= 0:
@@ -393,6 +412,11 @@ func _compute_target(w: World, l: HouseLayout) -> Vector2:
 		_key = key
 		var r: Dictionary = w.pack.rooms[room]
 		var cell := Vector2i(_rng.randi_range(0, int(r.w) - 1), _rng.randi_range(0, int(r.h) - 1))
+		# A few tries for a cell nobody's furniture stands on.
+		for i in 8:
+			if not l.site.enabled or l.site.walkable(l.site.cell_of(l.cell_center(room, cell.x, cell.y))):
+				break
+			cell = Vector2i(_rng.randi_range(0, int(r.w) - 1), _rng.randi_range(0, int(r.h) - 1))
 		return l.cell_center(room, cell.x, cell.y)
 	return base_target
 
@@ -478,25 +502,72 @@ func _draw_pictured() -> void:
 	var body := body_size()
 	var h: float = _look.height
 	var w := h * tex.get_width() / tex.get_height()
-	var lift := bob_offset() + step_lift()
+	var bp := body_pose()
+	var rig: CutoutRig = _look.get("rig")
+	var lift := step_lift() if rig == null else 0.0
+	if thanking() and not held:
+		lift = bob_offset()
 	var line := Color("#4A3424")
-	draw_colored_polygon(HouseGround._ellipse(Rect2(Vector2(-w * 0.45, -5), Vector2(w * 0.9, 10))), Color(HouseGround.SHADOW, 0.25))
+	var lying := bp == "sleep" and not bool(_look.get("lying", false))
+	if not lying:
+		draw_colored_polygon(HouseGround._ellipse(Rect2(Vector2(-w * 0.45, -5), Vector2(w * 0.9, 10))), Color(HouseGround.SHADOW, 0.25))
 	if selected:
 		var ring := HouseGround._ellipse(Rect2(Vector2(-27, -10), Vector2(54, 20)), 32)
 		ring.append(ring[0])
 		draw_polyline(ring, accent, 3.5)
-	var tint := Color.WHITE.darkened(ASLEEP_DARKEN) if asleep() else Color.WHITE
+	var tint := Color.WHITE
 	if _unwell:
 		tint = tint.lerp(Color(0.72, 0.8, 0.7), 0.45)
-	var sway := 0.0
-	if pose() == "walking":
-		sway = 0.04 * sin(TAU * _t / (STEP_PERIOD * 2.0))
-	draw_set_transform(Vector2(0, lift), sway, Vector2(_facing, 1.0))
-	draw_texture_rect(tex, Rect2(-w * 0.5, -h + 2.0, w, h), false, tint)
-	draw_set_transform(Vector2.ZERO)
+	var flip := Vector2(_facing, 1.0)
+	if lying:
+		# On the back, along the ground (or on what they lie on), head to one side.
+		var at := lie_point()
+		draw_colored_polygon(HouseGround._ellipse(Rect2(at + Vector2(-h * 0.5, 2), Vector2(h, 14))), Color(HouseGround.SHADOW, 0.2))
+		if _look.has("asleep"):
+			var pic: Texture2D = _look.asleep
+			var len := h * 1.15
+			draw_set_transform(Vector2.ZERO, 0.0, flip)
+			draw_texture_rect(pic, PackSkin.fit_rect(pic, Vector2(at.x * _facing, at.y + len * 0.12), Vector2(len, len)), false, tint)
+			draw_set_transform(Vector2.ZERO)
+		elif rig != null:
+			var k := h / rig.height
+			var x := Transform2D(-PI * 0.5, at) * Transform2D(0.0, Vector2(_facing * k, k), 0.0, Vector2.ZERO) * Transform2D(0.0, Vector2(0, rig.height * 0.5))
+			rig.draw(self, _rig_pose(rig, "sleep"), x, tint)
+		else:
+			draw_set_transform(at, -PI * 0.5, flip)
+			draw_texture_rect(tex, Rect2(-w * 0.5, -h * 0.5, w, h), false, tint)
+			draw_set_transform(Vector2.ZERO)
+	elif rig != null:
+		var k2 := h / rig.height
+		rig.draw(self, _rig_pose(rig, bp), Transform2D(0.0, Vector2(_facing * k2, k2), 0.0, Vector2(0, lift + 2.0)), tint)
+	else:
+		# One flat picture: walking hops and sways; working squashes in time; sitting is
+		# drawn shorter; eating nods.
+		var sway := 0.0
+		var sq := Vector2.ONE
+		match bp:
+			"walk":
+				sway = 0.04 * sin(TAU * _t / (STEP_PERIOD * 2.0))
+			"work":
+				var q := 0.5 + 0.5 * sin(TAU * _t / CutoutRig.WORK_PERIOD)
+				sq = Vector2(1.0 + 0.03 * q, 1.0 - 0.06 * q)
+			"sit":
+				sq = Vector2(1.04, SIT_SQUASH)
+			"eat":
+				sway = 0.05 * sin(TAU * _t / CutoutRig.EAT_PERIOD)
+			"wave":
+				sway = 0.06 * sin(TAU * _t / CutoutRig.WAVE_PERIOD)
+			_:
+				sq = Vector2(1.0, 1.0 + 0.012 * sin(TAU * _t / CutoutRig.BREATH_PERIOD))
+		draw_set_transform(Vector2(0, lift + 2.0), sway, flip * sq)
+		draw_texture_rect(tex, Rect2(-w * 0.5, -h, w, h), false, tint)
+		draw_set_transform(Vector2.ZERO)
+	h = drawn_height()
 	var top := -h + lift
+	if lying:
+		top = lie_point().y - 14.0
 	var font := ThemeDB.fallback_font
-	if asleep():
+	if lying:
 		for i in 3:
 			draw_string_outline(font, Vector2(10 + i * 7, top + 4 - i * 9), "z", HORIZONTAL_ALIGNMENT_LEFT, -1, 11 + i * 3, 3, Color.WHITE)
 			draw_string(font, Vector2(10 + i * 7, top + 4 - i * 9), "z", HORIZONTAL_ALIGNMENT_LEFT, -1, 11 + i * 3, line)
@@ -509,37 +580,161 @@ func _draw_pictured() -> void:
 			draw_texture_rect(u.tex, PackSkin.fit_rect(u.tex, at + Vector2(0, 11), Vector2(22, 22)), false)
 	if selected:
 		draw_colored_polygon(PackedVector2Array([Vector2(-7, top - 12), Vector2(7, top - 12), Vector2(0, top - 3)]), accent)
-	var plate_y := top - (14.0 if selected else 2.0)
+
+
+## Where someone sitting or lying on furniture `o` has their feet: the middle of its front
+## edge, a little inside it (the piece sorts ON_LIFT higher, so they are drawn over it).
+static func on_spot(l: HouseLayout, o: Dictionary, pack: Pack) -> Vector2:
+	var r := l.object_rect(o, pack)
+	return Vector2(r.get_center().x, r.end.y - 4.0)
+
+
+## The pose an action is done in: the pack's art says (`PackSkin.pose_for`); else asleep for
+## a slow action, working for one at furniture or one that cleans or picks something up,
+## standing idle otherwise.
+func _pick_pose(w: World) -> String:
+	var cur := person.current
+	if cur.is_empty():
+		return ""
+	var aid := str(cur.get("action", ""))
+	var o := w.object(int(cur.get("object_uid", -1))) if int(cur.get("object_uid", -1)) >= 0 else {}
+	var otype := str(o.get("type", ""))
+	var skin := _skin()
+	var named := skin.pose_for(aid, otype) if skin != null else ""
+	if named in CutoutRig.POSES:
+		return named
+	var a: Dictionary = w.pack.actions.get(aid, {})
+	if bool(a.get("slow", false)):
+		return "sleep"
+	if otype != "" or str(a.get("cleans", "")) != "" or bool(a.get("picks", false)):
+		return "work"
+	return "idle"
+
+
+## The pose the body is drawn in: "wave" while thanking, "walk" on the way, else what the
+## current action asks for (`action_pose`), "idle" with nothing to do.
+func body_pose() -> String:
+	match pose():
+		"thanks":
+			return "wave"
+		"walking":
+			return "walk"
+		"idle":
+			return "idle"
+	return action_pose if action_pose != "" else "idle"
+
+
+## The rig's pose, bent forward by the look's `lean` (an old back): the torso tips forward,
+## the legs tip back by as much so they still stand straight.
+func _rig_pose(rig: CutoutRig, name: String) -> Dictionary:
+	var p := rig.pose(name, _t)
+	var lean: float = _look.get("lean", 0.0)
+	if lean != 0.0 and name != "sleep":
+		p["torso"] = p.get("torso", Vector3.ZERO) + Vector3(lean, 0, 0)
+		p["head"] = p.get("head", Vector3.ZERO) - Vector3(lean * 0.6, 0, 0)
+		for leg in ["leg_upper", "leg_back_upper"]:
+			p[leg] = p.get(leg, Vector3.ZERO) - Vector3(lean, 0, 0)
+	return p
+
+
+## How tall the figure stands as drawn now (lower sitting, flat lying).
+func drawn_height() -> float:
+	var h := body_size().y
+	match body_pose():
+		"sleep":
+			return h if bool(_look.get("lying", false)) else 26.0
+		"sit":
+			var rig: CutoutRig = _look.get("rig")
+			return h * (1.0 - rig.thigh * 0.97 / rig.height) if rig != null and rig.thigh > 0.0 else h * SIT_SQUASH
+	return h
+
+
+## Where the middle of a lying body goes, relative to the feet: on the furniture they lie on
+## (its middle), else just above the ground.
+func lie_point() -> Vector2:
+	if on_object and not use_object.is_empty() and layout() != null and session.world != null:
+		var r := layout().object_rect(use_object, session.world.pack)
+		return Vector2(0, r.get_center().y - 4.0 - position.y)
+	return Vector2(0, -12)
+
+
+## The size of the label block over the head (pictured people; the house draws it on a layer
+## above everything): the name plate, plus the thought bubble or thank-you over it. A person
+## not selected shows only their name on a small plate; the selected one also shows what
+## they are doing and how far along.
+func label_size() -> Vector2:
+	var font := ThemeDB.fallback_font
+	var pw := 0.0
+	var ph := 0.0
+	if selected:
+		pw = maxf(font.get_string_size(_doing, HORIZONTAL_ALIGNMENT_LEFT, -1, 11).x, font.get_string_size(_name, HORIZONTAL_ALIGNMENT_LEFT, -1, 13).x) + 18.0
+		pw = clampf(pw, 60.0, 170.0)
+		ph = 32.0
+	else:
+		pw = clampf(font.get_string_size(_name, HORIZONTAL_ALIGNMENT_LEFT, -1, 12).x + 14.0, 36.0, 120.0)
+		ph = 18.0
+	var extra := 0.0
+	var bw := 0.0
 	if thanking():
-		draw_string_outline(font, Vector2(-40, plate_y - 40), session.strings.t("thanks"), HORIZONTAL_ALIGNMENT_CENTER, 80, 14, 3, Color.WHITE)
-		draw_string(font, Vector2(-40, plate_y - 40), session.strings.t("thanks"), HORIZONTAL_ALIGNMENT_CENTER, 80, 14, accent)
+		extra = 20.0
+		bw = 80.0
 	elif _wish != "":
-		_draw_bubble_at(plate_y - 36.0)
-	var pw := maxf(font.get_string_size(_doing, HORIZONTAL_ALIGNMENT_LEFT, -1, 11).x, font.get_string_size(_name, HORIZONTAL_ALIGNMENT_LEFT, -1, 13).x) + 18.0
-	pw = clampf(pw, 60.0, 170.0)
+		extra = 30.0
+		bw = font.get_string_size(_wish, HORIZONTAL_ALIGNMENT_LEFT, -1, 12).x + 16.0
+	return Vector2(maxf(pw, bw), ph + extra)
+
+
+## Where the label block's bottom middle sits by default, relative to the feet.
+func label_anchor() -> Vector2:
+	var top := -drawn_height() + step_lift()
+	if body_pose() == "sleep":
+		top += lie_point().y + 6.0
+	return Vector2(0, top - (14.0 if selected else 3.0))
+
+
+## Draws the label block on `ci` with its bottom middle at `at` (the canvas's coordinates).
+func draw_label(ci: CanvasItem, at: Vector2) -> void:
+	var skin := _skin()
+	var accent := skin.accent if skin != null else Color("#E5533C")
+	var line := Color("#4A3424")
+	var font := ThemeDB.fallback_font
 	var plate := StyleBoxFlat.new()
 	plate.bg_color = Color("#FFF4DF", 0.94)
 	plate.border_color = accent if selected else Color(line, 0.55)
 	plate.set_border_width_all(2 if selected else 1)
-	plate.set_corner_radius_all(9)
-	var rect := Rect2(Vector2(-pw * 0.5, plate_y - 34), Vector2(pw, 32))
-	draw_style_box(plate, rect)
-	draw_string(font, Vector2(rect.position.x, plate_y - 20), _name, HORIZONTAL_ALIGNMENT_CENTER, pw, 13, line)
-	draw_string(font, Vector2(rect.position.x + 4, plate_y - 7), _doing, HORIZONTAL_ALIGNMENT_CENTER, pw - 8, 11, line.lightened(0.15))
-	var prog := progress()
-	if prog >= 0.0:
-		draw_rect(Rect2(rect.position.x + 6, plate_y - 4, (pw - 12) * prog, 3), accent)
+	plate.set_corner_radius_all(9 if selected else 7)
+	var rect: Rect2
+	if selected:
+		var pw := clampf(maxf(font.get_string_size(_doing, HORIZONTAL_ALIGNMENT_LEFT, -1, 11).x, font.get_string_size(_name, HORIZONTAL_ALIGNMENT_LEFT, -1, 13).x) + 18.0, 60.0, 170.0)
+		rect = Rect2(at + Vector2(-pw * 0.5, -32), Vector2(pw, 32))
+		ci.draw_style_box(plate, rect)
+		ci.draw_string(font, Vector2(rect.position.x, at.y - 18), _name, HORIZONTAL_ALIGNMENT_CENTER, pw, 13, line)
+		ci.draw_string(font, Vector2(rect.position.x + 4, at.y - 5), _doing, HORIZONTAL_ALIGNMENT_CENTER, pw - 8, 11, line.lightened(0.15))
+		var prog := progress()
+		if prog >= 0.0:
+			ci.draw_rect(Rect2(rect.position.x + 6, at.y - 3, (pw - 12) * prog, 3), accent)
+	else:
+		var nw := clampf(font.get_string_size(_name, HORIZONTAL_ALIGNMENT_LEFT, -1, 12).x + 14.0, 36.0, 120.0)
+		rect = Rect2(at + Vector2(-nw * 0.5, -18), Vector2(nw, 18))
+		ci.draw_style_box(plate, rect)
+		ci.draw_string(font, Vector2(rect.position.x, at.y - 5), _name, HORIZONTAL_ALIGNMENT_CENTER, nw, 12, line)
+	var y := rect.position.y
+	if thanking():
+		ci.draw_string_outline(font, Vector2(at.x - 40, y - 4), session.strings.t("thanks"), HORIZONTAL_ALIGNMENT_CENTER, 80, 14, 3, Color.WHITE)
+		ci.draw_string(font, Vector2(at.x - 40, y - 4), session.strings.t("thanks"), HORIZONTAL_ALIGNMENT_CENTER, 80, 14, accent)
+	elif _wish != "":
+		_draw_bubble_at(ci, Vector2(at.x, y - 6))
 
 
-func _draw_bubble_at(y: float) -> void:
+func _draw_bubble_at(ci: CanvasItem, at: Vector2) -> void:
 	var font := ThemeDB.fallback_font
 	var w := font.get_string_size(_wish, HORIZONTAL_ALIGNMENT_LEFT, -1, 12).x + 16.0
-	var rect := Rect2(Vector2(-w * 0.5, y - 22), Vector2(w, 22))
+	var rect := Rect2(Vector2(at.x - w * 0.5, at.y - 22), Vector2(w, 22))
 	var box := StyleBoxFlat.new()
 	box.bg_color = Color(1, 1, 1, 0.95)
 	box.border_color = Color(0.55, 0.5, 0.45)
 	box.set_border_width_all(1)
 	box.set_corner_radius_all(10)
-	draw_style_box(box, rect)
-	draw_circle(Vector2(-6, y + 4), 3.0, Color(1, 1, 1, 0.95))
-	draw_string(font, rect.position + Vector2(0, 16), _wish, HORIZONTAL_ALIGNMENT_CENTER, w, 12, Color(0.2, 0.15, 0.1))
+	ci.draw_style_box(box, rect)
+	ci.draw_circle(at + Vector2(-6, 4), 3.0, Color(1, 1, 1, 0.95))
+	ci.draw_string(font, rect.position + Vector2(0, 16), _wish, HORIZONTAL_ALIGNMENT_CENTER, w, 12, Color(0.2, 0.15, 0.1))

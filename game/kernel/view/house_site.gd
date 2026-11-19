@@ -35,8 +35,10 @@ var h_walls: Dictionary = {}
 var v_walls: Dictionary = {}
 var h_open: Dictionary = {}
 var v_open: Dictionary = {}
-## Cells nobody walks on (unbuilt indoor rooms, solid decor): Vector2i -> true.
+## Cells nobody walks on (unbuilt indoor rooms, solid decor, furniture): Vector2i -> true.
 var blocked: Dictionary = {}
+## Cells under furniture, as the view last set them (`set_furniture`): Vector2i -> true.
+var furniture: Dictionary = {}
 ## Bumped on every rebuild, so drawing can tell the plan changed.
 var version := 0
 
@@ -158,12 +160,36 @@ func _rebuild() -> void:
 				var e2 := Vector2i(int(d["x"]), int(d["y"]) + i)
 				if v_walls.has(e2) and not foundation(e2 - Vector2i(1, 0)) and not foundation(e2):
 					v_open[e2] = true
+	_block()
+
+
+## Marks the blocked cells and rebuilds the walking graph (walls unchanged).
+func _block() -> void:
+	blocked = {}
 	for y in size.y:
 		for x in size.x:
 			var c := Vector2i(x, y)
-			if foundation(c) or _decor_solid(c):
+			if foundation(c) or _decor_solid(c) or furniture.has(c):
 				blocked[c] = true
 	_build_graph()
+
+
+## The cells furniture stands on (Vector2i -> true): nobody walks or stops there. Rebuilds
+## the walking graph only when the set changed.
+func set_furniture(cells: Dictionary) -> void:
+	if not enabled:
+		return
+	var same := cells.size() == furniture.size()
+	if same:
+		for c in cells:
+			if not furniture.has(c):
+				same = false
+				break
+	if same:
+		return
+	furniture = cells.duplicate()
+	if _key != "\n":
+		_block()
 
 
 func _mark(d: Dictionary, kind: String) -> void:
@@ -258,16 +284,26 @@ func route(from: Vector2, to: Vector2) -> PackedVector2Array:
 	var out := PackedVector2Array()
 	if not enabled or clear_line(from, to):
 		return out
+	# From or to a blocked cell (furniture, say): by way of the nearest open cell.
 	var a := cell_of(from)
 	var b := cell_of(to)
-	if not (walkable(a) and walkable(b)):
-		return out
-	var ids := _astar.get_id_path(_id(a), _id(b))
-	if ids.size() < 2:
+	var a2 := a if walkable(a) else nearest_open(a)
+	var b2 := b if walkable(b) else nearest_open(b)
+	if a2.x < 0 or b2.x < 0:
 		return out
 	var pts: Array[Vector2] = []
-	for i in range(1, ids.size() - 1):
-		pts.append(_astar.get_point_position(ids[i]))
+	if a2 != a:
+		pts.append(centre(a2))
+	if a2 != b2:
+		var ids := _astar.get_id_path(_id(a2), _id(b2))
+		if ids.size() < 2:
+			return out
+		for i in range(1, ids.size() - 1):
+			pts.append(_astar.get_point_position(ids[i]))
+	if b2 != b:
+		pts.append(centre(b2))
+	if pts.is_empty():
+		return out
 	# Pull the string tight: from each corner, go as far along the cells as is clear.
 	var anchor := from
 	var i := 0
@@ -373,3 +409,132 @@ static func _edge(along: String, line: int, at: int) -> Vector2i:
 ## Whether the edge at cell `at` of this line is an open door.
 func is_open(along: String, line: int, at: int) -> bool:
 	return h_open.has(Vector2i(at, line)) if along == "x" else v_open.has(Vector2i(line, at))
+
+
+func centre(c: Vector2i) -> Vector2:
+	return (Vector2(c) + Vector2(0.5, 0.5)) * CELL
+
+
+## Whether nothing stands between cells `a` and `b`, side by side: no wall, or an open door.
+func edge_free(a: Vector2i, b: Vector2i) -> bool:
+	return _straight_open(a, b)
+
+
+## Whether any wall (standing or opened as a door) lies on the edge between `a` and `b`.
+func edge_walled(a: Vector2i, b: Vector2i) -> bool:
+	if a.x != b.x:
+		return v_walls.has(Vector2i(maxi(a.x, b.x), a.y))
+	return h_walls.has(Vector2i(a.x, maxi(a.y, b.y)))
+
+
+## The open cell nearest `from` (not counting `from` itself unless it is open), going round
+## walls through doors only and over anything else; Vector2i(-1, -1) when none is near.
+## `taken` (Vector2i -> true) cells count as not open.
+func nearest_open(from: Vector2i, taken := {}, aim := Vector2(INF, INF)) -> Vector2i:
+	var seen := {from: true}
+	var ring: Array[Vector2i] = [from]
+	var target := aim if aim.x != INF else centre(from)
+	var home := room_at(from)
+	for step in 12:
+		var best := Vector2i(-1, -1)
+		var best_d := INF
+		for c in ring:
+			if walkable(c) and not taken.has(c):
+				# Another room only when its own has no open cell this near.
+				var d := centre(c).distance_squared_to(target) + (0.0 if room_at(c) == home else 1e7)
+				if d < best_d:
+					best_d = d
+					best = c
+		if best.x >= 0:
+			return best
+		var next: Array[Vector2i] = []
+		for c in ring:
+			for d in [Vector2i(1, 0), Vector2i(-1, 0), Vector2i(0, 1), Vector2i(0, -1)]:
+				var n: Vector2i = c + d
+				if _inside(n) and not seen.has(n) and _straight_open(c, n):
+					seen[n] = true
+					next.append(n)
+		if next.is_empty():
+			break
+		ring = next
+	return Vector2i(-1, -1)
+
+
+## How far (pixels) a stop point keeps from a wall line beside it; a stop point's feet span
+## this much sideways.
+const STOP_MARGIN_X := 20.0
+const STOP_MARGIN_Y := 12.0
+const FEET := 14.0
+
+
+## Whether a person can stop at `p`: the cells under their feet (p.x +- FEET) are open, no
+## wall stands between them, and `p` keeps STOP_MARGIN from any wall line (doors too: no one
+## stops in a doorway).
+func can_stop(p: Vector2) -> bool:
+	if not enabled:
+		return true
+	var c := cell_of(p)
+	if not walkable(c):
+		return false
+	for dx in [-FEET, FEET]:
+		var o := cell_of(p + Vector2(dx, 0))
+		if o != c and (not walkable(o) or edge_walled(c, o)):
+			return false
+	var lo := Vector2(c) * CELL
+	var hi := lo + CELL
+	if p.x - lo.x < STOP_MARGIN_X and v_walls.has(Vector2i(c.x, c.y)):
+		return false
+	if hi.x - p.x < STOP_MARGIN_X and v_walls.has(Vector2i(c.x + 1, c.y)):
+		return false
+	if p.y - lo.y < STOP_MARGIN_Y and h_walls.has(Vector2i(c.x, c.y)):
+		return false
+	if hi.y - p.y < STOP_MARGIN_Y and h_walls.has(Vector2i(c.x, c.y + 1)):
+		return false
+	return true
+
+
+## Where a person heading for `p` stops: `p` itself when they can stop there, else the middle
+## of the nearest open cell (on the same side of the walls). `taken` cells are skipped.
+func stop_point(p: Vector2, taken := {}) -> Vector2:
+	if not enabled:
+		return p
+	var c := cell_of(p)
+	if can_stop(p) and not taken.has(c):
+		return p
+	var n := nearest_open(c, taken, p)
+	return centre(n) if n.x >= 0 else p
+
+
+## Where a person stands to use the furniture on cells `r` (map cells): in front of it (the
+## row south of it), else beside it, else behind it; always on an open cell with no wall
+## between it and the piece. The middle of the front edge when both cells there are open.
+func use_spot(r: Rect2i, taken := {}) -> Vector2:
+	var front := r.end.y
+	var mid_x := float(r.position.x) + float(r.size.x) * 0.5
+	var p := Vector2(mid_x * CELL.x, (front + 0.5) * CELL.y)
+	if can_stop(p) and not taken.has(cell_of(p)) and _faces(cell_of(p + Vector2(-FEET, 0)), r) and _faces(cell_of(p + Vector2(FEET, 0)), r):
+		return p
+	var cands: Array[Vector2i] = []
+	var xs: Array = range(r.position.x, r.end.x)
+	xs.sort_custom(func(x1, x2): return absf(x1 + 0.5 - mid_x) < absf(x2 + 0.5 - mid_x))
+	for x in xs:
+		cands.append(Vector2i(x, front))
+	for y in range(r.end.y - 1, r.position.y - 1, -1):
+		cands.append(Vector2i(r.position.x - 1, y))
+		cands.append(Vector2i(r.end.x, y))
+	for x in xs:
+		cands.append(Vector2i(x, r.position.y - 1))
+	for c in cands:
+		if _inside(c) and walkable(c) and not taken.has(c) and _faces(c, r):
+			return centre(c)
+	var n := nearest_open(r.position + r.size / 2, taken)
+	return centre(n) if n.x >= 0 else centre(Vector2i(r.position.x, r.end.y))
+
+
+## Whether cell `c` (outside `r`) touches `r` with no wall between.
+func _faces(c: Vector2i, r: Rect2i) -> bool:
+	for d in [Vector2i(0, -1), Vector2i(0, 1), Vector2i(1, 0), Vector2i(-1, 0)]:
+		var n: Vector2i = c + d
+		if r.has_point(n) and edge_free(c, n):
+			return true
+	return false

@@ -14,12 +14,16 @@ var alpha := 1.0
 ## The object this stands for (-1: scenery); its dishes are drawn on top.
 var object_uid := -1
 var house: HouseView
+## Furniture people sit or lie on sorts this much above its foot, so whoever sits on it
+## (feet just inside its front edge) is drawn over it.
+var sort_lift := 0.0
+const ON_LIFT := 10.0
 
 
 func place(t: Texture2D, r: Rect2) -> void:
 	tex = t
 	rect = r
-	position = Vector2(r.get_center().x, r.end.y)
+	position = Vector2(r.get_center().x, r.end.y - sort_lift)
 	queue_redraw()
 
 

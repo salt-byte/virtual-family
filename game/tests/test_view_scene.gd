@@ -45,7 +45,10 @@ func test_person_walks_to_the_object_they_use():
 	assert_true(m.session.command({"type": "drag", "person": p.uid, "object": uid}).ok)
 	var pv: PersonView = m.house.people[p.uid]
 	m.tick(0.016)
-	assert_eq(pv.target, m.house.layout.stand_pos(w.object(uid), w.pack))
+	# qijia's art sits people ON a stool (art.json `poses.on`), so the spot is on it, not
+	# below it as for other furniture.
+	assert_true(pv.on_object)
+	assert_eq(pv.target, PersonView.on_spot(m.house.layout, w.object(uid), w.pack))
 	for i in 200:
 		pv.tick(0.05)
 	assert_true(pv.position.distance_to(pv.target) < 1.0)
@@ -95,11 +98,23 @@ func test_two_people_on_one_cell_are_offset():
 	extra.gender = "male"
 	m.session.world.add_person(extra)
 	m.tick(0.016)
-	var ps := m.session.world.people
+	var w := m.session.world
+	var ps := w.people
 	var a: PersonView = m.house.people[ps[0].uid]
 	var b: PersonView = m.house.people[ps[1].uid]
+	# Both head for one mess (newcomers now appear on cells of their own, so they no longer
+	# share a cell just by arriving).
+	var uid := w.next_uid()
+	w.messes.append({"uid": uid, "type": "x", "room": "hall", "x": 2, "y": 1})
+	for p in [ps[0], ps[1]]:
+		p.current = {"action": w.pack.actions.keys()[0], "object_uid": -1, "target_uid": uid, "remaining_s": 600}
+	m.house.refresh()
+	# They used to stand SPREAD (20 px) apart in one cell, close enough to overlap and to put
+	# one of them on a wall line; with a site plan the second takes the nearest open cell.
 	assert_eq(a.base_target, b.base_target)
-	assert_near(absf(a.target.x - b.target.x), 20.0)
+	var site := m.house.layout.site
+	assert_true(site.cell_of(a.target) != site.cell_of(b.target))
+	assert_true(site.can_stop(a.target) and site.can_stop(b.target))
 	m.free()
 
 

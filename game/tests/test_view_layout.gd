@@ -55,8 +55,13 @@ func test_stand_pos_below_furniture_or_center_when_against_edge():
 	var mid := {"type": t, "room": "yard", "x": 0, "y": 0}
 	var r := l.object_rect(mid, p)
 	assert_eq(l.stand_pos(mid, p), Vector2(r.get_center().x, r.end.y + l.CELL.y * 0.5))
+	# With a site plan nobody stands on the piece itself (it used to fall back to its middle
+	# when the cell below was outside its room): no wall stands between the yard's bottom row
+	# and the threshing floor below, so the spot below is used.
 	var low := {"type": t, "room": "yard", "x": 0, "y": 7 - h}
-	assert_eq(l.stand_pos(low, p), l.object_rect(low, p).get_center())
+	var lr := l.object_rect(low, p)
+	assert_eq(l.stand_pos(low, p), Vector2(lr.get_center().x, lr.end.y + l.CELL.y * 0.5))
+	assert_true(not lr.has_point(l.stand_pos(low, p)))
 	assert_true(w > 0)
 
 func test_bounds_cover_rooms_and_walls():

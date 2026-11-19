@@ -104,12 +104,40 @@ func object_rect(o: Dictionary, pack: Pack) -> Rect2:
 	var size := Vector2(float(t.get("w", 1)), float(t.get("h", 1))) * CELL
 	return Rect2(cell_to_pos(str(o.room), int(o.x), int(o.y)), size)
 
-func stand_pos(o: Dictionary, pack: Pack) -> Vector2:
+## Where a person stands to use `o`. With a site plan: an open cell in front of it, else
+## beside or behind it, never on it nor across a wall from it (`HouseSite.use_spot`).
+## Without one: just below it, or its middle when that is outside its room.
+func stand_pos(o: Dictionary, pack: Pack, taken := {}) -> Vector2:
 	var r := object_rect(o, pack)
+	if site.enabled and room_rect(str(o.room)).size != Vector2.ZERO:
+		return site.use_spot(cells_of(r), taken)
 	var p := Vector2(r.get_center().x, r.end.y + CELL.y * 0.5)
 	if room_rect(str(o.room)).has_point(p):
 		return p
 	return r.get_center()
+
+## The map cells a rect in house coordinates covers (a site plan's cells).
+static func cells_of(r: Rect2) -> Rect2i:
+	return Rect2i(Vector2i((r.position / CELL).round()), Vector2i((r.size / CELL).round()))
+
+
+## Every cell furniture stands on, in built rooms (Vector2i -> true), for the site plan.
+func furniture_cells(world: World) -> Dictionary:
+	var out := {}
+	for o in world.objects:
+		if not str(o.room) in world.rooms_built:
+			continue
+		var r := cells_of(object_rect(o, world.pack))
+		for y in range(r.position.y, r.end.y):
+			for x in range(r.position.x, r.end.x):
+				out[Vector2i(x, y)] = true
+	return out
+
+
+## Where someone heading for `p` stops (see `HouseSite.stop_point`); `p` without a site.
+func stop_point(p: Vector2, taken := {}) -> Vector2:
+	return site.stop_point(p, taken) if site.enabled else p
+
 
 ## What is under `pos`: a story's dig mark (with its `story`), a collectible, then a mess,
 ## then furniture, else the room.

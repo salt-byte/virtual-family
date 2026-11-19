@@ -76,11 +76,14 @@ func test_qijia_declares_and_falls_back():
 	assert_true(not skin.floor_tile("hall").is_empty())
 	assert_eq(skin.floor_tile("yard"), {}, "the yard shows the compound ground")
 	assert_true(skin.object_sprite("kang") != null)
-	assert_eq(skin.object_sprite("bookshelf"), null, "no art yet: a block")
+	# Every qijia object has a picture now; an undeclared type still falls back to a block.
+	assert_true(skin.object_sprite("bookshelf") != null)
+	assert_eq(skin.object_sprite("no_such_type"), null, "no art: a block")
 	assert_true(skin.mess_sprite("dirt") != null)
 	assert_eq(skin.mess_sprite("snow_cover"), null)
 	assert_true(skin.collectible_sprite("egg") != null)
-	assert_eq(skin.collectible_sprite("purse"), null)
+	assert_true(skin.collectible_sprite("purse") != null)
+	assert_eq(skin.collectible_sprite("no_such_type"), null)
 	assert_eq(skin.decor_rule("#a8d8e6"), {"hide": true}, "colour keys match in any case")
 	assert_eq(skin.decor_rule("#123456"), {})
 	assert_true(not skin.scenery().is_empty())
@@ -136,7 +139,9 @@ func test_qijia_house_stands_pictures_and_people():
 			assert_true(house.props.has(int(o.uid)), str(o.type))
 			var piece: PropPiece = house.props[int(o.uid)]
 			var r := house.layout.object_rect(o, w.pack)
-			assert_near(piece.position.y, piece.rect.end.y, 0.01, "stands on its foot")
+			# Seats and beds sort ON_LIFT above their foot (someone on them is drawn over them).
+			assert_near(piece.position.y, piece.rect.end.y - piece.sort_lift, 0.01, "stands on its foot")
+			assert_eq(piece.sort_lift, PropPiece.ON_LIFT if house.skin.sat_on(str(o.type)) else 0.0)
 			assert_true(piece.rect.size.x <= r.size.x * 0.9 + 0.01)
 			assert_true(piece.rect.size.y <= r.size.y + 24.01)
 	assert_eq(house.props.size(), pictured)
@@ -186,5 +191,9 @@ func test_props_follow_objects_moved_and_removed():
 	w.objects.append(moved)
 	house.refresh()
 	assert_true(house.props.has(int(o.uid)))
-	assert_near(house.props[int(o.uid)].rect.position.x, before.position.x + HouseLayout.CELL.x, 0.01)
+	# A picture keeps WALL_GAP clear of a side wall on the edge of its footprint, so moving
+	# a piece off the wall shifts it by a cell less that gap: compare with picture_rect.
+	var piece: PropPiece = house.props[int(o.uid)]
+	assert_eq(piece.rect, house.picture_rect(moved, piece.tex, w))
+	assert_true(piece.rect.position.x > before.position.x + HouseLayout.CELL.x - HouseView.WALL_GAP - 0.01)
 	_done(m)

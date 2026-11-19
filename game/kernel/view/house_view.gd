@@ -41,6 +41,9 @@ var skin: PackSkin
 var props: Dictionary = {}  # object uid -> PropPiece
 var scenery: Array[PropPiece] = []
 var _overlay: Node2D
+## With the pack's art: the people's name plates, on a layer above everything (walls, the
+## gatehouse) and kept from overlapping one another.
+var _labels: Node2D
 ## Moving further than this between press and release is a drag, not a click.
 const CLICK_SLOP := 6.0
 
@@ -95,6 +98,10 @@ func setup(s: GameSession) -> void:
 		_overlay.z_index = 5
 		_overlay.draw.connect(_draw_overlay)
 		add_child(_overlay)
+		_labels = Node2D.new()
+		_labels.z_index = 6
+		_labels.draw.connect(_draw_labels)
+		add_child(_labels)
 	if layout.site.enabled:
 		y_sort_enabled = true
 		ground = HouseGround.new()
@@ -232,6 +239,8 @@ func refresh() -> void:
 	var w := session.world
 	var alive := {}
 	if w != null and w.phase != "invalid":
+		_modulate.color = Color.WHITE.lerp(NIGHT_COLOR, night_amount(w.local_hour()))
+		_update_site(w)
 		for p in w.people:
 			if p.alive:
 				alive[p.uid] = p
@@ -247,11 +256,58 @@ func refresh() -> void:
 			var pv := PersonView.new()
 			add_child(pv)
 			pv.setup(alive[uid], session)
+			if layout.site.enabled:
+				# Newcomers appear on an open cell nobody else stands on.
+				var occupied := {}
+				for o in people:
+					occupied[layout.site.cell_of(people[o].position)] = true
+				pv.position = layout.stop_point(pv.position, occupied)
+				pv.base_target = pv.position
+				pv.target = pv.position
 			people[uid] = pv
-	var taken: Array = []
 	for uid in people:
+		people[uid].refresh()
+	_spread(w)
+	_refresh_pets(w)
+	_sync_props()
+	queue_redraw()
+
+
+## People heading for the same spot: with a site plan the first one there keeps it and the
+## others take the nearest open cells (at furniture: another side of it); without one they
+## stand SPREAD apart in a row.
+func _spread(w: World) -> void:
+	var order: Array = people.keys()
+	if layout.site.enabled:
+		# Whoever already stands at their spot keeps it.
+		var there := order.filter(func(u): return people[u].position.distance_to(people[u].base_target) <= PersonView.ARRIVED)
+		order = there + order.filter(func(u): return not there.has(u))
+		var cells := {}
+		var seated := {}  # object uid -> how many sit or lie on it already
+		for uid in order:
+			var pv: PersonView = people[uid]
+			var t := pv.base_target
+			if pv.on_object and w != null:
+				# Side by side along the piece, within its width.
+				var r := layout.object_rect(pv.use_object, w.pack)
+				var k := int(seated.get(int(pv.use_object.uid), 0))
+				seated[int(pv.use_object.uid)] = k + 1
+				var steps := [0.0, -1.0, 1.0, -2.0, 2.0]
+				t.x = clampf(t.x + float(steps[mini(k, 4)]) * 34.0, r.position.x + 14.0, r.end.x - 14.0)
+				pv.target = t
+				continue
+			if cells.has(layout.site.cell_of(t)):
+				if not pv.use_object.is_empty() and w != null:
+					t = layout.stand_pos(pv.use_object, w.pack, cells)
+				else:
+					t = layout.stop_point(t, cells)
+			for dx in [-HouseSite.FEET, 0.0, HouseSite.FEET]:
+				cells[layout.site.cell_of(t + Vector2(dx, 0))] = true
+			pv.target = t
+		return
+	var taken: Array = []
+	for uid in order:
 		var pv: PersonView = people[uid]
-		pv.refresh()
 		var t := pv.base_target
 		var n := 0
 		while taken.any(func(o: Vector2): return o.distance_to(t) < 1.0):
@@ -259,12 +315,6 @@ func refresh() -> void:
 			t = pv.base_target + Vector2(SPREAD * n, 0)
 		taken.append(t)
 		pv.target = t
-	_refresh_pets(w)
-	if w != null and w.phase != "invalid":
-		_modulate.color = Color.WHITE.lerp(NIGHT_COLOR, night_amount(w.local_hour()))
-		_update_site(w)
-	_sync_props()
-	queue_redraw()
 
 
 ## Pictures standing on the map that the sim knows nothing of: decor shapes the skin turns
@@ -313,11 +363,12 @@ func _sync_props() -> void:
 				piece.house = self
 				props[uid] = piece
 				add_child(piece)
-			var r := layout.object_rect(o, w.pack)
-			var fit := PackSkin.fit_rect(tex, Vector2(r.get_center().x, r.end.y + 2.0), Vector2(r.size.x * 0.9, r.size.y + 24.0))
+			var fit := picture_rect(o, tex, w)
 			var a := 0.35 if uid == lifted else 1.0
-			if fit != piece.rect or tex != piece.tex or a != piece.alpha:
+			var lift := PropPiece.ON_LIFT if skin.sat_on(str(o.type)) else 0.0
+			if fit != piece.rect or tex != piece.tex or a != piece.alpha or lift != piece.sort_lift:
 				piece.alpha = a
+				piece.sort_lift = lift
 				piece.place(tex, fit)
 			else:
 				piece.queue_redraw()
@@ -326,6 +377,28 @@ func _sync_props() -> void:
 			props[uid].queue_free()
 			remove_child(props[uid])
 			props.erase(uid)
+
+
+## Where the picture of furniture `o` goes: standing on the bottom of its footprint, no wider
+## than 90 % of it and at most WALL_LEAN above it (furniture on a room's back row leans on
+## the wall); kept clear of a side wall standing on either edge of the footprint, so it never
+## reaches over a wall into the room next door.
+const WALL_LEAN := 24.0
+const WALL_GAP := 8.0
+func picture_rect(o: Dictionary, tex: Texture2D, w: World) -> Rect2:
+	var r := layout.object_rect(o, w.pack)
+	var left := 0.0
+	var right := 0.0
+	if layout.site.enabled:
+		var c := HouseLayout.cells_of(r)
+		for y in range(c.position.y, c.end.y):
+			if layout.site.v_walls.has(Vector2i(c.position.x, y)):
+				left = WALL_GAP
+			if layout.site.v_walls.has(Vector2i(c.end.x, y)):
+				right = WALL_GAP
+	var span := r.size.x - left - right
+	var mid := r.position.x + left + span * 0.5
+	return PackSkin.fit_rect(tex, Vector2(mid, r.end.y + 2.0), Vector2(minf(r.size.x * 0.9, span), r.size.y + WALL_LEAN))
 
 
 ## One PetView per animal at home; the ones that ran off or died are taken away.
@@ -366,6 +439,7 @@ func _update_site(w: World) -> void:
 	if ground == null:
 		return
 	layout.site.update(w.built_set())
+	layout.site.set_furniture(layout.furniture_cells(w))
 	if layout.site.version == _site_version:
 		return
 	_site_version = layout.site.version
@@ -399,6 +473,8 @@ func tick(delta: float) -> void:
 		pets[uid].tick(delta)
 	_fade_walls()
 	_follow_step(delta)
+	if _labels != null:
+		_labels.queue_redraw()
 
 
 ## Starts following `uid` (again: re-centres on them).
@@ -655,12 +731,11 @@ func _draw() -> void:
 			draw_texture_rect(pic, PackSkin.fit_rect(pic, at + Vector2(0, HouseLayout.CELL.y * 0.4), HouseLayout.CELL * Vector2(1.15, 0.9)), false)
 			continue
 		if str(mt.get("look", "")) == "patch":
-			# Lying over the ground (snow): a wide soft patch, a smaller one on top.
-			var c := pack_color(mt, MESS_COLOR)
-			draw_colored_polygon(HouseGround._ellipse(Rect2(at - HouseLayout.CELL * Vector2(1.1, 0.55), HouseLayout.CELL * Vector2(2.2, 1.1))), Color(c, 0.85))
-			draw_colored_polygon(HouseGround._ellipse(Rect2(at - HouseLayout.CELL * Vector2(0.6, 0.35), HouseLayout.CELL * Vector2(1.3, 0.6))), c.lightened(0.3))
-		else:
-			draw_rect(Rect2(at - Vector2(8, 6), Vector2(16, 12)), pack_color(mt, MESS_COLOR))
+			# Lying over the ground (snow): soft irregular patches; no label, there would be
+			# one on every patch (hovering still outlines it).
+			_soft_patch(at, pack_color(mt, MESS_COLOR), int(m.uid))
+			continue
+		draw_rect(Rect2(at - Vector2(8, 6), Vector2(16, 12)), pack_color(mt, MESS_COLOR))
 		_small_name(font, at, thing_name(w.pack.mess_types, str(m.type)))
 	for c in w.collectibles:
 		var at := layout.cell_center(str(c.room), int(c.x), int(c.y))
@@ -685,6 +760,46 @@ func _draw() -> void:
 	_draw_ghost(w, self)
 
 
+## Where each pictured person's label block goes (uid -> its bottom middle, house
+## coordinates): over their head, pushed up past any block it would overlap. The selected
+## person's block stays put, then whoever stands further south (in front) keeps theirs.
+const LABEL_GAP := 2.0
+func label_spots() -> Dictionary:
+	var entries: Array = []
+	for uid in people:
+		var pv: PersonView = people[uid]
+		if pv.pictured():
+			entries.append({"uid": uid, "size": pv.label_size(), "at": pv.position + pv.label_anchor(), "sel": pv.selected, "y": pv.position.y})
+	entries.sort_custom(func(a, b):
+		if a.sel != b.sel:
+			return a.sel
+		return a.y > b.y if a.y != b.y else int(a.uid) < int(b.uid))
+	var placed: Array[Rect2] = []
+	var out := {}
+	for e in entries:
+		var size: Vector2 = e.size
+		var at: Vector2 = e.at
+		var rect := Rect2(at.x - size.x * 0.5, at.y - size.y, size.x, size.y)
+		for k in 12:
+			var hit := -1
+			for i in placed.size():
+				if placed[i].grow(LABEL_GAP * 0.5).intersects(rect.grow(LABEL_GAP * 0.5)):
+					hit = i
+					break
+			if hit < 0:
+				break
+			rect.position.y = placed[hit].position.y - rect.size.y - LABEL_GAP
+		placed.append(rect)
+		out[e.uid] = Vector2(rect.get_center().x, rect.end.y)
+	return out
+
+
+func _draw_labels() -> void:
+	var spots := label_spots()
+	for uid in spots:
+		people[uid].draw_label(_labels, spots[uid])
+
+
 ## Hover and the arrange ghost above the standing pictures.
 func _draw_overlay() -> void:
 	var w := session.world if session != null else null
@@ -692,6 +807,25 @@ func _draw_overlay() -> void:
 		return
 	_draw_hover(w, _overlay)
 	_draw_ghost(w, _overlay)
+
+
+## A soft irregular patch (snow lying on the ground): a few lumpy blobs around `at`, each in
+## rings that fade out towards the edge, so it has no hard outline. `seed` keeps its shape.
+func _soft_patch(at: Vector2, c: Color, seed: int) -> void:
+	var rng := RandomNumberGenerator.new()
+	rng.seed = seed * 7919 + 17
+	var cell := HouseLayout.CELL
+	for b in 4:
+		var centre := at + Vector2(rng.randf_range(-0.7, 0.7) * cell.x, rng.randf_range(-0.3, 0.3) * cell.y)
+		var radius := Vector2(rng.randf_range(0.55, 0.95) * cell.x, rng.randf_range(0.3, 0.5) * cell.y)
+		var ph := [rng.randf() * TAU, rng.randf() * TAU, rng.randf() * TAU]
+		for ring in [[1.0, 0.16], [0.82, 0.22], [0.62, 0.3], [0.42, 0.34]]:
+			var pts := PackedVector2Array()
+			for i in 22:
+				var a := TAU * float(i) / 22.0
+				var wob := 1.0 + 0.16 * sin(2.0 * a + ph[0]) + 0.1 * sin(3.0 * a + ph[1]) + 0.06 * sin(5.0 * a + ph[2])
+				pts.append(centre + Vector2(cos(a), sin(a)) * radius * float(ring[0]) * wob)
+			draw_colored_polygon(pts, Color(c.lightened(0.15 * (1.0 - float(ring[0]))), float(ring[1])))
 
 
 ## Something to pick up: a pale disc ringed in the skin's pick-up colour, two small sparkles,
@@ -783,12 +917,19 @@ static func thing_name(table: Dictionary, type: String) -> String:
 	return str(e.get("name", "")) if e is Dictionary else ""
 
 
-## A small dark label under a marker centred at `at`.
+## A small label under a marker centred at `at`: dark text on a cream plate, so it reads
+## on a textured ground.
 func _small_name(font: Font, at: Vector2, text: String) -> void:
 	if text == "":
 		return
-	var width := HouseLayout.CELL.x * 2.0
-	draw_string(font, at + Vector2(-width * 0.5, 18), text, HORIZONTAL_ALIGNMENT_CENTER, width, 10, Color(0.15, 0.12, 0.1))
+	var w := font.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, 11).x + 10.0
+	var plate := StyleBoxFlat.new()
+	plate.bg_color = Color(HouseGround.CREAM, 0.9)
+	plate.border_color = Color(HouseGround.LINE, 0.45)
+	plate.set_border_width_all(1)
+	plate.set_corner_radius_all(6)
+	draw_style_box(plate, Rect2(at + Vector2(-w * 0.5, 9), Vector2(w, 16)))
+	draw_string(font, at + Vector2(-w * 0.5, 21), text, HORIZONTAL_ALIGNMENT_CENTER, w, 11, HouseGround.LINE)
 
 
 ## The piece in hand under the pointer: green where it can go, red where it cannot.

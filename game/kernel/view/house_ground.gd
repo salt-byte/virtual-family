@@ -9,6 +9,8 @@ const LINE := Color("#4A3424")
 const CREAM := Color("#FFF4DF")
 const FOUNDATION := Color("#F6ECD4")
 const FOUNDATION_EDGE := Color(0.69, 0.66, 0.61)
+## How much cream lies over the earth of a bare foundation (with the pack's art).
+const FOUNDATION_WASH := 0.32
 const DASH := Color(0.59, 0.45, 0.33)
 const PILL := Color("#FFE3B0")
 const SILL := Color(0.62, 0.61, 0.58)
@@ -97,8 +99,15 @@ func _floor(w: World, id: String) -> void:
 	if outdoor:
 		_dashed(rect, DASH)
 		return
+	# A bare foundation: the yard's earth under a cream wash, so it darkens at night like
+	# the floors and ground round it instead of standing out as a cold pale slab.
 	draw_rect(rect, FOUNDATION_EDGE)
-	draw_rect(rect.grow(-6), FOUNDATION)
+	var earth := house.skin.compound_tile() if house.skin != null else {}
+	if earth.is_empty():
+		draw_rect(rect.grow(-6), FOUNDATION)
+	else:
+		PackSkin.draw_tile(self, earth, rect.grow(-6))
+		draw_rect(rect.grow(-6), Color(FOUNDATION, FOUNDATION_WASH))
 	_dashed(rect.grow(-6), DASH)
 
 

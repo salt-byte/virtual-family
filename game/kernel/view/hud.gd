@@ -50,6 +50,7 @@ func _build() -> void:
 	var root := Control.new()
 	root.set_anchors_preset(Control.PRESET_FULL_RECT)
 	root.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	root.theme = ViewWidgets.hud_theme()
 	add_child(root)
 
 	_bar = PanelContainer.new()
@@ -63,18 +64,25 @@ func _build() -> void:
 
 	_avatar = ColorRect.new()
 	_avatar.custom_minimum_size = Vector2(56, 56)
+	_avatar.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	row.add_child(_avatar)
 	var who := VBoxContainer.new()
 	who.custom_minimum_size.x = 150
 	row.add_child(who)
+	who.alignment = BoxContainer.ALIGNMENT_CENTER
 	_name = Label.new()
+	_name.add_theme_font_size_override("font_size", 20)
 	_line = Label.new()
+	_line.add_theme_color_override("font_color", ViewWidgets.INK.lightened(0.2))
 	who.add_child(_name)
 	who.add_child(_line)
 	_doing = Label.new()
 	_doing.custom_minimum_size.x = 220
+	_doing.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_doing.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	row.add_child(_doing)
 	var mid := VBoxContainer.new()
+	mid.alignment = BoxContainer.ALIGNMENT_CENTER
 	mid.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	row.add_child(mid)
 	_status = Label.new()
@@ -84,9 +92,12 @@ func _build() -> void:
 	_wish.visible = false
 	mid.add_child(_wish)
 	var cash := VBoxContainer.new()
+	cash.alignment = BoxContainer.ALIGNMENT_CENTER
+	cash.add_theme_constant_override("separation", 0)
 	cash.custom_minimum_size.x = 110
 	row.add_child(cash)
 	_money = Label.new()
+	_money.add_theme_font_size_override("font_size", 20)
 	_stock = Label.new()
 	_sky = Label.new()
 	cash.add_child(_sky)
@@ -96,19 +107,24 @@ func _build() -> void:
 		var b := Button.new()
 		b.text = s.t("btn." + id)
 		b.pressed.connect(press.bind(id))
+		b.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		b.custom_minimum_size.y = 44
 		row.add_child(b)
 		_buttons[id] = b
 
 	var top := HBoxContainer.new()
+	top.add_theme_constant_override("separation", 8)
 	top.position = Vector2(12, 12)
 	root.add_child(top)
 	_scold = Button.new()
 	_scold.text = s.t("btn.scold")
 	_scold.pressed.connect(press.bind("scold"))
+	ViewWidgets.round_button(_scold, ViewWidgets.CREAM, ViewWidgets.WOOD)
 	top.add_child(_scold)
 	_praise = Button.new()
 	_praise.text = s.t("btn.praise")
 	_praise.pressed.connect(press.bind("praise"))
+	ViewWidgets.round_button(_praise, ViewWidgets.CREAM, ViewWidgets.ACCENT)
 	top.add_child(_praise)
 
 	_toast_box = VBoxContainer.new()
@@ -256,17 +272,35 @@ func _on_event(e: Dictionary) -> void:
 
 
 func toast(text: String) -> void:
+	# A cream pill with a sky-blue dot on the left (ART_DIRECTION section 4).
 	var l := Label.new()
 	l.text = text
-	l.add_theme_color_override("font_color", Color.WHITE)
+	l.add_theme_color_override("font_color", ViewWidgets.INK)
 	var panel := PanelContainer.new()
 	var box := StyleBoxFlat.new()
-	box.bg_color = Color(0.1, 0.1, 0.1, 0.8)
-	box.set_corner_radius_all(6)
+	box.bg_color = ViewWidgets.CREAM
+	box.border_color = ViewWidgets.INK
+	box.set_border_width_all(2)
+	box.set_corner_radius_all(18)
 	box.set_content_margin_all(8)
+	box.content_margin_left = 14
+	box.content_margin_right = 16
 	panel.add_theme_stylebox_override("panel", box)
 	panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	panel.add_child(l)
+	var line := HBoxContainer.new()
+	line.add_theme_constant_override("separation", 8)
+	line.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var dot := Panel.new()
+	var round := StyleBoxFlat.new()
+	round.bg_color = ViewWidgets.SKY
+	round.set_corner_radius_all(6)
+	dot.add_theme_stylebox_override("panel", round)
+	dot.custom_minimum_size = Vector2(12, 12)
+	dot.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	dot.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	line.add_child(dot)
+	line.add_child(l)
+	panel.add_child(line)
 	_toast_box.add_child(panel)
 	_toasts.append({"text": text, "left": TOAST_SECONDS, "node": panel})
 	while _toasts.size() > TOAST_MAX:

@@ -36,6 +36,10 @@ var _size := 0.6
 var _t := 0.0
 var _float := ""
 var _float_age := 0.0
+## With the pack's art: {tex, height} of this kind's picture ({}: the whitebox shape), and
+## which way it faces (the pictures face right).
+var _look: Dictionary = {}
+var _facing := 1.0
 
 
 func setup(p: Pet, s: GameSession) -> void:
@@ -54,6 +58,10 @@ func layout() -> HouseLayout:
 
 ## The drawn body size.
 func body() -> Vector2:
+	if not _look.is_empty():
+		var tex: Texture2D = _look.tex
+		var h: float = _look.height
+		return Vector2(h * tex.get_width() / tex.get_height(), h)
 	return BODY * _size
 
 
@@ -64,6 +72,9 @@ func refresh() -> void:
 	var k := PetSystem.kind_of(w.pack, pet)
 	_color = HouseView.pack_color(k, FALLBACK)
 	_size = float(k.get("size", 0.6))
+	var house = get_parent()
+	var skin: PackSkin = house.skin if house != null and "skin" in house else null
+	_look = skin.pet_look(str(pet.kind)) if skin != null and skin.enabled else {}
 	_name = session.strings.pet_name(pet, w)
 	_doing = session.strings.pet_doing(pet, w)
 	_wish = session.strings.pet_wish_text(pet, w)
@@ -101,7 +112,10 @@ func tick(delta: float) -> void:
 		_float_age += delta
 		if _float_age > 1.2:
 			_float = ""
+	var was := position
 	walk(SPEED * delta)
+	if absf(position.x - was.x) > 0.01:
+		_facing = signf(position.x - was.x)
 	queue_redraw()
 
 
@@ -214,6 +228,9 @@ func _draw() -> void:
 	var bob := bob_offset()
 	var r := Rect2(Vector2(-b.x * 0.5, -b.y + bob), b)
 	draw_colored_polygon(HouseGround._ellipse(Rect2(Vector2(-b.x * 0.5, -5), Vector2(b.x, 8))), Color(HouseGround.SHADOW, 0.3))
+	if not _look.is_empty():
+		_draw_pictured(b, bob)
+		return
 	var box := StyleBoxFlat.new()
 	box.bg_color = _color.darkened(0.25) if pet.sick else _color
 	box.set_corner_radius_all(int(minf(b.x, b.y) * 0.45))
@@ -242,3 +259,39 @@ func _draw() -> void:
 	draw_style_box(plate, Rect2(Vector2(-55, top - 24), Vector2(110, 24)))
 	draw_string(font, Vector2(-55, top - 13), _name, HORIZONTAL_ALIGNMENT_CENTER, 110, 11, Color.BLACK)
 	draw_string(font, Vector2(-55, top - 2), _doing, HORIZONTAL_ALIGNMENT_CENTER, 110, 9, Color(0.15, 0.15, 0.15))
+
+
+## The pack's picture: mirrored when heading left, a hop while walking, a slow breath
+## otherwise; a small cream plate with its name (and what it does when selected).
+func _draw_pictured(b: Vector2, bob: float) -> void:
+	var breath := 1.0 + 0.015 * sin(TAU * _t / 2.2)
+	var tint := Color(0.85, 0.85, 0.8) if pet.sick else Color.WHITE
+	draw_set_transform(Vector2(0, bob + 2.0), 0.0, Vector2(_facing, breath))
+	draw_texture_rect(_look.tex, Rect2(-b.x * 0.5, -b.y, b.x, b.y), false, tint)
+	draw_set_transform(Vector2.ZERO)
+	var line := Color("#4A3424")
+	var font := ThemeDB.fallback_font
+	var top := -b.y + bob - 4.0
+	if selected:
+		draw_colored_polygon(PackedVector2Array([Vector2(-6, top - 10), Vector2(6, top - 10), Vector2(0, top - 2)]), Color("#E5533C"))
+		top -= 10.0
+	if _float != "":
+		draw_string(font, Vector2(-40, top - 40 - _float_age * 20.0), _float, HORIZONTAL_ALIGNMENT_CENTER, 80, 14, Color(0.8, 0.25, 0.15))
+	elif _wish != "":
+		var ww := font.get_string_size(_wish, HORIZONTAL_ALIGNMENT_LEFT, -1, 11).x + 14.0
+		var bubble := StyleBoxFlat.new()
+		bubble.bg_color = Color(1, 1, 1, 0.95)
+		bubble.border_color = Color(0.55, 0.5, 0.45)
+		bubble.set_border_width_all(1)
+		bubble.set_corner_radius_all(9)
+		draw_style_box(bubble, Rect2(Vector2(-ww * 0.5, top - 46), Vector2(ww, 19)))
+		draw_string(font, Vector2(-ww * 0.5, top - 32), _wish, HORIZONTAL_ALIGNMENT_CENTER, ww, 11, Color(0.2, 0.15, 0.1))
+	var text := _name if not selected else "%s · %s" % [_name, _doing]
+	var pw := clampf(font.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, 11).x + 12.0, 30.0, 180.0)
+	var plate := StyleBoxFlat.new()
+	plate.bg_color = Color("#FFF4DF", 0.92)
+	plate.border_color = Color("#E5533C") if selected else Color(line, 0.5)
+	plate.set_border_width_all(2 if selected else 1)
+	plate.set_corner_radius_all(6)
+	draw_style_box(plate, Rect2(Vector2(-pw * 0.5, top - 16), Vector2(pw, 16)))
+	draw_string(font, Vector2(-pw * 0.5, top - 4), text, HORIZONTAL_ALIGNMENT_CENTER, pw, 11, line)

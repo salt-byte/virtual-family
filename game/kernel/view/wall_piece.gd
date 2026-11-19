@@ -65,6 +65,10 @@ var gate := false
 var behind := Rect2()
 ## The pack's art (wall faces, the gatehouse); null or disabled: drawn plain.
 var skin: PackSkin
+## A low wall sorts by its top, not its foot (this many pixels up): whoever stands just
+## north of it, on the room's front row, is drawn over it, as ART_DIRECTION's "front walls
+## never hide anyone" asks. Drawing is shifted back down by the same amount.
+var sort_lift := 0.0
 
 
 static func thickness(k: String) -> float:
@@ -164,10 +168,35 @@ static func _east_west(site: HouseSite, k: String, ln: int, from: int, to: int, 
 	# compound's north line.
 	p.eave = h == BACK and site.has_compound and ln == site.compound.position.y
 	p.gate = k == HouseSite.COMPOUND and p.open.has(true) and ln == site.compound.end.y
-	var top := h + thickness(k) + (EAVE if p.eave else 0.0) + (40.0 if p.gate else 0.0)
+	var top := h + thickness(k) + (EAVE if p.eave else 0.0)
 	if k != HouseSite.FENCE:
 		p.behind = Rect2(from * HouseSite.CELL.x, foot - top, (to - from) * HouseSite.CELL.x, top)
+	if p.gate:
+		# The gatehouse picture stands over the opening and rises well above the wall: it goes
+		# see-through while anyone is under or behind it (a little south of its foot too, as
+		# the feet of someone in the gateway are drawn just below it).
+		var g := gate_rect(from, to, p.open)
+		p.behind = Rect2(g.position.x, g.position.y + foot, g.size.x, g.size.y + 14.0)
+	elif h != BACK and k != HouseSite.FENCE:
+		# Nobody is ever hidden by it now, so it needs no see-through either.
+		p.sort_lift = h + thickness(k)
+		p.position.y -= p.sort_lift
+		p.behind = Rect2()
 	return p
+
+
+## The gatehouse's rect over the doors of a gate piece (cells from..to), local to its foot.
+static func gate_rect(from: int, to: int, open_cells: Array) -> Rect2:
+	var cw := HouseSite.CELL.x
+	var g0 := INF
+	var g1 := -INF
+	for i in open_cells.size():
+		if open_cells[i]:
+			g0 = minf(g0, (from + i) * cw)
+			g1 = maxf(g1, (from + i + 1) * cw)
+	var w := g1 - g0 + 60.0
+	var hgt := w * 1.2
+	return Rect2((g0 + g1) * 0.5 - w * 0.5, 2.0 - hgt, w, hgt)
 
 
 ## See-through while any of `feet` (house coordinates) stands in the band behind this wall.
@@ -183,6 +212,7 @@ func fade_for(feet: Array) -> void:
 
 
 func _draw() -> void:
+	draw_set_transform(Vector2(0, sort_lift))
 	if along == "x":
 		_draw_east_west()
 	else:
@@ -347,6 +377,14 @@ func _draw_north_south() -> void:
 	var y_bot := b * cw.y - position.y
 	if kind == HouseSite.FENCE:
 		if open[0]:
+			return
+		var pics: Array = skin.wall_sprites("fence_ns") if skin != null else []
+		if not pics.is_empty():
+			# A bamboo fence seen end on: one picture per cell, standing on the cell's foot.
+			var pic: Texture2D = pics[a % pics.size()]
+			var hgt := y_bot - y_top + FENCE_H + 8.0
+			var wd := hgt * pic.get_width() / pic.get_height()
+			draw_texture_rect(pic, Rect2(x - wd * 0.5, y_bot - hgt + 2.0, wd, hgt), false)
 			return
 		for k in 3:
 			var py := y_top + 6.0 + k * 12.0

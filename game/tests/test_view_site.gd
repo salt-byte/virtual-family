@@ -171,15 +171,21 @@ func test_back_walls_stand_tall_front_walls_low_and_see_through():
 	assert_true(back.heights[0] > 76.0, "taller than the comparison image's 76 px")
 	assert_true(back.eave)
 	assert_true(front.heights[0] < 30.0)
+	# A low front wall used to go see-through while someone stood just behind it, as its
+	# sill still covered their feet. It now sorts by its top instead of its foot, so whoever
+	# stands on the room's front row is drawn over it and it never needs to fade.
 	var pv: PersonView = m.house.people[m.session.world.people[0].uid]
-	pv.position = Vector2(25.5 * 48, 12 * 36 - 10)
+	pv.position = Vector2(25.5 * 48, 12 * 36 - 18)
 	pv.target = pv.position
 	m.house.tick(0.016)
-	assert_true(front.modulate.a < 1.0, "someone behind it")
-	pv.position = Vector2(25.5 * 48, 15 * 36)
-	pv.target = pv.position
-	m.house.tick(0.016)
+	assert_true(front.position.y < pv.position.y, "drawn over the low wall in front of them")
 	assert_eq(front.modulate.a, 1.0)
+	# The tall back wall still fades for someone behind it (north of the house).
+	pv.position = Vector2(25.5 * 48, 6 * 36 - 30)
+	pv.target = pv.position
+	m.house.tick(0.016)
+	assert_true(back.modulate.a < 1.0, "someone behind the back wall")
+	assert_true(back.position.y > pv.position.y)
 	m.free()
 
 

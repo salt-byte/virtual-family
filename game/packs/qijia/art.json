@@ -28,6 +28,16 @@
 		"rocks": "props/rocks.png", "scarecrow": "props/scarecrow.png", "stone_bench": "props/stone_bench.png",
 		"stool": "props/stool.png", "stove": "props/stove.png", "vat": "props/vat.png",
 		"well_head": "props/well_head.png", "woodpile": "props/woodpile.png",
+		"carpenter_bench": "props/carpenter_bench.png", "herb_grinder": "props/herb_grinder.png",
+		"embroidery_frame": "props/embroidery_frame.png", "tofu_box": "props/tofu_box.png",
+		"peddler_pole": "props/peddler_pole.png", "bookshelf": "props/bookshelf.png", "trough": "props/trough.png",
+		"grain_heap": "props/grain_heap.png", "bird_cage": "props/bird_cage.png", "mess_bowls": "props/mess_bowls.png",
+		"mess_mud": "props/mess_mud.png", "fence_ns": "props/fence_ns.png", "fence_ns_b": "props/fence_ns_b.png",
+		"col_greens": "props/col_greens.png", "col_herbs": "props/col_herbs.png",
+		"col_cicada_shell": "props/col_cicada_shell.png", "col_purse": "props/col_purse.png",
+		"col_bronze_mirror": "props/col_bronze_mirror.png",
+		"dog": "chars/dog.png", "cat": "chars/cat.png", "bird": "chars/bird.png", "grandpa": "chars/grandpa.png",
+		"baby": "chars/baby.png", "sleeper": "chars/sleeper.png",
 		"father": "chars/father.png", "mother": "chars/mother.png", "grandma": "chars/grandma.png", "child": "chars/child.png"
 	},
 	"ground": "grass",
@@ -63,22 +73,60 @@
 		{"sprite": "bush", "x": 22.6, "y": 4.4, "w": 1.0},
 		{"sprite": "bush", "x": 38.0, "y": 4.2, "w": 1.2}
 	],
-	"walls": {"house": "plaster", "compound": "rammed_earth", "gate": "gatehouse", "sill": "door_sill"},
+	"walls": {"house": "plaster", "compound": "rammed_earth", "gate": "gatehouse", "sill": "door_sill",
+		"fence_ns": ["fence_ns", "fence_ns_b"]},
 	"objects": {
 		"stove": "stove", "kang": "kang", "desk": "desk", "loom": "loom", "vat": "vat", "stool": "stool",
 		"coop": "coop", "garden": "garden", "dining_table": "dining_table", "altar": "altar",
 		"woodpile": "woodpile", "millstone": "millstone", "grape_trellis": "grape_trellis",
-		"clothesline": "clothesline", "well_head": "well_head", "threshold": "door_sill", "stone_bench": "stone_bench"
+		"clothesline": "clothesline", "well_head": "well_head", "threshold": "door_sill", "stone_bench": "stone_bench",
+		"carpenter_bench": "carpenter_bench", "herb_grinder": "herb_grinder", "embroidery_frame": "embroidery_frame",
+		"tofu_box": "tofu_box", "peddler_pole": "peddler_pole", "bookshelf": "bookshelf", "trough": "trough",
+		"grain_heap": "grain_heap", "bird_cage": "bird_cage", "ayun_hoop": "embroidery_frame"
 	},
-	"messes": {"dirt": "mess_dirt", "droppings": "mess_droppings", "leaves": "mess_droppings"},
-	"collectibles": {"egg": "col_egg", "coins": "col_coins", "hairpin": "col_hairpin"},
+	"messes": {"dirt": "mess_dirt", "droppings": "mess_droppings", "leaves": "mess_droppings",
+		"bowls": "mess_bowls", "mud": "mess_mud", "pet_hair": "mess_dirt"},
+	"collectibles": {"egg": "col_egg", "coins": "col_coins", "hairpin": "col_hairpin", "greens": "col_greens",
+		"herbs": "col_herbs", "cicada_shell": "col_cicada_shell", "purse": "col_purse", "bronze_mirror": "col_bronze_mirror"},
+	"pets": {"dog": {"sprite": "dog", "height": 46}, "cat": {"sprite": "cat", "height": 36},
+		"bird": {"sprite": "bird", "height": 30}},
 	"people": [
-		{"stage": "elder", "sex": "female", "sprite": "grandma", "height": 74},
-		{"stage": "elder", "sprite": "father", "height": 80},
-		{"stage": "adult", "sex": "male", "sprite": "father", "height": 90},
-		{"stage": "adult", "sprite": "mother", "height": 86},
-		{"stage": "child", "sprite": "child", "height": 62},
-		{"stage": "baby", "sprite": "child", "height": 40}
+		{"stage": "elder", "sex": "female", "sprite": "grandma", "height": 74, "rig": "rigs/grandma/grandma.rig.json", "lean": 9, "asleep": "sleeper"},
+		{"stage": "elder", "sprite": "grandpa", "height": 80, "rig": "rigs/grandpa/grandpa.rig.json", "lean": 11, "asleep": "sleeper"},
+		{"stage": "adult", "sex": "male", "sprite": "father", "height": 90, "rig": "rigs/father/father.rig.json", "asleep": "sleeper"},
+		{"stage": "adult", "sprite": "mother", "height": 86, "rig": "rigs/mother/mother.rig.json", "asleep": "sleeper"},
+		{"stage": "child", "sprite": "child", "height": 62, "rig": "rigs/child/child.rig.json", "asleep": "sleeper"},
+		{"stage": "baby", "sprite": "baby", "height": 26, "lying": true}
 	],
-	"unwell": {"sprite": "icon_ill", "need": "health", "below": 50}
+	"unwell": {"sprite": "icon_ill", "need": "health", "below": 50},
+	"poses": {
+		"on": ["kang", "stool", "stone_bench", "threshold"],
+		"objects": {"kang": "sit", "stool": "sit", "stone_bench": "sit", "threshold": "sit", "dining_table": "eat"},
+		"actions": {
+			"sleep": "sleep", "nap": "sleep", "sick_in_bed": "sleep", "hide_under_quilt": "sleep",
+			"baby_sleep": "sleep", "baby_nap": "sleep", "shell_beans": "sit", "crack_seeds": "sit",
+			"whittle_top": "sit", "weave_grasshopper": "sit", "straw_chess": "sit", "sit_and_stare": "sit",
+			"twist_hemp": "sit", "trellis_shade": "sit", "rest_on_well": "sit", "watch_passersby": "sit",
+			"pick_ears": "sit", "pipe_on_bench": "sit", "haggle_on_bench": "sit", "count_geese": "sit",
+			"count_stars": "sit", "sit_on_threshold_long": "sit", "weave_sandals": "sit",
+			"embroider_pillow": "sit", "sole_shoes": "sit", "soak_feet": "sit", "watch_sparrows": "sit",
+			"sew_baby_clothes": "sit", "shell_corn": "sit", "sort_soybeans": "sit", "face_in_knees": "sit",
+			"weep_in_corner": "sit", "fold_quilt": "sit", "eat_porridge": "eat", "eat_greens": "eat",
+			"eat_on_threshold": "eat", "sneak_a_bite": "eat", "drink_ladle": "eat", "gulp_water": "eat",
+			"taste_soup": "eat", "chew_straw": "eat", "mend_clothes": "work", "whet_knife": "work",
+			"swat_flies": "work", "count_coins": "work", "click_abacus": "work", "saw_timber": "work",
+			"snap_ink_line": "work", "chisel_mortise": "work", "fit_stool_legs": "work",
+			"rehandle_hoe": "work", "winnow_seed": "work", "sow_beans": "work", "flail_grain": "work",
+			"weigh_herbs": "work", "dry_herbs": "work", "brew_medicine": "work", "split_silk": "work",
+			"trace_pattern": "work", "soak_soybeans": "work", "strain_soymilk": "work", "add_brine": "work",
+			"pack_wares": "work", "copy_model_script": "work", "write_essay": "work",
+			"dig_for_silver": "work", "wash_greens": "work", "sweep_leaves": "work",
+			"pick_eggplants": "work", "take_pulse": "work", "shadow_boxing": "work", "trim_lamp": "work",
+			"warm_hands": "work", "tally_harvest": "work", "rummage_chest": "work", "shake_drum": "work",
+			"beat_quilt": "work", "watch_ants": "idle", "tease_ants": "idle", "watch_snail": "idle",
+			"listen_crickets": "idle", "count_grapes": "idle", "well_reflection": "idle",
+			"read_the_sky": "idle", "doze_at_door": "idle", "lean_on_doorframe": "idle",
+			"bask_by_wall": "idle", "gaze_down_road": "idle", "stretch_at_door": "idle", "heat_kang": "work"
+		}
+	}
 }

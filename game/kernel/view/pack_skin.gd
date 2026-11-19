@@ -16,9 +16,17 @@ extends RefCounted
 ##   "floors": {"<room id>": "<tile>"},
 ##   "decor": {"#rrggbb": {"tile": "<tile>"} | {"sprite": "<sprite>"} | {"hide": true}},
 ##   "scenery": [{"sprite": "<sprite>", "x": cells, "y": cells (foot), "w": cells}],
-##   "walls": {"house": "<tile>", "compound": "<tile>", "gate": "<sprite>", "sill": "<sprite>"},
+##   "walls": {"house": "<tile>", "compound": "<tile>", "gate": "<sprite>", "sill": "<sprite>",
+##             "fence_ns": ["<sprite>", ...]},  # north-south fence, one picture per cell in turn
 ##   "objects": {"<object type>": "<sprite>"}, "messes": {...}, "collectibles": {...},
-##   "people": [{"stage": "<id>", "sex": "<gender>", "sprite": "<sprite>", "height": 90}],
+##   "people": [{"stage": "<id>", "sex": "<gender>", "sprite": "<sprite>", "height": 90,
+##               "rig": "rigs/x/x.rig.json",     # a cutout rig, animated (CutoutRig)
+##               "lean": 8,                      # degrees bent forward (a stoop), rig only
+##               "asleep": "<sprite>",           # the picture lying asleep (under a quilt)
+##               "lying": false}],               # the picture already lies (a swaddled baby)
+##   "pets": {"<pet kind>": {"sprite": "<sprite>", "height": 40}},
+##   "poses": {"actions": {"<action id>": "<pose>"}, "objects": {"<object type>": "<pose>"},
+##             "on": ["<object type>"]},          # see `pose_for`; on: sat / lain on, not beside
 ##   "unwell": {"sprite": "<sprite>", "need": "<need id>", "below": 50},
 ##   "accent": "#rrggbb", "pickup": "#rrggbb"     # selection and pick-up colours
 ## }
@@ -34,6 +42,7 @@ var pickup := DEFAULT_PICKUP
 var _data: Dictionary = {}
 var _base := ""
 var _textures: Dictionary = {}  # file -> Texture2D (null when missing)
+var _rigs: Dictionary = {}  # file -> CutoutRig (null when missing or broken)
 
 
 ## `path` overrides the default res://packs/<pack.id>/art.json (tests).
@@ -148,6 +157,18 @@ func wall_sprite(key: String) -> Texture2D:
 	return sprite(str(_table("walls").get(key, "")))
 
 
+## The pictures listed under a walls key (a name or a list of names), missing ones left out.
+func wall_sprites(key: String) -> Array:
+	var v = _table("walls").get(key)
+	var names: Array = v if v is Array else ([v] if v is String else [])
+	var out: Array = []
+	for nm in names:
+		var t := sprite(str(nm))
+		if t != null:
+			out.append(t)
+	return out
+
+
 func object_sprite(type: String) -> Texture2D:
 	return sprite(str(_table("objects").get(type, "")))
 
@@ -176,8 +197,63 @@ func person_look(stage: String, sex: String) -> Dictionary:
 		var tex := sprite(str(e.get("sprite", "")))
 		if tex == null:
 			continue
-		return {"tex": tex, "height": float(e.get("height", 90.0))}
+		var out := {"tex": tex, "height": float(e.get("height", 90.0)), "lean": float(e.get("lean", 0.0)),
+			"lying": bool(e.get("lying", false))}
+		var asleep := sprite(str(e.get("asleep", "")))
+		if asleep != null:
+			out["asleep"] = asleep
+		if e.get("rig") is String:
+			var r := rig(str(e["rig"]))
+			if r != null:
+				out["rig"] = r
+		return out
 	return {}
+
+
+## The look of a pet kind: {tex, height}; {} when the skin has no picture for it.
+func pet_look(kind: String) -> Dictionary:
+	var e = _table("pets").get(kind)
+	if not e is Dictionary:
+		return {}
+	var tex := sprite(str(e.get("sprite", "")))
+	if tex == null:
+		return {}
+	return {"tex": tex, "height": float(e.get("height", 40.0))}
+
+
+## The cutout rig in `file` (relative to the art dir); null when it is missing or broken.
+func rig(file: String) -> CutoutRig:
+	if _rigs.has(file):
+		return _rigs[file]
+	var path := _base + "/" + file
+	var r: CutoutRig = null
+	if FileAccess.file_exists(path):
+		r = CutoutRig.load_file(path)
+	if r == null:
+		errors.append("art.json: missing or broken rig %s" % file)
+	_rigs[file] = r
+	return r
+
+
+## The body pose for doing action `action` at an object of type `object` ("" for none): the
+## pack's `poses.actions`, then `poses.objects`, else "" (the view picks a default).
+func pose_for(action: String, object: String) -> String:
+	var t = _data.get("poses", {})
+	if not t is Dictionary:
+		return ""
+	var a = t.get("actions", {})
+	if a is Dictionary and a.get(action) is String:
+		return a[action]
+	var o = t.get("objects", {})
+	if object != "" and o is Dictionary and o.get(object) is String:
+		return o[object]
+	return ""
+
+
+## Whether a person sits or lies on furniture of this type (else they stand beside it).
+func sat_on(object: String) -> bool:
+	var t = _data.get("poses", {})
+	return t is Dictionary and t.get("on") is Array and (t["on"] as Array).has(object)
 
 
 ## The "looks unwell" mark: {tex, need, below}; {} when the skin has none.

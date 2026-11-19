@@ -51,3 +51,79 @@ static func row(parent: Control) -> HBoxContainer:
 	r.add_theme_constant_override("separation", 10)
 	parent.add_child(r)
 	return r
+
+
+## The cream-and-wood look of the always-on bar (ART_DIRECTION section 4): cream ground,
+## dark brown outline and text, warm yellow buttons with a darker "thickness" under them.
+const CREAM := Color("#FFF4DF")
+const WOOD := Color("#8A5A36")
+const INK := Color("#4A3424")
+const BUTTON := Color("#FFE3B0")
+const ACCENT := Color("#E5533C")
+const SKY := Color("#4FB3E8")
+
+
+static func bar_style() -> StyleBoxFlat:
+	var b := StyleBoxFlat.new()
+	b.bg_color = CREAM
+	b.border_color = WOOD
+	b.border_width_top = 4
+	b.corner_radius_top_left = 18
+	b.corner_radius_top_right = 18
+	b.content_margin_left = 16
+	b.content_margin_right = 16
+	b.content_margin_top = 10
+	b.content_margin_bottom = 8
+	return b
+
+
+static func button_style(bg: Color, down := false) -> StyleBoxFlat:
+	var b := StyleBoxFlat.new()
+	b.bg_color = bg
+	b.border_color = INK
+	b.set_border_width_all(2)
+	b.border_width_bottom = 2 if down else 5
+	b.set_corner_radius_all(12)
+	b.content_margin_left = 12
+	b.content_margin_right = 12
+	b.content_margin_top = 6 if not down else 9
+	b.content_margin_bottom = 6
+	return b
+
+
+## A theme for the bar, the praise/scold buttons and the toasts.
+static func hud_theme() -> Theme:
+	var t := Theme.new()
+	t.set_color("font_color", "Label", INK)
+	t.set_font_size("font_size", "Label", 15)
+	t.set_stylebox("normal", "Button", button_style(BUTTON))
+	t.set_stylebox("hover", "Button", button_style(BUTTON.lightened(0.25)))
+	t.set_stylebox("pressed", "Button", button_style(BUTTON.darkened(0.08), true))
+	t.set_stylebox("focus", "Button", StyleBoxEmpty.new())
+	t.set_stylebox("disabled", "Button", button_style(Color(0.9, 0.88, 0.84)))
+	for k in ["font_color", "font_hover_color", "font_pressed_color", "font_focus_color", "font_hover_pressed_color"]:
+		t.set_color(k, "Button", INK)
+	t.set_color("font_disabled_color", "Button", Color(0.62, 0.6, 0.57))
+	t.set_font_size("font_size", "Button", 16)
+	t.set_stylebox("panel", "PanelContainer", bar_style())
+	return t
+
+
+## A round button (the praise / scold pair in the corner): `bg` fill, an INK ring.
+static func round_button(b: Button, bg: Color, ink: Color) -> void:
+	for state in ["normal", "hover", "pressed", "disabled"]:
+		var s := StyleBoxFlat.new()
+		s.bg_color = bg if state != "disabled" else Color(0.9, 0.88, 0.84)
+		if state == "hover":
+			s.bg_color = bg.lightened(0.15)
+		s.border_color = INK
+		s.set_border_width_all(2)
+		s.border_width_bottom = 2 if state == "pressed" else 4
+		s.set_corner_radius_all(24)
+		s.set_content_margin_all(8)
+		s.content_margin_left = 12
+		s.content_margin_right = 12
+		b.add_theme_stylebox_override(state, s)
+	for k in ["font_color", "font_hover_color", "font_pressed_color", "font_focus_color"]:
+		b.add_theme_color_override(k, ink)
+	b.custom_minimum_size = Vector2(46, 46)

@@ -1,0 +1,255 @@
+extends TestCase
+## Nothing stands in anything (穿模): people stop beside furniture, never on it nor on a wall
+## line; walks go round furniture; everything standing sorts by its foot; pictures keep to
+## their footprint; name plates do not overlap. And people move: the cutout rigs and poses.
+
+var clk := {"unix": 1767254400.0, "offset": 0}
+var n := 0
+
+
+func _clock() -> Dictionary:
+	return clk
+
+
+func _main() -> Main:
+	n += 1
+	var d := "user://test_clip_%d/" % n
+	DirAccess.make_dir_recursive_absolute(d)
+	for f in DirAccess.get_files_at(d):
+		DirAccess.remove_absolute(d + f)
+	var m := Main.create("qijia", d, _clock)
+	Engine.get_main_loop().root.add_child(m)
+	m.session.command({"type": "adopt"})
+	var w := m.session.world
+	for e in [["dining_table", "hall", 4, 2], ["altar", "hall", 7, 0], ["stool", "yard", 8, 1],
+			["bookshelf", "hall", 0, 2], ["loom", "bedroom", 3, 3], ["clothesline", "yard", 5, 5]]:
+		w.add_object(e[0], e[1], e[2], e[3])
+	for i in 3:
+		w.add_person(FamilySystem.make_person(w, [20, 40]))
+	m.tick(0.016)
+	return m
+
+
+func _footprints(m: Main) -> Array:
+	var out: Array = []
+	var w := m.session.world
+	for o in w.objects:
+		if str(o.room) in w.rooms_built:
+			out.append(m.house.layout.object_rect(o, w.pack))
+	return out
+
+
+func _on_wall_line(site: HouseSite, p: Vector2) -> bool:
+	var c := site.cell_of(p)
+	var lo := Vector2(c) * HouseSite.CELL
+	var hi := lo + HouseSite.CELL
+	return (p.x - lo.x < 8.0 and site.v_walls.has(Vector2i(c.x, c.y))) \
+		or (hi.x - p.x < 8.0 and site.v_walls.has(Vector2i(c.x + 1, c.y))) \
+		or (p.y - lo.y < 8.0 and site.h_walls.has(Vector2i(c.x, c.y))) \
+		or (hi.y - p.y < 8.0 and site.h_walls.has(Vector2i(c.x, c.y + 1)))
+
+
+func test_use_spots_are_beside_the_piece_never_on_it_nor_across_a_wall():
+	var m := _main()
+	var w := m.session.world
+	var l := m.house.layout
+	var feet := _footprints(m)
+	for o in w.objects:
+		if not str(o.room) in w.rooms_built:
+			continue
+		var at := l.stand_pos(o, w.pack)
+		for r in feet:
+			assert_true(not (r as Rect2).grow(-1.0).has_point(at), "%s stands on furniture at %s" % [o.type, at])
+		assert_true(l.site.can_stop(at), "%s %s" % [o.type, at])
+		assert_true(not _on_wall_line(l.site, at), "%s on a wall line %s" % [o.type, at])
+		# Next to its own piece, nothing between.
+		var r0 := l.object_rect(o, w.pack)
+		assert_true(r0.grow(HouseSite.CELL.y).has_point(at), "%s too far: %s" % [o.type, at])
+	m.free()
+
+
+func test_stop_points_are_open_and_off_wall_lines_everywhere():
+	var m := _main()
+	var site := m.house.layout.site
+	var feet := _footprints(m)
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 7
+	for i in 400:
+		var p := Vector2(rng.randf_range(11 * 48, 45 * 48), rng.randf_range(6 * 36, 25 * 36))
+		var s := site.stop_point(p)
+		assert_true(site.walkable(site.cell_of(s)), str(p))
+		assert_true(not _on_wall_line(site, s), "%s -> %s" % [p, s])
+		for r in feet:
+			assert_true(not (r as Rect2).grow(-1.0).has_point(s), "%s -> %s on furniture" % [p, s])
+	m.free()
+
+
+func test_people_never_stop_on_furniture_or_wall_lines():
+	var m := _main()
+	var w := m.session.world
+	var site := m.house.layout.site
+	var feet := _footprints(m)
+	for step in 40:
+		clk.unix += 60.0
+		m.tick(0.5)
+		for uid in m.house.people:
+			var pv: PersonView = m.house.people[uid]
+			if pv.on_object:
+				continue
+			assert_true(not _on_wall_line(site, pv.target), "%s target %s" % [pv.doing_text(), pv.target])
+			for r in feet:
+				assert_true(not (r as Rect2).grow(-1.0).has_point(pv.target), "%s target on furniture %s" % [pv.doing_text(), pv.target])
+	m.free()
+
+
+func test_routes_go_round_furniture():
+	var m := _main()
+	var site := m.house.layout.site
+	assert_true(site.furniture.size() > 10)
+	for c in site.furniture:
+		assert_true(site.blocked.has(c))
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 3
+	var open: Array = []
+	for y in range(6, 25):
+		for x in range(11, 45):
+			if site.walkable(Vector2i(x, y)):
+				open.append(Vector2i(x, y))
+	for i in 60:
+		var a: Vector2 = site.centre(open[rng.randi_range(0, open.size() - 1)])
+		var b: Vector2 = site.centre(open[rng.randi_range(0, open.size() - 1)])
+		var pts := site.route(a, b)
+		var at := a
+		var ok := true
+		for p in pts:
+			ok = ok and site.clear_line(at, p)
+			at = p
+		if pts.is_empty() and not site.clear_line(a, b):
+			continue  # no way at all (walled off): walks straight, as before
+		assert_true(ok and site.clear_line(at, b), "%s -> %s" % [a, b])
+	# The dining table stands between: the straight line through it is not clear.
+	var table := m.house.layout.object_rect(m.session.world.objects.filter(func(o): return o.type == "dining_table")[0], m.session.world.pack)
+	assert_true(not site.clear_line(Vector2(table.position.x - 30, table.get_center().y), Vector2(table.end.x + 30, table.get_center().y)))
+	m.free()
+
+
+func test_low_walls_sort_by_their_top_and_tall_ones_by_their_foot():
+	var m := _main()
+	for wp in m.house.walls:
+		if wp.along != "x" or wp.gate:
+			continue
+		var foot := float(wp.line) * HouseSite.CELL.y + WallPiece.thickness(wp.kind) * 0.5
+		if wp.heights[0] == WallPiece.BACK or wp.kind == HouseSite.FENCE:
+			assert_eq(wp.position.y, foot)
+		else:
+			# Feet on the front row (a cell's middle, 18 px from the line) are below its sort point.
+			assert_true(wp.position.y < float(wp.line) * HouseSite.CELL.y - 18.0, "%s %s" % [wp.line, wp.a])
+	m.free()
+
+
+func test_the_gatehouse_fades_for_someone_under_it():
+	var m := _main()
+	var gate: WallPiece = null
+	for wp in m.house.walls:
+		if wp.gate:
+			gate = wp
+	assert_true(gate != null)
+	var pv: PersonView = m.house.people.values()[0]
+	pv.held = true
+	pv.position = Vector2(28 * 48, 25 * 36 - 20)
+	m.house.tick(0.016)
+	assert_true(gate.modulate.a < 1.0, "someone in the gateway")
+	pv.position = Vector2(20 * 48, 15 * 36)
+	m.house.tick(0.016)
+	assert_eq(gate.modulate.a, 1.0)
+	m.free()
+
+
+func test_pictures_keep_to_their_footprint_and_off_walls():
+	var m := _main()
+	var w := m.session.world
+	var site := m.house.layout.site
+	for uid in m.house.props:
+		var piece: PropPiece = m.house.props[uid]
+		var o := w.object(uid)
+		var r := m.house.layout.object_rect(o, w.pack)
+		assert_true(piece.rect.position.x >= r.position.x - 0.01 and piece.rect.end.x <= r.end.x + 0.01, str(o.type))
+		assert_true(piece.rect.position.y >= r.position.y - HouseView.WALL_LEAN - 0.01, str(o.type))
+		var c := HouseLayout.cells_of(r)
+		for y in range(c.position.y, c.end.y):
+			if site.v_walls.has(Vector2i(c.position.x, y)):
+				assert_true(piece.rect.position.x >= r.position.x + HouseView.WALL_GAP - 0.01, str(o.type))
+			if site.v_walls.has(Vector2i(c.end.x, y)):
+				assert_true(piece.rect.end.x <= r.end.x - HouseView.WALL_GAP + 0.01, str(o.type))
+	m.free()
+
+
+func test_name_plates_do_not_overlap_and_only_the_selected_shows_the_action():
+	var m := _main()
+	var at := m.house.layout.cell_center("yard", 4, 3)
+	for uid in m.house.people:
+		var pv: PersonView = m.house.people[uid]
+		pv.held = true
+		pv.position = at + Vector2(randf_range(-6, 6), randf_range(-4, 4))
+	var first: int = m.house.people.keys()[0]
+	m.select(first)
+	var spots := m.house.label_spots()
+	var rects: Array = []
+	for uid in spots:
+		var size: Vector2 = m.house.people[uid].label_size()
+		rects.append(Rect2(spots[uid] - Vector2(size.x * 0.5, size.y), size))
+	for i in rects.size():
+		for j in range(i + 1, rects.size()):
+			assert_true(not (rects[i] as Rect2).intersects(rects[j]), "plates %d and %d overlap" % [i, j])
+	var sel: PersonView = m.house.people[first]
+	var other: PersonView = m.house.people[m.house.people.keys()[1]]
+	assert_true(sel.label_size().y > other.label_size().y, "the selected plate has the action line")
+	m.free()
+
+
+func test_rigs_load_and_poses_move():
+	var m := _main()
+	var skin := m.house.skin
+	var look := skin.person_look("adult", "male")
+	assert_true(look.has("rig"), "the father has a rig")
+	var rig: CutoutRig = look.rig
+	assert_true(rig.has_part("leg_back_upper") and rig.height > 100.0 and rig.thigh > 0.0)
+	var a := rig.world(rig.pose("walk", 0.0))
+	var b := rig.world(rig.pose("walk", CutoutRig.WALK_PERIOD * 0.25))
+	assert_true(not (a["leg_lower"] as Transform2D).is_equal_approx(b["leg_lower"]), "legs swing")
+	var w0 := rig.world(rig.pose("work", 0.0))
+	var w1 := rig.world(rig.pose("work", CutoutRig.WORK_PERIOD * 0.25))
+	assert_true(not (w0["arm_lower"] as Transform2D).is_equal_approx(w1["arm_lower"]), "arms work")
+	# Sitting drops the hips by the thigh: the feet stay on the ground.
+	var sit := rig.world(rig.pose("sit", 0.0))
+	var rest := rig.world({})
+	assert_true((sit["torso"] as Transform2D).origin.y > (rest["torso"] as Transform2D).origin.y + rig.thigh * 0.8)
+	m.free()
+
+
+func test_actions_pick_poses_from_the_pack():
+	var m := _main()
+	var w := m.session.world
+	var p := TestKit.adult(w)
+	m.tick(0.016)
+	var pv: PersonView = m.house.people[p.uid]
+	var kang: Dictionary = w.objects.filter(func(o): return o.type == "kang")[0]
+	AutonomySystem.start(w, p, "sleep", int(kang.uid))
+	pv.refresh()
+	assert_eq(pv.action_pose, "sleep")
+	assert_true(pv.on_object, "lies on the kang")
+	pv.position = pv.target
+	assert_eq(pv.body_pose(), "sleep")
+	assert_true(pv.drawn_height() < 40.0)
+	AutonomySystem.start(w, p, "sweep", -1)
+	pv.refresh()
+	assert_eq(pv.action_pose, "work")
+	assert_true(not pv.on_object)
+	var stool: Dictionary = w.objects.filter(func(o): return o.type == "stool")[0]
+	AutonomySystem.start(w, p, "shell_beans", int(stool.uid))
+	pv.refresh()
+	assert_eq(pv.action_pose, "sit")
+	assert_true(pv.on_object)
+	pv.position = pv.target
+	assert_true(pv.drawn_height() < pv.body_size().y - 10.0, "sitting is lower")
+	m.free()

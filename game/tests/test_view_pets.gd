@@ -35,7 +35,8 @@ func test_a_pet_at_home_gets_a_view_that_goes_when_it_runs_off():
 	m.tick(0.016)
 	assert_true(m.house.pets.has(dog.uid))
 	var pv: PetView = m.house.pets[dog.uid]
-	assert_true(pv.body().x < PersonView.BODY.x * 1.2, "smaller than a person")
+	# With qijia's dog picture (side on) it is longer than a person is wide: compare heights.
+	assert_true(pv.body().y < m.house.people.values()[0].body_size().y, "smaller than a person")
 	assert_true(pv.hit(pv.position + Vector2(0, -4)))
 	assert_eq(m.house.pet_at(pv.position + Vector2(0, -4)), dog.uid)
 	dog.state = "away"
