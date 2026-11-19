@@ -48,6 +48,8 @@
 	"notice.stray": "门口来了只{kind}，等你发话",
 	"notice.letter": "{writer}来信，还没拆",
 	"notice.reply": "{writer}来信，等你回话",
+	"notice.letter_n": "{writer}来了 {n} 封信，还没拆",
+	"notice.reply_n": "{writer}的 {n} 封信，等你回话",
 	"notice.letters": "信匣里还有 {n} 封信",
 	"notice.thanks": "{name}如愿了，正谢你呢",
 	"notice.pickup": "{room}地上有东西在闪",

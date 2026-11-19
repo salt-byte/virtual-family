@@ -278,22 +278,38 @@ func tick(delta: float) -> void:
 ## (kept while it stays in view), nearest the PERCH_AIM; clamped into view when none is.
 func _perch_point() -> Vector2:
 	var area := _area()
+	var covered := main.hud.top_rects() if main.hud != null else ([] as Array[Rect2])
 	if _spot >= 0 and _spot < _spots.size():
 		var keep := _spot_screen(_spots[_spot])
-		if area.has_point(keep):
+		if area.has_point(keep) and _clear(keep, covered):
 			return keep
 	var aim := area.position + area.size * PERCH_AIM
 	var best := -1
 	var best_d := INF
 	for i in _spots.size():
 		var p := _spot_screen(_spots[i])
-		if area.has_point(p) and p.distance_to(aim) < best_d:
+		if area.has_point(p) and _clear(p, covered) and p.distance_to(aim) < best_d:
 			best = i
 			best_d = p.distance_to(aim)
 	_spot = best
 	if best >= 0:
 		return _spot_screen(_spots[best])
 	return aim
+
+
+## The screen rect the bird and its badge take when its feet are at `feet`.
+func bird_rect(feet: Vector2) -> Rect2:
+	var k := bird.scale.x if bird != null else 1.0
+	return Rect2(feet - (LetterBird.FEET + Vector2(0, 4)) * k, Vector2(74, 66) * k)
+
+
+## True when the bird standing at `feet` stays off every rect in `covered`.
+func _clear(feet: Vector2, covered: Array[Rect2]) -> bool:
+	var r := bird_rect(feet)
+	for c in covered:
+		if c.intersects(r):
+			return false
+	return true
 
 
 ## The part of the screen above the bottom bar, less a margin.
