@@ -31,10 +31,11 @@ func _view_centre() -> Vector2:
 	return Vector2(1280, 720 - HouseView.BOTTOM_BAR) * 0.5
 
 
-func test_qijia_opens_at_scale_one_centred_on_the_entrance_room():
+func test_qijia_opens_close_up_centred_on_the_entrance_room():
 	var m := _main()
 	assert_true(m.house.fit_scale(Vector2(1280, 720)) < 1.0)
-	assert_near(m.house.scale.x, 1.0)
+	# The 45° view opens a little closer than life-size (ISO_START_SCALE).
+	assert_near(m.house.scale.x, HouseView.ISO_START_SCALE)
 	var hall := m.house.layout.room_rect("hall").get_center()
 	assert_true(m.house.to_screen(hall).distance_to(_view_centre()) < 120.0, str(m.house.to_screen(hall)))
 	assert_true(absf(m.house.to_screen(hall).x - _view_centre().x) < 0.5)
@@ -51,6 +52,7 @@ func test_smoke_keeps_its_fitted_scale():
 
 func test_zoom_at_keeps_the_house_point_under_the_cursor():
 	var m := _main()
+	m.house.zoom_to(1.0)  # from life-size (the 45° view opens at ISO_START_SCALE)
 	var at := Vector2(700, 300)
 	var under := m.house.world_pos(at)
 	m.house.zoom_at(at, 1.1)
@@ -70,6 +72,7 @@ func test_zoom_at_keeps_the_house_point_under_the_cursor():
 
 func test_mouse_wheel_zooms():
 	var m := _main(); m.session.command({"type": "adopt"}); m.tick(0.016)
+	m.house.zoom_to(1.0)  # from life-size (the 45° view opens at ISO_START_SCALE)
 	var ev := InputEventMouseButton.new()
 	ev.button_index = MOUSE_BUTTON_WHEEL_UP
 	ev.pressed = true

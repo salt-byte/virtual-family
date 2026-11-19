@@ -166,7 +166,12 @@ func fit_scale(viewport_size: Vector2) -> float:
 ## The scale the house opens at: the fitted scale for a house that fits at scale 1 or more,
 ## else 1 (a big house is shown life-size and panned).
 func start_scale(viewport_size: Vector2) -> float:
-	return clampf(maxf(fit_scale(viewport_size), 1.0), MIN_SCALE, MAX_SCALE)
+	return clampf(maxf(fit_scale(viewport_size), ISO_START_SCALE if iso else 1.0), MIN_SCALE, MAX_SCALE)
+
+
+## The 45° view opens a little closer than 1, so people stand about as tall as in the target
+## picture (ART_DIRECTION section 11: a grown-up ~90 px against a 64 px cell).
+const ISO_START_SCALE := 1.1
 
 
 ## The smallest zoom the wheel reaches: the whole house in view, but never above 1.
@@ -451,6 +456,8 @@ func _sync_props() -> void:
 				var spot := iso_picture(o, tex, w)
 				var r: Rect2 = spot.rect
 				if r != piece.rect or tex != piece.tex or a != piece.alpha or spot.flip != piece.flip or spot.at != piece.position:
+					if ground != null and (r != piece.rect or spot.at != piece.position):
+						ground.queue_redraw()  # the names on the floor keep clear of the pictures
 					piece.alpha = a
 					piece.flip = spot.flip
 					piece.sort_bias = FURNITURE_BIAS - lift * IsoMath.TILE.y / HouseSite.CELL.y
@@ -511,7 +518,7 @@ func iso_picture(o: Dictionary, tex: Texture2D, w: World) -> Dictionary:
 	var axis := skin.object_axis(str(o.type))
 	var long_y := r.size.y / HouseSite.CELL.y > r.size.x / HouseSite.CELL.x
 	var flip := axis != "" and long_y != (axis == "y")
-	var width := (d[1].x - d[3].x) * ISO_FILL
+	var width := (d[1].x - d[3].x) * ISO_FILL * skin.object_scale(str(o.type))
 	if axis == "":
 		# An old picture drawn from above: no wider than the footprint's middle.
 		width = (d[1].x - d[3].x) * 0.7
@@ -646,6 +653,49 @@ func _follow_step(delta: float) -> void:
 		pan(gap)
 	else:
 		pan(gap * (1.0 - exp(-FOLLOW_RATE * delta)))
+
+
+## How high (screen pixels at this zoom) the top of the wall stands at map point `map`
+## (cells: the middle of a walled edge); -1 when this view has no say (seen from above the
+## caller keeps its own height).
+func wall_top_at(map: Vector2) -> float:
+	if not iso:
+		return -1.0
+	var site := layout.site
+	var along := "x" if absf(map.y - roundf(map.y)) < 0.01 else "y"
+	var line := int(roundf(map.y)) if along == "x" else int(roundf(map.x))
+	var at := int(floorf(map.x)) if along == "x" else int(floorf(map.y))
+	var walls := site.h_walls if along == "x" else site.v_walls
+	var e := Vector2i(at, line) if along == "x" else Vector2i(line, at)
+	if not walls.has(e):
+		return 0.0
+	return IsoWall.face_height(site, str(walls[e]), along, line, at) * scale.y
+
+
+## What is under plan point `pos` (see `HouseLayout.pick`). In the 45° view a furniture
+## picture stands up over the cells behind its footprint: a point on the picture is that piece
+## (the one in front when pictures overlap), unless something lies on the ground right there.
+func pick(w: World, pos: Vector2, furniture_only := false) -> Dictionary:
+	var hit := layout.pick(w, pos, furniture_only)
+	if not iso or str(hit.get("kind", "")) in ["mark", "collectible", "mess"]:
+		return hit
+	var v := proj * pos
+	var best := -1
+	var best_d := -INF
+	for uid in props:
+		var p: PropPiece = props[uid]
+		if p.tex == null:
+			continue
+		var r := Rect2(proj * p.position + p.rect.position, p.rect.size)
+		r = r.grow_individual(-r.size.x * 0.12, -r.size.y * 0.06, -r.size.x * 0.12, 0.0)
+		if r.has_point(v) and sort_depth(p) > best_d:
+			best = int(uid)
+			best_d = sort_depth(p)
+	if best >= 0:
+		var o := w.object(best)
+		if not o.is_empty() and str(o.room) in w.rooms_built:
+			return {"kind": "object", "uid": best, "room": str(o.room)}
+	return hit
 
 
 ## Brings collectible `uid` to the middle of the house area (ends following); false when it

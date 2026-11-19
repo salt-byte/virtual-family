@@ -317,7 +317,12 @@ func _spot_screen(map: Vector2) -> Vector2:
 		base = h.call("map_to_screen", map)
 	else:
 		base = h.to_screen(map * HouseLayout.CELL)
-	return base + Vector2(0.0, -WALL_TOP * h.scale.y)
+	var top := WALL_TOP * h.scale.y
+	if h.has_method("wall_top_at"):
+		var t: float = h.call("wall_top_at", map)
+		if t >= 0.0:
+			top = t  # the 45° view's walls: 74 px at the back, 22 cut low
+	return base + Vector2(0.0, -top)
 
 
 ## Perch spots every third cell along the compound wall, door openings left out; without a

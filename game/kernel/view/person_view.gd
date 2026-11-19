@@ -282,11 +282,18 @@ func walk(step: float) -> void:
 		_path_goal = target
 		var l := layout()
 		path = l.site.route(position, target) if l != null and l.site.enabled else PackedVector2Array()
+	# In the 45° view the step is measured on the screen (so walking east is as quick to the
+	# eye as walking south): ISO_PACE turns plan pixels of a north-south walk into screen ones.
+	var iso := _house() != null and _house().iso
+	if iso:
+		step *= IsoMath.ISO_PACE
 	while step > 0.0:
 		var next := path[0] if not path.is_empty() else target
 		var d := position.distance_to(next)
+		if iso and d > 0.0:
+			d = IsoMath.basis().basis_xform(next - position).length()
 		if d > step:
-			position = position.move_toward(next, step)
+			position = position.lerp(next, step / d)
 			break
 		position = next
 		step -= d

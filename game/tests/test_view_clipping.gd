@@ -21,7 +21,8 @@ func _main() -> Main:
 	Engine.get_main_loop().root.add_child(m)
 	m.session.command({"type": "adopt"})
 	var w := m.session.world
-	for e in [["dining_table", "hall", 4, 2], ["altar", "hall", 7, 0], ["stool", "yard", 8, 1],
+	# (The hall's own table and altar are already there, where the pack puts them.)
+	for e in [["stool", "yard", 8, 1],
 			["bookshelf", "hall", 0, 2], ["loom", "bedroom", 3, 3], ["clothesline", "yard", 5, 5]]:
 		w.add_object(e[0], e[1], e[2], e[3])
 	for i in 3:
@@ -327,4 +328,95 @@ func test_people_turn_to_the_camera_or_away_as_they_walk():
 	var b := front.pose("walk", 0.45)
 	assert_true((a["leg_upper"] as Vector3).z < 0.0 and (b["leg_back_upper"] as Vector3).z < 0.0)
 	assert_eq((a["leg_upper"] as Vector3).x, 0.0)
+	m.free()
+
+
+## A picture's rect on the view, less the transparent margin round the drawing.
+func _pic(house: HouseView, p: PropPiece) -> Rect2:
+	var r := Rect2(IsoMath.to_view(p.position) + p.rect.position, p.rect.size)
+	return r.grow_individual(-r.size.x * 0.12, -r.size.y * 0.12, -r.size.x * 0.12, -r.size.y * 0.04)
+
+
+## Every room built, the pack's own furniture where it puts it: no two pictures overlap by
+## more than a sliver (5 % of the smaller), and no scenery stands over the gatehouse.
+func test_default_furniture_pictures_do_not_overlap():
+	var n2 := "user://test_clip_layout/"
+	DirAccess.make_dir_recursive_absolute(n2)
+	for f in DirAccess.get_files_at(n2):
+		DirAccess.remove_absolute(n2 + f)
+	var m := Main.create("qijia", n2, _clock)
+	Engine.get_main_loop().root.add_child(m)
+	m.session.command({"type": "adopt"})
+	var w := m.session.world
+	w.money = 100000
+	for id in w.pack.rooms:
+		if not id in w.rooms_built:
+			m.session.command({"type": "build_room", "room": id})
+	m.tick(0.016)
+	var uids: Array = m.house.props.keys()
+	assert_true(uids.size() > 15)
+	for i in uids.size():
+		for j in range(i + 1, uids.size()):
+			var a := _pic(m.house, m.house.props[uids[i]])
+			var b := _pic(m.house, m.house.props[uids[j]])
+			var x := a.intersection(b)
+			var frac := x.get_area() / minf(a.get_area(), b.get_area()) if x.has_area() else 0.0
+			assert_true(frac <= 0.05, "%s / %s overlap %.2f" % [w.object(uids[i]).type, w.object(uids[j]).type, frac])
+	for wp in m.house.walls:
+		if wp.role == "gate":
+			for s in m.house.scenery:
+				assert_true(not _pic(m.house, s).intersects(wp.view_box), "scenery over the gatehouse at %s" % (s.position / HouseSite.CELL))
+	m.free()
+
+
+## The 45° view: a point on the upper part of a furniture picture (over the floor behind its
+## footprint) picks that piece, for drops and arrange mode.
+func test_a_point_on_a_tall_picture_picks_the_furniture():
+	var m := _main()
+	var w := m.session.world
+	var o: Dictionary = w.objects.filter(func(x): return x.type == "grape_trellis")[0]
+	var p: PropPiece = m.house.props[int(o.uid)]
+	var top := IsoMath.to_view(p.position) + Vector2(p.rect.get_center().x, p.rect.position.y + p.rect.size.y * 0.25)
+	var plan := IsoMath.to_plan(top)
+	assert_true(not m.house.layout.object_rect(o, w.pack).has_point(plan), "the cell under is behind the piece")
+	var hit := m.house.pick(w, plan)
+	assert_eq(str(hit.kind), "object")
+	assert_eq(int(hit.uid), int(o.uid))
+	m.free()
+
+
+## Walking takes as long on the screen whichever way: a step east covers as many screen
+## pixels as a step south.
+func test_walking_speed_is_even_on_the_screen():
+	var m := _main()
+	var pv: PersonView = m.house.people.values()[0]
+	var start := m.house.layout.cell_center("yard", 3, 3)
+	var dist := []
+	for d in [Vector2(1, 0), Vector2(0, 1), Vector2(1, 1)]:
+		pv.position = start
+		pv.target = start + d * 400.0
+		pv.path = PackedVector2Array()
+		pv._path_goal = pv.target
+		pv._path_from = pv.position
+		pv.walk(30.0)
+		dist.append(IsoMath.basis().basis_xform(pv.position - start).length())
+	assert_near(dist[0], dist[1], 0.01)
+	assert_near(dist[1], dist[2], 0.01)
+	m.free()
+
+
+## The rooms' names lie on a free part of the floor, clear of every furniture picture.
+func test_room_names_are_clear_of_the_furniture():
+	var m := _main()
+	var font := ThemeDB.fallback_font
+	for id in ["hall", "kitchen", "bedroom", "woodshed"]:
+		var rect := m.house.layout.room_rect(id)
+		var name := str(m.session.world.pack.rooms[id]["name"])
+		var wdt := font.get_string_size(name, HORIZONTAL_ALIGNMENT_LEFT, -1, 16).x
+		var at := m.house.ground.free_label_spot(rect, wdt, 16, Vector2(INF, INF))
+		assert_true(at.x != INF, id)
+		var box := Rect2(IsoMath.to_view(at) + Vector2(0, -16), Vector2(wdt, 20))
+		for uid in m.house.props:
+			var r: Rect2 = _pic(m.house, m.house.props[uid])
+			assert_true(not r.intersects(box), "%s name under %s" % [id, m.session.world.object(uid).type])
 	m.free()

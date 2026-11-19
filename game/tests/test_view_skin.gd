@@ -160,9 +160,10 @@ func test_qijia_house_stands_pictures_and_people():
 		# The head of the taller picture is clickable, above the old block (upright on the
 		# screen, over the feet).
 		var feet := house.to_screen(pv.position)
-		assert_true(pv.hit(house.world_pos(feet + Vector2(0, -body.y + 6))))
-		assert_true(not pv.hit(house.world_pos(feet + Vector2(0, -body.y - 12))))
-		assert_true(not pv.hit(house.world_pos(feet + Vector2(body.x, 0))))
+		var k := house.scale.x
+		assert_true(pv.hit(house.world_pos(feet + Vector2(0, -body.y + 6) * k)))
+		assert_true(not pv.hit(house.world_pos(feet + Vector2(0, -body.y - 12) * k)))
+		assert_true(not pv.hit(house.world_pos(feet + Vector2(body.x, 0) * k)))
 	_done(m)
 
 

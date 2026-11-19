@@ -34,6 +34,7 @@ extends RefCounted
 ##   "iso": {                                     # what the 45° view uses instead (each optional)
 ##     "objects": {"<object type>": "<sprite>"},  # pictures drawn at 45°, long side along plan x
 ##     "axis": {"<sprite>": "y"},                 # this picture's long side runs along plan y
+##     "scale": {"<sprite>": 0.8},                # drawn this much of the footprint's width
 ##     "walls": {"gate": "<sprite>", "fence_x": "<sprite>", "fence_y": "<sprite>"},
 ##     "asleep": "<sprite>",                      # someone asleep on furniture, along plan x
 ##     "decals": [{"sprite": "<sprite>", "room": "<room id>", "side": "north" | "west",
@@ -123,6 +124,15 @@ func object_axis(type: String) -> String:
 	if not name is String or sprite(str(name)) == null:
 		return ""
 	return "y" if str(_iso_table("axis").get(name, "x")) == "y" else "x"
+
+
+## How much smaller or larger the 45° picture of object type `type` stands than its
+## footprint's diamond (`iso.scale`, by picture name; 1 by default).
+func object_scale(type: String) -> float:
+	var name = _iso_table("objects").get(type)
+	if not name is String:
+		return 1.0
+	return clampf(float(_iso_table("scale").get(name, 1.0)), 0.3, 1.5)
 
 
 ## The 45° view's wall pictures: [{tex, room, side, at, w, y}].

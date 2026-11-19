@@ -221,18 +221,22 @@ func pose(name: String, t: float) -> Dictionary:
 ## Facing the camera or turned away: walking lifts each leg in turn (it cannot swing it
 ## sideways) with the arms swaying a little; anything else stands breathing.
 const FRONT_WALK_PERIOD := 0.6
+## How far (offset units: a torso is 100) a knee comes up, and the body with each step.
+const FRONT_LIFT := 14.0
+const FRONT_BOB := 5.0
 func _pose_facing(name: String, t: float, breath: float) -> Dictionary:
 	if name == "walk":
 		var ph := fmod(t, FRONT_WALK_PERIOD) / FRONT_WALK_PERIOD
 		var s := sin(TAU * ph)
-		var bob := -2.5 * absf(sin(TAU * ph))
+		# Each step lifts the body (a clear bob, feet and all) and one knee well up.
+		var bob := -FRONT_BOB * absf(s)
 		return {
-			"torso": Vector3(0.0, 0.0, bob),
-			"head": Vector3(-1.5 * s, 0.0, 0.0),
-			"leg_upper": Vector3(0.0, 0.0, -6.0 * maxf(0.0, s)),
-			"leg_back_upper": Vector3(0.0, 0.0, -6.0 * maxf(0.0, -s)),
-			"arm_upper": Vector3(-7.0 * s, 0.0, 0.0),
-			"arm_back_upper": Vector3(-7.0 * s, 0.0, 0.0),
+			"torso": Vector3(2.5 * s, 0.0, bob),
+			"head": Vector3(-2.0 * s, 0.0, 0.0),
+			"leg_upper": Vector3(0.0, 0.0, -FRONT_LIFT * maxf(0.0, s)),
+			"leg_back_upper": Vector3(0.0, 0.0, -FRONT_LIFT * maxf(0.0, -s)),
+			"arm_upper": Vector3(-12.0 * s, 0.0, 0.0),
+			"arm_back_upper": Vector3(-12.0 * s, 0.0, 0.0),
 		}
 	return {
 		"torso": Vector3(0.0, 0.0, 0.8 * (breath * 0.5 + 0.5)),

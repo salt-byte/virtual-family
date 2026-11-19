@@ -291,7 +291,7 @@ func house_press(pos: Vector2) -> bool:
 	hover(pos)
 	if held_type != "":
 		return false
-	var hit := main.house.layout.pick(session.world, pos, true)
+	var hit := main.house.pick(session.world, pos, true)
 	if str(hit.kind) == "object" and HouseSystem.is_fixed(session.world, str(session.world.object(int(hit.uid)).get("type", ""))):
 		main.hud.toast(session.strings.error("fixed"))  # part of the house: it stays where it is
 		return false

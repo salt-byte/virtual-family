@@ -74,7 +74,10 @@ func test_the_bird_sits_on_a_spot_of_the_compound_wall():
 	for i in 120:
 		m.tick(0.016)
 	var site := m.house.layout.site
-	var at := m.letters.bird.feet + Vector2(0, LetterView.WALL_TOP * m.house.scale.y)
+	# The 45° view raises the bird by the wall's own height there (74 px at the back, 22 cut).
+	var top := m.house.wall_top_at(m.letters._spots[m.letters._spot])
+	assert_true(top >= IsoWall.COMPOUND_LOW * m.house.scale.y - 0.01, str(top))
+	var at := m.letters.bird.feet + Vector2(0, top)
 	var cell := m.house.world_pos(at) / HouseLayout.CELL
 	var c := site.compound
 	var on_h := absf(cell.y - c.position.y) < 0.01 or absf(cell.y - c.end.y) < 0.01
