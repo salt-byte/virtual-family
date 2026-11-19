@@ -24,6 +24,7 @@ const REQUIRED := {
 	"dishes.json": {"name": TYPE_STRING, "portions": TYPE_NIL},
 	"stories.json": {"title": TYPE_STRING, "unlock": TYPE_DICTIONARY, "fragments": TYPE_ARRAY, "finale": TYPE_DICTIONARY},
 	"pets.json": {"name": TYPE_STRING},
+	"letters.json": {"kind": TYPE_STRING, "text": TYPE_STRING},
 }
 ## Whole-number fields and their minimum (money, sizes and durations are never fractional or negative).
 const MIN_INT := {
@@ -79,6 +80,7 @@ func _run() -> void:
 	_check_dishes()
 	_check_seasons()
 	_check_pets()
+	_check_letters()
 
 
 func _check_required() -> void:
@@ -1234,3 +1236,73 @@ func _check_births() -> void:
 	for k in b:
 		if not k in ["fertile_age", "chance_per_day", "pregnancy_years", "beds", "surname_from", "avoid_tag", "drain", "guardian"]:
 			_err("pack.json", _p.id, "unknown births key '%s'" % [k])
+
+
+## The `letters` settings and letters.json: both or neither; the hands; each template's kind,
+## hands, facts, choices and (for a story letter) the story and the moment it is for.
+func _check_letters() -> void:
+	var c = _p.config.get("letters", {})
+	if not c is Dictionary:
+		_err("pack.json", _p.id, "letters must be an object")
+		return
+	if _p.letters.is_empty():
+		if not (c as Dictionary).is_empty():
+			_err("pack.json", _p.id, "letters is set but there is no letters.json")
+		return
+	if (c as Dictionary).is_empty():
+		_err("letters.json", "*", "letters.json needs the letters settings in pack.json")
+		return
+	for f in ["min_gap_min", "unread_max", "keep", "offline_max", "kin_chance_per_day"]:
+		if c.has(f) and not ((c[f] is int or c[f] is float) and c[f] >= 0):
+			_err("pack.json", _p.id, "letters.%s must be a number of at least 0" % f)
+	var chance = c.get("chance", {})
+	if not chance is Dictionary:
+		_err("pack.json", _p.id, "letters.chance must be an object")
+	else:
+		for k in chance:
+			if not LetterSystem.MINOR.has(k):
+				_err("pack.json", _p.id, "letters.chance: '%s' is not a minor kind" % [str(k)])
+			elif not ((chance[k] is int or chance[k] is float) and chance[k] >= 0 and chance[k] <= 1):
+				_err("pack.json", _p.id, "letters.chance.%s must be from 0 to 1" % [str(k)])
+	var hands = c.get("hands", [])
+	var hand_ids := {}
+	if not (hands is Array and not (hands as Array).is_empty()):
+		_err("pack.json", _p.id, "letters.hands must be a non-empty array")
+		hands = []
+	for h in hands:
+		if not (h is Dictionary and str(h.get("id", "")) != "" and h.get("sign", "") is String):
+			_err("pack.json", _p.id, "letters.hands: each needs an id and a sign")
+			continue
+		hand_ids[str(h["id"])] = true
+		for f in ["stages", "tracks", "likes"]:
+			if not h.get(f, []) is Array:
+				_err("pack.json", _p.id, "letters.hands %s: %s must be an array" % [h["id"], f])
+		for t in h.get("tracks", []):
+			if not _p.livelihoods.has(str(t)):
+				_err("pack.json", _p.id, "letters.hands %s: '%s' is not a livelihood" % [h["id"], str(t)])
+	for id in _p.letters:
+		var t: Dictionary = _p.letters[id]
+		var kind := str(t["kind"])
+		if not LetterSystem.KINDS.has(kind):
+			_err("letters.json", id, "kind '%s' is not a letter kind" % kind)
+		if not (t["hand"] is Array and (t["hand"] as Array).all(func(h): return hand_ids.has(str(h)))):
+			_err("letters.json", id, "hand must be an array of the settings' hands")
+		if not t["if"] is Dictionary:
+			_err("letters.json", id, "if must be an object")
+		if not (t["weight"] is int or t["weight"] is float) or float(t["weight"]) < 0.0:
+			_err("letters.json", id, "weight must be a number of at least 0")
+		if kind in ["proposal", "kin", "story"] and str(t["from"]) == "":
+			_err("letters.json", id, "a letter from outside needs a 'from'")
+		if kind == "story":
+			if not _p.stories.has(str(t["story"])):
+				_err("letters.json", id, "story '%s' is not in stories.json" % [str(t["story"])])
+			if not str(t["on"]) in LetterSystem.STORY_ON:
+				_err("letters.json", id, "on must be one of %s" % [str(LetterSystem.STORY_ON)])
+		if not t["choices"] is Array:
+			_err("letters.json", id, "choices must be an array")
+			continue
+		for ch in t["choices"]:
+			if not (ch is Dictionary and ch.get("label") is String and ch.get("effect") is Dictionary):
+				_err("letters.json", id, "choices: each needs a label and an effect")
+			elif not str(ch["effect"].get("type", "")) in LetterSystem.EFFECTS:
+				_err("letters.json", id, "effect type '%s' is unknown" % [str(ch["effect"].get("type", ""))])

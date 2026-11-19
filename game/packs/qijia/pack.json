@@ -80,6 +80,22 @@
 			 "yields": {"greens": 0}}
 		]
 	},
+	"letters": {
+		"min_gap_min": 25, "unread_max": 3, "keep": 300, "offline_max": 5, "kin_chance_per_day": 0.4,
+		"chance": {"thanks": 0.5, "ask": 0.35, "sad": 0.7, "ill": 0.5},
+		"words": {"male": "后生", "female": "姑娘"},
+		"scribe_outside": "巷口的周先生",
+		"hands": [
+			{"id": "child", "stages": ["child"], "sign": "{name}",
+			 "look": {"size": 21, "tilt": -1.5, "ink": "#3E4F86"}},
+			{"id": "scholar", "stages": ["adult", "elder"], "tracks": ["reading"], "likes": ["书痴"], "sign": "{full}　谨上",
+			 "look": {"size": 16, "ink": "#2A1E14"}},
+			{"id": "plain", "stages": ["adult", "elder"], "tracks": ["medicine", "peddling"], "sign": "{full}",
+			 "look": {"size": 17, "ink": "#3A2A1C"}},
+			{"id": "dictated", "scribe": true, "sign": "{name}口述　{scribe}代书",
+			 "look": {"size": 17, "ink": "#4A3424"}}
+		]
+	},
 	"births": {
 		"fertile_age": [18, 40],
 		"chance_per_day": 0.8,

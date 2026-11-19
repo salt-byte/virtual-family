@@ -16,7 +16,7 @@ const FILES := {
 }
 ## Files a pack may leave out; without them the feature is simply absent.
 const OPTIONAL_FILES := {"wishes": "wishes.json", "stories": "stories.json", "dishes": "dishes.json",
-	"pets": "pets.json"}
+	"pets": "pets.json", "letters": "letters.json"}
 
 const DEFAULT_CONFIG := {
 	"hours_per_year": 2.0, "offline_cap_hours": 48, "offline_need_floor": 15,
@@ -66,6 +66,9 @@ const DEFAULT_CONFIG := {
 	# Animals (off while empty or without a pets.json; see `PetSystem` and
 	# `PackValidator._check_pets` for the keys).
 	"pets": {},
+	# Letters to the player (off while empty or without a letters.json; see `LetterSystem`
+	# and `PackValidator._check_letters` for the keys).
+	"letters": {},
 }
 
 ## Per-file field defaults (applied to every entry that lacks the key).
@@ -83,6 +86,7 @@ const ENTRY_DEFAULTS := {
 	"rooms": {"outdoor": false, "props": [], "outside": false},
 	"items": {"stock": {}, "cures": "", "needs": {}, "work": {}, "childhood": {}, "pet": {}},
 	"needs": {"when_empty": {}},
+	"letters": {"hand": [], "weight": 1.0, "if": {}, "choices": [], "sign": "", "from": "", "story": "", "on": ""},
 }
 
 ## Field defaults of a pet's own action (an entry of a pets.json kind's `actions`).
@@ -121,6 +125,8 @@ var stories: Dictionary = {}
 var dishes: Dictionary = {}
 ## Kinds of animals (optional pets.json; see `PetSystem`).
 var pets: Dictionary = {}
+## Letter templates (optional letters.json; see `LetterSystem`).
+var letters: Dictionary = {}
 ## pet action id -> its entry, over every kind (filled by `PetSystem.action`).
 var pet_actions: Dictionary = {}
 var names: Dictionary = {}
