@@ -197,7 +197,9 @@ static func run(pack_id: String, families: int, days: int, seed0: int) -> Dictio
 ## medicine to the sick and a treat to the gloomy, and grant the wishes it can: a wished-for
 ## shop item when the money stays above WISH_RESERVE, a praise when there is something to
 ## praise, a wished-for piece of furniture with FURNITURE_RESERVE more in hand. Rooms are
-## never built for a wish. Never drags or scolds, and furnishes only for a wish.
+## never built for a wish. A body wish it meets by dragging the person to a fix the player
+## leads (`_lead_to_fix`: a bath); otherwise it drags only to feed a baby, never scolds, and
+## furnishes only for a wish.
 static func caretake(w: World) -> void:
 	if w.phase != "living":
 		return
@@ -303,6 +305,8 @@ static func _grant_wish(w: World, p: Person) -> void:
 			var kind := str(wish["pet"])
 			if look_after_pets and w.money >= int(w.pack.pets[kind].get("price", 0)) + WISH_RESERVE:
 				w.command({"type": "buy_pet", "kind": kind})
+		"need":
+			_lead_to_fix(w, p, str(wish["need"]))
 		"object":
 			var type := str(wish["object"])
 			if w.money >= int(w.pack.object_types[type]["price"]) + FURNITURE_RESERVE:
@@ -312,6 +316,23 @@ static func _grant_wish(w: World, p: Person) -> void:
 						for x in int(r["w"]):
 							if w.command({"type": "place", "object_type": type, "room": room, "x": x, "y": y}).ok:
 								return
+
+
+## A body wish the person cannot fix well alone: drags them to the first object where a
+## player-led action (`AutonomySystem.player_led`) raises `need` (a bath for a dirty one, a
+## rest on the bed for a tired one). Leaves alone someone already doing something that
+## raises it (asleep, say).
+static func _lead_to_fix(w: World, p: Person, need: String) -> void:
+	if not p.current.is_empty() and float((w.pack.actions[p.current["action"]]["needs"] as Dictionary).get(need, 0.0)) > 0.0:
+		return
+	for id in w.pack.actions:
+		var a: Dictionary = w.pack.actions[id]
+		if str(a["object"]) == "" or not AutonomySystem.player_led(a) or float((a["needs"] as Dictionary).get(need, 0.0)) <= 0.0:
+			continue
+		for o in w.objects:
+			if o.type == a["object"] and AutonomySystem.can_do(w, p, id, int(o.uid)) == "":
+				if w.command({"type": "drag", "person": p.uid, "object": int(o.uid)}).ok:
+					return
 
 
 ## Food units one purchase of the caretaker's food item adds (0 when the pack has none).

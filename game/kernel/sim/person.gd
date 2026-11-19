@@ -69,6 +69,18 @@ var father := 0
 ## `now` at which the baby is due (0: not with child), and the father's uid.
 var pregnant_until := 0
 var pregnant_by := 0
+## Sharing earnings with the player (see `ShareSystem`): the local day the tally is for (-1:
+## none yet), what they earned that day, how much of it they have already told the player
+## about, `now` of the last time they turned to share, and what they are sharing while the
+## wave lasts ({} for nothing: {kind: "money" | "level", n, level}).
+var earned_day := -1
+var earned := 0
+var earned_told := 0
+var shared_at := 0
+var share: Dictionary = {}
+## Not saved: the factor on the chance of falling ill from low needs, as of the start of the
+## current game minute (see `NeedsSystem.illness_factor`); 1 until then.
+var ill_factor := 1.0
 
 
 ## Status bar: need id -> the label word that applies to the current value.
@@ -104,7 +116,7 @@ func stage(pack: Pack) -> String:
 
 
 func to_dict() -> Dictionary:
-	return {
+	var d := {
 		"uid": uid, "given": given, "family": family, "gender": gender, "age": age,
 		"lifespan": lifespan, "alive": alive, "needs": needs.duplicate(true),
 		"likes": likes.duplicate(true), "dislikes": dislikes.duplicate(true),
@@ -118,6 +130,12 @@ func to_dict() -> Dictionary:
 		"spouse": spouse, "mother": mother, "father": father,
 		"pregnant_until": pregnant_until, "pregnant_by": pregnant_by,
 	}
+	# Optional, written only once this person has earned something to share.
+	if earned_day >= 0:
+		d["earned"] = {"day": earned_day, "n": earned, "told": earned_told, "shared_at": shared_at}
+	if not share.is_empty():
+		d["share"] = share.duplicate(true)
+	return d
 
 
 ## Rebuilds a Person; tolerates JSON round trips where every number is a float.
@@ -181,4 +199,14 @@ static func from_dict(d: Dictionary) -> Person:
 	p.father = int(d.get("father", 0))
 	p.pregnant_until = int(d.get("pregnant_until", 0))
 	p.pregnant_by = int(d.get("pregnant_by", 0))
+	# Absent in saves from before sharing existed.
+	var ed: Dictionary = d.get("earned", {})
+	if not ed.is_empty():
+		p.earned_day = int(ed.get("day", -1))
+		p.earned = int(ed.get("n", 0))
+		p.earned_told = int(ed.get("told", 0))
+		p.shared_at = int(ed.get("shared_at", 0))
+	var sd: Dictionary = d.get("share", {})
+	if not sd.is_empty():
+		p.share = {"kind": str(sd.get("kind", "")), "n": int(sd.get("n", 0)), "level": int(sd.get("level", 0))}
 	return p

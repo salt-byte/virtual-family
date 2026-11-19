@@ -6,11 +6,24 @@ extends RefCounted
 
 static func step(world: World, dt: float) -> void:
 	_apply_penalties(world, dt)
-	for id in world.pack.mess_types:
-		var per_step := float(world.pack.mess_types[id].get("spawn_per_day", 0)) / 1440.0 * (dt / 60.0)
-		# A type that never appears by itself (it comes from something else) draws nothing.
-		if per_step > 0.0 and world.rng.chance(per_step):
-			spawn(world, str(id))
+	# A type that never appears by itself (it comes from something else) draws nothing; the
+	# others are read once per pack and step length (same draws, in pack order).
+	var t := world.pack.mess_spawn_table
+	if t.is_empty() or float(t[0]) != dt or int(t[3]) != world.pack.mess_types.size():
+		var ids := PackedStringArray()
+		var rates := PackedFloat64Array()
+		for id in world.pack.mess_types:
+			var per_step := float(world.pack.mess_types[id].get("spawn_per_day", 0)) / 1440.0 * (dt / 60.0)
+			if per_step > 0.0:
+				ids.append(str(id))
+				rates.append(per_step)
+		t = [dt, ids, rates, world.pack.mess_types.size()]
+		world.pack.mess_spawn_table = t
+	var ids: PackedStringArray = t[1]
+	var rates: PackedFloat64Array = t[2]
+	for k in ids.size():
+		if world.rng.chance(rates[k]):
+			spawn(world, ids[k])
 
 
 ## Adds one mess of `type` and returns its uid, or -1 when the type is unknown or no suitable
@@ -44,13 +57,26 @@ static func clean(world: World, uid: int, by := -1) -> void:
 	for i in world.messes.size():
 		if world.messes[i].uid != uid:
 			continue
+		var type := str(world.messes[i].type)
 		world.messes.remove_at(i)
 		world.stats["mess_cleaned"] = int(world.stats["mess_cleaned"]) + 1
 		world.emit("mess_cleaned", {"uid": uid})
+		_scrap(world, type, by)
 		if world.messes.is_empty():
 			world.stats["all_clean"] = int(world.stats["all_clean"]) + 1
 			_reward(world, by)
 		return
+
+
+## Litter worth something (`scrap`: {value, chance}): whoever picked it up sells it for
+## `value` coins with that chance. Types without `scrap` draw nothing.
+static func _scrap(world: World, type: String, by: int) -> void:
+	var sc = world.pack.mess_types.get(type, {}).get("scrap")
+	if not sc is Dictionary or (sc as Dictionary).is_empty() or by < 0:
+		return
+	var value := int(sc.get("value", 0))
+	if value > 0 and world.rng.chance(float(sc.get("chance", 1.0))):
+		EconomySystem.earn(world, value, "scrap", by)
 
 
 ## The pay for a house made clean: `clean_reward.amount` coins, once per local day.
@@ -62,7 +88,7 @@ static func _reward(world: World, by: int) -> void:
 	if day == world.clean_paid_day:
 		return
 	world.clean_paid_day = day
-	EconomySystem.earn(world, amount, "clean")
+	EconomySystem.earn(world, amount, "tidy_house")
 	world.emit("clean_reward", {"amount": amount, "person": by})
 
 
@@ -88,14 +114,34 @@ static func first_free(world: World, type: String, p: Person) -> int:
 
 
 static func _apply_penalties(world: World, dt: float) -> void:
+	if world.messes.is_empty():
+		return
 	var floor_v := float(world.pack.cfg("offline_need_floor"))
+	# mess type -> [need ids, amounts per hour], read once per pack (same arithmetic as reading
+	# the penalty dictionary each time).
+	var pen := world.pack.mess_penalties
+	if pen.size() != world.pack.mess_types.size():
+		pen.clear()
+		for id in world.pack.mess_types:
+			var penalty: Dictionary = world.pack.mess_types[id].get("penalty", {})
+			var ids := PackedStringArray()
+			var amounts := PackedFloat64Array()
+			for nid in penalty:
+				ids.append(str(nid))
+				amounts.append(absf(float(penalty[nid])))
+			pen[id] = [ids, amounts]
 	for m in world.messes:
-		var penalty: Dictionary = world.pack.mess_types[m.type].get("penalty", {})
+		var pr: Array = pen[m.type]
+		var ids: PackedStringArray = pr[0]
+		var amounts: PackedFloat64Array = pr[1]
 		for p in world.people:
 			if not p.alive:
 				continue
-			for nid in penalty:
-				if p.needs.has(nid):
-					p.needs[nid] = clampf(float(p.needs[nid]) - absf(float(penalty[nid])) * dt / 3600.0, 0.0, 100.0)
+			var needs := p.needs
+			for k in ids.size():
+				var nid := ids[k]
+				var v = needs.get(nid)
+				if v != null:
+					needs[nid] = clampf(float(v) - amounts[k] * dt / 3600.0, 0.0, 100.0)
 					if world.offline:
-						p.needs[nid] = maxf(float(p.needs[nid]), floor_v)
+						needs[nid] = maxf(float(needs[nid]), floor_v)

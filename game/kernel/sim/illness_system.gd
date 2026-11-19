@@ -14,7 +14,7 @@ static func step(world: World, dt: float) -> void:
 		if not p.alive:
 			continue
 		if p.illness == "":
-			if p.stage(pack) != "baby" and not pack.illnesses.is_empty() and world.rng.chance(chance):
+			if p.stage(pack) != "baby" and not pack.illnesses.is_empty() and world.rng.chance(chance * (1.0 if world.offline else p.ill_factor)):
 				infect(world, p, _pick_illness(world))
 			continue
 		var drain: Dictionary = pack.illnesses[p.illness]["drain"]

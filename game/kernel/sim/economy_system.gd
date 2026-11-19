@@ -22,6 +22,7 @@ static func step(world: World, dt: float) -> void:
 		world.income_carry[p.uid] = total - pay * 24
 		world.money += pay
 		world.emit("income", {"person": p.uid, "amount": pay, "source": "salary"})
+		ShareSystem.on_income(world, p.uid, pay)
 
 
 ## False (and nothing taken) when there is not enough money.
@@ -42,6 +43,7 @@ static func earn(world: World, amount: int, source: String, person_uid := -1) ->
 	if person_uid >= 0:
 		e["person"] = person_uid
 	world.emit("income", e)
+	ShareSystem.on_income(world, person_uid, amount)
 
 
 ## Called when a `work` action ends with the real minutes it took: coin bonus always (the
@@ -71,6 +73,7 @@ static func add_progress(world: World, p: Person, minutes: float) -> void:
 		p.level += 1
 		p.progress = 0.0
 		world.emit("level_up", {"person": p.uid, "track": p.track, "level": p.level})
+		ShareSystem.on_level_up(world, p)
 
 
 static func _fit_to_work(world: World, p: Person) -> bool:

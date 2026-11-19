@@ -95,6 +95,8 @@ class Info:
 	var pet_cures := false
 	## `gain_max` without the pet's part (the person's own gains)
 	var self_gain := 0.0
+	## `player_only`: never chosen by the person, only done when the player drags them to it
+	var player_only := false
 
 
 ## The pack's actions as `Info`, in pack order, built on first use and kept on the pack
@@ -126,7 +128,9 @@ static func _table(pack: Pack) -> Array:
 		i.base = float(a.get("base", 0))
 		for n in a["needs"]:
 			i.need_ids.append(str(n))
-			i.need_gains.append(maxf(float(a["needs"][n]), 0.0))
+			# Scored by what the person would get doing it of their own accord.
+			i.need_gains.append(maxf(float(a["needs"][n]), 0.0) * self_factor(a, str(n)))
+		i.player_only = bool(a.get("player_only", false))
 		i.tags = a.get("tags", [])
 		i.hours = a.get("hours", [])
 		i.has_hours = not i.hours.is_empty()
@@ -350,7 +354,7 @@ static func _stage_track_table(pack: Pack, stage: String, track: String, mood :=
 		t = _stage_table(pack, stage).filter(func(i: Info):
 			return (not i.has_work or i.track == track) and (not i.mood_req or i.mood == mood) \
 				and not (pregnant and i.avoid) and (i.preg < 0 or (i.preg == 1) == pregnant) \
-				and (babies or not i.tend) and (not i.pet or _pet_fits(i, pets)))
+				and (babies or not i.tend) and (not i.pet or _pet_fits(i, pets)) and not i.player_only)
 		pack.autonomy_by_stage_track[key] = t
 	return t
 
@@ -840,9 +844,14 @@ static func _progress(world: World, p: Person, dt: float) -> void:
 	var paid := clampf(dt - float(remaining - dur), 0.0, dt)
 	var gain_frac := paid / float(dur)
 	var cost_frac := paid / (float(a["duration_min"]) * 60.0)
+	var own = a.get("self_factor")  # null for nearly every action: full gains
+	if own != null and bool(p.current.get("led", false)):
+		own = null  # the player brought them here: the full gains
 	for n in a["needs"]:
 		if p.needs.has(n):
 			var v := float(a["needs"][n])
+			if own != null and v > 0.0:
+				v *= self_factor(a, str(n))
 			var nv := clampf(float(p.needs[n]) + v * (gain_frac if v >= 0.0 else cost_frac), 0.0, 100.0)
 			if v > 0.0 and p.mood_cap < 100.0 and n == world.pack.cfg("praise_need"):
 				# Without the player's attention, one's own doings only lift the mood so far.
@@ -858,6 +867,26 @@ static func _progress(world: World, p: Person, dt: float) -> void:
 	p.current["remaining_s"] = remaining - int(dt)
 	if int(p.current["remaining_s"]) <= 0:
 		_finish(world, p)
+
+
+## What share of action `a`'s gain of need `n` a person gets doing it of their own accord
+## (`self_factor`: a number for every need, or need id -> number with 1 for the needs it does
+## not name; 1 without it). Started by the player's drag (`Person.current.led`), they get it
+## all. With `player_only` the person never chooses it at all.
+static func self_factor(a: Dictionary, n: String) -> float:
+	var sf = a.get("self_factor")
+	if sf == null:
+		return 1.0
+	if sf is Dictionary:
+		return float((sf as Dictionary).get(n, 1.0))
+	return float(sf)
+
+
+## True for an action whose fix the player leads (`self_factor` or `player_only`): a drag to
+## it is remembered on the running action (`led`), and dropping someone on its object
+## prefers it (see `Commands`).
+static func player_led(a: Dictionary) -> bool:
+	return a.has("self_factor") or bool(a.get("player_only", false))
 
 
 ## Runs once when an action's time is up.
@@ -928,10 +957,12 @@ static func _choose(world: World, p: Person) -> void:
 
 ## `hour` is the local hour (negative: read it from the world).
 static func _score(world: World, p: Person, a: Dictionary, hour := -1.0) -> float:
+	if bool(a.get("player_only", false)):
+		return 0.0  # never chosen by the person (see `candidates`)
 	var gain := 0.0
 	for n in a["needs"]:
 		if p.needs.has(n):
-			gain += minf(maxf(float(a["needs"][n]), 0.0), 100.0 - float(p.needs[n])) * (100.0 - float(p.needs[n])) / 100.0
+			gain += minf(maxf(float(a["needs"][n]), 0.0) * self_factor(a, str(n)), 100.0 - float(p.needs[n])) * (100.0 - float(p.needs[n])) / 100.0
 	var score := (float(a.get("base", 0)) + gain) * float(p.habits.get(a["id"], 1.0))
 	for t in a.get("tags", []):
 		if t in p.likes:

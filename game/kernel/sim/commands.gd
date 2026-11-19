@@ -45,6 +45,11 @@ static func _drag(world: World, cmd: Dictionary) -> Dictionary:
 	# Dropping a sick, idle person shows their symptom, whether or not the drag worked.
 	var p := world.person(int(cmd.get("person", -1)))
 	if p != null:
+		# The player brought them to a fix the player leads: it pays in full (see
+		# `AutonomySystem.self_factor`).
+		if result.ok and not p.current.is_empty() \
+				and AutonomySystem.player_led(world.pack.actions[p.current["action"]]):
+			p.current["led"] = true
 		IllnessSystem.show_symptom(world, p)
 	return result
 
@@ -109,6 +114,11 @@ static func _eat_at(world: World, p: Person, object_uid: int) -> String:
 static func _pick_object_action(world: World, p: Person, o: Dictionary) -> Dictionary:
 	var first_reason := ""
 	var stage_only := false
+	# A fix the player leads (a bath, a rest) comes first when it would do `p` some good:
+	# the one that gives most of what they lack, pack order on a tie.
+	var led := _best_led_action(world, p, o)
+	if led != "":
+		return {"action": led, "error": ""}
 	# A story's finale on this object comes first while it is open.
 	for id in world.pack.actions:
 		var a: Dictionary = world.pack.actions[id]
@@ -132,6 +142,27 @@ static func _pick_object_action(world: World, p: Person, o: Dictionary) -> Dicti
 	if first_reason == "":
 		first_reason = "stage" if stage_only else "no_action"
 	return {"action": "", "error": first_reason}
+
+
+## Of the player-led actions (`AutonomySystem.player_led`) on object `o`'s type that `p` can
+## do there now, the one whose full gains would give `p` the most ("" for none that gives
+## anything).
+static func _best_led_action(world: World, p: Person, o: Dictionary) -> String:
+	var best := ""
+	var best_g := 0.0
+	for id in world.pack.actions:
+		var a: Dictionary = world.pack.actions[id]
+		if str(a["object"]) != str(o["type"]) or not AutonomySystem.player_led(a):
+			continue
+		var g := 0.0
+		for n in a["needs"]:
+			if p.needs.has(n):
+				var room := 100.0 - float(p.needs[n])
+				g += minf(maxf(float(a["needs"][n]), 0.0), room) * room / 100.0
+		if g > best_g and AutonomySystem.can_do(world, p, id, int(o["uid"])) == "":
+			best = str(id)
+			best_g = g
+	return best
 
 
 static func _drag_to_mess(world: World, p: Person, mess_uid: int) -> Dictionary:

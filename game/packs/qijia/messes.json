@@ -7,5 +7,11 @@
 	 "look": "patch", "seasons": ["winter"]},
 	{"id": "leaves", "name": "落叶", "spawn_per_day": 0, "outdoor": true, "penalty": {"happy": 0.2}, "color": "#C8812F",
 	 "seasons": ["autumn", "winter"]},
-	{"id": "pet_hair", "name": "掉了一地的毛", "spawn_per_day": 0, "outdoor": false, "penalty": {"happy": 0.5}, "color": "#B89B6E"}
+	{"id": "pet_hair", "name": "掉了一地的毛", "spawn_per_day": 0, "outdoor": false, "penalty": {"happy": 0.5}, "color": "#B89B6E"},
+	{"id": "wrapper", "name": "揉皱的油纸", "spawn_per_day": 3, "outdoor": false, "penalty": {"happy": 0.3}, "color": "#E6D3A3"},
+	{"id": "fruit_core", "name": "果核", "spawn_per_day": 3, "outdoor": true, "penalty": {"happy": 0.3}, "color": "#B5703A"},
+	{"id": "cloth_scraps", "name": "碎布头", "spawn_per_day": 1, "outdoor": false, "penalty": {"happy": 0.3}, "color": "#C9637A",
+	 "scrap": {"value": 2, "chance": 0.5}},
+	{"id": "feathers", "name": "鸡毛", "spawn_per_day": 2, "outdoor": true, "penalty": {"happy": 0.3}, "color": "#F2EEE4",
+	 "scrap": {"value": 1, "chance": 0.5}}
 ]

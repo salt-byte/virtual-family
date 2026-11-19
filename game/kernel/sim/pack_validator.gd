@@ -262,6 +262,24 @@ func _check_needs() -> void:
 		var we = n["when_empty"]
 		if not we is Dictionary or (not we.is_empty() and (not _p.needs.has(we.get("need", "")) or not we.has("per_hour"))):
 			_err("needs.json", n["id"], "when_empty must be {need, per_hour} naming an existing need")
+		if n.has("warn_below") and not _is_num(n["warn_below"]):
+			_err("needs.json", n["id"], "warn_below must be a number")
+		var xd = n.get("extra_drain", [])
+		if not xd is Array or not (xd as Array).all(func(r): return r is Dictionary and _is_num(r.get("per_hour"))):
+			_err("needs.json", n["id"], "extra_drain must be a list of {per_hour, ...} rules")
+		else:
+			for r in xd:
+				for aid in r.get("actions", []):
+					if not _p.actions.has(aid):
+						_err("needs.json", n["id"], "extra_drain: action '%s' does not exist" % [str(aid)])
+		var lo = n.get("low", {})
+		if not lo is Dictionary or (not lo.is_empty() and not (_is_num(lo.get("below")) and lo.get("drain", {}) is Dictionary \
+				and _is_num(lo.get("illness_factor", 1.0)) and float(lo.get("illness_factor", 1.0)) >= 0.0)):
+			_err("needs.json", n["id"], "low must be {} or {below, drain: {need: per hour}, illness_factor >= 0}")
+		elif not lo.is_empty():
+			for k in lo.get("drain", {}):
+				if not _p.needs.has(k):
+					_err("needs.json", n["id"], "low.drain key '%s' is not a need" % [k])
 
 
 func _check_actions() -> void:
@@ -339,6 +357,15 @@ func _check_actions() -> void:
 			if not a["rooms"].is_empty() and a["object"] is String and a["object"] != "":
 				_err("actions.json", id, "an action with an object may not also list rooms")
 		_check_requires(id, a["requires"])
+		var sf = a.get("self_factor", 1.0)
+		if sf is Dictionary:
+			for k in sf:
+				if not _p.needs.has(k) or not _is_num(sf[k]) or float(sf[k]) < 0.0:
+					_err("actions.json", id, "self_factor key '%s' must be a need with a number of at least 0" % [k])
+		elif not _is_num(sf) or float(sf) < 0.0:
+			_err("actions.json", id, "self_factor must be a number of at least 0 or {need: number}")
+		if not a.get("player_only", false) is bool:
+			_err("actions.json", id, "player_only must be true or false")
 		_check_tends(id, a)
 		_check_pet_target("actions.json", id, a.get("pet", {}))
 		if a.get("pet") is Dictionary and not a["pet"].is_empty():
@@ -1003,6 +1030,10 @@ func _check_messes() -> void:
 					_err("messes.json", m["id"], "penalty key '%s' is not a need" % [k])
 		if m.has("color") and not _color_ok(m["color"]):
 			_err("messes.json", m["id"], "color must be a colour like \"#rrggbb\"")
+		var sc = m.get("scrap", {})
+		if not sc is Dictionary or (not sc.is_empty() and not (_is_num(sc.get("value")) and float(sc["value"]) >= 0.0 \
+				and _is_num(sc.get("chance", 1.0)))):
+			_err("messes.json", m["id"], "scrap must be {} or {value: whole number, chance}")
 
 
 func _check_goals() -> void:
@@ -1187,6 +1218,16 @@ func _check_mood_config() -> void:
 	for k in ["story_interval_min", "story_ttl_min"]:
 		if _is_num(c.get(k)) and float(c[k]) <= 0.0:
 			_err("pack.json", _p.id, "%s must be above 0" % [k])
+	for k in ["wish_check_min", "need_wish_check_min"]:
+		var v = c.get(k)
+		if not (_is_num(v) and float(v) == floorf(float(v)) and int(v) >= 1 and (60 % int(v) == 0 or int(v) % 60 == 0)):
+			_err("pack.json", _p.id, "%s must be a whole number of minutes that divides 60, or whole hours" % [k])
+	var fe = c.get("feelings")
+	if not fe is Array or not (fe as Array).all(func(r): return r is Dictionary and r.get("text") is String):
+		_err("pack.json", _p.id, "feelings must be a list of rules, each with a text")
+	var sh = c.get("share")
+	if not sh is Dictionary or (not sh.is_empty() and not (_is_num(sh.get("every")) and float(sh["every"]) >= 1.0)):
+		_err("pack.json", _p.id, "share must be {} or {every: whole coins >= 1, gap_min, level, money_text, level_text}")
 	var d = c.get("mood_depressed_drain")
 	if not d is Dictionary:
 		_err("pack.json", _p.id, "mood_depressed_drain must be an object")

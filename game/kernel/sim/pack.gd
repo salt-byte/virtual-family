@@ -69,6 +69,15 @@ const DEFAULT_CONFIG := {
 	# Letters to the player (off while empty or without a letters.json; see `LetterSystem`
 	# and `PackValidator._check_letters` for the keys).
 	"letters": {},
+	# How often (game minutes) people look at forming a new wish: the mood wishes, with the
+	# chance per hour scaled to the look, and the body wishes (a need fallen low). 60: at the
+	# turn of each hour, as before these existed.
+	"wish_check_min": 60, "need_wish_check_min": 60,
+	# What a person feels right now (off while empty; see `FeelingSystem`): rules in order,
+	# the first that holds gives the words.
+	"feelings": [],
+	# Sharing earnings with the player (off while empty; see `ShareSystem` for the keys).
+	"share": {},
 }
 
 ## Per-file field defaults (applied to every entry that lacks the key).
@@ -158,6 +167,11 @@ var autonomy_whole_hours := true
 var affinity_table: Dictionary = {}
 ## The needs' drains as plain arrays, prepared by `NeedsSystem` on first use.
 var needs_table: Array = []
+## [step length, mess type ids that appear by themselves, their chance per step, number of
+## mess types], prepared by `MessSystem.step`.
+var mess_spawn_table: Array = []
+## mess type -> [need ids, penalty per hour], prepared by `MessSystem`.
+var mess_penalties: Dictionary = {}
 ## `stages` as parallel arrays (ids, starting ages), rebuilt when the array is replaced or
 ## changes size (see `stage_of`).
 var _stage_src: Variant = null

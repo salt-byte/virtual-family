@@ -144,8 +144,12 @@ func test_malformed_float_marker_is_rejected():
 	var w := _played(); var d := w.to_dict(); d["people"][0]["age"] = {"$f": "abc"}
 	assert_true(World.from_dict(w.pack, d) == null)
 func test_missing_need_and_non_string_tags_rejected():
-	var w := _busy(); var d := w.to_dict(); d["people"][0]["needs"].erase(w.pack.needs.keys()[0])
-	assert_true(World.from_dict(w.pack, d) == null)
+	# A need missing from a save (one the pack gained since) is filled in at its start.
+	var w := _busy(); var d := w.to_dict(); var gone: String = w.pack.needs.keys()[0]
+	d["people"][0]["needs"].erase(gone)
+	var back := World.from_dict(w.pack, d)
+	assert_true(back != null)
+	assert_near(float(back.people[0].needs[gone]), float(w.pack.needs[gone]["start"]))
 	var d2 := w.to_dict(); d2["people"][0]["likes"] = [3]; assert_true(World.from_dict(w.pack, d2) == null)
 func test_out_of_range_digit_strings_rejected_silently():
 	var big := "99999999999999999999"
@@ -182,8 +186,12 @@ func test_save_naming_removed_pack_content_is_pack_changed():
 		table.erase(removals[key])
 		var r := SaveStore.load(pack, P)
 		assert_eq(r.error, "pack_changed", key); assert_true(r.world == null, key)
+	# A pack that gained a need still loads the save: everyone gets the new need at its start.
 	var added := Pack.load_dir(SMOKE); added.needs["extra_need"] = added.needs.values()[0].duplicate()
-	assert_eq(SaveStore.load(added, P).error, "pack_changed", "pack gained a need")
+	added.needs["extra_need"]["id"] = "extra_need"
+	var ra := SaveStore.load(added, P)
+	assert_eq(ra.error, "", "pack gained a need")
+	assert_near(float(ra.world.people[0].needs["extra_need"]), float(added.needs["extra_need"]["start"]))
 	_cleanup()
 func test_acc_must_be_below_the_largest_step():
 	var w := _played()

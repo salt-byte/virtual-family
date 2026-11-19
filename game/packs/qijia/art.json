@@ -12,7 +12,7 @@
 			"threshold": "iso_door_sill", "stone_bench": "iso_stone_bench", "carpenter_bench": "iso_carpenter_bench",
 			"herb_grinder": "iso_herb_grinder", "embroidery_frame": "iso_embroidery_frame", "tofu_box": "iso_tofu_box",
 			"peddler_pole": "iso_peddler_pole", "bookshelf": "iso_bookshelf", "trough": "iso_trough",
-			"bird_cage": "iso_bird_cage", "ayun_hoop": "iso_embroidery_frame"
+			"bird_cage": "iso_bird_cage", "ayun_hoop": "iso_embroidery_frame", "washtub": "iso_washtub"
 		},
 		"walls": {"gate": "iso_gatehouse", "fence_x": "iso_fence", "fence_y": "iso_fence_ns"},
 		"asleep": "iso_sleeper",

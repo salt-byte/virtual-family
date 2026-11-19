@@ -95,7 +95,7 @@ static func _build(pack: Pack, d: Dictionary) -> World:
 	w.money = int(d["money"])
 	w.people.clear()
 	for pd in d["people"]:
-		w.people.append(Person.from_dict(pd))
+		w.people.append(_gain_needs(pack, Person.from_dict(pd)))
 	w.objects.clear()
 	for o in d["objects"]:
 		w.objects.append(_ints(o, ["uid", "x", "y"]))
@@ -132,10 +132,10 @@ static func _build(pack: Pack, d: Dictionary) -> World:
 	for g in d["goals_done"]:
 		w.goals_done.append(str(g))
 	w.married = d["married"]
-	w.candidate = {} if d["candidate"].is_empty() else Person.from_dict(d["candidate"]).to_dict()
+	w.candidate = {} if d["candidate"].is_empty() else _gain_needs(pack, Person.from_dict(d["candidate"])).to_dict()
 	w.proposals.clear()
 	for pr in d["proposals"]:
-		var prop := {"id": int(pr["id"]), "person": Person.from_dict(pr["person"]).to_dict(),
+		var prop := {"id": int(pr["id"]), "person": _gain_needs(pack, Person.from_dict(pr["person"])).to_dict(),
 			"savings": int(pr["savings"]), "expires_at": int(pr["expires_at"])}
 		if pr.has("for"):  # optional: only with births on, and absent in older saves
 			prop["for"] = int(pr["for"])
@@ -379,7 +379,14 @@ static func _valid_person(p) -> bool:
 			"spouse", "mother", "father", "pregnant_until", "pregnant_by"]:
 		if p.has(k) and not (_is_whole(p[k]) and float(p[k]) >= 0.0):
 			return false
+	# Optional (older saves lack them): the day's earnings and what is being shared.
+	if p.has("earned") and not (typeof(p["earned"]) == TYPE_DICTIONARY and _has(p["earned"], {"day": "i", "n": "i", "told": "i", "shared_at": "i"})):
+		return false
+	if p.has("share") and not (typeof(p["share"]) == TYPE_DICTIONARY and _has(p["share"], {"kind": "s", "n": "i", "level": "i"})):
+		return false
 	var c: Dictionary = p["current"]
+	if c.has("led") and not c["led"] is bool:
+		return false
 	if c.has("room") and not _is_str(c["room"]):
 		return false  # optional: saves from before actions had rooms lack it
 	return c.is_empty() or _has(c, {"action": "s", "object_uid": "i", "target_uid": "i", "remaining_s": "i"})
@@ -624,8 +631,17 @@ static func _ids_known(pack: Pack, d: Dictionary) -> bool:
 			and _all_in(d["rooms_built"], pack.rooms) and _all_in(d["goals_done"], pack.goals)
 
 
+## A person from a save written before the pack gained a need gets it at its `start`.
+static func _gain_needs(pack: Pack, p: Person) -> Person:
+	for nid in pack.needs:
+		if not p.needs.has(nid):
+			p.needs[nid] = float(pack.needs[nid]["start"])
+	return p
+
+
+## A need the pack no longer has is a change; one it gained is filled in (`_gain_needs`).
 static func _person_ids_known(pack: Pack, p: Dictionary) -> bool:
-	if not (_keys_in(p["needs"], pack.needs) and _keys_in(pack.needs, p["needs"])):
+	if not _keys_in(p["needs"], pack.needs):
 		return false
 	if not _keys_in(p["habits"], pack.actions):
 		return false

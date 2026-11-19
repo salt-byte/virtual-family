@@ -25,5 +25,6 @@
 	{"id": "bookshelf", "name": "书架", "category": "书房", "price": 0, "w": 3, "h": 1, "fixed": true},
 	{"id": "trough", "name": "猪槽", "category": "牲口", "price": 0, "w": 3, "h": 1, "outdoor": true, "fixed": true},
 	{"id": "grain_heap", "name": "谷堆", "category": "收成", "price": 0, "w": 2, "h": 2, "outdoor": true, "capacity": 2, "fixed": true},
-	{"id": "ayun_hoop", "name": "阿芸的旧绣绷", "category": "旧物", "price": 0, "w": 1, "h": 1, "keepsake": true}
+	{"id": "ayun_hoop", "name": "阿芸的旧绣绷", "category": "旧物", "price": 0, "w": 1, "h": 1, "keepsake": true},
+	{"id": "washtub", "name": "澡盆", "category": "灶间", "price": 120, "w": 1, "h": 1}
 ]

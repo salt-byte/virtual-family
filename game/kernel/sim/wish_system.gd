@@ -27,7 +27,10 @@ static func step(world: World, dt: float) -> void:
 	var pack := world.pack
 	if pack.wishes.is_empty():
 		return
-	var hour_turned := world.now % 3600 < maxi(int(dt), 60)
+	# The looks at forming a wish: mood wishes every `wish_check_min`, body wishes every
+	# `need_wish_check_min` (both 60 by default: at the turn of each hour).
+	var mood_look := _turned(world, dt, int(pack.cfg("wish_check_min")))
+	var body_look := _turned(world, dt, int(pack.cfg("need_wish_check_min")))
 	for p in world.people:
 		if not p.alive:
 			continue
@@ -40,8 +43,13 @@ static func step(world: World, dt: float) -> void:
 				continue
 			elif world.now >= int(p.wish["expires_at"]):
 				_expire(world, p, w)
-		if hour_turned and not world.offline:
-			_maybe_form(world, p)
+		if (mood_look or body_look) and not world.offline:
+			_maybe_form(world, p, body_look, mood_look)
+
+
+## True on the step that starts a new span of `minutes` game minutes.
+static func _turned(world: World, dt: float, minutes: int) -> bool:
+	return world.now % (maxi(minutes, 1) * 60) < maxi(int(dt), 60)
 
 
 ## Whether a wish of a kind that is checked by looking at the world holds now.
@@ -84,6 +92,7 @@ static func grant(world: World, p: Person) -> void:
 	p.wish_last = id
 	_add_mood(world, p, float(w.get("joy", 0.0)))
 	p.thanks_until = world.now + thanks_seconds(world)
+	p.share = {}  # the wave is a thank-you now, not news of earnings
 	MoodSystem.cared(world, p)
 	world.emit("wish_granted", {"person": p.uid, "wish": id})
 
@@ -133,7 +142,9 @@ static func current(world: World, p: Person) -> Dictionary:
 	return world.pack.wishes.get(str(p.wish["id"]), {})
 
 
-static func _maybe_form(world: World, p: Person) -> void:
+## `body`: look for a body wish; `mood`: look for a mood wish (the chance per hour scaled
+## to `wish_check_min`).
+static func _maybe_form(world: World, p: Person, body_look := true, mood_look := true) -> void:
 	var pack := world.pack
 	if p.stage(pack) == "baby" or p.mood == "depressed":
 		return
@@ -141,13 +152,15 @@ static func _maybe_form(world: World, p: Person) -> void:
 	if str(held.get("kind", "")) == "need":
 		return
 	# A body wish comes first, also in place of a mood wish.
-	var body := _eligible(world, p, true)
-	if not body.is_empty():
-		_form(world, p, body)
+	if body_look:
+		var body := _eligible(world, p, true)
+		if not body.is_empty():
+			_form(world, p, body)
+			return
+	if not held.is_empty() or not mood_look:
 		return
-	if not held.is_empty():
-		return
-	if not world.rng.chance(float(pack.cfg("wish_chance_per_hour"))):
+	var look := float(pack.cfg("wish_check_min")) / 60.0
+	if not world.rng.chance(float(pack.cfg("wish_chance_per_hour")) * look):
 		return
 	var mood := _eligible(world, p, false)
 	if not mood.is_empty():

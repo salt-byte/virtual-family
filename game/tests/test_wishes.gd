@@ -5,6 +5,7 @@ extends TestCase
 func _home(seed := 1) -> World:
 	var w := TestKit.world("qijia", seed)
 	w.pack.config["wish_chance_per_hour"] = 1.0
+	w.pack.config["wish_check_min"] = 60  # one look an hour: chance 1 means a wish at the hour
 	w.adopted_once = true
 	TestKit.adult(w)
 	return w
