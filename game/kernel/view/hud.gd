@@ -12,16 +12,26 @@ signal open(what: String)
 
 const BAR_HEIGHT := 96.0
 const TOAST_SECONDS := 3.0
+## Toasts on screen at once; the rest wait their turn in order.
+const TOAST_VISIBLE := 2
+## Toasts on screen and waiting together; past this the oldest is dropped.
 const TOAST_MAX := 4
+## Events that already show as a notice (Notices): they make no toast as well.
+const NOTICE_EVENTS := ["collectible_spawned", "fell_ill", "pet_fell_ill", "pet_ran_away",
+	"stray_arrived", "proposal_arrived", "wish_granted"]
 const BAR_BUTTONS := ["family", "shop", "letters", "ledger", "stories", "arrange", "settings"]
 ## Big buttons with icons on the top row; the rest sit small underneath.
 const PRIMARY := ["family", "shop", "letters"]
 const CHIPS_MAX := 4
 ## Status levels (ViewStrings.LEVELS) that show in the bar.
 const LOUD := ["bad", "warn", "info"]
-## Notices shown at once; the rest are counted under them.
-const NOTICES_MAX := 5
-const NOTICE_WIDTH := 300.0
+## Notices shown at once; the rest fold into one "还有 n 件" row that opens on a click.
+const NOTICES_MAX := 3
+## Notices that only tell (no answer wanted): they go FYI_SECONDS after they first show,
+## or once clicked.
+const FYI := ["pickup", "pickups", "thanks"]
+const FYI_SECONDS := 10.0
+const NOTICE_WIDTH := 280.0
 const WHO_WIDTH := 250.0
 
 var main: Main
@@ -43,11 +53,18 @@ var _buttons: Dictionary = {}  # id -> Button
 var _praise: Button
 var _scold: Button
 var _toast_box: VBoxContainer
-var _toasts: Array = []  # {text, left, label}
+## On screen first (at most TOAST_VISIBLE, in `_toast_box`), then the waiting ones:
+## {text, left, node (null while waiting), click, style}.
+var _toasts: Array = []
 var _muted := ""
 var _notice_box: VBoxContainer
 var _notices: Array[Dictionary] = []
 var _notice_sig := ""
+var _expanded := false
+## Seconds the HUD has ticked (for FYI notices); notice id -> when it first showed.
+var _clock := 0.0
+var _shown_at := {}
+var _dismissed := {}
 ## Uids of the people the view saw fall ill and not yet get better (the kernel's illness
 ## itself is never read here).
 var _sick := {}
@@ -130,6 +147,7 @@ func _build() -> void:
 	who.add_child(head)
 	_name = Label.new()
 	_name.add_theme_font_size_override("font_size", 16)
+	ViewWidgets.use_title_font(_name)
 	head.add_child(_name)
 	_line = Label.new()
 	_line.add_theme_color_override("font_color", ViewWidgets.MUTED)
@@ -175,6 +193,7 @@ func _build() -> void:
 	row.add_child(cash)
 	_sky = _cash_line(cash, "sky", 14)
 	_money = _cash_line(cash, "coin", 20)
+	ViewWidgets.use_title_font(_money)
 	_stock = _cash_line(cash, "grain", 14)
 
 	# The buttons: the main three on top, the rest small underneath.
@@ -495,14 +514,46 @@ func notice_text() -> String:
 func press_notice(id: String) -> bool:
 	for n in _notices:
 		if n["id"] == id:
+			if n["kind"] in FYI:
+				_dismissed[id] = true   # seen: a passing notice goes once clicked
 			main.open_notice(n)
 			return true
 	return false
 
 
+## Opens or folds the notices beyond the first NOTICES_MAX (the "还有 n 件" row).
+func toggle_notices() -> void:
+	_expanded = not _expanded
+	_notice_sig = ""
+	_refresh_notices()
+
+
+## True while the folded notices are shown.
+func notices_expanded() -> bool:
+	return _expanded
+
+
 func _refresh_notices() -> void:
-	_notices = Notices.collect(session.world, session.strings, _sick)
-	var sig := ""
+	var all := Notices.collect(session.world, session.strings, _sick)
+	# A passing notice (FYI) stays FYI_SECONDS from when it first showed, or until clicked.
+	var live := {}
+	_notices = []
+	for n in all:
+		var id := str(n["id"])
+		live[id] = true
+		if n["kind"] in FYI:
+			if not _shown_at.has(id):
+				_shown_at[id] = _clock
+			if _dismissed.has(id) or _clock - float(_shown_at[id]) >= FYI_SECONDS:
+				continue
+		_notices.append(n)
+	for id in _shown_at.keys():
+		if not live.has(id):
+			_shown_at.erase(id)
+			_dismissed.erase(id)
+	if _notices.size() <= NOTICES_MAX:
+		_expanded = false
+	var sig := str(_expanded)
 	for n in _notices:
 		sig += "%s=%s|" % [n["id"], n["text"]]
 	if sig == _notice_sig:
@@ -521,16 +572,18 @@ func _refresh_notices() -> void:
 	head.add_theme_color_override("font_color", ViewWidgets.CREAM)
 	head.add_theme_color_override("font_outline_color", ViewWidgets.INK)
 	head.add_theme_constant_override("outline_size", 6)
+	ViewWidgets.use_title_font(head)
 	_notice_box.add_child(head)
-	for i in mini(_notices.size(), NOTICES_MAX):
+	var shown := _notices.size() if _expanded else mini(_notices.size(), NOTICES_MAX)
+	for i in shown:
 		_notice_box.add_child(_notice_card(_notices[i]))
 	if _notices.size() > NOTICES_MAX:
-		var more := Label.new()
-		more.text = s.t("notice.more").replace("{n}", str(_notices.size() - NOTICES_MAX))
-		more.add_theme_font_size_override("font_size", 14)
-		more.add_theme_color_override("font_color", ViewWidgets.CREAM)
-		more.add_theme_color_override("font_outline_color", ViewWidgets.INK)
-		more.add_theme_constant_override("outline_size", 5)
+		var more := Button.new()
+		more.text = s.t("notice.fold") if _expanded else s.t("notice.more").replace("{n}", str(_notices.size() - NOTICES_MAX))
+		ViewWidgets.small_button(more)
+		more.focus_mode = Control.FOCUS_NONE
+		more.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
+		more.pressed.connect(toggle_notices)
 		_notice_box.add_child(more)
 
 
@@ -598,14 +651,11 @@ func _on_event(e: Dictionary) -> void:
 	if type == "clean_reward" and main.house != null and main.house.people.has(int(e.get("person", -1))):
 		# The coins float up over whoever swept the last of it.
 		main.house.people[int(e["person"])].float_text_up(session.strings.t("float.clean_reward").replace("{n}", str(int(e["amount"]))))
-	var text := session.strings.event(e, session.world)
-	if text == "":
+	# What shows as a notice is not told twice.
+	if type in NOTICE_EVENTS:
 		return
-	if type == "collectible_spawned" and main.house != null:
-		# Clicking it takes the view to where the thing lies.
-		var uid := int(e.get("uid", -1))
-		toast(text, func(): main.house.look_at_collectible(uid))
-	else:
+	var text := session.strings.event(e, session.world)
+	if text != "":
 		toast(text)
 
 
@@ -622,69 +672,105 @@ func earned(person: int, text: String) -> void:
 
 ## Shows `text` at the top for a few seconds; with `on_click` the pill can be clicked (it
 ## then calls it and goes away). `style` "earn" is the gold pill with a coin (`earned`).
+## At most TOAST_VISIBLE are on screen; the rest wait their turn. The same words already on
+## screen or waiting are not added again.
 func toast(text: String, on_click := Callable(), style := "") -> void:
-	# A cream pill with a sky-blue dot on the left (ART_DIRECTION section 4).
+	for t in _toasts:
+		if t["text"] == text:
+			return
 	var earn := style == "earn"
+	_toasts.append({"text": text, "left": TOAST_SECONDS * (1.5 if earn else 1.0), "node": null,
+		"click": on_click, "style": style})
+	while _toasts.size() > TOAST_MAX:
+		_drop(0)
+	_show_waiting()
+
+
+## Puts waiting toasts on screen while there is room, oldest first.
+func _show_waiting() -> void:
+	var on := 0
+	for t in _toasts:
+		if t["node"] != null:
+			on += 1
+	for t in _toasts:
+		if on >= TOAST_VISIBLE:
+			return
+		if t["node"] == null:
+			t["node"] = _toast_pill(t)
+			_toast_box.add_child(t["node"])
+			on += 1
+
+
+## The pill for one toast: cream with a sky-blue dot (ART_DIRECTION section 4), or gold with
+## a coin for earnings.
+func _toast_pill(entry: Dictionary) -> PanelContainer:
+	var earn: bool = entry["style"] == "earn"
 	var l := Label.new()
-	l.text = text
+	l.text = entry["text"]
 	l.add_theme_color_override("font_color", ViewWidgets.INK)
-	l.add_theme_font_size_override("font_size", 18 if earn else 16)
+	l.add_theme_font_size_override("font_size", 17 if earn else 15)
 	var panel := PanelContainer.new()
 	var box := StyleBoxFlat.new()
 	box.bg_color = Color("#FFE9A8") if earn else ViewWidgets.CREAM
 	box.border_color = Color("#C98A1E") if earn else ViewWidgets.INK
 	box.set_border_width_all(3 if earn else 2)
-	box.set_corner_radius_all(18)
-	box.set_content_margin_all(8)
-	box.content_margin_left = 14
-	box.content_margin_right = 16
+	box.set_corner_radius_all(16)
+	box.set_content_margin_all(6)
+	box.content_margin_left = 12
+	box.content_margin_right = 14
 	panel.add_theme_stylebox_override("panel", box)
 	panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	panel.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	var line := HBoxContainer.new()
 	line.add_theme_constant_override("separation", 8)
 	line.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	if earn:
-		line.add_child(HudIcon.make("coin", 24.0))
+		line.add_child(HudIcon.make("coin", 22.0))
 	else:
 		var dot := Panel.new()
 		var round := StyleBoxFlat.new()
 		round.bg_color = ViewWidgets.SKY
 		round.set_corner_radius_all(6)
 		dot.add_theme_stylebox_override("panel", round)
-		dot.custom_minimum_size = Vector2(12, 12)
+		dot.custom_minimum_size = Vector2(10, 10)
 		dot.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 		dot.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		line.add_child(dot)
 	line.add_child(l)
 	panel.add_child(line)
-	_toast_box.add_child(panel)
-	var entry := {"text": text, "left": TOAST_SECONDS * (1.5 if earn else 1.0), "node": panel, "click": on_click}
-	if on_click.is_valid():
+	var c: Callable = entry["click"]
+	if c.is_valid():
 		panel.mouse_filter = Control.MOUSE_FILTER_STOP
 		panel.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
 		panel.gui_input.connect(func(ev: InputEvent):
 			if ev is InputEventMouseButton and ev.button_index == MOUSE_BUTTON_LEFT and ev.pressed:
 				click_toast(_toasts.find(entry)))
-	_toasts.append(entry)
-	while _toasts.size() > TOAST_MAX:
-		_drop(0)
+	return panel
 
 
 func _drop(i: int) -> void:
 	var t: Dictionary = _toasts[i]
 	_toasts.remove_at(i)
-	_toast_box.remove_child(t["node"])
-	t["node"].queue_free()
+	if t["node"] != null:
+		_toast_box.remove_child(t["node"])
+		t["node"].queue_free()
 
 
+## Counts down the toasts on screen (the waiting ones keep their time) and the passing
+## notices' clock.
 func tick(delta: float) -> void:
+	_clock += delta
 	var i := 0
 	while i < _toasts.size():
+		if _toasts[i]["node"] == null:
+			i += 1
+			continue
 		_toasts[i]["left"] = float(_toasts[i]["left"]) - delta
 		if float(_toasts[i]["left"]) <= 0.0:
 			_drop(i)
 		else:
 			i += 1
+	_show_waiting()
 
 
 ## Clicks the toast at `i` (also the test entry point): runs what it was given and closes it.
@@ -697,11 +783,22 @@ func click_toast(i: int) -> bool:
 		return false
 	_drop(i)
 	c.call()
+	_show_waiting()
 	return true
 
 
+## Every toast on screen or waiting, oldest first.
 func toasts() -> Array[String]:
 	var out: Array[String] = []
 	for t in _toasts:
 		out.append(str(t["text"]))
+	return out
+
+
+## The toasts on screen now; for tests.
+func visible_toasts() -> Array[String]:
+	var out: Array[String] = []
+	for t in _toasts:
+		if t["node"] != null:
+			out.append(str(t["text"]))
 	return out

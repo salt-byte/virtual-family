@@ -94,7 +94,7 @@ const DEFAULTS := {
 	"error.too_many_pets": "家里养不下更多了", "error.no_perch": "还没有它待的地方", "error.no_pet_kind": "没有这种动物",
 	"error.no_stray": "门口已经没有了",
 	"bar.doing": "在做：{text}", "bar.age_job": "{age} · {job}",
-	"notice.head": "有事找你", "notice.more": "还有 {n} 件",
+	"notice.head": "有事找你", "notice.more": "还有 {n} 件，点开看", "notice.fold": "收起",
 	"notice.proposal": "有人来给{name}提亲", "notice.proposal_from": "{writer}来给{name}提亲",
 	"notice.proposal_any": "有人上门提亲", "notice.stray": "门口来了一只{kind}",
 	"notice.letter": "{writer}的信，还没拆", "notice.reply": "{writer}的信，等你回话",
