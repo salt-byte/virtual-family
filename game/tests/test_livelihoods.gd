@@ -273,3 +273,30 @@ func test_qijia_labels_are_short_and_unique():
 		assert_true(label.length() >= 4 and label.length() <= 12, "%s: %s" % [id, label])
 		assert_true(not seen.has(label), "repeated label " + label)
 		seen[label] = true
+
+
+## 郎中 and 织绣 once both listed only 喜静 (and 木匠 and 种田 only 好侍弄), so a quiet grown-up
+## landed in either and the balance runs found almost no 郎中. Now every livelihood has a
+## trait of its own (郎中 心细, 木匠 手巧), and over many grown-ups arriving each gets about a
+## seventh (6000 made with the pack's draw).
+func test_qijia_every_livelihood_has_its_own_trait_and_an_even_share():
+	var pk := _qijia()
+	var tags: Array = pk.names["tags"]
+	var traits := {}
+	for id in pk.livelihoods:
+		traits[id] = (pk.livelihoods[id]["affinity"] as Array).filter(func(e): return tags.has(e))
+	for id in pk.livelihoods:
+		var own := (traits[id] as Array).filter(func(e):
+			for other in pk.livelihoods:
+				if other != id and (traits[other] as Array).has(e):
+					return false
+			return true)
+		assert_true(not own.is_empty(), "%s has no trait of its own: %s" % [id, traits[id]])
+	var w := TestKit.world("qijia", 11)
+	var n := {}
+	for i in 6000:
+		var p := FamilySystem.make_person(w, [25, 25])
+		n[p.track] = int(n.get(p.track, 0)) + 1
+	for id in pk.livelihoods:
+		var share := float(n.get(id, 0)) / 6000.0
+		assert_true(share >= 0.12 and share <= 0.17, "%s: %s" % [id, n])
