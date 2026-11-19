@@ -12,11 +12,16 @@ extends RefCounted
 ## - "pet": an animal of that kind (`pet`) lives in the house
 ## - "need": a body wish, formed when that need falls below `below` and granted once it is
 ##   back above `above`; it takes the place of any other wish
+## - "do": they finish one of the wished `actions` themselves (going to the market, setting
+##   off firecrackers); while they hold it those actions score `wish_do_factor` times higher
+##   for them, and it does not run out while they are doing one
+## A wish that names a `festival` is only formed while that festival is on (see
+## `FestivalSystem`, which also hands them out when it begins) and ends with it, unpenalised.
 ## A mood wish that runs out (`ttl_hours`) costs `wish_miss_penalty` of the praise need; a
 ## body wish just ends. Babies and the depressed form no wishes, and nobody forms one while
 ## the player is away. A pack without wishes draws no randomness here.
 
-const KINDS := ["item", "object", "room", "praise", "need", "married", "baby", "pet"]
+const KINDS := ["item", "object", "room", "praise", "need", "married", "baby", "pet", "do"]
 
 
 ## Runs once per game minute (on the step that starts one); granting by item or praise
@@ -38,7 +43,9 @@ static func step(world: World, dt: float) -> void:
 			elif _met(world, p, w):
 				grant(world, p)
 				continue
-			elif world.now >= int(p.wish["expires_at"]):
+			elif str(w["festival"]) != "" and str(w["festival"]) != world.festival:
+				_expire(world, p, w, false)
+			elif world.now >= int(p.wish["expires_at"]) and not _doing_wished(p, w):
 				_expire(world, p, w)
 		if hour_turned and not world.offline:
 			_maybe_form(world, p)
@@ -59,11 +66,16 @@ static func _met(world: World, p: Person, w: Dictionary) -> bool:
 	return false
 
 
-static func _expire(world: World, p: Person, w: Dictionary) -> void:
+## True while `p` is doing one of the actions their "do" wish `w` asks for.
+static func _doing_wished(p: Person, w: Dictionary) -> bool:
+	return not p.current.is_empty() and (w["actions"] as Array).has(str(p.current["action"]))
+
+
+static func _expire(world: World, p: Person, w: Dictionary, penalty := true) -> void:
 	var id := str(p.wish["id"])
 	p.wish = {}
 	p.wish_last = id
-	if str(w["kind"]) != "need" and not world.offline:
+	if penalty and str(w["kind"]) != "need" and not world.offline:
 		_add_mood(world, p, -float(world.pack.cfg("wish_miss_penalty")))
 	world.emit("wish_expired", {"person": p.uid, "wish": id})
 
@@ -113,6 +125,45 @@ static func on_birth(world: World, p: Person) -> void:
 		grant(world, p)
 
 
+## `p` finished action `action_id`: grants a "do" wish that asks for it.
+static func on_action_finished(world: World, p: Person, action_id: String) -> void:
+	var w := current(world, p)
+	if str(w.get("kind", "")) == "do" and (w["actions"] as Array).has(action_id):
+		grant(world, p)
+
+
+## The actions `p`'s wish asks them to do ([] unless it is a "do" wish).
+static func wished_actions(world: World, p: Person) -> Array:
+	var w: Dictionary = world.pack.wishes.get(str(p.wish.get("id", "")), {})
+	return w["actions"] if str(w.get("kind", "")) == "do" else []
+
+
+## Festival `fid` began: everyone without a wish who could form one forms one of its
+## wishes with chance `wish_chance` (not babies, the depressed, those asleep, nor while the
+## player is away).
+static func start_festival(world: World, fid: String) -> void:
+	if world.offline or world.pack.wishes.is_empty():
+		return
+	var chance := float(world.pack.festivals[fid].get("wish_chance", 0.0))
+	for p in world.people:
+		if not p.alive or not p.wish.is_empty() or p.stage(world.pack) == "baby" or p.mood == "depressed":
+			continue
+		if not p.current.is_empty() and bool(world.pack.actions[p.current["action"]].get("slow", false)):
+			continue
+		var pool := _eligible(world, p, false, fid)
+		if pool.is_empty() or not world.rng.chance(chance):
+			continue
+		_form(world, p, pool)
+
+
+## Festival `fid` is over: the wishes that named it end, unpenalised.
+static func end_festival(world: World, fid: String) -> void:
+	for p in world.people:
+		var w := current(world, p)
+		if p.alive and not w.is_empty() and str(w["festival"]) == fid:
+			_expire(world, p, w, false)
+
+
 ## The player praised `p`: grants a praise wish.
 static func on_praised(world: World, p: Person) -> void:
 	if _wants(world, p, "praise", "", ""):
@@ -154,15 +205,21 @@ static func _maybe_form(world: World, p: Person) -> void:
 		_form(world, p, mood)
 
 
-## [ids, weights] of the wishes `p` could form now: body wishes (`body`) or the others.
-static func _eligible(world: World, p: Person, body: bool) -> Array:
+## [ids, weights] of the wishes `p` could form now: body wishes (`body`) or the others;
+## with `only_festival`, just the wishes of that festival.
+static func _eligible(world: World, p: Person, body: bool, only_festival := "") -> Array:
 	var ids: Array = []
 	var weights: Array = []
 	var stage := p.stage(world.pack)
 	for id in world.pack.wishes:
 		var w: Dictionary = world.pack.wishes[id]
 		var kind := str(w["kind"])
-		if (kind == "need") != body or (not body and id == p.wish_last):
+		var fest := str(w["festival"])
+		# The same wish twice running is passed over, except a festival's: that comes round
+		# again only a year later.
+		if (kind == "need") != body or (not body and id == p.wish_last and fest == ""):
+			continue
+		if (fest != "" and fest != world.festival) or (only_festival != "" and fest != only_festival):
 			continue
 		var stages: Array = w["stages"]
 		if not stages.is_empty() and not stages.has(stage):

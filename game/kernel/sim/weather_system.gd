@@ -152,10 +152,16 @@ static func action_factor(world: World, a: Dictionary, kind: int) -> float:
 	if not enabled(world.pack):
 		return 1.0
 	var season := season_at(world.pack, world.now)
-	return factor_for(world.pack, a, kind, season, weather_entry(world.pack, world.weather), wet(world))
+	return factor_for(world.pack, a, kind, season, weather_entry(world.pack, world.weather), wet(world),
+		FestivalSystem.id_at(world.pack, world.now))
 
 
-static func factor_for(pack: Pack, a: Dictionary, kind: int, season: Dictionary, wx: Dictionary, is_wet: bool) -> float:
+## `fest` is the festival on ("" for none): an action that lists `festivals` happens only
+## during one of them, and the festival's `boost` counts like the season's.
+static func factor_for(pack: Pack, a: Dictionary, kind: int, season: Dictionary, wx: Dictionary, is_wet: bool, fest := "") -> float:
+	var only_f = a.get("festivals")
+	if only_f is Array and not (only_f as Array).is_empty() and not (only_f as Array).has(fest):
+		return 0.0
 	var only_s: Array = a.get("seasons", [])
 	if not only_s.is_empty() and not only_s.has(season.get("id", "")):
 		return 0.0
@@ -174,7 +180,10 @@ static func factor_for(pack: Pack, a: Dictionary, kind: int, season: Dictionary,
 			f *= float(wx.get("outside", 1.0))
 	var keys: Array = [str(a["id"]), str(a.get("object", ""))]
 	keys.append_array(a.get("tags", []))
-	for boost in [season.get("boost", {}), wx.get("boost", {})]:
+	var boosts: Array = [season.get("boost", {}), wx.get("boost", {})]
+	if fest != "":
+		boosts.append(pack.festivals.get(fest, {}).get("boost", {}))
+	for boost in boosts:
 		for k in keys:
 			if k != "" and (boost as Dictionary).has(k):
 				f *= float(boost[k])
@@ -207,8 +216,12 @@ static func yield_factor(world: World, stock: String) -> float:
 	return float(season_at(world.pack, world.now).get("yields", {}).get(stock, 1.0))
 
 
-## "season|weather|wet" for caches; "" with seasons off.
+## "season|weather|wet" (and "|festival" in a pack with festivals) for caches; "" with
+## seasons off.
 static func key(world: World) -> String:
 	if not enabled(world.pack):
 		return ""
-	return "%s|%s|%s" % [season_at(world.pack, world.now).get("id", ""), world.weather, wet(world)]
+	var k := "%s|%s|%s" % [season_at(world.pack, world.now).get("id", ""), world.weather, wet(world)]
+	if not world.pack.festivals.is_empty():
+		k += "|" + FestivalSystem.id_at(world.pack, world.now)
+	return k

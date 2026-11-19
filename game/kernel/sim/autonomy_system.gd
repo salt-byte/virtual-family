@@ -48,7 +48,10 @@ class Info:
 	## the story this action completes ("": none); only possible while its finale is open
 	var story := ""
 	var has_story := false
-	## slow_in_hours or has_story: one test in the hot loop for the rare special cases
+	## only while someone of the family has died (`mourns`)
+	var mourns := false
+	## slow_in_hours, has_story, has_serves or mourns: one test in the hot loop for the rare
+	## special cases
 	var gated := false
 	## true when `requires` names a mood: such actions are not damped for the depressed
 	var mood_req := false
@@ -155,7 +158,8 @@ static func _table(pack: Pack) -> Array:
 				i.req_below.append(float(nb[n]))
 		i.serves = str(a.get("serves", ""))
 		i.has_serves = i.serves != ""
-		i.gated = i.slow_in_hours or i.has_story or i.has_serves
+		i.mourns = bool(a.get("mourns", false))
+		i.gated = i.slow_in_hours or i.has_story or i.has_serves or i.mourns
 		i.mood_req = i.requires.has("mood")
 		i.mood = str(i.requires.get("mood", ""))
 		var tends: Dictionary = a.get("tends", {})
@@ -281,6 +285,7 @@ static func _flags(world: World, p: Person, hour: float) -> Array:
 	var season := WeatherSystem.season_at(pack, world.now)
 	var wx := WeatherSystem.weather_entry(pack, world.weather)
 	var is_wet := WeatherSystem.wet(world)
+	var fest := FestivalSystem.id_at(pack, world.now)
 	for i: Info in table:
 		var b := 0
 		for t in i.tags:
@@ -297,7 +302,7 @@ static func _flags(world: World, p: Person, hour: float) -> Array:
 			if not somewhere:
 				b |= _F_NOWHERE
 		if seasons:
-			var wf := WeatherSystem.factor_for(pack, pack.actions[i.id], i.place_kind, season, wx, is_wet)
+			var wf := WeatherSystem.factor_for(pack, pack.actions[i.id], i.place_kind, season, wx, is_wet, fest)
 			factors[i.idx] = wf
 			if wf == 0.0:
 				b |= _F_OFF
@@ -414,6 +419,18 @@ static func candidates(world: World, p: Person, pool := 0) -> Array[Dictionary]:
 		var ix = pack.autonomy_index.get(id)
 		if ix != null:
 			dmp[ix] = float(damp[id])
+	# A wish to do something pulls the wished actions up for the one who holds it (folded
+	# into the damping factors; `boosted` lets the score cap below allow for it).
+	var boosted := false
+	if not p.wish.is_empty():
+		var wished := WishSystem.wished_actions(world, p)
+		if not wished.is_empty():
+			var wf := float(pack.cfg("wish_do_factor"))
+			for id in wished:
+				var ix = pack.autonomy_index.get(id)
+				if ix != null:
+					dmp[ix] *= wf
+					boosted = true
 	var low := float(pack.cfg("mood_depressed_factor")) if p.mood == "depressed" else 1.0
 	var needs := p.needs
 	var habits := p.habits
@@ -460,6 +477,8 @@ static func candidates(world: World, p: Person, pool := 0) -> Array[Dictionary]:
 				continue
 			if i.has_serves and not DishSystem.may_serve(world, i.serves):
 				continue
+			if i.mourns and not FamilySystem.has_dead(world):
+				continue
 		var fl := flags[i.idx]
 		if fl & (_F_NOWHERE | _F_OFF):
 			continue
@@ -477,6 +496,8 @@ static func candidates(world: World, p: Person, pool := 0) -> Array[Dictionary]:
 				cap *= float(habits.get(i.id, 1.0))
 			if low > 1.0 and not i.mood_req:
 				cap *= low
+			if boosted and dmp[i.idx] > 1.0:
+				cap *= dmp[i.idx]
 			if cap * 1.000001 <= top_s[pool - 1]:
 				continue
 		var uid := -1
@@ -683,6 +704,10 @@ static func can_do(world: World, p: Person, action_id: String, object_uid: int) 
 		return "requires"
 	if str(a.get("serves", "")) != "" and not DishSystem.may_serve(world, str(a["serves"])):
 		return "requires"
+	if bool(a.get("mourns", false)) and not FamilySystem.has_dead(world):
+		return "requires"
+	if not FestivalSystem.allows(world, a.get("festivals", [])):
+		return "requires"  # not during its festival
 	if WeatherSystem.action_factor(world, a, WeatherSystem.place_kind(world.pack, a)) == 0.0:
 		return "weather"
 	if target_kind(a) != "" and _first_free_target(world, a, p) < 0:
@@ -889,6 +914,11 @@ static func _finish(world: World, p: Person) -> void:
 		EconomySystem.on_work_finished(world, p, duration_s(world, action) / 60.0)
 	if str(action.get("completes_story", "")) != "":
 		StorySystem.complete(world, str(action["completes_story"]), p)
+	if bool(action.get("mourns", false)):
+		FamilySystem.mourned(world, p, id)
+	var outing = action.get("outing")
+	if outing != null and not (outing as Dictionary).is_empty():
+		OutingSystem.come_back(world, p, id)
 	p.current = {}
 	p.last_action = id
 	p.last_action_t = world.now
@@ -896,6 +926,8 @@ static func _finish(world: World, p: Person) -> void:
 	p.recent_actions.resize(mini(p.recent_actions.size(), int(world.pack.cfg("repeat_memory"))))
 	LivelihoodSystem.on_finished(world, p, id)
 	world.emit("action_finished", {"person": p.uid, "action": id})
+	if not p.wish.is_empty():
+		WishSystem.on_action_finished(world, p, id)
 
 
 ## First unclaimed target for the action's kind (-1 when it has none or none is free).
@@ -956,6 +988,8 @@ static func _score(world: World, p: Person, a: Dictionary, hour := -1.0) -> floa
 			score *= pow(float(world.pack.cfg("repeat_factor")), float(memory - k) / float(memory))
 	if p.mood == "depressed" and not (a["requires"] as Dictionary).has("mood"):
 		score *= float(world.pack.cfg("mood_depressed_factor"))
+	if not p.wish.is_empty() and WishSystem.wished_actions(world, p).has(a["id"]):
+		score *= float(world.pack.cfg("wish_do_factor"))
 	return score
 
 

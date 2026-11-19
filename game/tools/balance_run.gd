@@ -27,6 +27,9 @@ static var look_after_pets := true
 ## Beds the caretaker has bought since the last `run` began.
 static var beds_bought := 0
 
+## Times the caretaker sent someone out for a wish since the last `run` began.
+static var sent_out := 0
+
 
 ## A world that is already living: one adopted person and one of each object type (the
 ## pack's starting furniture first, the missing types placed for free on the first spot
@@ -83,7 +86,13 @@ static func run(pack_id: String, families: int, days: int, seed0: int) -> Dictio
 	var pet_deaths := {}  # cause -> pets
 	var fond_sum := 0.0
 	var pets_home_end := 0
+	var festivals := {}  # festival id -> times it began
+	var outings := {}  # outing action id -> times someone came back from it
+	var festival_actions := {}  # action id -> starts, for actions tied to a festival
+	var festival_wishes := {"formed": 0, "granted": 0, "ended": 0}
+	var mourned := 0
 	beds_bought = 0
+	sent_out = 0
 	for i in families:
 		var w := setup(pack_id, seed0 + i)
 		var bag_size := _food_bag_size(w)
@@ -99,7 +108,12 @@ static func run(pack_id: String, families: int, days: int, seed0: int) -> Dictio
 				bags += n
 				bags_today += n
 				max_bags_day = maxi(max_bags_day, bags_today)
-			w.advance(3600.0)
+			# In five-minute strides (the same steps as one hour-long advance): while a festival
+			# is on, the caretaker also looks after the festival's wishes.
+			for k in 12:
+				w.advance(300.0)
+				if w.festival != "":
+					festival_round(w)
 			if w.weather != "":
 				weather_hours[w.weather] = int(weather_hours.get(w.weather, 0)) + 1
 			if w.season != "":
@@ -110,8 +124,18 @@ static func run(pack_id: String, families: int, days: int, seed0: int) -> Dictio
 				elif e.type == "clean_reward":
 					clean_rewards += 1
 					clean_money += int(e.amount)
+				if e.type == "festival_started":
+					festivals[e.festival] = int(festivals.get(e.festival, 0)) + 1
+				elif e.type == "outing_back":
+					outings[e.action] = int(outings.get(e.action, 0)) + 1
+				elif e.type == "mourned":
+					mourned += 1
+				if e.type in FESTIVAL_WISH_KEYS and str(w.pack.wishes.get(e.wish, {}).get("festival", "")) != "":
+					festival_wishes[FESTIVAL_WISH_KEYS[e.type]] += 1
 				if e.type == "action_started":
 					seen[e.action] = true
+					if not (w.pack.actions[e.action].get("festivals", []) as Array).is_empty():
+						festival_actions[e.action] = int(festival_actions.get(e.action, 0)) + 1
 					if not (w.pack.actions[e.action].get("weather", []) as Array).is_empty():
 						weather_only[e.action] = int(weather_only.get(e.action, 0)) + 1
 				elif e.type == "pet_arrived":
@@ -185,6 +209,8 @@ static func run(pack_id: String, families: int, days: int, seed0: int) -> Dictio
 		"clean_rewards": clean_rewards, "clean_reward_money": clean_money,
 		"pets": pets, "pet_deaths_by_cause": pet_deaths, "pets_home_at_end": pets_home_end,
 		"pets_avg_fondness": snappedf(fond_sum / pets_home_end, 0.1) if pets_home_end > 0 else 0.0,
+		"festivals_seen": festivals, "festival_actions": festival_actions, "festival_wishes": festival_wishes,
+		"outings_back": outings, "outings_sent_by_caretaker": sent_out, "mourned": mourned,
 	}
 
 
@@ -250,6 +276,10 @@ static func care_for_pets(w: World) -> void:
 			w.command({"type": "buy", "item": it})
 
 
+## Wish events -> the key `run` counts festival wishes under.
+const FESTIVAL_WISH_KEYS := {"wish_formed": "formed", "wish_granted": "granted", "wish_expired": "ended"}
+
+
 ## A hungry baby nobody is looking after gets the first grown-up who is free to come over.
 static func _care_for_babies(w: World) -> void:
 	for b in w.people:
@@ -283,11 +313,34 @@ static func _buy_bed_if_needed(w: World) -> void:
 					return
 
 
+## While a festival is on (every five minutes): grants the festival's wishes the caretaker
+## can, as `_grant_wish` does.
+static func festival_round(w: World) -> void:
+	if w.phase != "living":
+		return
+	for p in w.people:
+		if p.alive and str(WishSystem.current(w, p).get("festival", "")) != "":
+			_grant_wish(w, p)
+
+
 static func _grant_wish(w: World, p: Person) -> void:
 	if not p.alive:
 		return
 	var wish := WishSystem.current(w, p)
 	match str(wish.get("kind", "")):
+		"do":
+			# Send them out for an outing; for anything else, buy what it uses up.
+			for id in wish["actions"]:
+				var a: Dictionary = w.pack.actions[id]
+				if OutingSystem.sendable(w.pack, a):
+					if str(p.current.get("action", "")) != str(id) and w.command({"type": "go_out", "person": p.uid, "action": id}).ok:
+						sent_out += 1
+					return
+				for s in a["consumes"]:
+					if int(w.stock.get(s, 0)) < int(a["consumes"][s]):
+						var it := _first_item(w, func(x): return (x["stock"] as Dictionary).has(s))
+						if it != "" and w.money >= int(w.pack.items[it]["price"]) + WISH_RESERVE:
+							w.command({"type": "buy", "item": it})
 		"item":
 			var item := str(wish["item"])
 			if w.money >= int(w.pack.items[item]["price"]) + WISH_RESERVE:

@@ -39,6 +39,8 @@ var season := ""
 var weather := ""
 var weather_slot := -1
 var wet_until := 0
+## The festival on as of the last step ("" for none; see `FestivalSystem`).
+var festival := ""
 ## The local day (days since the epoch) the house was last paid for being made clean; -1
 ## for never (see `MessSystem.clean`).
 var clean_paid_day := -1
@@ -296,6 +298,7 @@ func _step() -> void:
 ## Every per-step system, in the fixed order they must run. Later tasks add theirs here.
 func _run_systems(dt: float) -> void:
 	WeatherSystem.step(self, dt)
+	FestivalSystem.step(self, dt)
 	NeedsSystem.step(self, dt)
 	IllnessSystem.step(self, dt)
 	MessSystem.step(self, dt)

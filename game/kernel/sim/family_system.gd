@@ -168,3 +168,35 @@ static func _lone_adult(world: World) -> Person:
 			return null
 		found = p
 	return found
+
+
+## True when someone of the family has died (they stay in `people` as the family's record).
+static func has_dead(world: World) -> bool:
+	for p in world.people:
+		if not p.alive:
+			return true
+	return false
+
+
+## The dead person `p` remembers first: a parent, then their spouse, then a child, then the
+## other dead in the order they came into the family; null when nobody has died.
+static func remembered(world: World, p: Person) -> Person:
+	for uid in [p.father, p.mother, p.spouse]:
+		var q := world.person(uid) if uid > 0 else null
+		if q != null and not q.alive:
+			return q
+	for q in world.people:
+		if not q.alive and (q.father == p.uid or q.mother == p.uid):
+			return q
+	for q in world.people:
+		if not q.alive:
+			return q
+	return null
+
+
+## `p` finished an action that remembers the dead (`mourns`): emits mourned {person, dead,
+## action}.
+static func mourned(world: World, p: Person, action_id: String) -> void:
+	var dead := remembered(world, p)
+	if dead != null:
+		world.emit("mourned", {"person": p.uid, "dead": dead.uid, "action": action_id})

@@ -34,6 +34,8 @@ func _init() -> void:
 		BalanceRun.caretake(w)
 		for m in 60:
 			w.advance(60.0)
+			if w.festival != "" and m % 5 == 4:
+				BalanceRun.festival_round(w)
 			for e in w.drain_events():
 				if e.type == "income":
 					salary += int(e.amount)
@@ -111,6 +113,17 @@ func _line(w: World, e: Dictionary) -> String:
 			return "✿ 只剩下孩子，远房亲戚 %s 进了门" % who
 		"took_up":
 			return "★ %s 长大成人，做了%s" % [who, w.pack.livelihoods[e.track]["name"]]
+		"festival_started":
+			var f: Dictionary = w.pack.festivals[e.festival]
+			return "❀ %s：%s" % [f["name"], f["start_text"]]
+		"festival_ended":
+			var f2: Dictionary = w.pack.festivals[e.festival]
+			return "❀ %s过完了：%s" % [f2["name"], f2["end_text"]]
+		"outing_back":
+			var got := "（带回%s）" % w.pack.items[e.item]["name"] if str(e.item) != "" else ""
+			return "⌂ %s%s" % [str(e.text).replace("{name}", who), got]
+		"mourned":
+			return "✝ %s 念叨了好一阵 %s" % [who, _name(w, int(e.dead))]
 		"story_unlocked", "story_finale", "story_done":
 			return "◆ 旧事「%s」：%s" % [w.pack.stories[e.story]["title"], {"story_unlocked": "露了头", "story_finale": "凑齐了", "story_done": "了结"}[e.type]]
 	return str(e)

@@ -19,5 +19,15 @@
 	{"id": "pet_medicine", "name": "一包兽药", "category": "药铺", "price": 30, "pet": {"cures": true, "needs": {"vigor": 15}}},
 	{"id": "pork_bone", "name": "一根猪棒骨", "category": "喂养", "price": 8, "pet": {"kinds": ["dog"], "needs": {"belly": 30, "fondness": 20}}},
 	{"id": "dried_fish", "name": "一串小鱼干", "category": "喂养", "price": 10, "pet": {"kinds": ["cat"], "needs": {"belly": 40, "fondness": 15}}},
-	{"id": "millet", "name": "一包小米", "category": "喂养", "price": 8, "stock": {"millet": 6}}
+	{"id": "millet", "name": "一包小米", "category": "喂养", "price": 8, "stock": {"millet": 6}},
+	{"id": "tanghulu", "name": "一串糖葫芦", "category": "零嘴", "price": 8, "needs": {"happy": 15}},
+	{"id": "clay_figure", "name": "一个泥娃娃", "category": "杂货", "price": 10, "needs": {"happy": 15}},
+	{"id": "pinwheel", "name": "一只纸风车", "category": "杂货", "price": 6, "needs": {"happy": 12}},
+	{"id": "firecrackers", "name": "一挂鞭炮", "category": "节令", "price": 10, "stock": {"firecrackers": 2}, "festivals": ["new_year"]},
+	{"id": "tangyuan", "name": "一碗元宵", "category": "节令", "price": 8, "needs": {"fed": 10, "happy": 15}, "festivals": ["lantern"]},
+	{"id": "rabbit_lantern", "name": "一盏兔子灯", "category": "节令", "price": 15, "needs": {"happy": 25}, "festivals": ["lantern"]},
+	{"id": "qingtuan", "name": "一盒青团", "category": "节令", "price": 10, "needs": {"fed": 10, "happy": 12}, "festivals": ["qingming"]},
+	{"id": "zongzi", "name": "两个粽子", "category": "节令", "price": 10, "needs": {"fed": 15, "happy": 15}, "festivals": ["duanwu"]},
+	{"id": "realgar_wine", "name": "一壶雄黄酒", "category": "节令", "price": 12, "needs": {"happy": 15}, "festivals": ["duanwu"]},
+	{"id": "mooncake", "name": "一块月饼", "category": "节令", "price": 12, "needs": {"fed": 10, "happy": 20}, "festivals": ["mid_autumn"]}
 ]

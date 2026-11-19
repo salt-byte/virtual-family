@@ -24,6 +24,7 @@ const REQUIRED := {
 	"dishes.json": {"name": TYPE_STRING, "portions": TYPE_NIL},
 	"stories.json": {"title": TYPE_STRING, "unlock": TYPE_DICTIONARY, "fragments": TYPE_ARRAY, "finale": TYPE_DICTIONARY},
 	"pets.json": {"name": TYPE_STRING},
+	"festivals.json": {"name": TYPE_STRING, "season": TYPE_STRING, "from": TYPE_NIL, "to": TYPE_NIL},
 }
 ## Whole-number fields and their minimum (money, sizes and durations are never fractional or negative).
 const MIN_INT := {
@@ -79,6 +80,8 @@ func _run() -> void:
 	_check_dishes()
 	_check_seasons()
 	_check_pets()
+	_check_festivals()
+	_check_festival_uses()
 
 
 func _check_required() -> void:
@@ -1234,3 +1237,86 @@ func _check_births() -> void:
 	for k in b:
 		if not k in ["fertile_age", "chance_per_day", "pregnancy_years", "beds", "surname_from", "avoid_tag", "drain", "guardian"]:
 			_err("pack.json", _p.id, "unknown births key '%s'" % [k])
+
+
+## festivals.json: each at a stretch of a season of the pack (0 <= from < to <= 1, no two
+## overlapping), with a boost of numbers, a wish chance between 0 and 1 and text strings.
+func _check_festivals() -> void:
+	if _p.festivals.is_empty():
+		return
+	var c = _p.config.get("seasons", {})
+	var season_ids := []
+	if c is Dictionary and c.get("list") is Array:
+		for s in c["list"]:
+			if s is Dictionary:
+				season_ids.append(str(s.get("id", "")))
+	if season_ids.is_empty():
+		_err("festivals.json", "*", "festivals need seasons in pack.json")
+	var spans := {}  # season -> [[from, to, id], ...]
+	for f in _p.festivals.values():
+		var id: String = f["id"]
+		if not (f.get("season") is String and season_ids.has(f["season"])):
+			if not season_ids.is_empty():
+				_err("festivals.json", id, "season '%s' is not a season" % [str(f.get("season", ""))])
+			continue
+		if not (_is_num(f.get("from")) and _is_num(f.get("to")) and float(f["from"]) >= 0.0 \
+				and float(f["from"]) < float(f["to"]) and float(f["to"]) <= 1.0):
+			_err("festivals.json", id, "needs 0 <= from < to <= 1")
+			continue
+		for other in spans.get(f["season"], []):
+			if float(f["from"]) < float(other[1]) and float(other[0]) < float(f["to"]):
+				_err("festivals.json", id, "overlaps %s" % [other[2]])
+		if not spans.has(f["season"]):
+			spans[f["season"]] = []
+		spans[f["season"]].append([f["from"], f["to"], id])
+		_check_rates("festivals.json %s: boost" % id, f["boost"], false)
+		if not (_is_num(f["wish_chance"]) and float(f["wish_chance"]) >= 0.0 and float(f["wish_chance"]) <= 1.0):
+			_err("festivals.json", id, "wish_chance must be a number from 0 to 1")
+		for k in ["banner", "start_text", "end_text"]:
+			if not f[k] is String:
+				_err("festivals.json", id, "%s must be a string" % k)
+
+
+## `festivals` of actions and items name festivals; an action's `outing` and `mourns`, and a
+## wish's `festival` and (kind "do") `actions`, are well-formed.
+func _check_festival_uses() -> void:
+	for a in _p.actions.values():
+		var id: String = a["id"]
+		_festival_list("actions.json", id, a.get("festivals", []))
+		if not a.get("mourns", false) is bool:
+			_err("actions.json", id, "mourns must be true or false")
+		var o = a.get("outing", {})
+		if not o is Dictionary:
+			_err("actions.json", id, "outing must be an object")
+		elif not o.is_empty():
+			if a["object"] is String and a["object"] != "" or not (a["rooms"] is Array and not a["rooms"].is_empty()):
+				_err("actions.json", id, "an outing leaves from rooms (no object)")
+			if not (a["work"] is Dictionary and a["work"].is_empty()):
+				_err("actions.json", id, "an outing is not work")
+			var rs = o.get("returns", [])
+			if not (rs is Array and not rs.is_empty()):
+				_err("actions.json", id, "outing.returns must be a non-empty array")
+				rs = []
+			for r in rs:
+				if not (r is Dictionary and r.get("text") is String and r["text"] != ""):
+					_err("actions.json", id, "outing.returns: each needs a text")
+					continue
+				var item := str(r.get("item", ""))
+				if item != "" and not (_p.items.has(item) and (_p.items[item]["stock"] as Dictionary).is_empty()):
+					_err("actions.json", id, "outing.returns: '%s' is not an item without stock" % item)
+	for it in _p.items.values():
+		_festival_list("items.json", it["id"], it.get("festivals", []))
+	for w in _p.wishes.values():
+		var id: String = w["id"]
+		var fest = w.get("festival", "")
+		if not (fest is String and (fest == "" or _p.festivals.has(fest))):
+			_err("wishes.json", id, "festival '%s' is not a festival" % [str(fest)])
+		if str(w.get("kind", "")) == "do":
+			var acts = w.get("actions", [])
+			if not (acts is Array and not acts.is_empty() and acts.all(func(x): return x is String and _p.actions.has(x))):
+				_err("wishes.json", id, "a do wish needs actions: a non-empty array of action ids")
+
+
+func _festival_list(file: String, id: String, v) -> void:
+	if not (v is Array and v.all(func(x): return x is String and _p.festivals.has(x))):
+		_err(file, id, "festivals must be an array of festival ids")

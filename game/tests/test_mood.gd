@@ -5,6 +5,8 @@ func _home() -> World:
 	var w := TestKit.world("qijia", 1)
 	w.adopted_once = true
 	w.pack.config["wish_chance_per_hour"] = 0.0
+	for f in w.pack.festivals.values():
+		f["wish_chance"] = 0.0  # festival wishes have a chance of their own; off here as well
 	var p := TestKit.adult(w)
 	p.track = "reading"
 	w.stock["food"] = 50
