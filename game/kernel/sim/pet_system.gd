@@ -284,9 +284,13 @@ static func step(world: World, dt: float) -> void:
 	if world.pets.is_empty() and not hour_turned:
 		return  # nothing to do between the hourly looks for a stray
 	var pack := world.pack
-	if not enabled(pack):
+	# `enabled` and `cfg`, reading the config once (this runs on every step)
+	if pack.pets.is_empty():
 		return
-	var c := cfg(pack)
+	var cv = pack.cfg("pets")
+	if not (cv is Dictionary and (cv as Dictionary).get("needs") is Array):
+		return
+	var c: Dictionary = cv
 	if hour_turned:
 		_stray(world, c)
 	if world.pets.is_empty():

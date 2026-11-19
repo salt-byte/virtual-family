@@ -34,9 +34,8 @@ static func step(world: World, dt: float) -> void:
 	var pack := world.pack
 	if not enabled(pack) or world.phase != "living":
 		return
-	var b := _b(pack)
-	var drain: Dictionary = b.get("drain", {})
-	var floor_v := float(pack.cfg("offline_need_floor"))
+	var drain = null  # read on the first pregnancy (usually there is none)
+	var floor_v := 0.0
 	var due: Array[Person] = []
 	for p in world.people:
 		if not p.alive or p.pregnant_until <= 0:
@@ -44,6 +43,9 @@ static func step(world: World, dt: float) -> void:
 		if world.now >= p.pregnant_until:
 			due.append(p)
 			continue
+		if drain == null:
+			drain = _b(pack).get("drain", {})
+			floor_v = float(pack.cfg("offline_need_floor"))
 		for n in drain:
 			if p.needs.has(n):
 				var nv := float(p.needs[n]) - float(drain[n]) * dt / 3600.0

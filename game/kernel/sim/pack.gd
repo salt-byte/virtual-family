@@ -140,6 +140,8 @@ var adult_age_src: Variant = null
 var adult_age_n := -1
 ## `WeatherSystem`'s prepared constants (built on first use).
 var weather_prep: Dictionary = {}
+## `MessSystem`'s spawning mess types (built on first use).
+var mess_spawning: Array = []
 ## object type -> index, for the types actions use (see `AutonomySystem.Info.obj_ix`).
 var autonomy_obj_types: Dictionary = {}
 ## The need ids in pack order (indexes of `AutonomySystem.Info.need_ix`).
