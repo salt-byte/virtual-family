@@ -16,6 +16,8 @@ var arrange: ArrangeMode
 var settings: SettingsPanel
 ## Uid of the selected person; -1 for none.
 var selected := -1
+## Uid of the selected animal (-1: none); while one is selected the bar shows it.
+var selected_pet := -1
 
 
 static func create(pack_id: String, dir := "user://", real_clock := Callable()) -> Main:
@@ -38,6 +40,7 @@ func _build(pack_id: String, dir: String, real_clock: Callable) -> void:
 	add_child(house)
 	house.setup(session)
 	house.person_clicked.connect(select)
+	house.pet_clicked.connect(select_pet)
 	weather = WeatherView.new()
 	add_child(weather)
 	weather.setup(session)
@@ -99,10 +102,20 @@ func is_house_blocked() -> bool:
 ## An explicit choice (a click on a person, the family panel): also makes the view follow
 ## them. The automatic pick in `_sync_selection` does not.
 func select(uid: int) -> void:
+	selected_pet = -1
 	selected = uid
 	_sync_selection()
 	if selected == uid and uid >= 0:
 		house.follow(uid)
+	_apply_selection()
+	if hud != null:
+		hud.refresh()
+
+
+## Shows an animal of the house in the bar (its status, what it does, what it wants).
+func select_pet(uid: int) -> void:
+	var pet := PetSystem.find(session.world, uid) if session.world != null else null
+	selected_pet = uid if pet != null and pet.home() else -1
 	_apply_selection()
 	if hud != null:
 		hud.refresh()
@@ -124,11 +137,17 @@ func _sync_selection() -> void:
 					found = true
 	if not found:
 		selected = first
+	if selected_pet >= 0:
+		var pet := PetSystem.find(w, selected_pet) if w != null and w.phase != "invalid" else null
+		if pet == null or not pet.home():
+			selected_pet = -1
 
 
 func _apply_selection() -> void:
 	for uid in house.people:
-		house.people[uid].selected = (uid == selected)
+		house.people[uid].selected = (uid == selected and selected_pet < 0)
+	for uid in house.pets:
+		house.pets[uid].selected = (uid == selected_pet)
 
 
 func _ready() -> void:

@@ -143,11 +143,23 @@ func press(id: String) -> void:
 		session.command({"type": "buy", "item": id.substr(4)})
 		refresh()
 	elif id.begins_with("use:"):
-		session.command({"type": "use_item", "item": id.substr(4), "person": main.selected})
+		if main.selected_pet >= 0:
+			session.command({"type": "use_item", "item": id.substr(4), "pet": main.selected_pet})
+		else:
+			session.command({"type": "use_item", "item": id.substr(4), "person": main.selected})
 		refresh()
+	elif id.begins_with("buy_pet:"):
+		session.command({"type": "buy_pet", "kind": id.substr(8)})
+		refresh()
+	elif id.begins_with("pet:"):
+		close()
+		main.select_pet(int(id.substr(4)))
 	elif id.begins_with("person:"):
 		main.select(int(id.substr(7)))
 		close()
+	elif id == "stray":
+		close()
+		main.overlays.open_stray()
 	elif id == "proposal":
 		close()
 		main.overlays.open_proposal()
@@ -190,18 +202,24 @@ func _data_signature(w: World) -> String:
 			for p in w.people:
 				if p.alive:
 					wishes += str(p.wish)
-			return "%d|%d|%s|%s|%s" % [w.money, total, str(w.inventory), s.person_name(sel) if sel != null and sel.alive else "", wishes]
+			var pets := ""
+			for pet in w.pets:
+				pets += "%d%s%s" % [pet.uid, pet.state, str(pet.wish)]
+			return "%d|%d|%s|%s|%s|%d|%s|%d" % [w.money, total, str(w.inventory), s.person_name(sel) if sel != null and sel.alive else "", wishes,
+				main.selected_pet, pets, w.objects.size()]
 		"stories":
 			return str(w.stories)
 		"ledger":
 			return "%s|%s" % [str(w.goals_done), str(w.collection)]
 		"family":
-			var parts: Array[String] = [str(w.proposals.size()), str(_changing), str(BirthSystem.blocked(w))]
+			var parts: Array[String] = [str(w.pet_offer), str(w.proposals.size()), str(_changing), str(BirthSystem.blocked(w))]
 			for p in w.people:
 				if p.alive:
 					parts.append("%d:%s:%s:%s:%d" % [p.uid, s.person_line(p, w), s.status_line(p, w), s.job_line(p), p.spouse])
 				else:
 					parts.append("%d:dead" % p.uid)
+			for pet in w.pets:
+				parts.append("p%d:%s:%s:%s" % [pet.uid, pet.state, str(pet.alive), s.pet_status(pet, w)])
 			return "|".join(parts)
 	return ""
 
@@ -278,6 +296,47 @@ func _fill_items(list: VBoxContainer, w: World) -> void:
 				row.add_child(mark)
 			row.add_child(ViewWidgets.price_label(s.t("money").replace("{n}", str(int(it["price"])))))
 			_button("buy:" + id, s.t("btn.buy"), row).disabled = w.money < int(it["price"])
+	_fill_pet_shop(list, w)
+
+
+## The animals for sale (kinds with a price); one that needs a perch says so until there is one.
+func _fill_pet_shop(list: VBoxContainer, w: World) -> void:
+	if not PetSystem.enabled(w.pack):
+		return
+	var s := session.strings
+	var heading := false
+	for kind in w.pack.pets:
+		var k: Dictionary = w.pack.pets[kind]
+		if int(k.get("price", 0)) <= 0:
+			continue
+		if not heading:
+			list.add_child(ViewWidgets.wrapped(s.t("shop.pets")))
+			heading = true
+		var row := ViewWidgets.row(list)
+		row.add_child(ViewWidgets.name_label(str(k.get("name", ""))))
+		var why := PetSystem.can_take(w, str(kind))
+		var wanted := _pet_wanted_by(w, str(kind))
+		if why == "no_perch":
+			var perch := str(w.pack.object_types.get(str(k.get("perch", "")), {}).get("name", ""))
+			row.add_child(ViewWidgets.price_label(s.t("pet.need_perch").replace("{perch}", perch)))
+		elif wanted != "":
+			var mark := ViewWidgets.price_label(s.t("shop.wanted").replace("{name}", wanted))
+			mark.add_theme_color_override("font_color", Color(0.95, 0.6, 0.3))
+			row.add_child(mark)
+		row.add_child(ViewWidgets.price_label(s.t("money").replace("{n}", str(int(k["price"])))))
+		_button("buy_pet:" + str(kind), s.t("btn.buy_pet"), row).disabled = why != "" or w.money < int(k["price"])
+
+
+## The names of the living people who wish for an animal of this kind, joined.
+func _pet_wanted_by(w: World, kind: String) -> String:
+	var names: Array[String] = []
+	for p in w.people:
+		if not p.alive:
+			continue
+		var wish := WishSystem.current(w, p)
+		if str(wish.get("kind", "")) == "pet" and str(wish.get("pet", "")) == kind:
+			names.append(session.strings.person_name(p))
+	return "、".join(names)
 
 
 ## The names of the living people whose wish is this item, joined; "" for nobody.
@@ -324,13 +383,18 @@ func _fill_inventory(list: VBoxContainer, w: World) -> void:
 	list.add_child(ViewWidgets.wrapped(s.t("stock").replace("{n}", str(total))))
 	var sel := w.person(main.selected)
 	var who := s.person_name(sel) if sel != null and sel.alive else ""
+	var pet := PetSystem.find(w, main.selected_pet) if main.selected_pet >= 0 else null
+	if pet != null and pet.home():
+		who = pet.given
 	for id in w.pack.items:
 		var count := int(w.inventory.get(id, 0))
 		if count <= 0:
 			continue
 		var row := ViewWidgets.row(list)
 		row.add_child(ViewWidgets.name_label("%s × %d" % [str(w.pack.items[id]["name"]), count]))
-		_button("use:" + id, s.t("btn.use_on").replace("{name}", who), row).disabled = who == ""
+		var for_pet := not (w.pack.items[id].get("pet", {}) as Dictionary).is_empty()
+		var fits := who != "" and for_pet == (pet != null and pet.home())
+		_button("use:" + id, s.t("btn.use_on").replace("{name}", who), row).disabled = not fits
 
 
 func _fill_goals(list: VBoxContainer, w: World) -> void:
@@ -359,6 +423,8 @@ func _fill_family(list: VBoxContainer, w: World) -> void:
 	_changing = -1
 	if not w.proposals.is_empty():
 		_button("proposal", s.t("title.proposal"), list)
+	if not w.pet_offer.is_empty():
+		_button("stray", s.t("title.stray"), list)
 	if BirthSystem.blocked(w):
 		var hint := ViewWidgets.wrapped(s.t("hint.no_bed"))
 		hint.add_theme_color_override("font_color", Color(0.95, 0.6, 0.3))
@@ -387,6 +453,28 @@ func _fill_family(list: VBoxContainer, w: World) -> void:
 				var dead := ViewWidgets.wrapped("%s  %s" % [s.person_name(p), s.t("family.dead").replace("{n}", str(int(p.age)))])
 				dead.modulate = Color(1, 1, 1, 0.45)
 				list.add_child(dead)
+	_fill_family_pets(list, w)
+
+
+## The animals: the ones at home as buttons (picking one shows it in the bar), the ones that
+## ran off, died or never came back greyed out, as the household's record.
+func _fill_family_pets(list: VBoxContainer, w: World) -> void:
+	if w.pets.is_empty():
+		return
+	var s := session.strings
+	var head := ViewWidgets.wrapped(s.t("family.pets"))
+	head.add_theme_font_size_override("font_size", 17)
+	list.add_child(head)
+	for pet in w.pets:
+		if pet.home():
+			var b := _button("pet:%d" % pet.uid, "%s  %s  %s" % [s.pet_name(pet, w), s.pet_line(pet, w), s.pet_status(pet, w)], list)
+			b.alignment = HORIZONTAL_ALIGNMENT_LEFT
+			b.clip_text = true
+			b.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+		else:
+			var gone := ViewWidgets.wrapped(s.pet_record(pet, w))
+			gone.modulate = Color(1, 1, 1, 0.45)
+			list.add_child(gone)
 
 
 ## One living person in the family panel: their button, then livelihood (or "too young") and,
