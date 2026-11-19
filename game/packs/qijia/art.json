@@ -1,0 +1,84 @@
+{
+	"dir": "art",
+	"accent": "#E5533C",
+	"pickup": "#4FB3E8",
+	"tiles": {
+		"grass": {"file": "tiles/grass.png", "size": [192, 144], "soften": 0.12},
+		"yard": {"file": "tiles/yard.png", "size": [192, 144], "soften": 0.25},
+		"road": {"file": "tiles/yard.png", "size": [192, 144], "soften": 0.1},
+		"floor_hall": {"file": "tiles/floor_hall.png", "size": [192, 144], "soften": 0.2},
+		"floor_wood": {"file": "tiles/floor_bed.png", "size": [192, 144], "soften": 0.2},
+		"floor_earth": {"file": "tiles/floor_earth.png", "size": [192, 144], "soften": 0.2},
+		"paving": {"file": "tiles/path.png", "size": [192, 144], "soften": 0.15},
+		"field": {"file": "tiles/field.png", "size": [192, 144], "soften": 0.08},
+		"water": {"file": "tiles/water.png", "size": [192, 144], "soften": 0.0},
+		"planks": {"file": "tiles/floor_bed.png", "size": [96, 72], "soften": 0.0},
+		"plaster": {"file": "tiles/wall.png", "fit_height": true},
+		"rammed_earth": {"file": "tiles/wall_compound.png", "fit_height": true}
+	},
+	"sprites": {
+		"altar": "props/altar.png", "bamboo": "props/bamboo.png", "big_tree": "props/big_tree.png",
+		"bridge": "props/bridge.png", "bush": "props/bush.png", "clothesline": "props/clothesline.png",
+		"col_coins": "props/col_coins.png", "col_egg": "props/col_egg.png", "col_hairpin": "props/col_hairpin.png",
+		"coop": "props/coop.png", "desk": "props/desk.png", "dining_table": "props/dining_table.png",
+		"door_sill": "props/door_sill.png", "fence": "props/fence.png", "garden": "props/garden.png",
+		"gatehouse": "props/gatehouse.png", "grape_trellis": "props/grape_trellis.png", "icon_ill": "props/icon_ill.png",
+		"kang": "props/kang.png", "loom": "props/loom.png", "mess_dirt": "props/mess_dirt.png",
+		"mess_droppings": "props/mess_droppings.png", "millstone": "props/millstone.png", "reeds": "props/reeds.png",
+		"rocks": "props/rocks.png", "scarecrow": "props/scarecrow.png", "stone_bench": "props/stone_bench.png",
+		"stool": "props/stool.png", "stove": "props/stove.png", "vat": "props/vat.png",
+		"well_head": "props/well_head.png", "woodpile": "props/woodpile.png",
+		"father": "chars/father.png", "mother": "chars/mother.png", "grandma": "chars/grandma.png", "child": "chars/child.png"
+	},
+	"ground": "grass",
+	"compound_ground": "yard",
+	"floors": {
+		"hall": "floor_hall",
+		"west_room": "floor_wood", "bedroom": "floor_wood", "study": "floor_wood", "side": "floor_wood",
+		"kitchen": "floor_earth", "woodshed": "floor_earth",
+		"well": "paving"
+	},
+	"decor": {
+		"#B5AFA3": {"tile": "paving"},
+		"#D8B88A": {"tile": "road"},
+		"#86C6DA": {"tile": "water"},
+		"#A8D8E6": {"hide": true},
+		"#B07A4A": {"tile": "planks"},
+		"#7A5235": {"hide": true},
+		"#B5C774": {"tile": "field"},
+		"#9DB060": {"hide": true},
+		"#6E9A4E": {"sprite": "bamboo"},
+		"#86B562": {"hide": true},
+		"#5F8F43": {"sprite": "big_tree"},
+		"#78A853": {"hide": true},
+		"#8FAE5C": {"sprite": "bush"},
+		"#7FA65A": {"sprite": "bush"},
+		"#A9A49A": {"sprite": "rocks"}
+	},
+	"scenery": [
+		{"sprite": "scarecrow", "x": 11.0, "y": 29.2, "w": 1.4},
+		{"sprite": "reeds", "x": 48.3, "y": 7.2, "w": 1.1},
+		{"sprite": "reeds", "x": 48.3, "y": 15.6, "w": 1.0},
+		{"sprite": "reeds", "x": 48.3, "y": 27.0, "w": 1.1},
+		{"sprite": "bush", "x": 22.6, "y": 4.4, "w": 1.0},
+		{"sprite": "bush", "x": 38.0, "y": 4.2, "w": 1.2}
+	],
+	"walls": {"house": "plaster", "compound": "rammed_earth", "gate": "gatehouse", "sill": "door_sill"},
+	"objects": {
+		"stove": "stove", "kang": "kang", "desk": "desk", "loom": "loom", "vat": "vat", "stool": "stool",
+		"coop": "coop", "garden": "garden", "dining_table": "dining_table", "altar": "altar",
+		"woodpile": "woodpile", "millstone": "millstone", "grape_trellis": "grape_trellis",
+		"clothesline": "clothesline", "well_head": "well_head", "threshold": "door_sill", "stone_bench": "stone_bench"
+	},
+	"messes": {"dirt": "mess_dirt", "droppings": "mess_droppings", "leaves": "mess_droppings"},
+	"collectibles": {"egg": "col_egg", "coins": "col_coins", "hairpin": "col_hairpin"},
+	"people": [
+		{"stage": "elder", "sex": "female", "sprite": "grandma", "height": 74},
+		{"stage": "elder", "sprite": "father", "height": 80},
+		{"stage": "adult", "sex": "male", "sprite": "father", "height": 90},
+		{"stage": "adult", "sprite": "mother", "height": 86},
+		{"stage": "child", "sprite": "child", "height": 62},
+		{"stage": "baby", "sprite": "child", "height": 40}
+	],
+	"unwell": {"sprite": "icon_ill", "need": "health", "below": 50}
+}
