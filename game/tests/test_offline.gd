@@ -77,7 +77,28 @@ func test_perf_qijia_48_hour_catch_up_of_a_family_within_budget():
 		assert_eq(s.simulated_seconds, 2 * 3600)
 		best = minf(best, us)
 	var est_s := best * 24.0 / 1e6
+	print("  perf: %.2f s" % est_s)
 	assert_true(est_s <= 10.0, "48 h catch-up of a family of four would take %.1f s" % est_s)
+## The same timing with a dog and a cat in the house (their own actions, and the family
+## looking after them).
+func test_perf_qijia_48_hour_catch_up_with_a_dog_and_a_cat_within_budget():
+	if not _perf_requested():
+		assert_true(not _perf_requested(), "skipped: run with the filter 'perf'")
+		return
+	var best := INF
+	for r in 3:
+		var w := BalanceRun.family_of_four("qijia", 11)
+		PetSystem.add(w, "dog", "bought")
+		PetSystem.add(w, "cat", "bought")
+		var t := Time.get_ticks_usec()
+		var s := w.catch_up(2 * 3600)
+		var us := float(Time.get_ticks_usec() - t)
+		assert_eq(s.simulated_seconds, 2 * 3600)
+		assert_eq(PetSystem.at_home(w), 2)
+		best = minf(best, us)
+	var est_s := best * 24.0 / 1e6
+	print("  perf with pets: %.2f s" % est_s)
+	assert_true(est_s <= 10.0, "48 h catch-up of a family of four with two pets would take %.1f s" % est_s)
 func test_qijia_offline_matches_online_when_no_floor_hit():
 	var a := _qhome(); var b := _qhome()
 	a.catch_up(2 * 3600); b.offline = true; b.advance(2 * 3600); b.offline = false; b.drain_events()

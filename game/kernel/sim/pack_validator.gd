@@ -23,6 +23,7 @@ const REQUIRED := {
 	"wishes.json": {"text": TYPE_STRING, "kind": TYPE_STRING, "ttl_hours": TYPE_NIL, "joy": TYPE_NIL},
 	"dishes.json": {"name": TYPE_STRING, "portions": TYPE_NIL},
 	"stories.json": {"title": TYPE_STRING, "unlock": TYPE_DICTIONARY, "fragments": TYPE_ARRAY, "finale": TYPE_DICTIONARY},
+	"pets.json": {"name": TYPE_STRING},
 }
 ## Whole-number fields and their minimum (money, sizes and durations are never fractional or negative).
 const MIN_INT := {
@@ -33,6 +34,7 @@ const MIN_INT := {
 	"collectibles.json": {"value": 0},
 	"goals.json": {"reward": 0},
 	"dishes.json": {"portions": 1, "max_out": 1},
+	"pets.json": {"price": 0},
 }
 const LEVEL_FIELDS := ["name", "daily_income", "work_bonus_per_hour", "progress_to_next"]
 ## The moods an action may require (see `MoodSystem`).
@@ -76,6 +78,7 @@ func _run() -> void:
 	_check_births()
 	_check_dishes()
 	_check_seasons()
+	_check_pets()
 
 
 func _check_required() -> void:
@@ -269,6 +272,9 @@ func _check_actions() -> void:
 		if a0.get("yields") is Dictionary:
 			for k in a0["yields"]:
 				stock_names[k] = true
+	for d0 in _p.dishes.values():
+		if d0.get("scraps") is String and d0["scraps"] != "":
+			stock_names[d0["scraps"]] = true
 	var stage_ids := []
 	if _p.config["stages"] is Array:
 		for s in _p.config["stages"]:
@@ -305,8 +311,9 @@ func _check_actions() -> void:
 		if a["work"] is Dictionary and not a["work"].is_empty():
 			if not _p.livelihoods.has(a["work"].get("track", "")):
 				_err("actions.json", id, "work.track '%s' is not a livelihood" % [a["work"].get("track", "")])
-			if a["object"] == "" and (not a["rooms"] is Array or a["rooms"].is_empty()):
-				_err("actions.json", id, "a work action needs an object or rooms")
+			if a["object"] == "" and (not a["rooms"] is Array or a["rooms"].is_empty()) \
+					and not (a.get("pet") is Dictionary and not a["pet"].is_empty()):
+				_err("actions.json", id, "a work action needs an object, rooms or a pet to look after")
 		elif not a["work"] is Dictionary:
 			_err("actions.json", id, "work must be an object")
 		if a["mess"] is Dictionary and not a["mess"].is_empty():
@@ -331,6 +338,14 @@ func _check_actions() -> void:
 				_err("actions.json", id, "an action with an object may not also list rooms")
 		_check_requires(id, a["requires"])
 		_check_tends(id, a)
+		_check_pet_target("actions.json", id, a.get("pet", {}))
+		if a.get("pet") is Dictionary and not a["pet"].is_empty():
+			if (a["cleans"] is String and a["cleans"] != "") or a["picks"] == true \
+					or (a.get("tends") is Dictionary and not a["tends"].is_empty()) \
+					or (a.get("eats") is Array and not a["eats"].is_empty()):
+				_err("actions.json", id, "an action that looks after a pet may not also clean, pick up, tend or eat")
+			if (a["object"] is String and a["object"] != "") or (a["rooms"] is Array and not a["rooms"].is_empty()):
+				_err("actions.json", id, "an action that looks after a pet happens where the pet is: no object or rooms")
 		_check_food(id, a)
 		var cs = a.get("completes_story", "")
 		if not cs is String:
@@ -513,6 +528,195 @@ func _check_tends(id: String, a: Dictionary) -> void:
 		_err("actions.json", id, "an action that tends a baby may not also clean or pick up")
 	if a["stages"] is Array and (a["stages"] as Array).has("baby"):
 		_err("actions.json", id, "babies cannot tend babies")
+
+
+## A `pet` field (of an action or an item): {kinds: [pet kinds] ([]: any), needs: {pet need:
+## number}, cures: bool}.
+func _check_pet_target(file: String, id: String, t) -> void:
+	if not t is Dictionary:
+		_err(file, id, "pet must be an object")
+		return
+	if t.is_empty():
+		return
+	var ids := _pet_need_ids()
+	var kinds = t.get("kinds", [])
+	if not kinds is Array:
+		_err(file, id, "pet.kinds must be an array of pet kinds")
+	else:
+		for k in kinds:
+			if not (k is String and _p.pets.has(k)):
+				_err(file, id, "pet.kinds: '%s' is not a kind in pets.json" % [str(k)])
+	var needs = t.get("needs", {})
+	if not needs is Dictionary:
+		_err(file, id, "pet.needs must be an object")
+	else:
+		for n in needs:
+			if not ids.has(n) or not _is_num(needs[n]):
+				_err(file, id, "pet.needs key '%s' must be a pet need with a number" % [n])
+	if not t.get("cures", false) is bool:
+		_err(file, id, "pet.cures must be true or false")
+	if (needs is Dictionary and needs.is_empty()) and not bool(t.get("cures", false)):
+		_err(file, id, "pet must give the pet some need or cure it")
+
+
+## The ids of the pack's `pets.needs` (id -> true).
+func _pet_need_ids() -> Dictionary:
+	var ids := {}
+	var c = _p.config.get("pets", {})
+	if c is Dictionary and c.get("needs") is Array:
+		for n in c["needs"]:
+			if n is Dictionary and n.get("id") is String:
+				ids[n["id"]] = true
+	return ids
+
+
+## The `pets` config and pets.json: both or neither; the needs and their roles; each kind's
+## numbers, places, own actions, wishes and perks.
+func _check_pets() -> void:
+	var c = _p.config.get("pets", {})
+	if not c is Dictionary:
+		_err("pack.json", _p.id, "pets must be an object")
+		return
+	if _p.pets.is_empty():
+		if not c.is_empty():
+			_err("pack.json", _p.id, "pets is set but there is no pets.json")
+		return
+	if c.is_empty():
+		_err("pets.json", "*", "pets.json needs the pets settings in pack.json")
+		return
+	var needs = c.get("needs")
+	if not (needs is Array and not needs.is_empty()):
+		_err("pack.json", _p.id, "pets.needs must be a non-empty array")
+		needs = []
+	for n in needs:
+		if not (n is Dictionary and n.get("id") is String and n.get("name") is String):
+			_err("pack.json", _p.id, "pets.needs: each needs an id and a name")
+			continue
+		if n.has("start") and not (_is_num(n["start"]) and float(n["start"]) >= 0.0 and float(n["start"]) <= 100.0):
+			_err("pack.json", _p.id, "pets.needs %s: start must be from 0 to 100" % n["id"])
+		var labels = n.get("labels", [])
+		if not labels is Array or not (labels as Array).all(func(l): return l is Dictionary and _is_num(l.get("below")) and l.get("text") is String):
+			_err("pack.json", _p.id, "pets.needs %s: labels need a number 'below' and a 'text'" % n["id"])
+		elif not labels.is_empty() and float(labels[-1]["below"]) < 101.0:
+			_err("pack.json", _p.id, "pets.needs %s: the last label 'below' must be at least 101" % n["id"])
+	var ids := _pet_need_ids()
+	for r in ["food_need", "love_need", "clean_need", "health_need"]:
+		var v = c.get(r, "")
+		if not (v is String and (v == "" or ids.has(v))):
+			_err("pack.json", _p.id, "pets.%s must be one of pets.needs" % r)
+	for f in ["max", "content_above", "run_below", "run_after_hours", "come_back_after_hours", "gone_after_hours",
+			"come_back_at", "stray_ttl_hours", "illness_chance_per_day", "dirty_below", "dirty_illness_factor",
+			"sick_drain_per_hour", "heal_per_hour", "wish_miss", "cure_gain", "age_rate", "care_below"]:
+		if c.has(f) and not (_is_num(c[f]) and float(c[f]) >= 0.0):
+			_err("pack.json", _p.id, "pets.%s must be a number of at least 0" % f)
+	for f in ["stray_chance_per_hour", "come_back_chance_per_hour", "wish_chance_per_hour"]:
+		if c.has(f) and not (_is_num(c[f]) and float(c[f]) >= 0.0 and float(c[f]) <= 1.0):
+			_err("pack.json", _p.id, "pets.%s must be from 0 to 1" % f)
+	if c.has("action_speed") and not (_is_num(c["action_speed"]) and float(c["action_speed"]) >= 1.0):
+		_err("pack.json", _p.id, "pets.action_speed must be a number of at least 1")
+	for g in ["cheer", "grief"]:
+		var e = c.get(g, {})
+		if not e is Dictionary:
+			_err("pack.json", _p.id, "pets.%s must be an object" % g)
+		elif not e.is_empty() and not _p.needs.has(str(e.get("need", ""))):
+			_err("pack.json", _p.id, "pets.%s.need must be a need" % g)
+	var seen := {}
+	for k in _p.pets.values():
+		var id: String = k["id"]
+		for f in ["lifespan", "age", "stray_age"]:
+			var r = k.get(f, [1, 2])
+			if not (r is Array and r.size() == 2 and _is_num(r[0]) and _is_num(r[1]) and float(r[0]) >= 0.0 and float(r[0]) <= float(r[1])):
+				_err("pets.json", id, "%s must be [from, to] in years" % f)
+		if not (k["names"] is Array and (k["names"] as Array).all(func(s): return s is String)):
+			_err("pets.json", id, "names must be an array of names")
+		if not k["drains"] is Dictionary or not (k["drains"] as Dictionary).keys().all(func(n): return ids.has(n) and _is_num(k["drains"][n])):
+			_err("pets.json", id, "drains must map pet needs to numbers per hour")
+		if not (k["home"] is Array and (k["home"] as Array).all(func(r): return r is String and _p.rooms.has(r))):
+			_err("pets.json", id, "home must be an array of rooms")
+		var perch = k["perch"]
+		if not (perch is String and (perch == "" or _p.object_types.has(perch))):
+			_err("pets.json", id, "perch '%s' is not an object type" % [str(perch)])
+		if not _is_num(k["size"]) or float(k["size"]) <= 0.0:
+			_err("pets.json", id, "size must be a number above 0")
+		if k.has("color") and not _color_ok(k["color"]):
+			_err("pets.json", id, "color must be a colour like \"#rrggbb\"")
+		var perks = k["perks"]
+		if not perks is Dictionary:
+			_err("pets.json", id, "perks must be an object")
+		else:
+			if perks.has("guard") and not (_is_num(perks["guard"]) and float(perks["guard"]) >= 1.0):
+				_err("pets.json", id, "perks.guard must be a number of at least 1")
+			if perks.has("save") and not (perks["save"] is Dictionary and (perks["save"] as Dictionary).values().all(func(v): return _is_num(v) and float(v) >= 0.0 and float(v) <= 1.0)):
+				_err("pets.json", id, "perks.save must map stock names to shares from 0 to 1")
+		if not k["actions"] is Array or (k["actions"] as Array).is_empty():
+			_err("pets.json", id, "actions must be a non-empty array")
+		else:
+			for a in k["actions"]:
+				_check_pet_action(id, k, a, ids, seen)
+		var acts := {}
+		if k["actions"] is Array:
+			for a in k["actions"]:
+				if a is Dictionary:
+					acts[str(a.get("id", ""))] = true
+		if not k["wishes"] is Array:
+			_err("pets.json", id, "wishes must be an array")
+			continue
+		for w in k["wishes"]:
+			if not (w is Dictionary and w.get("id") is String and w.get("text") is String):
+				_err("pets.json", id, "wishes: each needs an id and a text")
+				continue
+			var wid := "wish %s" % w["id"]
+			var item := str(w.get("item", ""))
+			var wa = w.get("actions", [])
+			if item != "" and not _p.items.has(item):
+				_err("pets.json", id, "%s: item '%s' is not an item" % [wid, item])
+			if not wa is Array or not (wa as Array).all(func(x): return acts.has(x) or (_p.actions.has(x) and _p.actions[x].get("pet") is Dictionary and not _p.actions[x]["pet"].is_empty())):
+				_err("pets.json", id, "%s: actions must be this kind's actions or actions that look after pets" % wid)
+			elif item == "" and wa.is_empty():
+				_err("pets.json", id, "%s: needs an item or actions that grant it" % wid)
+			for f in ["ttl_hours", "joy"]:
+				if w.has(f) and not (_is_num(w[f]) and float(w[f]) >= 0.0):
+					_err("pets.json", id, "%s: %s must be a number of at least 0" % [wid, f])
+
+
+func _check_pet_action(kind: String, k: Dictionary, a, ids: Dictionary, seen: Dictionary) -> void:
+	if not (a is Dictionary and a.get("id") is String and a.get("label") is String):
+		_err("pets.json", kind, "actions: each needs an id and a label")
+		return
+	var aid := "%s %s" % [kind, a["id"]]
+	if seen.has(a["id"]) or _p.actions.has(a["id"]):
+		_err("pets.json", aid, "action id is used twice")
+	seen[a["id"]] = true
+	if not (a["duration_min"] is int and a["duration_min"] >= 1):
+		_err("pets.json", aid, "duration_min must be a whole number of at least 1")
+	if not (_is_num(a["base"]) and float(a["base"]) >= 0.0):
+		_err("pets.json", aid, "base must be a number of at least 0")
+	if not (a["object"] is String and (a["object"] == "" or _p.object_types.has(a["object"]))):
+		_err("pets.json", aid, "object '%s' is not an object type" % [str(a["object"])])
+	if not (a["rooms"] is Array and (a["rooms"] as Array).all(func(r): return r is String and _p.rooms.has(r))):
+		_err("pets.json", aid, "rooms must be an array of rooms")
+	elif not a["rooms"].is_empty() and a["object"] is String and a["object"] != "":
+		_err("pets.json", aid, "an action with an object may not also list rooms")
+	if not (a["hours"] is Array and (a["hours"].is_empty() or a["hours"].size() == 2)):
+		_err("pets.json", aid, "hours must be [] or [from, to]")
+	if not a["weather"] is Array:
+		_err("pets.json", aid, "weather must be an array")
+	for f in ["wet", "sick"]:
+		if not a[f] is bool:
+			_err("pets.json", aid, "%s must be true or false" % f)
+	var st = _p.config["stages"]
+	if not (a["follows"] is String and (a["follows"] == "" or (st is Array and (st as Array).any(func(s): return s is Dictionary and s.get("id") == a["follows"])))):
+		_err("pets.json", aid, "follows must be a stage id")
+	if not (a["scraps"] is String and (a["scraps"] == "" or _p.mess_types.has(a["scraps"]))):
+		_err("pets.json", aid, "scraps must be a mess type")
+	if not (a["needs"] is Dictionary and (a["needs"] as Dictionary).keys().all(func(n): return ids.has(n) and _is_num(a["needs"][n]))):
+		_err("pets.json", aid, "needs must map pet needs to numbers")
+	if not (_is_num(a["every_hours"]) and float(a["every_hours"]) >= 0.0):
+		_err("pets.json", aid, "every_hours must be a number of at least 0")
+	if not (a["above"] is Dictionary and (a["above"] as Dictionary).keys().all(func(n): return ids.has(n) and _is_num(a["above"][n]))):
+		_err("pets.json", aid, "above must map pet needs to numbers")
+	if not a["mess"] is Dictionary or (not a["mess"].is_empty() and not _p.mess_types.has(str(a["mess"].get("type", "")))):
+		_err("pets.json", aid, "mess.type must be a mess type")
 
 
 func _check_requires(id: String, r) -> void:
@@ -765,6 +969,7 @@ func _check_items() -> void:
 		var ch = it.get("childhood", {})
 		if not ch is Dictionary or not ch.keys().all(func(a): return _p.actions.has(a) and _is_num(ch[a])):
 			_err("items.json", it["id"], "childhood must map action ids to counts")
+		_check_pet_target("items.json", it["id"], it.get("pet", {}))
 
 
 func _check_illnesses() -> void:
@@ -865,6 +1070,9 @@ func _check_wishes() -> void:
 			"room":
 				if not _p.rooms.has(w.get("room", "")):
 					_err("wishes.json", id, "room '%s' is not a room" % [str(w.get("room", ""))])
+			"pet":
+				if not _p.pets.has(w.get("pet", "")):
+					_err("wishes.json", id, "pet '%s' is not a kind in pets.json" % [str(w.get("pet", ""))])
 			"need":
 				if not _p.needs.has(w.get("need", "")):
 					_err("wishes.json", id, "need '%s' is not a need" % [str(w.get("need", ""))])

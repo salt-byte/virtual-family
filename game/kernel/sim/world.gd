@@ -44,6 +44,14 @@ var wet_until := 0
 var clean_paid_day := -1
 ## Cooked food waiting to be eaten (see `DishSystem`).
 var dishes: Array[Dictionary] = []
+## The household's animals, the dead and lost among them kept as a record (see `PetSystem`).
+var pets: Array[Pet] = []
+## An animal waiting at the gate to be taken in: {kind, given, age, expires_at}; {} for none.
+var pet_offer: Dictionary = {}
+## Stock name -> the share of a unit a well-kept pet has saved so far (see `PetSystem`).
+var pet_saved: Dictionary = {}
+## `now` until which the children miss a pet that ran away or died (0: not).
+var pet_grief_until := 0
 ## Ids of rooms that exist in the house (pack rooms with `built`, plus any built later).
 var rooms_built: Array[String] = []
 ## Counters that goals read: cured, collected, mess_cleaned, all_clean.
@@ -84,6 +92,8 @@ var _flags_ctx: Array = []
 ## `AutonomySystem._objects_by_type`'s cache: [objects, size, last uid, uids by type]; not saved.
 var _by_type_ctx: Array = []
 var _babies_t := -1
+## `PetSystem.home_key` and `PetSystem.room_now` as of [now, pets size]; not saved.
+var _pet_cache: Array = [-1, -1, "", {}]
 var _built := {}
 var _built_n := -1
 var _built_src: Array[String] = []
@@ -299,6 +309,7 @@ func _run_systems(dt: float) -> void:
 	MoodSystem.step(self, dt)
 	WishSystem.step(self, dt)
 	StorySystem.step(self, dt)
+	PetSystem.step(self, dt)  # last: its hourly look for a stray draws after everything else
 
 
 ## Everything that decides what happens next, as plain JSON-safe data; see `WorldSave`.

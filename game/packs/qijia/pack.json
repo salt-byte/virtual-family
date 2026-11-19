@@ -32,6 +32,28 @@
 	"story_interval_min": 240,
 	"story_ttl_min": 600,
 	"clean_reward": {"amount": 15},
+	"pets": {
+		"needs": [
+			{"id": "belly", "name": "肚子", "start": 80,
+			 "labels": [{"below": 20, "text": "饿得直哼哼"}, {"below": 50, "text": "肚里空"}, {"below": 101, "text": "吃饱了"}]},
+			{"id": "fondness", "name": "亲近", "start": 55,
+			 "labels": [{"below": 20, "text": "躲着人"}, {"below": 60, "text": "认得人"}, {"below": 101, "text": "黏人"}]},
+			{"id": "coat", "name": "毛色", "start": 90,
+			 "labels": [{"below": 30, "text": "一身泥"}, {"below": 101, "text": "毛干净"}]},
+			{"id": "vigor", "name": "精神头", "start": 100,
+			 "labels": [{"below": 40, "text": "蔫了"}, {"below": 101, "text": "欢实"}]}
+		],
+		"food_need": "belly", "love_need": "fondness", "clean_need": "coat", "health_need": "vigor",
+		"max": 3, "content_above": 50, "age_rate": 0.4, "action_speed": 6, "care_below": 75,
+		"run_below": 10, "run_after_hours": 12,
+		"come_back_after_hours": 8, "come_back_chance_per_hour": 0.06, "come_back_at": 50, "gone_after_hours": 96,
+		"stray_chance_per_hour": 0.03, "stray_ttl_hours": 6,
+		"illness_chance_per_day": 0.12, "dirty_below": 30, "dirty_illness_factor": 3,
+		"sick_drain_per_hour": 3, "heal_per_hour": 2,
+		"wish_chance_per_hour": 0.2, "wish_miss": 5, "cure_gain": 50,
+		"cheer": {"stages": ["child"], "need": "happy", "per_hour": 1.0},
+		"grief": {"stages": ["child"], "need": "happy", "now": 15, "per_hour": 1.5, "hours": 12}
+	},
 	"seasons": {
 		"change_min": 15, "persist": 0.4, "dry_hours": 1.5,
 		"wet_messes": {"mud": 30},

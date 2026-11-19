@@ -4,7 +4,8 @@ extends RefCounted
 ## dish puts it on the first object of the dish's `on` types (in that order); actions that
 ## `eats` it send people over to take a portion each. When the last portion is gone (or the
 ## dish was left out for `ttl_hours`), what is left becomes a mess of its `leaves` type on
-## that spot. A dish is "claimed" by everyone currently going for it; it has room for as many
+## that spot, and a dish with `scraps` adds one to that stock (the leftovers). A dish is
+## "claimed" by everyone currently going for it; it has room for as many
 ## eaters as it has portions left.
 ##
 ## world.dishes: {uid, type, object_uid, room, x, y, portions, expires_at (0: never)}.
@@ -106,6 +107,9 @@ static func _clear(world: World, i: int, how: String) -> void:
 	var d: Dictionary = world.dishes[i]
 	world.dishes.remove_at(i)
 	world.emit("dish_finished", {"uid": int(d.uid), "kind": str(d.type), "how": how})
+	var scraps := str(world.pack.dishes.get(d.type, {}).get("scraps", ""))
+	if scraps != "":
+		world.stock[scraps] = int(world.stock.get(scraps, 0)) + 1
 	var leaves := str(world.pack.dishes.get(d.type, {}).get("leaves", ""))
 	if leaves != "" and world.rooms_built.has(str(d.room)):
 		MessSystem.spawn(world, leaves, str(d.room), Vector2i(int(d.x), int(d.y)))

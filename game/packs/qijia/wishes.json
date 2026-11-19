@@ -24,5 +24,7 @@
 	{"id": "want_hat", "text": "想要顶毡帽", "kind": "item", "item": "felt_hat", "stages": ["adult", "elder"], "weight": 1, "ttl_hours": 12, "joy": 15},
 	{"id": "want_new_hairpin", "text": "想要支新银簪", "kind": "item", "item": "new_hairpin", "likes": ["爱热闹"], "stages": ["adult", "elder"], "weight": 1, "ttl_hours": 24, "joy": 25},
 	{"id": "want_family", "text": "想成个家", "kind": "married", "stages": ["adult", "elder"], "weight": 0.5, "ttl_hours": 24, "joy": 30},
-	{"id": "want_baby", "text": "想要个孩子", "kind": "baby", "stages": ["adult"], "weight": 1, "ttl_hours": 48, "joy": 30}
+	{"id": "want_baby", "text": "想要个孩子", "kind": "baby", "stages": ["adult"], "weight": 1, "ttl_hours": 48, "joy": 30},
+	{"id": "want_dog", "text": "想养一条狗", "kind": "pet", "pet": "dog", "likes": ["好侍弄"], "stages": ["child", "adult"], "weight": 1, "ttl_hours": 24, "joy": 30},
+	{"id": "want_cat", "text": "想养只猫", "kind": "pet", "pet": "cat", "likes": ["喜静"], "weight": 1, "ttl_hours": 24, "joy": 30}
 ]

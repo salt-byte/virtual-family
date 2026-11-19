@@ -46,6 +46,19 @@ static func _snapshot(w: World) -> Dictionary:
 		out["dishes"] = w.dishes.duplicate(true)
 	if w.birth_blocked:  # optional: written only while true
 		out["birth_blocked"] = true
+	# Optional, written only once there is something to keep: the animals (and the record of
+	# those gone), one waiting at the gate, the share of a stock saved, the children's grief.
+	if not w.pets.is_empty():
+		var pets: Array = []
+		for pet in w.pets:
+			pets.append(pet.to_dict())
+		out["pets"] = pets
+	if not w.pet_offer.is_empty():
+		out["pet_offer"] = w.pet_offer.duplicate(true)
+	if not w.pet_saved.is_empty():
+		out["pet_saved"] = w.pet_saved.duplicate(true)
+	if w.pet_grief_until > 0:
+		out["pet_grief_until"] = w.pet_grief_until
 	return out
 
 
@@ -148,6 +161,18 @@ static func _build(pack: Pack, d: Dictionary) -> World:
 	for dd in d.get("dishes", []):  # absent in older saves and while no food is out
 		if pack.dishes.has(str(dd.get("type", ""))) and w.object(int(dd.get("object_uid", -1))).size() > 0:
 			w.dishes.append(_ints(dd, ["uid", "object_uid", "x", "y", "portions", "expires_at"]))
+	w.pets.clear()
+	for pd in d.get("pets", []):  # absent in older saves and before the first animal
+		w.pets.append(Pet.from_dict(pd))
+	var po: Dictionary = d.get("pet_offer", {})
+	w.pet_offer = {} if po.is_empty() else {"kind": str(po["kind"]), "given": str(po["given"]),
+		"age": float(po["age"]), "expires_at": int(po["expires_at"])}
+	w.pet_saved = {}
+	var ps: Dictionary = d.get("pet_saved", {})
+	for k in ps:
+		w.pet_saved[str(k)] = float(ps[k])
+	w.pet_grief_until = int(d.get("pet_grief_until", 0))
+	PetSystem.rebuild_held(w)
 	if BirthSystem.enabled(pack):
 		_link_old_couple(w)
 	if MoodSystem.enabled(pack):
@@ -433,6 +458,23 @@ static func _valid_save(pack: Pack, d: Dictionary) -> bool:
 			if not _has(dd, {"uid": "i", "type": "s", "object_uid": "i", "room": "s", "x": "i", "y": "i",
 					"portions": "i", "expires_at": "i"}):
 				return false
+	if d.has("pets"):  # optional: only once an animal came to the house
+		if typeof(d["pets"]) != TYPE_ARRAY:
+			return false
+		for pet in d["pets"]:
+			if not _valid_pet(pet):
+				return false
+	if d.has("pet_offer") and not (typeof(d["pet_offer"]) == TYPE_DICTIONARY and (d["pet_offer"].is_empty() \
+			or _has(d["pet_offer"], {"kind": "s", "given": "s", "age": "n", "expires_at": "i"}))):
+		return false
+	if d.has("pet_saved"):
+		if typeof(d["pet_saved"]) != TYPE_DICTIONARY:
+			return false
+		for k in d["pet_saved"]:
+			if not (_is_str(k) and _is_num(d["pet_saved"][k]) and float(d["pet_saved"][k]) >= 0.0):
+				return false
+	if d.has("pet_grief_until") and not (_is_whole(d["pet_grief_until"]) and float(d["pet_grief_until"]) >= 0.0):
+		return false
 	# The uid counter must lie above every uid in use, or new things would collide.
 	var top := 0
 	for key in ["people", "objects", "messes", "collectibles"]:
@@ -442,7 +484,34 @@ static func _valid_save(pack: Pack, d: Dictionary) -> bool:
 		top = maxi(top, int(pr["id"]))
 	for dd in d.get("dishes", []):
 		top = maxi(top, int(dd["uid"]))
+	for pet in d.get("pets", []):
+		top = maxi(top, int(pet["uid"]))
 	return int(d["next_uid"]) > top
+
+
+## A saved pet: its keys with the right types; the optional ones in range.
+static func _valid_pet(p) -> bool:
+	if not _has(p, {"uid": "i", "kind": "s", "given": "s", "age": "n", "lifespan": "n", "alive": "b",
+			"state": "s", "needs": "d", "sick": "b", "current": "d", "last_action": "s", "wish": "d",
+			"wish_last": "s", "thanks_until": "i", "hungry_s": "i", "lonely_s": "i", "away_since": "i",
+			"how": "s", "came_at": "i", "cause": "s", "died_at": "i"}):
+		return false
+	if not p["state"] in ["home", "away"]:
+		return false
+	for k in p["needs"]:
+		if not (_is_str(k) and _is_num(p["needs"][k])):
+			return false
+	if not (p["wish"].is_empty() or _has(p["wish"], {"id": "s", "expires_at": "i"})):
+		return false
+	if p.has("done_at") and not _count_map(p["done_at"]):
+		return false
+	var c: Dictionary = p["current"]
+	if not c.is_empty() and not _has(c, {"action": "s", "remaining_s": "i"}):
+		return false
+	for k in ["object_uid", "follow", "mess"]:
+		if c.has(k) and not _is_whole(c[k]):
+			return false
+	return not c.has("room") or _is_str(c["room"])
 
 
 # --- pack references: run on well-shaped data; a miss means the pack's content changed ---
@@ -479,6 +548,11 @@ static func _ids_known(pack: Pack, d: Dictionary) -> bool:
 		for f in sd[sid]["found"]:
 			if StorySystem.fragment(pack, sid, f).is_empty():
 				return false
+	for pet in d.get("pets", []):
+		if not _pet_ids_known(pack, pet):
+			return false
+	if not d.get("pet_offer", {}).is_empty() and not pack.pets.has(d["pet_offer"]["kind"]):
+		return false
 	return _keys_in(d["inventory"], pack.items) and _keys_in(d["collection"], pack.collectibles) \
 			and _all_in(d["rooms_built"], pack.rooms) and _all_in(d["goals_done"], pack.goals)
 
@@ -503,6 +577,29 @@ static func _person_ids_known(pack: Pack, p: Dictionary) -> bool:
 	if p.has("wish") and not p["wish"].is_empty() and not pack.wishes.has(p["wish"]["id"]):
 		return false
 	return p["current"].is_empty() or pack.actions.has(p["current"]["action"])
+
+
+static func _pet_ids_known(pack: Pack, p: Dictionary) -> bool:
+	if not pack.pets.has(p["kind"]):
+		return false
+	var ids := {}
+	for n in PetSystem.need_list(pack):
+		ids[str(n.get("id", ""))] = true
+	if not (_keys_in(p["needs"], ids) and _keys_in(ids, p["needs"])):
+		return false
+	var acts := {}
+	for a in pack.pets[p["kind"]].get("actions", []):
+		acts[str(a.get("id", ""))] = true
+	var wishes := {}
+	for w in pack.pets[p["kind"]].get("wishes", []):
+		wishes[str(w.get("id", ""))] = true
+	if p["last_action"] != "" and not acts.has(p["last_action"]):
+		return false
+	if not p["current"].is_empty() and not acts.has(p["current"]["action"]):
+		return false
+	if p["current"].has("room") and not pack.rooms.has(p["current"]["room"]):
+		return false
+	return p["wish"].is_empty() or wishes.has(p["wish"]["id"])
 
 
 static func _keys_in(d: Dictionary, ids: Dictionary) -> bool:

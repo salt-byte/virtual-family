@@ -15,5 +15,9 @@
 	{"id": "new_clothes", "name": "一身新衣裳", "category": "布庄", "price": 80, "needs": {"happy": 35}},
 	{"id": "embroidered_shoes", "name": "一双绣花鞋", "category": "布庄", "price": 45, "needs": {"happy": 25}},
 	{"id": "felt_hat", "name": "一顶毡帽", "category": "布庄", "price": 30, "needs": {"happy": 20}},
-	{"id": "new_hairpin", "name": "一支新银簪", "category": "布庄", "price": 70, "needs": {"happy": 30}}
+	{"id": "new_hairpin", "name": "一支新银簪", "category": "布庄", "price": 70, "needs": {"happy": 30}},
+	{"id": "pet_medicine", "name": "一包兽药", "category": "药铺", "price": 30, "pet": {"cures": true, "needs": {"vigor": 15}}},
+	{"id": "pork_bone", "name": "一根猪棒骨", "category": "喂养", "price": 8, "pet": {"kinds": ["dog"], "needs": {"belly": 30, "fondness": 20}}},
+	{"id": "dried_fish", "name": "一串小鱼干", "category": "喂养", "price": 10, "pet": {"kinds": ["cat"], "needs": {"belly": 40, "fondness": 15}}},
+	{"id": "millet", "name": "一包小米", "category": "喂养", "price": 8, "stock": {"millet": 6}}
 ]
