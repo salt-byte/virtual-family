@@ -266,17 +266,28 @@ static func _person_key(p: Person) -> String:
 
 
 ## "hour|rooms built|season|weather|wet" for `_flags`, kept on the world while none of them
-## can have changed (same clock, offset, rooms list, weather and wet-until).
+## has changed (same hour key, rooms list, weather, wetness and season), so the string is not
+## put together again on every step.
 static func _world_key(world: World, hour: float) -> String:
+	var pack := world.pack
+	var hkey: Variant = int(hour) if pack.autonomy_whole_hours else hour
+	var wet := WeatherSystem.wet(world)
+	# The season as `WeatherSystem.season_at` finds it: its list and position (-1: seasons off).
+	var seasons = pack.cfg("seasons")
+	var list: Variant = null
+	var pos := -1
+	if seasons is Dictionary and not (seasons as Dictionary).is_empty():
+		list = seasons["list"]
+		var year := float(pack.cfg("hours_per_year")) * 3600.0
+		var len := year / float((list as Array).size())
+		pos = clampi(int(fposmod(float(world.now), year) / len), 0, (list as Array).size() - 1)
 	var c := world._flags_ctx
-	if c.is_empty() or c[0] != world.now or c[1] != world.utc_offset or not is_same(c[2], world.rooms_built) \
-			or c[3] != world.rooms_built.size() or c[4] != world.weather or c[5] != world.wet_until:
-		var hkey: Variant = int(hour) if world.pack.autonomy_whole_hours else hour
+	if c.is_empty() or c[0] != hkey or not is_same(c[1], world.rooms_built) or c[2] != world.rooms_built.size() \
+			or c[3] != world.weather or c[4] != wet or c[5] != pos or not is_same(c[6], list):
 		var key := "%s|%s|%s" % [hkey, world.rooms_built, WeatherSystem.key(world)]
-		world._flags_ctx = [world.now, world.utc_offset, world.rooms_built, world.rooms_built.size(),
-			world.weather, world.wet_until, key]
+		world._flags_ctx = [hkey, world.rooms_built, world.rooms_built.size(), world.weather, wet, pos, list, key]
 		return key
-	return c[6]
+	return c[7]
 
 
 const _F_TAGS := 1  ## a tag of the action is among the person's likes or dislikes

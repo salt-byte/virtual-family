@@ -86,8 +86,8 @@ var birth_blocked := false
 
 ## The living babies as of `_babies_t` (see `babies`); not saved.
 var _babies: Array[Person] = []
-## `AutonomySystem._world_key`'s cache: [now, utc_offset, rooms_built, its size, weather,
-## wet_until, key]; not saved.
+## `AutonomySystem._world_key`'s cache: [hour key, rooms_built, its size, weather, wet,
+## season position, season list, key]; not saved.
 var _flags_ctx: Array = []
 ## `AutonomySystem._objects_by_type`'s cache: [objects, size, last uid, uids by type]; not saved.
 var _by_type_ctx: Array = []
