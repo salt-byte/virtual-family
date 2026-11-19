@@ -202,6 +202,8 @@ static func _table(pack: Pack) -> Array:
 	var bits := PackedInt32Array()
 	var bases := PackedFloat64Array()
 	var gmax := PackedFloat64Array()
+	var oixs := PackedInt32Array()
+	var capas := PackedInt32Array()
 	for i: Info in out:
 		bits.append((_B_GATED if i.gated else 0) | (_B_OBJECT if i.has_object else 0) \
 			| (_B_WORK if i.has_work else 0) | (_B_REQ if i.has_requires else 0) \
@@ -210,7 +212,9 @@ static func _table(pack: Pack) -> Array:
 			| (_B_NEEDS if not i.need_ix.is_empty() else 0) | (_B_CLEANS if i.cleans != "" else 0))
 		bases.append(i.base)
 		gmax.append(i.gain_max)
-	pack.autonomy_soa = [bits, bases, gmax]
+		oixs.append(i.obj_ix)
+		capas.append(i.capacity)
+	pack.autonomy_soa = [bits, bases, gmax, oixs, capas]
 	return out
 
 
@@ -323,14 +327,15 @@ static func _flags(world: World, p: Person, hour: float) -> Array:
 		if b & _F_HOURS:
 			m *= 0.1
 		mult[k] = m * factors[k]
-	# For a plain action (no flag bits in `autonomy_soa`: no needs, object, target, test or
-	# stock) the score before habits, damping and low mood, worked out as `candidates` does.
+	# For a plain action (no flag bits in `autonomy_soa` but maybe an object: no needs, target,
+	# test or stock) the score before habits, damping and low mood, worked out as `candidates`
+	# does.
 	var kb: PackedInt32Array = pack.autonomy_soa[0]
 	var plain := PackedFloat64Array()
 	plain.resize(table.size())
 	for i: Info in table:
 		var k := i.idx
-		if kb[k] != 0:
+		if kb[k] & ~_B_OBJECT != 0:
 			continue
 		var sc := i.base + 0.0
 		var b := out[k]
@@ -640,19 +645,24 @@ static func candidates(world: World, p: Person, pool := 0) -> Array[Dictionary]:
 	var kb: PackedInt32Array = soa[0]
 	var bases: PackedFloat64Array = soa[1]
 	var gmax: PackedFloat64Array = soa[2]
+	var oixs: PackedInt32Array = soa[3]
+	var capas: PackedInt32Array = soa[4]
+	# Once the pool is full: its worst score and that entry's `Info.idx`.
+	var full := false
+	var worst := 0.0
+	var worst_i := 0
 	var li := -1
 	for ix in live:
 		li += 1
 		var kbits := kb[ix]
 		if pool > 0:
-			if top_s.size() == pool and bounds[li] * bmul <= top_s[pool - 1]:
+			if full and bounds[li] * bmul <= worst:
 				break
 			if kbits & _B_PET and pet_ok[ix] == 0:
 				continue
-		if kbits == 0 and not any_habits:
-			# A plain action: its score is `plain` (the arithmetic below, done ahead) damped.
-			if flags[ix] & (_F_NOWHERE | _F_OFF):
-				continue
+		if pool > 0 and kbits & ~_B_OBJECT == 0 and not any_habits:
+			# A plain action: its score is `plain` (the arithmetic below, done ahead) damped,
+			# and it needs a free object if it names one.
 			var ps := plain[ix]
 			var pdv := dmp[ix]
 			if pdv != 1.0:
@@ -661,23 +671,44 @@ static func candidates(world: World, p: Person, pool := 0) -> Array[Dictionary]:
 				ps *= low
 			if ps <= 0.0:
 				continue
-			if pool <= 0:
-				out.append({"action": (table[ix] as Info).id, "object_uid": -1, "target_uid": -1, "score": ps})
+			if full and (ps < worst or (ps == worst and ix > worst_i)):
 				continue
-			if top_s.size() == pool and (ps < top_s[pool - 1] or (ps == top_s[pool - 1] and ix > top_i[pool - 1])):
-				continue
+			var puid := -1
+			if kbits & _B_OBJECT:
+				var poix := oixs[ix]
+				puid = free[poix]
+				if puid == -2:
+					if users.is_empty():
+						users[-1] = 0
+						for q in world.people:
+							if q != p and q.alive and not q.current.is_empty():
+								var ou := int(q.current.get("object_uid", -1))
+								users[ou] = int(users.get(ou, 0)) + 1
+					puid = -1  # `_first_unoccupied`, written out
+					var capacity := capas[ix]
+					for ouid in by_type[poix]:
+						if int(users.get(ouid, 0)) < capacity:
+							puid = ouid
+							break
+					free[poix] = puid
+				if puid < 0:
+					continue
 			var pj := top_s.size()
 			while pj > 0 and (ps > top_s[pj - 1] or (ps == top_s[pj - 1] and ix < top_i[pj - 1])):
 				pj -= 1
 			top_s.insert(pj, ps)
 			top_i.insert(pj, ix)
-			top_o.insert(pj, -1)
+			top_o.insert(pj, puid)
 			top_t.insert(pj, -1)
 			if top_s.size() > pool:
 				top_s.resize(pool)
 				top_i.resize(pool)
 				top_o.resize(pool)
 				top_t.resize(pool)
+			if top_s.size() == pool:
+				full = true
+				worst = top_s[pool - 1]
+				worst_i = top_i[pool - 1]
 			continue
 		var i: Info = table[ix]
 		if kbits & _B_GATED:
@@ -690,21 +721,20 @@ static func candidates(world: World, p: Person, pool := 0) -> Array[Dictionary]:
 		var fl := flags[ix]
 		if fl & (_F_NOWHERE | _F_OFF):
 			continue
-		if pool > 0 and top_s.size() == pool:
+		if full and kbits & _B_PET:
 			# Its score can be at most this (damping and low mood only lower it): when that
-			# cannot beat the pool, the action is passed over as the full scoring would. For a
-			# care action the pet's part is bounded by what the pets at home lack now.
-			var gm := gmax[ix]
-			if kbits & _B_PET:
-				if pet_room == null:
-					pet_room = PetSystem.room_now(world)
-				gm = i.self_gain + PetSystem.gain_bound(world, i.pet_ids, i.pet_gains, i.pet_cures, pet_room)
+			# cannot beat the pool, the action is passed over as the full scoring would. The
+			# pet's part is bounded by what the pets at home lack now (for other actions the
+			# bound `_live_by_cap` gives is as good, and the loop already stops on it).
+			if pet_room == null:
+				pet_room = PetSystem.room_now(world)
+			var gm := i.self_gain + PetSystem.gain_bound(world, i.pet_ids, i.pet_gains, i.pet_cures, pet_room)
 			var cap := (bases[ix] + gm) * caps[ix]
 			if any_habits:
 				cap *= float(habits.get(i.id, 1.0))
 			if low > 1.0 and not kbits & _B_MOOD:
 				cap *= low
-			if cap * 1.000001 <= top_s[pool - 1]:
+			if cap * 1.000001 <= worst:
 				continue
 		if kbits & _B_WORK and i.track != track:
 			continue
@@ -794,7 +824,7 @@ static func candidates(world: World, p: Person, pool := 0) -> Array[Dictionary]:
 			s *= low
 		if s <= 0.0:
 			continue
-		if pool > 0 and top_s.size() == pool and (s < top_s[pool - 1] or (s == top_s[pool - 1] and ix > top_i[pool - 1])):
+		if full and (s < worst or (s == worst and ix > worst_i)):
 			continue  # would not make the pool whatever the tests below say
 		if kbits & _B_KIND and not kbits & (_B_TEND | _B_PET):
 			target = _first_free_target(world, pack.actions[i.id], p)
@@ -823,6 +853,10 @@ static func candidates(world: World, p: Person, pool := 0) -> Array[Dictionary]:
 			top_i.resize(pool)
 			top_o.resize(pool)
 			top_t.resize(pool)
+		if top_s.size() == pool:
+			full = true
+			worst = top_s[pool - 1]
+			worst_i = top_i[pool - 1]
 	for k in top_s.size():
 		out.append({"action": (table[top_i[k]] as Info).id, "object_uid": top_o[k], "target_uid": top_t[k], "score": top_s[k]})
 	return out
