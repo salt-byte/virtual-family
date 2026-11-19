@@ -76,13 +76,13 @@ func test_start_and_end_events_and_the_world_field():
 func test_festival_actions_happen_only_during_their_festival():
 	var w := _w(30); var p := TestKit.adult(w)
 	w.advance(5)
-	assert_eq(AutonomySystem.can_do(w, p, "paste_couplets", -1), "requires")
+	assert_eq(AutonomySystem.can_do(w, p, "paste_couplets", -1), "not_festival")
 	assert_true(not AutonomySystem.candidates(w, p).any(func(c): return c.action == "paste_couplets"))
 	var w2 := _w(MID["new_year"]); var p2 := TestKit.adult(w2)
 	w2.advance(5)
 	assert_eq(AutonomySystem.can_do(w2, p2, "paste_couplets", -1), "")
 	assert_true(AutonomySystem.candidates(w2, p2).any(func(c): return c.action == "paste_couplets"))
-	assert_eq(AutonomySystem.can_do(w2, p2, "watch_moon", -1), "requires")
+	assert_eq(AutonomySystem.can_do(w2, p2, "watch_moon", -1), "not_festival")
 
 
 func test_people_take_part_on_their_own():
@@ -101,7 +101,7 @@ func test_people_take_part_on_their_own():
 func test_festival_items_are_sold_only_during_their_festival():
 	var w := _w(30); TestKit.adult(w); w.money = 500
 	assert_true(not Commands.on_sale(w, "mooncake"))
-	assert_eq(w.command({"type": "buy", "item": "mooncake"}).error, "not_running")
+	assert_eq(w.command({"type": "buy", "item": "mooncake"}).error, "not_festival")
 	assert_eq(w.money, 500)
 	assert_true(Commands.on_sale(w, "rice"), "everyday goods are always sold")
 	w.set_time(YEAR_START + MID["mid_autumn"] * 60, 0)

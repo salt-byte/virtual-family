@@ -55,7 +55,7 @@ static func _try_drag(world: World, cmd: Dictionary) -> Dictionary:
 	if p == null:
 		return fail("no_person")
 	if OutingSystem.away(world, p):
-		return fail("requires")  # away on an outing (see `OutingSystem.away`)
+		return fail("away")
 	if cmd.has("mess"):
 		return _drag_to_mess(world, p, int(cmd["mess"]))
 	if cmd.has("collectible"):
@@ -283,7 +283,7 @@ static func _judge(world: World, cmd: Dictionary, praise: bool) -> Dictionary:
 	if not p.alive:
 		return fail("dead")
 	if OutingSystem.away(world, p):
-		return fail("requires")  # away on an outing (see `OutingSystem.away`)
+		return fail("away")
 	var id := ""
 	if not p.current.is_empty():
 		id = str(p.current["action"])
@@ -317,7 +317,7 @@ static func _buy(world: World, cmd: Dictionary) -> Dictionary:
 	if qty < 1:
 		return fail("bad_qty")
 	if not on_sale(world, id):
-		return fail("not_running")  # a festival item out of its festival
+		return fail("not_festival")
 	if not EconomySystem.spend(world, int(item["price"]) * qty):
 		return fail("no_money")
 	var stock: Dictionary = item["stock"]
@@ -345,7 +345,7 @@ static func _use_item(world: World, cmd: Dictionary) -> Dictionary:
 	if p == null or not p.alive:
 		return fail("no_person")
 	if OutingSystem.away(world, p):
-		return fail("requires")  # away on an outing (see `OutingSystem.away`)
+		return fail("away")
 	var item: Dictionary = world.pack.items[id]
 	var cures := str(item["cures"])
 	world.inventory[id] = int(world.inventory[id]) - 1

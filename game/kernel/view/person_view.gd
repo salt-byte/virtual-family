@@ -255,6 +255,7 @@ func tick(delta: float) -> void:
 		return
 	var was := position
 	walk(SPEED * delta * pace())
+	visible = not out_of_sight()
 	var moved := position - was
 	if _house() != null and _house().iso:
 		moved = IsoMath.basis().basis_xform(moved) / IsoMath.ISO_PACE
@@ -432,8 +433,17 @@ func bob_offset() -> float:
 	return BOB_AMPLITUDE * sin(TAU * _t / BOB_PERIOD)
 
 
+## True once someone out on an outing has reached where they leave from (the gate): the
+## house does not show them until they are back.
+func out_of_sight() -> bool:
+	return person != null and session != null and session.world != null and not held \
+		and OutingSystem.away(session.world, person) and position.distance_to(target) <= ARRIVED
+
+
 ## Whether a point in the house's coordinates lands on this person's body or name plate.
 func hit(world_pos: Vector2) -> bool:
+	if not visible:
+		return false
 	var local := world_pos - position
 	if _house() != null and _house().iso:
 		local = IsoMath.basis().basis_xform(local)

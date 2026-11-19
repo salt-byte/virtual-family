@@ -112,6 +112,10 @@ func test_the_letter_box_lists_letters_newest_first():
 	var a := _ill_letter(m)
 	m.session.world.advance(30 * 60)
 	var b := _ill_letter(m)
+	# A story fragment found in that half hour would cover the box: read it first.
+	m.tick(0.016)
+	while m.overlays.current() == "fragment":
+		m.overlays.press(m.overlays._buttons.keys()[0])
 	m.letters.open_box()
 	m.tick(0.016)
 	assert_eq(m.letters.opened(), "box")

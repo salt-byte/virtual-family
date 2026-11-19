@@ -1023,7 +1023,7 @@ func label_spots() -> Dictionary:
 	var entries: Array = []
 	for uid in people:
 		var pv: PersonView = people[uid]
-		if pv.pictured():
+		if pv.pictured() and pv.visible:
 			var foot := proj * pv.position
 			entries.append({"uid": uid, "size": pv.label_size(), "at": foot + pv.label_anchor(), "sel": pv.selected, "y": foot.y})
 	entries.sort_custom(func(a, b):

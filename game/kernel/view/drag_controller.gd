@@ -70,6 +70,12 @@ func drop(world_pos: Vector2) -> Dictionary:
 		return main.session.command({"type": "drag", "person": uid, "pet": pet})
 	var cmd := {"type": "drag", "person": uid}
 	var quiet := not KINDS.has(str(hit.kind)) and str(hit.kind) != "mark"
+	if quiet and str(hit.room) != "" and str(hit.room) in OutingSystem.leaves_from(main.session.world.pack):
+		# Dropped on the open ground by the gate: where should they go? (the 出门 list)
+		_leave_at(pv, _origin)
+		main.select(uid)
+		main.panels.open("go_out")
+		return {}
 	if quiet:
 		cmd["object"] = -1
 	elif str(hit.kind) == "mark":

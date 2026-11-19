@@ -52,6 +52,12 @@ var _cash_icons: Array[HudIcon] = []
 var _buttons: Dictionary = {}  # id -> Button
 var _praise: Button
 var _scold: Button
+## "出门": the places the selected person could be sent to (`OutingSystem.options`).
+var _go_out: Button
+## The festival on: a wooden board top right, its name in the title face and the time left.
+var _fest_box: PanelContainer
+var _fest_title: Label
+var _fest_left: Label
 var _toast_box: VBoxContainer
 ## On screen first (at most TOAST_VISIBLE, in `_toast_box`), then the waiting ones:
 ## {text, left, node (null while waiting), click, style}.
@@ -176,6 +182,13 @@ func _build() -> void:
 	_scold.pressed.connect(press.bind("scold"))
 	ViewWidgets.round_button(_scold, ViewWidgets.CREAM, ViewWidgets.WOOD)
 	judge.add_child(_scold)
+	_go_out = Button.new()
+	_go_out.text = s.t("btn.go_out")
+	_go_out.pressed.connect(press.bind("go_out"))
+	ViewWidgets.small_button(_go_out)
+	_go_out.custom_minimum_size.y = 30
+	_go_out.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	judge.add_child(_go_out)
 
 	# Their status words.
 	_chips = HFlowContainer.new()
@@ -224,6 +237,45 @@ func _build() -> void:
 	_notice_box.add_theme_constant_override("separation", 5)
 	_notice_box.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	root.add_child(_notice_box)
+
+	# The festival board, top right.
+	_fest_box = PanelContainer.new()
+	_fest_box.set_anchors_preset(Control.PRESET_TOP_RIGHT)
+	_fest_box.grow_horizontal = Control.GROW_DIRECTION_BEGIN
+	_fest_box.offset_left = -12
+	_fest_box.offset_right = -12
+	_fest_box.offset_top = 12
+	_fest_box.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var board := ViewWidgets.chip_style(ViewWidgets.ACCENT, ViewWidgets.INK)
+	board.set_corner_radius_all(14)
+	board.set_border_width_all(2)
+	board.content_margin_left = 16
+	board.content_margin_right = 16
+	board.content_margin_top = 6
+	board.content_margin_bottom = 6
+	board.shadow_color = Color(0.29, 0.2, 0.14, 0.3)
+	board.shadow_size = 4
+	board.shadow_offset = Vector2(0, 2)
+	_fest_box.add_theme_stylebox_override("panel", board)
+	var fest_col := VBoxContainer.new()
+	fest_col.add_theme_constant_override("separation", 0)
+	fest_col.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_fest_box.add_child(fest_col)
+	_fest_title = Label.new()
+	_fest_title.add_theme_font_size_override("font_size", 24)
+	_fest_title.add_theme_color_override("font_color", ViewWidgets.CREAM)
+	_fest_title.add_theme_color_override("font_outline_color", ViewWidgets.INK)
+	_fest_title.add_theme_constant_override("outline_size", 5)
+	_fest_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	ViewWidgets.use_title_font(_fest_title)
+	fest_col.add_child(_fest_title)
+	_fest_left = Label.new()
+	_fest_left.add_theme_font_size_override("font_size", 13)
+	_fest_left.add_theme_color_override("font_color", ViewWidgets.CREAM)
+	_fest_left.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	fest_col.add_child(_fest_left)
+	_fest_box.visible = false
+	root.add_child(_fest_box)
 
 	_toast_box = VBoxContainer.new()
 	_toast_box.set_anchors_preset(Control.PRESET_CENTER_TOP)
@@ -376,6 +428,12 @@ func refresh() -> void:
 	_scold.disabled = off
 	_praise.visible = living
 	_scold.visible = living
+	_go_out.visible = p != null and p.stage(w.pack) != "baby"
+	_go_out.disabled = p != null and OutingSystem.away(w, p)
+	var fest := s.festival_banner(w) if w != null else {"banner": "", "left": ""}
+	_fest_box.visible = fest["banner"] != ""
+	_fest_title.text = fest["banner"]
+	_fest_left.text = fest["left"]
 	_refresh_notices()
 
 
@@ -458,9 +516,17 @@ func judge_disabled() -> bool:
 	return _selected() == null
 
 
-## The bar button `id` (the letter view takes "letters" as its box button).
+## The bar button `id` (the letter view takes "letters" as its box button; "go_out" is the
+## one beside praise and scold).
 func button(id: String) -> Button:
+	if id == "go_out":
+		return _go_out
 	return _buttons.get(id)
+
+
+## The festival board's words ("" while no festival is on); for tests.
+func festival_text() -> String:
+	return "%s %s" % [_fest_title.text, _fest_left.text] if _fest_box.visible else ""
 
 
 ## All text visible in the bottom bar, joined; for tests.
@@ -483,6 +549,9 @@ func _collect(n: Node, out: Array[String]) -> void:
 func press(what: String) -> void:
 	if what == "praise" or what == "scold":
 		_judge(what)
+	elif what == "go_out":
+		if _selected() != null:
+			open.emit("go_out")
 	elif what in BAR_BUTTONS:
 		open.emit(what)
 

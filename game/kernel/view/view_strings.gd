@@ -61,6 +61,11 @@ const DEFAULTS := {
 	"letter.from": "{writer}的信", "letter.today": "今天", "letter.days": "{n} 天前",
 	"letter.answered": "已回：{choice}", "letter.stale": "这事已经过去了，回不了了",
 	"away.letters": "这些天来了 {n} 封信，收在信匣里",
+	"error.away": "人出门了，还没回来", "error.closed": "这个时辰去不成", "error.not_festival": "得等到过节才有",
+	"btn.go_out": "出门", "title.go_out": "叫{name}出门", "go_out.none": "这会儿没有能去的地方。",
+	"go_out.away": "去了几个时辰，回来带点东西", "status.away": "出门去了",
+	"festival.left": "还有 {m} 分钟", "ev.mourned": "{name}念叨起了{dead}",
+	"away.festival": "过了{name}", "away.outing": "{text}",
 	"error.no_letter": "没有这封信", "error.answered": "这封信已经回过了",
 	"error.too_late": "这事已经过去了", "error.no_choice": "做不了",
 	"ev.mood_depressed": "{name}这几天闷闷不乐", "ev.mood_recovered": "{name}缓过来了",
@@ -196,6 +201,8 @@ func person_line(p: Person, world: World) -> String:
 
 
 func doing(p: Person, world: World) -> String:
+	if OutingSystem.away(world, p):
+		return t("status.away")
 	var aid := str(p.current.get("action", "")) if not p.current.is_empty() else ""
 	if aid != "" and world.pack.actions.has(aid):
 		return str(world.pack.actions[aid]["label"])
@@ -217,6 +224,8 @@ func status_line(p: Person, world: World) -> String:
 ## {need, name, word, level}; `need` is the need id ("" for mood and pregnancy).
 func status_chips(p: Person, world: World) -> Array[Dictionary]:
 	var out: Array[Dictionary] = []
+	if OutingSystem.away(world, p):
+		out.append({"need": "", "name": "", "word": t("status.away"), "level": "info"})
 	if p.mood != "":
 		out.append({"need": "", "name": "", "word": t("mood." + p.mood), "level": "bad" if p.mood == "depressed" else "warn"})
 	if p.pregnant():
@@ -334,6 +343,20 @@ static func _death_word(cause: String) -> String:
 
 ## The season and weather now ("{season} · {weather}"; just the season before the first
 ## weather roll); "" for a pack without seasons.
+## The festival on now as the HUD banner shows it: {banner, left} ("" banner when none).
+func festival_banner(world: World) -> Dictionary:
+	if world == null or world.phase != "living":
+		return {"banner": "", "left": ""}
+	var f := FestivalSystem.current(world)
+	if f.is_empty():
+		return {"banner": "", "left": ""}
+	var banner := str(f.get("banner", ""))
+	if banner == "":
+		banner = str(f.get("name", ""))
+	var m := ceili(float(FestivalSystem.seconds_left(world)) / 60.0)
+	return {"banner": banner, "left": _f("festival.left", {"m": m})}
+
+
 func sky_line(world: World) -> String:
 	if world == null or not WeatherSystem.enabled(world.pack):
 		return ""
@@ -451,6 +474,13 @@ func event(e: Dictionary, world: World) -> String:
 			return t("ev.proposal")
 		"proposal_expired":
 			return t("ev.proposal_expired")
+		"festival_started", "festival_ended":
+			var f: Dictionary = world.pack.festivals.get(str(e["festival"]), {})
+			return str(f.get("start_text" if e["type"] == "festival_started" else "end_text", ""))
+		"outing_back":
+			return str(e.get("text", "")).replace("{name}", _name_of(int(e["person"]), world))
+		"mourned":
+			return _f("ev.mourned", {"name": _name_of(int(e["person"]), world), "dead": _name_of(int(e["dead"]), world)})
 		"clean_reward":
 			return _f("ev.clean_reward", {"n": int(e["amount"])})
 		"pet_arrived", "pet_ran_away", "pet_came_back", "pet_fell_ill", "pet_cured", "pet_saved":
@@ -533,6 +563,10 @@ func summary_lines(summary: Dictionary, world: World) -> Array[String]:
 		var tk: String = {"pets_ill": "away.pet_ill", "pets_back": "away.pet_back", "pets_cured": "away.pet_cured"}[key]
 		for uid in summary.get(key, []):
 			out.append(_f(tk, {"name": _pet_called(int(uid), world)}))
+	for fid in summary.get("festivals", []):
+		out.append(_f("away.festival", {"name": str(world.pack.festivals.get(str(fid), {}).get("name", ""))}))
+	for o in summary.get("outings", []):
+		out.append(_f("away.outing", {"text": str(o.get("text", "")).replace("{name}", _name_of(int(o["person"]), world))}))
 	var letters: Array = summary.get("letters", [])
 	if not letters.is_empty():
 		out.append(_f("away.letters", {"n": letters.size()}))

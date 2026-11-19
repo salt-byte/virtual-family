@@ -8,8 +8,7 @@ extends RefCounted
 ## People pick an outing on their own like any action, a "do" wish can ask for one, and the
 ## player can send someone (command go_out).
 ##
-## While away nobody can drag, praise, scold or give anything to that person (error
-## "requires"; `away` tells a view why).
+## While away nobody can drag, praise, scold or give anything to that person ("away").
 ## Events: outing_back {person, action, item, text}.
 
 
@@ -23,6 +22,18 @@ static func away(world: World, p: Person) -> bool:
 	if p == null or not p.alive or p.current.is_empty():
 		return false
 	return is_outing(world.pack.actions.get(str(p.current["action"]), {}))
+
+
+## The rooms outings leave from (the gate): dropping someone there is asking them to go out.
+static func leaves_from(pack: Pack) -> Array:
+	var out: Array = []
+	for id in pack.actions:
+		var a: Dictionary = pack.actions[id]
+		if is_outing(a):
+			for r in a["rooms"]:
+				if not out.has(r):
+					out.append(r)
+	return out
 
 
 ## Whether the player can send someone to do `a`: an outing, or an action that happens only
@@ -50,22 +61,22 @@ static func options(world: World, p: Person) -> Array:
 	return out
 
 
-## "" when `p` can be sent to do `action_id` now, else why not: no_person / dead /
-## no_action / requires (away already, or outside the action's `hours`) or a reason of
-## `AutonomySystem.can_do` (a festival's outing out of its festival is "requires" too).
+## "" when `p` can be sent to do `action_id` now, else why not: no_person / dead / away /
+## no_action / closed (outside its `hours`) or a reason of `AutonomySystem.can_do` (a
+## festival's outing out of its festival: not_festival).
 static func _why(world: World, p: Person, action_id: String) -> String:
 	if p == null:
 		return "no_person"
 	if not p.alive:
 		return "dead"
 	if away(world, p):
-		return "requires"
+		return "away"
 	var a: Dictionary = world.pack.actions.get(action_id, {})
 	if a.is_empty() or not sendable(world.pack, a):
 		return "no_action"
 	var hours: Array = a["hours"]
 	if not hours.is_empty() and not AutonomySystem._in_hours(world.local_hour(), hours):
-		return "requires"
+		return "closed"
 	return AutonomySystem.can_do(world, p, action_id, -1)
 
 

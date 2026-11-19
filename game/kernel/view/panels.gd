@@ -54,7 +54,8 @@ func setup(m: Main) -> void:
 	panel.add_child(_box)
 
 
-## One of "", "shop", "ledger", "family", "stories".
+## One of "", "shop", "ledger", "family", "stories", "go_out" (where the selected person
+## could be sent).
 func opened() -> String:
 	return _kind
 
@@ -66,11 +67,15 @@ func blocks_input() -> bool:
 
 ## Opens a panel; ignored for an unknown name, while an overlay shows or outside a running game.
 func open(what: String) -> void:
-	if not what in ["shop", "ledger", "family", "stories"]:
+	if not what in ["shop", "ledger", "family", "stories", "go_out"]:
 		return
 	var w := session.world
 	if w == null or w.phase != "living" or main.overlays.current() != "":
 		return
+	if what == "go_out":
+		var p := w.person(main.selected)
+		if p == null or not p.alive or main.selected_pet >= 0:
+			return
 	_kind = what
 	_changing = -1
 	_tab = _tabs()[0] if not _tabs().is_empty() else ""
@@ -147,6 +152,12 @@ func press(id: String) -> void:
 		_tab = id
 		_signature = ""
 		refresh()
+	elif id.begins_with("go:"):
+		var r := session.command({"type": "go_out", "person": main.selected, "action": id.substr(3)})
+		if r.get("ok", false):
+			close()
+		else:
+			refresh()
 	elif id.begins_with("buy:"):
 		session.command({"type": "buy", "item": id.substr(4)})
 		refresh()
@@ -216,8 +227,16 @@ func _data_signature(w: World) -> String:
 			var pets := ""
 			for pet in w.pets:
 				pets += "%d%s%s" % [pet.uid, pet.state, str(pet.wish)]
-			return "%d|%d|%s|%s|%s|%d|%s|%d" % [w.money, total, str(w.inventory), s.person_name(sel) if sel != null and sel.alive else "", wishes,
-				main.selected_pet, pets, w.objects.size()]
+			return "%d|%d|%s|%s|%s|%d|%s|%d|%s" % [w.money, total, str(w.inventory), s.person_name(sel) if sel != null and sel.alive else "", wishes,
+				main.selected_pet, pets, w.objects.size(), w.festival]
+		"go_out":
+			var who := w.person(main.selected)
+			if who == null:
+				return ""
+			var parts: Array[String] = [str(who.uid)]
+			for o in OutingSystem.options(w, who):
+				parts.append("%s:%s" % [o["action"], o["why"]])
+			return "|".join(parts)
 		"stories":
 			return str(w.stories)
 		"ledger":
@@ -248,6 +267,8 @@ func _rebuild() -> void:
 	var head := HBoxContainer.new()
 	_box.add_child(head)
 	var title := ViewWidgets.label(s.t("btn." + _kind))
+	if _kind == "go_out" and w.person(main.selected) != null:
+		title.text = s.t("title.go_out").replace("{name}", s.person_name(w.person(main.selected)))
 	title.add_theme_font_size_override("font_size", 22)
 	head.add_child(title)
 	var gap := Control.new()
@@ -289,7 +310,9 @@ func _rebuild() -> void:
 	if _kind == "shop" and _tab.begins_with("tab.m:"):
 		_fill_market(list, w, _market_tabs(w)[int(_tab.substr(6))])
 		return
-	match _tab if not _kind in ["family", "stories"] else _kind:
+	match _tab if not _kind in ["family", "stories", "go_out"] else _kind:
+		"go_out":
+			_fill_go_out(list, w)
 		"tab.inventory":
 			_fill_inventory(list, w)
 		"tab.goals":
@@ -402,6 +425,36 @@ func _fill_items(list: VBoxContainer, w: World, cats: Array) -> void:
 			buy.disabled = w.money < int(it["price"])
 			if buy.disabled:
 				buy.text = s.t("error.no_money")
+			if not Commands.on_sale(w, str(id)):   # a festival's goods: only at their festival
+				buy.disabled = true
+				buy.text = s.t("error.not_festival")
+
+
+## Where the selected person could go: the outings (away for a few hours, back with
+## something) first, then the places outside the wall; one that cannot be done now is
+## greyed with the reason.
+func _fill_go_out(list: VBoxContainer, w: World) -> void:
+	var s := session.strings
+	var p := w.person(main.selected)
+	if p == null:
+		return
+	var all := OutingSystem.options(w, p)
+	var opts := all.filter(func(o): return o["outing"]) + all.filter(func(o): return not o["outing"])
+	if opts.is_empty():
+		var none := ViewWidgets.wrapped(s.t("go_out.none"))
+		none.add_theme_color_override("font_color", ViewWidgets.MUTED)
+		list.add_child(none)
+	for o in opts:
+		var row := ViewWidgets.row(list)
+		row.add_child(ViewWidgets.name_label(str(o["label"])))
+		if o["outing"]:
+			var note := ViewWidgets.price_label(s.t("go_out.away"))
+			note.add_theme_color_override("font_color", ViewWidgets.WOOD)
+			row.add_child(note)
+		var go := _button("go:" + str(o["action"]), s.t("btn.go_out"), row)
+		if str(o["why"]) != "":
+			go.disabled = true
+			go.text = s.error(str(o["why"]))
 
 
 ## The animals for sale (kinds with a price); one that needs a perch says so until there is one.

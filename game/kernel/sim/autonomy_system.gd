@@ -1011,7 +1011,7 @@ static func can_do(world: World, p: Person, action_id: String, object_uid: int) 
 	if bool(a.get("mourns", false)) and not FamilySystem.has_dead(world):
 		return "requires"
 	if not FestivalSystem.allows(world, a.get("festivals", [])):
-		return "requires"  # not during its festival
+		return "not_festival"
 	if WeatherSystem.action_factor(world, a, WeatherSystem.place_kind(world.pack, a)) == 0.0:
 		return "weather"
 	if target_kind(a) != "" and _first_free_target(world, a, p) < 0:

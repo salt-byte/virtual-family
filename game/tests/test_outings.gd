@@ -42,11 +42,11 @@ func test_go_out_sends_someone_away_and_they_come_back_with_something():
 	assert_true(OutingSystem.away(w, p))
 	assert_true(not OutingSystem.away(w, other))
 	# While away nobody can reach them, and nothing is spent trying.
-	assert_eq(w.command({"type": "praise", "person": p.uid}).error, "requires")
-	assert_eq(w.command({"type": "use_item", "person": p.uid, "item": "sugar_figure"}).error, "requires")
+	assert_eq(w.command({"type": "praise", "person": p.uid}).error, "away")
+	assert_eq(w.command({"type": "use_item", "person": p.uid, "item": "sugar_figure"}).error, "away")
 	assert_eq(int(w.inventory["sugar_figure"]), 1)
-	assert_eq(w.command({"type": "drag", "person": p.uid, "object": 999}).error, "requires")
-	assert_eq(w.command({"type": "go_out", "person": p.uid, "action": "temple_fair"}).error, "requires")
+	assert_eq(w.command({"type": "drag", "person": p.uid, "object": 999}).error, "away")
+	assert_eq(w.command({"type": "go_out", "person": p.uid, "action": "temple_fair"}).error, "away")
 	var happy := float(p.needs["happy"])
 	var inv_before := w.inventory.duplicate()
 	w.drain_events()
@@ -68,9 +68,9 @@ func test_go_out_says_why_not():
 	assert_eq(w.command({"type": "go_out", "person": p.uid, "action": "nap"}).error, "no_action")
 	assert_eq(w.command({"type": "go_out", "person": p.uid, "action": "fell_old_bamboo"}).error, "no_action", "work is not an outing")
 	assert_eq(w.command({"type": "go_out", "person": kid.uid, "action": "go_to_market"}).error, "stage")
-	assert_eq(w.command({"type": "go_out", "person": p.uid, "action": "see_lanterns"}).error, "requires")
+	assert_eq(w.command({"type": "go_out", "person": p.uid, "action": "see_lanterns"}).error, "not_festival")
 	w.set_time(NOON + 10 * 3600, 0)  # 22:00: the market is long over
-	assert_eq(w.command({"type": "go_out", "person": p.uid, "action": "go_to_market"}).error, "requires")
+	assert_eq(w.command({"type": "go_out", "person": p.uid, "action": "go_to_market"}).error, "closed")
 	w.kill_person(kid, "old_age")
 	assert_eq(w.command({"type": "go_out", "person": kid.uid, "action": "temple_fair"}).error, "dead")
 
