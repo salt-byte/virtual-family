@@ -107,6 +107,9 @@ static func hud_theme() -> Theme:
 	var t := Theme.new()
 	t.set_color("font_color", "Label", INK)
 	t.set_font_size("font_size", "Label", 15)
+	var title := title_font()
+	if title != null:
+		t.set_font("font", "Button", title)
 	t.set_stylebox("normal", "Button", button_style(BUTTON))
 	t.set_stylebox("hover", "Button", button_style(BUTTON.lightened(0.25)))
 	t.set_stylebox("pressed", "Button", button_style(BUTTON.darkened(0.08), true))
@@ -130,6 +133,33 @@ static func panel_theme() -> Theme:
 		t.set_color(k, "CheckButton", INK)
 		t.set_color(k, "CheckBox", INK)
 	return t
+
+
+const TITLE_FONT := "res://assets/fonts/title.ttf"
+const BODY_FONT := "res://assets/fonts/ui.otf"
+static var _title_font: Font
+
+
+## The title face (ZCOOL KuaiLe, ART_DIRECTION section 4) for titles, names, buttons and
+## sums of money, falling back to the body face for any character it lacks; null when the
+## file is not there.
+static func title_font() -> Font:
+	if _title_font == null and ResourceLoader.exists(TITLE_FONT):
+		var f := load(TITLE_FONT) as FontFile
+		if f != null:
+			var v := FontVariation.new()
+			v.base_font = f
+			if ResourceLoader.exists(BODY_FONT):
+				v.fallbacks = [load(BODY_FONT)]
+			_title_font = v
+	return _title_font
+
+
+## Sets `c` in the title face (no-op without it).
+static func use_title_font(c: Control) -> void:
+	var f := title_font()
+	if f != null:
+		c.add_theme_font_override("font", f)
 
 
 ## A small rounded tag (a status word): `bg` ground, `edge` outline (none when transparent).

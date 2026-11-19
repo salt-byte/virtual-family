@@ -221,6 +221,53 @@ func test_decisions_come_first_and_the_rest_are_counted():
 	_done(m)
 
 
+func test_only_the_three_most_urgent_show_and_the_rest_open_on_a_click():
+	var m := _main()
+	var w := m.session.world
+	for i in 5:
+		var q := FamilySystem.make_person(w, [20, 20])
+		w.add_person(q)
+		q.needs["fed"] = 2.0
+	m.tick(0.016)
+	var all := m.hud.notices()
+	assert_true(all.size() > Hud.NOTICES_MAX)
+	var text := m.hud.notice_text()
+	assert_true(text.contains(str(all[Hud.NOTICES_MAX - 1]["text"])))
+	assert_true(not text.contains(str(all[Hud.NOTICES_MAX]["text"])), "folded away")
+	m.hud.toggle_notices()
+	assert_true(m.hud.notices_expanded())
+	assert_true(m.hud.notice_text().contains(str(all[-1]["text"])), "opened")
+	assert_true(m.hud.notice_text().contains(m.session.strings.t("notice.fold")))
+	m.hud.toggle_notices()
+	assert_true(not m.hud.notice_text().contains(str(all[-1]["text"])), "folded again")
+	_done(m)
+
+
+func test_passing_notices_go_after_a_while_or_once_clicked():
+	var m := _main()
+	var w := m.session.world
+	var a := CollectibleSystem.spawn(w)
+	m.tick(0.016)
+	assert_true(("pickup:%d" % a) in _ids(m))
+	m.hud.tick(Hud.FYI_SECONDS + 0.1)
+	m.tick(0.016)
+	assert_true(not ("pickup:%d" % a) in _ids(m), "it went by itself")
+	assert_true(not CollectibleSystem.find(w, a).is_empty(), "the thing still lies there")
+	var p := w.people[0]
+	p.thanks_until = w.now + 600
+	m.tick(0.016)
+	m.hud.press_notice("thanks:%d" % p.uid)
+	m.tick(0.016)
+	assert_true(not ("thanks:%d" % p.uid) in _ids(m), "seen, it goes")
+	# Decisions do not go by themselves.
+	w.pet_offer = {"kind": "cat", "given": "花花", "age": 2.0, "expires_at": w.now + 3600}
+	m.tick(0.016)
+	m.hud.tick(Hud.FYI_SECONDS * 3.0)
+	m.tick(0.016)
+	assert_true("stray:0" in _ids(m))
+	_done(m)
+
+
 func test_the_bar_says_all_is_well_when_nothing_is_wrong():
 	var m := _main()
 	var p := m.session.world.people[0]

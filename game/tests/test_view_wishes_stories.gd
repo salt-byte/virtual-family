@@ -65,7 +65,9 @@ func test_bubble_bar_and_thanks():
 	assert_true(not m.hud.bar_text().contains("想要个糖人"))
 	assert_eq(pv.pose(), "thanks")
 	assert_true(pv.thanking())
-	assert_true(m.hud.toasts().any(func(t): return t.contains("如愿")), str(m.hud.toasts()))
+	# Told once, by the thank-you notice (was a toast; a toast no longer repeats a notice).
+	assert_true(m.hud.notices().any(func(x): return x["id"] == "thanks:%d" % p.uid), m.hud.notice_text())
+	assert_true(m.hud.notice_text().contains("如愿"), m.hud.notice_text())
 	m.free()
 
 

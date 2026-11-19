@@ -107,7 +107,7 @@ const DEFAULTS := {
 	"error.pending": "先回眼前这一位的话", "error.no_candidate": "眼下没有人", "error.sold": "已经卖掉了",
 	"error.no_space": "家里摆不下了", "error.needs_object": "先得有{thing}", "error.not_drawn": "还没开奖", "error.no_ticket": "没有这张",
 	"bar.doing": "在做：{text}", "bar.age_job": "{age} · {job}",
-	"notice.head": "有事找你", "notice.more": "还有 {n} 件",
+	"notice.head": "有事找你", "notice.more": "还有 {n} 件，点开看", "notice.fold": "收起",
 	"notice.proposal": "有人来给{name}提亲", "notice.proposal_from": "{writer}来给{name}提亲",
 	"notice.proposal_any": "有人上门提亲", "notice.stray": "门口来了一只{kind}",
 	"notice.letter": "{writer}的信，还没拆", "notice.reply": "{writer}的信，等你回话",

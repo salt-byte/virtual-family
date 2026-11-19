@@ -271,12 +271,15 @@ func _rebuild() -> void:
 	_box.add_child(head)
 	var title := ViewWidgets.label(s.t("btn." + _kind))
 	title.add_theme_font_size_override("font_size", 22)
+	ViewWidgets.use_title_font(title)
 	head.add_child(title)
 	var gap := Control.new()
 	gap.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	head.add_child(gap)
 	if _kind == "shop":
-		head.add_child(ViewWidgets.label(s.t("money").replace("{n}", str(w.money))))
+		var money := ViewWidgets.label(s.t("money").replace("{n}", str(w.money)))
+		ViewWidgets.use_title_font(money)
+		head.add_child(money)
 	_button("btn.close", s.t("btn.close"), head)
 	var tabs := _tabs()
 	if not tabs.is_empty():
@@ -402,6 +405,7 @@ func _fill_market(list: VBoxContainer, w: World, sid: String) -> void:
 			group = str(e.group)
 			if group != "" and groups.size() > 1:
 				var head := ViewWidgets.wrapped(group)
+				ViewWidgets.use_title_font(head)
 				head.add_theme_color_override("font_color", ViewWidgets.WOOD)
 				list.add_child(head)
 		var row := ViewWidgets.row(list)
