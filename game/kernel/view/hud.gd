@@ -267,11 +267,19 @@ func _on_event(e: Dictionary) -> void:
 		# The coins float up over whoever swept the last of it.
 		main.house.people[int(e["person"])].float_text_up(session.strings.t("float.clean_reward").replace("{n}", str(int(e["amount"]))))
 	var text := session.strings.event(e, session.world)
-	if text != "":
+	if text == "":
+		return
+	if str(e.get("type", "")) == "collectible_spawned" and main.house != null:
+		# Clicking it takes the view to where the thing lies.
+		var uid := int(e.get("uid", -1))
+		toast(text, func(): main.house.look_at_collectible(uid))
+	else:
 		toast(text)
 
 
-func toast(text: String) -> void:
+## Shows `text` at the top for a few seconds; with `on_click` the pill can be clicked (it
+## then calls it and goes away).
+func toast(text: String, on_click := Callable()) -> void:
 	# A cream pill with a sky-blue dot on the left (ART_DIRECTION section 4).
 	var l := Label.new()
 	l.text = text
@@ -302,7 +310,14 @@ func toast(text: String) -> void:
 	line.add_child(l)
 	panel.add_child(line)
 	_toast_box.add_child(panel)
-	_toasts.append({"text": text, "left": TOAST_SECONDS, "node": panel})
+	var entry := {"text": text, "left": TOAST_SECONDS, "node": panel, "click": on_click}
+	if on_click.is_valid():
+		panel.mouse_filter = Control.MOUSE_FILTER_STOP
+		panel.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
+		panel.gui_input.connect(func(ev: InputEvent):
+			if ev is InputEventMouseButton and ev.button_index == MOUSE_BUTTON_LEFT and ev.pressed:
+				click_toast(_toasts.find(entry)))
+	_toasts.append(entry)
 	while _toasts.size() > TOAST_MAX:
 		_drop(0)
 
@@ -322,6 +337,19 @@ func tick(delta: float) -> void:
 			_drop(i)
 		else:
 			i += 1
+
+
+## Clicks the toast at `i` (also the test entry point): runs what it was given and closes it.
+## False when it has nothing to do on a click.
+func click_toast(i: int) -> bool:
+	if i < 0 or i >= _toasts.size():
+		return false
+	var c: Callable = _toasts[i].get("click", Callable())
+	if not c.is_valid():
+		return false
+	_drop(i)
+	c.call()
+	return true
 
 
 func toasts() -> Array[String]:

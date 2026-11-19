@@ -62,7 +62,7 @@ const DEFAULTS := {
 	"ev.wish_expired": "{name}没等到：{text}",
 	"wish.line": "心愿：{text}", "shop.wanted": "{name}想要", "thanks": "谢谢",
 	"btn.stories": "旧事", "stories.locked": "……", "stories.none": "还没有翻出什么旧事。",
-	"ev.fragment": "捡到了{name}", "ev.story_done": "「{title}」有了着落",
+	"ev.pickup_spotted": "{room}地上好像有东西", "ev.fragment": "捡到了{name}", "ev.story_done": "「{title}」有了着落",
 	"btn.receive": "收下", "visitor.money": "留下 {money}",
 	"away.fragment": "捡到了{name}", "away.story_done": "「{title}」有了着落",
 	"status.pregnant": "有了身孕", "months": "{n} 个月",
@@ -330,6 +330,10 @@ func event(e: Dictionary, world: World) -> String:
 			if str(e["was"]) == "depressed":
 				return _f("ev.mood_recovered", {"name": _name_of(int(e["person"]), world)})
 			return ""
+		"collectible_spawned":
+			# Something turned up on the ground: the toast takes the player there when clicked.
+			var room = world.pack.rooms.get(str(e.get("room", "")), {})
+			return _f("ev.pickup_spotted", {"room": str(room.get("name", "")) if room is Dictionary else ""})
 		"fragment_found":
 			var f := StorySystem.fragment(world.pack, str(e["story"]), str(e["fragment"]))
 			return _f("ev.fragment", {"name": str(f.get("name", ""))})

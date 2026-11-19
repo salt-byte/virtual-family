@@ -648,6 +648,20 @@ func _follow_step(delta: float) -> void:
 		pan(gap * (1.0 - exp(-FOLLOW_RATE * delta)))
 
 
+## Brings collectible `uid` to the middle of the house area (ends following); false when it
+## is gone.
+func look_at_collectible(uid: int) -> bool:
+	var w := session.world if session != null else null
+	if w == null or w.phase == "invalid":
+		return false
+	for c in w.collectibles:
+		if int(c.uid) == uid:
+			follow_uid = -1
+			pan(_area_centre() - to_screen(layout.cell_center(str(c.room), int(c.x), int(c.y))))
+			return true
+	return false
+
+
 ## A wheel notch: zooms around the followed person while following, else around `screen`.
 func wheel_zoom(screen: Vector2, factor: float) -> void:
 	var pv := _followed()

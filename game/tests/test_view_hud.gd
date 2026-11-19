@@ -286,3 +286,27 @@ func test_clean_house_pay_floats_over_the_sweeper():
 	assert_eq(m.house.people[p.uid].float_text(), m.session.strings.t("float.clean_reward").replace("{n}", str(amount)))
 	assert_true(m.hud.toasts().has(m.session.strings.t("ev.clean_reward").replace("{n}", str(amount))), str(m.hud.toasts()))
 	m.queue_free()
+
+
+## Something turning up on the ground shows a toast at the top (the pack's words); clicking
+## it brings the thing to the middle of the house area.
+func test_a_pickup_shows_a_toast_that_takes_the_view_there():
+	var m := _adopted()
+	var w := m.session.world
+	var uid := CollectibleSystem.spawn(w)
+	assert_true(uid >= 0)
+	m.tick(0.016)
+	var c := CollectibleSystem.find(w, uid)
+	var line: String = m.session.strings.t("ev.pickup_spotted").format({"room": str(w.pack.rooms[str(c.room)]["name"])})
+	assert_true(line.contains("闪"), line)
+	var i := m.hud.toasts().find(line)
+	assert_true(i >= 0, str(m.hud.toasts()))
+	assert_true(m.hud.click_toast(i))
+	assert_true(not m.hud.toasts().has(line), "the toast goes once clicked")
+	var at := m.house.to_screen(m.house.layout.cell_center(str(c.room), int(c.x), int(c.y)))
+	var mid := Vector2(1280, 720 - HouseView.BOTTOM_BAR) * 0.5
+	assert_true(at.distance_to(mid) < 1.0, str(at))
+	# A toast without a click does nothing when clicked.
+	m.hud.toast("plain")
+	assert_true(not m.hud.click_toast(m.hud.toasts().find("plain")))
+	m.free()
