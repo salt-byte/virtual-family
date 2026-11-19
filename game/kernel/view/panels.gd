@@ -33,9 +33,10 @@ func setup(m: Main) -> void:
 	_root.set_anchors_preset(Control.PRESET_FULL_RECT)
 	_root.mouse_filter = Control.MOUSE_FILTER_STOP
 	_root.visible = false
+	_root.theme = ViewWidgets.panel_theme()
 	add_child(_root)
 	var shade := ColorRect.new()
-	shade.color = Color(0, 0, 0, 0.4)
+	shade.color = Color(0.16, 0.11, 0.07, 0.4)
 	shade.set_anchors_preset(Control.PRESET_FULL_RECT)
 	shade.mouse_filter = Control.MOUSE_FILTER_STOP
 	_root.add_child(shade)
@@ -90,7 +91,11 @@ func close() -> void:
 func _tabs() -> Array:
 	match _kind:
 		"shop":
-			return ["tab.items", "tab.inventory"]
+			var ids := []
+			for t in _market_tabs(session.world):
+				ids.append(t["id"])
+			ids.append("tab.inventory")
+			return ids
 		"ledger":
 			return ["tab.goals", "tab.collection"]
 	return []
@@ -129,8 +134,11 @@ func button_node(id: String) -> Button:
 	return _buttons.get(id)
 
 
-## Test entry point and button handler; unknown or disabled ids do nothing.
+## Test entry point and button handler; unknown or disabled ids do nothing. In the shop
+## "tab.items" stands for the first goods tab and "tab.pets" for the one with the animals.
 func press(id: String) -> void:
+	if _kind == "shop" and id in ["tab.items", "tab.pets"]:
+		id = _market_tab_for(id)
 	if is_disabled(id):
 		return
 	if id == "btn.close":
@@ -163,6 +171,9 @@ func press(id: String) -> void:
 	elif id == "proposal":
 		close()
 		main.overlays.open_proposal()
+	elif id == "go_arrange":
+		close()
+		main.arrange.enter()
 	elif id.begins_with("change:"):
 		_changing = int(id.substr(7))
 		refresh()
@@ -247,21 +258,38 @@ func _rebuild() -> void:
 	_button("btn.close", s.t("btn.close"), head)
 	var tabs := _tabs()
 	if not tabs.is_empty():
-		var row := HBoxContainer.new()
+		# Tabs wrap onto a second line rather than widen the card.
+		var row := HFlowContainer.new()
+		row.custom_minimum_size.x = PANEL_WIDTH - 2.0 * MARGIN
 		_box.add_child(row)
+		row.add_theme_constant_override("h_separation", 5)
+		row.add_theme_constant_override("v_separation", 5)
 		for t in tabs:
-			_button(t, s.t(t), row).disabled = (t == _tab)
+			var tb := _button(t, _tab_name(t), row)
+			ViewWidgets.small_button(tb)
+			tb.custom_minimum_size.y = 30
+			tb.disabled = (t == _tab)
+			if t == _tab:
+				# The open tab: the wood fill reads as "you are here", not as "can't".
+				var on := ViewWidgets.chip_style(ViewWidgets.WOOD, ViewWidgets.INK)
+				on.set_corner_radius_all(9)
+				on.content_margin_left = 8
+				on.content_margin_right = 8
+				tb.add_theme_stylebox_override("disabled", on)
+				tb.add_theme_color_override("font_disabled_color", ViewWidgets.CREAM)
 	var scroll := ScrollContainer.new()
-	scroll.custom_minimum_size = Vector2(PANEL_WIDTH - 2.0 * MARGIN, BODY_HEIGHT)
+	# Two lines of tabs take a little of the list's height so the card stays the same size.
+	scroll.custom_minimum_size = Vector2(PANEL_WIDTH - 2.0 * MARGIN, BODY_HEIGHT - (40.0 if tabs.size() > 4 else 0.0))
 	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	_box.add_child(scroll)
 	var list := VBoxContainer.new()
 	list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	list.add_theme_constant_override("separation", 6)
 	scroll.add_child(list)
+	if _kind == "shop" and _tab.begins_with("tab.m:"):
+		_fill_market(list, w, _market_tabs(w)[int(_tab.substr(6))])
+		return
 	match _tab if not _kind in ["family", "stories"] else _kind:
-		"tab.items":
-			_fill_items(list, w)
 		"tab.inventory":
 			_fill_inventory(list, w)
 		"tab.goals":
@@ -274,17 +302,92 @@ func _rebuild() -> void:
 			_fill_stories(list, w)
 
 
-func _fill_items(list: VBoxContainer, w: World) -> void:
+## The goods tabs of the market, in order: {id "tab.m:<i>", name, cats (item categories it
+## holds), pets (the animals for sale are here)}.
+## HOOK (branch market): once the kernel lists its catalogue by category (with services
+## such as adopting again or doubled time), build the tabs from that list here. Until then
+## the pack's ui.json names the tabs (`market.tabs`, comma separated) and files each item
+## category under one (`market.cat.<category>`, `market.cat.pets` for the animals); with
+## none of that, every item category is a tab of its own.
+func _market_tabs(w: World) -> Array[Dictionary]:
+	var s := session.strings
+	var order: Array[String] = []
+	var tabs := {}
+	if s.has("market.tabs"):
+		for n in s.t("market.tabs").split(","):
+			if n.strip_edges() != "":
+				order.append(n.strip_edges())
+	var place := func(tab_name: String) -> Dictionary:
+		if not tabs.has(tab_name):
+			tabs[tab_name] = {"name": tab_name, "cats": [], "pets": false}
+			if not tab_name in order:
+				order.append(tab_name)
+		return tabs[tab_name]
+	for id in w.pack.items:
+		var cat := str(w.pack.items[id].get("category", ""))
+		var tab_name := s.t("market.cat." + cat) if s.has("market.cat." + cat) else (cat if cat != "" else s.t("tab.items"))
+		var t: Dictionary = place.call(tab_name)
+		if not cat in t["cats"]:
+			t["cats"].append(cat)
+	if PetSystem.enabled(w.pack):
+		place.call(s.t("market.cat.pets") if s.has("market.cat.pets") else s.t("shop.pets"))["pets"] = true
+	var out: Array[Dictionary] = []
+	for i in order.size():
+		var t: Dictionary = tabs.get(order[i], {"name": order[i], "cats": [], "pets": false})
+		t["id"] = "tab.m:%d" % i
+		out.append(t)
+	return out
+
+
+## The tab id `alias` ("tab.items", "tab.pets") stands for.
+func _market_tab_for(alias: String) -> String:
+	for t in _market_tabs(session.world):
+		if alias == "tab.items" and not (t["cats"] as Array).is_empty():
+			return t["id"]
+		if alias == "tab.pets" and t["pets"]:
+			return t["id"]
+	return alias
+
+
+func _tab_name(id: String) -> String:
+	if id.begins_with("tab.m:"):
+		var tabs := _market_tabs(session.world)
+		var i := int(id.substr(6))
+		return str(tabs[i]["name"]) if i < tabs.size() else id
+	return session.strings.t(id)
+
+
+## One goods tab: its items by category, its animals, or a note that nothing is in yet. The
+## tab that is the arrange catalogue's (`market.arrange_tab`) points there.
+func _fill_market(list: VBoxContainer, w: World, tab: Dictionary) -> void:
+	var s := session.strings
+	if s.has("market.arrange_tab") and tab["name"] == s.t("market.arrange_tab"):
+		list.add_child(ViewWidgets.wrapped(s.t("market.arrange_note")))
+		_button("go_arrange", s.t("btn.arrange"), list)
+	elif (tab["cats"] as Array).is_empty() and not tab["pets"]:
+		var none := ViewWidgets.wrapped(s.t("market.empty"))
+		none.add_theme_color_override("font_color", ViewWidgets.MUTED)
+		list.add_child(none)
+	_fill_items(list, w, tab["cats"])
+	if tab["pets"]:
+		_fill_pet_shop(list, w)
+
+
+func _fill_items(list: VBoxContainer, w: World, cats: Array) -> void:
 	var s := session.strings
 	var by_cat: Dictionary = {}
 	for id in w.pack.items:
 		var cat := str(w.pack.items[id].get("category", ""))
+		if not cat in cats:
+			continue
 		if not by_cat.has(cat):
 			by_cat[cat] = []
 		by_cat[cat].append(id)
 	for cat in by_cat:
-		if cat != "":
-			list.add_child(ViewWidgets.wrapped(cat))
+		if cat != "" and by_cat.size() > 1:
+			var head := ViewWidgets.wrapped(cat)
+			head.add_theme_color_override("font_color", ViewWidgets.WOOD)
+			list.add_child(head)
 		for id in by_cat[cat]:
 			var it: Dictionary = w.pack.items[id]
 			var row := ViewWidgets.row(list)
@@ -292,11 +395,13 @@ func _fill_items(list: VBoxContainer, w: World) -> void:
 			var wanted := _wanted_by(w, str(id))
 			if wanted != "":
 				var mark := ViewWidgets.price_label(s.t("shop.wanted").replace("{name}", wanted))
-				mark.add_theme_color_override("font_color", Color(0.95, 0.6, 0.3))
+				mark.add_theme_color_override("font_color", ViewWidgets.ACCENT)
 				row.add_child(mark)
 			row.add_child(ViewWidgets.price_label(s.t("money").replace("{n}", str(int(it["price"])))))
-			_button("buy:" + id, s.t("btn.buy"), row).disabled = w.money < int(it["price"])
-	_fill_pet_shop(list, w)
+			var buy := _button("buy:" + id, s.t("btn.buy"), row)
+			buy.disabled = w.money < int(it["price"])
+			if buy.disabled:
+				buy.text = s.t("error.no_money")
 
 
 ## The animals for sale (kinds with a price); one that needs a perch says so until there is one.
@@ -321,7 +426,7 @@ func _fill_pet_shop(list: VBoxContainer, w: World) -> void:
 			row.add_child(ViewWidgets.price_label(s.t("pet.need_perch").replace("{perch}", perch)))
 		elif wanted != "":
 			var mark := ViewWidgets.price_label(s.t("shop.wanted").replace("{name}", wanted))
-			mark.add_theme_color_override("font_color", Color(0.95, 0.6, 0.3))
+			mark.add_theme_color_override("font_color", ViewWidgets.ACCENT)
 			row.add_child(mark)
 		row.add_child(ViewWidgets.price_label(s.t("money").replace("{n}", str(int(k["price"])))))
 		_button("buy_pet:" + str(kind), s.t("btn.buy_pet"), row).disabled = why != "" or w.money < int(k["price"])
@@ -427,7 +532,7 @@ func _fill_family(list: VBoxContainer, w: World) -> void:
 		_button("stray", s.t("title.stray"), list)
 	if BirthSystem.blocked(w):
 		var hint := ViewWidgets.wrapped(s.t("hint.no_bed"))
-		hint.add_theme_color_override("font_color", Color(0.95, 0.6, 0.3))
+		hint.add_theme_color_override("font_color", ViewWidgets.ACCENT)
 		list.add_child(hint)
 	# With births the household spans generations: one heading per generation, the dead
 	# greyed out among them. Without births, the living as one list.

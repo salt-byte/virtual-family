@@ -1,16 +1,23 @@
 class_name ViewWidgets
 extends RefCounted
-## The small look shared by the pop-up panels and the furniture catalogue: the dark card, and
-## the label and row cells of a list. Static helpers only; nothing here knows what is shown.
+## The small look shared by the bar, the pop-up panels, the cards and the furniture catalogue
+## (ART_DIRECTION section 4: cream ground, wooden frame, dark brown ink), and the label and row
+## cells of a list. Static helpers only; nothing here knows what is shown.
 
 const PRICE_WIDTH := 80.0
 
 
+## A pop-up card: cream inside a wooden frame, rounded, with a soft shadow. Opaque.
 static func card_style(margin: float) -> StyleBoxFlat:
 	var card := StyleBoxFlat.new()
-	card.bg_color = Color(0.13, 0.12, 0.11, 1.0)
-	card.set_corner_radius_all(8)
+	card.bg_color = CREAM
+	card.border_color = WOOD
+	card.set_border_width_all(6 if margin >= 16.0 else 3)
+	card.set_corner_radius_all(18 if margin >= 16.0 else 12)
 	card.set_content_margin_all(margin)
+	card.shadow_color = Color(0.29, 0.2, 0.14, 0.35)
+	card.shadow_size = 10
+	card.shadow_offset = Vector2(0, 4)
 	return card
 
 
@@ -61,6 +68,10 @@ const INK := Color("#4A3424")
 const BUTTON := Color("#FFE3B0")
 const ACCENT := Color("#E5533C")
 const SKY := Color("#4FB3E8")
+## Quiet text: captions, words for things that are fine.
+const MUTED := Color("#9A8672")
+## The ground of a chip or a small button that holds nothing to worry about.
+const PALE := Color("#F3E6CC")
 
 
 static func bar_style() -> StyleBoxFlat:
@@ -107,6 +118,51 @@ static func hud_theme() -> Theme:
 	t.set_font_size("font_size", "Button", 16)
 	t.set_stylebox("panel", "PanelContainer", bar_style())
 	return t
+
+
+## The theme of the pop-up panels and cards: the bar's buttons and ink, the cream card, and
+## readable sizes for lists.
+static func panel_theme() -> Theme:
+	var t := hud_theme()
+	t.set_font_size("font_size", "Label", 16)
+	t.set_stylebox("panel", "PanelContainer", card_style(24.0))
+	for k in ["font_color", "font_hover_color", "font_pressed_color", "font_focus_color", "font_hover_pressed_color"]:
+		t.set_color(k, "CheckButton", INK)
+		t.set_color(k, "CheckBox", INK)
+	return t
+
+
+## A small rounded tag (a status word): `bg` ground, `edge` outline (none when transparent).
+static func chip_style(bg: Color, edge: Color) -> StyleBoxFlat:
+	var b := StyleBoxFlat.new()
+	b.bg_color = bg
+	b.border_color = edge
+	b.set_border_width_all(0 if edge.a == 0.0 else 2)
+	b.set_corner_radius_all(12)
+	b.content_margin_left = 9
+	b.content_margin_right = 9
+	b.content_margin_top = 1
+	b.content_margin_bottom = 1
+	return b
+
+
+## A secondary button: smaller and flatter than the main ones, the same ink.
+static func small_button(b: Button) -> void:
+	var grounds := {"normal": PALE, "hover": PALE.lightened(0.3), "pressed": PALE.darkened(0.06),
+		"disabled": Color(0.9, 0.88, 0.84)}
+	for state in grounds:
+		var s := StyleBoxFlat.new()
+		s.bg_color = grounds[state]
+		s.border_color = WOOD
+		s.set_border_width_all(1)
+		s.border_width_bottom = 1 if state == "pressed" else 3
+		s.set_corner_radius_all(9)
+		s.content_margin_left = 8
+		s.content_margin_right = 8
+		s.content_margin_top = 1
+		s.content_margin_bottom = 1
+		b.add_theme_stylebox_override(state, s)
+	b.add_theme_font_size_override("font_size", 14)
 
 
 ## A round button (the praise / scold pair in the corner): `bg` fill, an INK ring.
