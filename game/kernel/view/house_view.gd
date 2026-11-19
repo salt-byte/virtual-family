@@ -530,6 +530,45 @@ func iso_picture(o: Dictionary, tex: Texture2D, w: World) -> Dictionary:
 	return {"at": at, "rect": Rect2(mid_x - size.x * 0.5, bottom - size.y, size.x, size.y), "flip": flip}
 
 
+## A picture's rect on the view, less the transparent margin round the drawing (what the
+## overlap rules compare).
+static func picture_core(r: Rect2) -> Rect2:
+	return r.grow_individual(-r.size.x * 0.12, -r.size.y * 0.12, -r.size.x * 0.12, -r.size.y * 0.04)
+
+
+## How much (0..1 of the smaller) two picture cores overlap.
+static func picture_overlap(a: Rect2, b: Rect2) -> float:
+	var x := picture_core(a).intersection(picture_core(b))
+	if not x.has_area():
+		return 0.0
+	return x.get_area() / minf(picture_core(a).get_area(), picture_core(b).get_area())
+
+
+## Most a placed piece's picture may overlap another's.
+const PICTURE_OVERLAP_MAX := 0.05
+
+
+## The 45° view: whether a piece of `type` put at `room` (x, y) would stand its picture over
+## another piece's (beyond PICTURE_OVERLAP_MAX); piece `except` (the one being moved) aside.
+func picture_blocks(type: String, room: String, x: int, y: int, except := -1) -> bool:
+	var w := session.world if session != null else null
+	if not iso or w == null:
+		return false
+	var o := {"uid": -1, "type": type, "room": room, "x": x, "y": y}
+	var tex := object_picture(o)
+	if tex == null:
+		return false
+	var spot := iso_picture(o, tex, w)
+	var mine := Rect2(proj * spot.at + (spot.rect as Rect2).position, (spot.rect as Rect2).size)
+	for uid in props:
+		if int(uid) == except:
+			continue
+		var p: PropPiece = props[uid]
+		if picture_overlap(mine, Rect2(proj * p.position + p.rect.position, p.rect.size)) > PICTURE_OVERLAP_MAX:
+			return true
+	return false
+
+
 ## One PetView per animal at home; the ones that ran off or died are taken away.
 func _refresh_pets(w: World) -> void:
 	var home := {}
@@ -786,6 +825,11 @@ func _arrange_on() -> bool:
 	return arrange != null and arrange.active
 
 
+## The person the pointer is pressed on (-1: none).
+func pressing_uid() -> int:
+	return _press_uid if _pressed else -1
+
+
 func press(screen: Vector2) -> void:
 	_see_cursor(screen)
 	_pressed = true
@@ -797,6 +841,8 @@ func press(screen: Vector2) -> void:
 		_arranging = arrange.house_press(world_pos(screen))
 		return
 	_press_uid = person_at(world_pos(screen))
+	if people.has(_press_uid):
+		people[_press_uid].queue_redraw()  # the ring under them while pressed
 	_press_pet = pet_at(world_pos(screen)) if _press_uid < 0 else -1
 
 
@@ -851,6 +897,8 @@ func release(screen: Vector2) -> void:
 		person_clicked.emit(_press_uid)
 	elif _press_pet >= 0:
 		pet_clicked.emit(_press_pet)
+	if people.has(_press_uid):
+		people[_press_uid].queue_redraw()
 	_pressed = false
 	_press_uid = -1
 	_press_pet = -1

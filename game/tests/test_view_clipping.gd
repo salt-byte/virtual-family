@@ -420,3 +420,100 @@ func test_room_names_are_clear_of_the_furniture():
 			var r: Rect2 = _pic(m.house, m.house.props[uid])
 			assert_true(not r.intersects(box), "%s name under %s" % [id, m.session.world.object(uid).type])
 	m.free()
+
+
+## Sitting needs a seat: an action that asks to sit, done where there is none (in the shade
+## of the grape trellis), is done standing, never sitting on air.
+func test_no_sitting_without_a_seat():
+	var m := _main()
+	var w := m.session.world
+	var p := TestKit.adult(w)
+	m.tick(0.016)
+	var pv: PersonView = m.house.people[p.uid]
+	var trellis: Dictionary = w.objects.filter(func(o): return o.type == "grape_trellis")[0]
+	AutonomySystem.start(w, p, "trellis_shade", int(trellis.uid))
+	pv.refresh()
+	assert_true(not pv.on_object)
+	assert_eq(pv.action_pose, "idle")
+	var stool: Dictionary = w.objects.filter(func(o): return o.type == "stool")[0]
+	AutonomySystem.start(w, p, "shell_beans", int(stool.uid))
+	pv.refresh()
+	assert_eq(pv.action_pose, "sit", "on a stool they sit")
+	# Sitting tucks the thighs under the jacket's hem.
+	var rig: CutoutRig = m.house.skin.person_look("adult", "male").rig
+	var z: Dictionary = rig.pose("sit", 0.0)["_z"]
+	assert_true(float(z["leg_upper"]) < 3.0, "under the torso")
+	m.free()
+
+
+## The ring under the feet shows only while the player presses on or carries the person; a
+## selected person is known by the plate over their head.
+func test_the_ring_shows_only_while_pressed_or_carried():
+	var m := _main()
+	var pv: PersonView = m.house.people.values()[0]
+	pv.held = true
+	pv.position = m.house.layout.cell_center("yard", 4, 3)
+	pv.held = false
+	pv.target = pv.position
+	m.select(pv.person.uid)
+	assert_true(pv.selected)
+	assert_true(not pv.ring_shown(), "selected alone: no ring")
+	var at := m.house.to_screen(pv.position + Vector2(0, -2)) + Vector2(0, -30 * m.house.scale.y)
+	m.house.press(at)
+	assert_eq(m.house.pressing_uid(), pv.person.uid)
+	assert_true(pv.ring_shown(), "pressed on")
+	m.house.release(at)
+	assert_true(not pv.ring_shown())
+	pv.held = true
+	assert_true(pv.ring_shown(), "carried")
+	pv.held = false
+	assert_eq(PersonView.RING_FILL.r, 1.0)
+	assert_true(PersonView.RING_FILL.a < 0.5, "soft")
+	m.free()
+
+
+## Arrange mode: a piece whose picture would stand over another piece's is not put down
+## there (a toast says why); a clear spot is fine.
+func test_a_piece_is_not_put_where_its_picture_covers_another():
+	var m := _main()
+	var w := m.session.world
+	w.money = 1000
+	assert_true(m.house.picture_blocks("stool", "hall", 6, 2), "right behind the table")
+	var free := Vector2i(-1, -1)
+	for y in 6:
+		for x in 10:
+			if free.x < 0 and HouseSystem.can_place(w, "stool", "hall", x, y) == "" and not m.house.picture_blocks("stool", "hall", x, y):
+				free = Vector2i(x, y)
+	assert_true(free.x >= 0, "somewhere in the hall is clear")
+	m.arrange.enter()
+	m.arrange.pick_type("stool")
+	var r := m.arrange.drop(m.house.layout.cell_center("hall", 6, 2))
+	assert_eq(str(r.get("error", "")), "blocks_view")
+	assert_eq(m.hud.toasts()[-1], m.session.strings.error("blocks_view"))
+	assert_eq(m.arrange.held_type, "stool", "still in hand")
+	r = m.arrange.drop(m.house.layout.cell_center("hall", free.x, free.y))
+	assert_true(r.get("ok", false), str(r))
+	m.free()
+
+
+## The walk keeps step with the ground: a grown-up's cycle per STRIDE screen pixels, an old
+## person slower on the ground.
+func test_the_walk_cycle_follows_the_ground():
+	var m := _main()
+	var w := m.session.world
+	var pv: PersonView = null
+	for uid in m.house.people:
+		var q: PersonView = m.house.people[uid]
+		if q.person.stage(w.pack) == "adult":
+			pv = q
+	assert_true(pv != null)
+	pv.position = m.house.layout.cell_center("yard", 2, 3)
+	pv.target = pv.position + Vector2(48 * 6, 0)
+	var t0 := pv._stride_t
+	var from := pv.position
+	pv.tick(0.25)
+	var screen := IsoMath.basis().basis_xform(pv.position - from).length() / IsoMath.ISO_PACE
+	var k := clampf(float(pv._look.height) / 90.0, 0.6, 1.1)
+	assert_near(pv._stride_t - t0, screen / (PersonView.STRIDE * k) * CutoutRig.WALK_PERIOD, 0.001)
+	assert_true(PersonView.ELDER_PACE < 1.0)
+	m.free()
