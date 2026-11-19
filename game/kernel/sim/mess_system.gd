@@ -6,11 +6,33 @@ extends RefCounted
 
 static func step(world: World, dt: float) -> void:
 	_apply_penalties(world, dt)
-	for id in world.pack.mess_types:
-		var per_step := float(world.pack.mess_types[id].get("spawn_per_day", 0)) / 1440.0 * (dt / 60.0)
-		# A type that never appears by itself (it comes from something else) draws nothing.
+	# A type that never appears by itself (it comes from something else) draws nothing, so
+	# only the types with a `spawn_per_day` above 0 are looked at, in pack order.
+	var t := _spawning(world.pack)
+	var ids: PackedStringArray = t[2]
+	var per_day: PackedFloat64Array = t[3]
+	for k in ids.size():
+		var per_step := per_day[k] / 1440.0 * (dt / 60.0)
 		if per_step > 0.0 and world.rng.chance(per_step):
-			spawn(world, str(id))
+			spawn(world, ids[k])
+
+
+## [mess types, their count, ids of the types with `spawn_per_day` above 0, those rates], kept
+## on the pack while `mess_types` is the same dictionary with the same size (a pack's content
+## does not change once worlds use it).
+static func _spawning(pack: Pack) -> Array:
+	var t := pack.mess_spawning
+	if not t.is_empty() and is_same(t[0], pack.mess_types) and t[1] == pack.mess_types.size():
+		return t
+	var ids := PackedStringArray()
+	var per_day := PackedFloat64Array()
+	for id in pack.mess_types:
+		var n := float(pack.mess_types[id].get("spawn_per_day", 0))
+		if n > 0.0:
+			ids.append(str(id))
+			per_day.append(n)
+	pack.mess_spawning = [pack.mess_types, pack.mess_types.size(), ids, per_day]
+	return pack.mess_spawning
 
 
 ## Adds one mess of `type` and returns its uid, or -1 when the type is unknown or no suitable
@@ -88,6 +110,8 @@ static func first_free(world: World, type: String, p: Person) -> int:
 
 
 static func _apply_penalties(world: World, dt: float) -> void:
+	if world.messes.is_empty():
+		return
 	var floor_v := float(world.pack.cfg("offline_need_floor"))
 	for m in world.messes:
 		var penalty: Dictionary = world.pack.mess_types[m.type].get("penalty", {})

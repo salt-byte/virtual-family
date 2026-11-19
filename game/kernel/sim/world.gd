@@ -91,11 +91,15 @@ var letter_minor_at := 0
 
 ## The living babies as of `_babies_t` (see `babies`); not saved.
 var _babies: Array[Person] = []
-## `AutonomySystem._world_key`'s cache: [now, utc_offset, rooms_built, its size, weather,
-## wet_until, key]; not saved.
+## `AutonomySystem._world_key`'s cache: [hour key, rooms_built, its size, weather, wet,
+## season position, season list, key]; not saved.
 var _flags_ctx: Array = []
 ## `AutonomySystem._objects_by_type`'s cache: [objects, size, last uid, uids by type]; not saved.
 var _by_type_ctx: Array = []
+## `GoalSystem._owned`'s cache: [objects, size, last uid, object types, count]; not saved.
+var _owned_ctx: Array = []
+## `GoalSystem.step`'s cache: [goals_done, its size, goals table, open goals]; not saved.
+var _goals_open: Array = []
 var _babies_t := -1
 ## `PetSystem.home_key` and `PetSystem.room_now` as of [now, pets size]; not saved.
 var _pet_cache: Array = [-1, -1, "", {}]

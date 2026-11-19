@@ -146,6 +146,8 @@ var adult_age_src: Variant = null
 var adult_age_n := -1
 ## `WeatherSystem`'s prepared constants (built on first use).
 var weather_prep: Dictionary = {}
+## `MessSystem`'s spawning mess types (built on first use).
+var mess_spawning: Array = []
 ## object type -> index, for the types actions use (see `AutonomySystem.Info.obj_ix`).
 var autonomy_obj_types: Dictionary = {}
 ## The need ids in pack order (indexes of `AutonomySystem.Info.need_ix`).
@@ -154,6 +156,13 @@ var autonomy_need_ids := PackedStringArray()
 var autonomy_index: Dictionary = {}
 ## True when every action's `hours` window has whole-hour bounds (set with `autonomy_table`).
 var autonomy_whole_hours := true
+## Per action of `autonomy_table` (by `Info.idx`): [flag bits, `base`, `gain_max`] as packed
+## arrays (see `AutonomySystem._table`).
+var autonomy_soa: Array = []
+## action id -> what `AutonomySystem._progress` reads of it on every step.
+var autonomy_progress: Dictionary = {}
+## `GoalSystem`'s goals table (built on first use).
+var goal_table: Array = []
 ## livelihood id -> {action id: affinity matches}, prepared by `LivelihoodSystem`.
 var affinity_table: Dictionary = {}
 ## The needs' drains as plain arrays, prepared by `NeedsSystem` on first use.
