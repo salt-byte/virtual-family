@@ -26,6 +26,11 @@ var unit := 1.0
 var height := 1.0
 ## How far the hips drop when sitting (the thigh's length, rig pixels).
 var thigh := 0.0
+## "side" (the rig faces right), "front" (faces the camera) or "back" (turned away). A front
+## or back rig only walks and stands (`pose`): the side rig does the rest.
+var facing := "side"
+## The head's height (rig pixels), to size a front or back rig like the side one.
+var head_height := 0.0
 var _by_id: Dictionary = {}
 
 
@@ -63,6 +68,10 @@ static func load_file(path: String) -> CutoutRig:
 	for id in r._by_id:
 		r._visit(id, seen)
 	r.root = _v(data.get("root_px", [0, 0]))
+	var f := str(data.get("facing", "right"))
+	r.facing = f if f in ["front", "back"] else "side"
+	if r._by_id.has("head"):
+		r.head_height = r._by_id["head"].size.y
 	for p in r.parts:
 		if p.parent == "":
 			r.unit = p.size.y / 100.0
@@ -101,7 +110,9 @@ func has_part(id: String) -> bool:
 func world(pose: Dictionary) -> Dictionary:
 	var out := {}
 	for p in parts:
-		var v: Vector3 = pose.get(p.id, Vector3.ZERO)
+		var v = pose.get(p.id, Vector3.ZERO)
+		if not v is Vector3:
+			v = Vector3.ZERO
 		var off: Vector2 = root if p.parent == "" else (p.attach - _by_id[p.parent].pivot)
 		var m := Transform2D(deg_to_rad(v.x), off + Vector2(v.y, v.z) * unit)
 		out[p.id] = (out[p.parent] * m) if p.parent != "" else m
@@ -112,7 +123,9 @@ func world(pose: Dictionary) -> Dictionary:
 func draw(ci: CanvasItem, pose: Dictionary, xform: Transform2D, modulate := Color.WHITE) -> void:
 	var w := world(pose)
 	var order := parts.duplicate()
-	order.sort_custom(func(a, b): return a.z < b.z)
+	# A pose may restack parts ("_z": {part: z}), e.g. the thighs under the jacket when sitting.
+	var zs: Dictionary = pose.get("_z", {})
+	order.sort_custom(func(a, b): return float(zs.get(a.id, a.z)) < float(zs.get(b.id, b.z)))
 	for p in order:
 		ci.draw_set_transform_matrix(xform * (w[p.id] as Transform2D) * Transform2D(0.0, -p.pivot))
 		var t: float = p.tint
@@ -124,21 +137,25 @@ func draw(ci: CanvasItem, pose: Dictionary, xform: Transform2D, modulate := Colo
 ## An unknown name is "idle".
 func pose(name: String, t: float) -> Dictionary:
 	var breath := sin(TAU * t / BREATH_PERIOD)
+	if facing != "side":
+		return _pose_facing(name, t, breath)
 	match name:
 		"walk":
 			var s := sin(TAU * t / WALK_PERIOD)
 			var c := cos(TAU * t / WALK_PERIOD)
+			# A calm walk: a modest stride, the knee of the leg swinging through bends, arms
+			# swing a little, the body barely rises (at mid-stride, twice a cycle).
 			return {
-				"torso": Vector3(3.0, 0.0, -2.0 * absf(c)),
-				"head": Vector3(-2.0, 0.0, 0.0),
-				"leg_upper": Vector3(-26.0 * s, 0.0, 0.0),
-				"leg_lower": Vector3(28.0 * maxf(0.0, s), 0.0, 0.0),
-				"leg_back_upper": Vector3(26.0 * s, 0.0, 0.0),
-				"leg_back_lower": Vector3(28.0 * maxf(0.0, -s), 0.0, 0.0),
-				"arm_upper": Vector3(20.0 * s, 0.0, 0.0),
-				"arm_lower": Vector3(-10.0 - 8.0 * maxf(0.0, -s), 0.0, 0.0),
-				"arm_back_upper": Vector3(-20.0 * s, 0.0, 0.0),
-				"arm_back_lower": Vector3(-10.0 - 8.0 * maxf(0.0, s), 0.0, 0.0),
+				"torso": Vector3(2.0, 0.0, -0.8 * absf(c)),
+				"head": Vector3(-1.5, 0.0, 0.0),
+				"leg_upper": Vector3(-19.0 * s, 0.0, 0.0),
+				"leg_lower": Vector3(20.0 * maxf(0.0, s), 0.0, 0.0),
+				"leg_back_upper": Vector3(19.0 * s, 0.0, 0.0),
+				"leg_back_lower": Vector3(20.0 * maxf(0.0, -s), 0.0, 0.0),
+				"arm_upper": Vector3(11.0 * s, 0.0, 0.0),
+				"arm_lower": Vector3(-8.0 - 5.0 * maxf(0.0, -s), 0.0, 0.0),
+				"arm_back_upper": Vector3(-11.0 * s, 0.0, 0.0),
+				"arm_back_lower": Vector3(-8.0 - 5.0 * maxf(0.0, s), 0.0, 0.0),
 			}
 		"work":
 			var w := sin(TAU * t / WORK_PERIOD)
@@ -176,6 +193,8 @@ func pose(name: String, t: float) -> Dictionary:
 				"arm_lower": Vector3(-45.0, 0.0, 0.0),
 				"arm_back_upper": Vector3(-18.0, 0.0, 0.0),
 				"arm_back_lower": Vector3(-40.0, 0.0, 0.0),
+				# The thighs' tops go under the jacket's hem (no seam where they turn).
+				"_z": {"leg_upper": 2.6, "leg_back_upper": 0.6, "leg_lower": 2.7, "leg_back_lower": 0.7},
 			}
 		"sleep":
 			return {
@@ -204,4 +223,31 @@ func pose(name: String, t: float) -> Dictionary:
 		"arm_back_upper": Vector3(-2.0 * breath, 0.0, 0.0),
 		"arm_lower": Vector3(-6.0, 0.0, 0.0),
 		"arm_back_lower": Vector3(-6.0, 0.0, 0.0),
+	}
+
+
+## Facing the camera or turned away: walking lifts each leg in turn (it cannot swing it
+## sideways) with the arms swaying a little; anything else stands breathing.
+## How far (offset units: a torso is 100) a knee comes up, and the body with each step. The
+## front and back walk keep the side walk's cadence (WALK_PERIOD), so a turn does not
+## change the step.
+const FRONT_LIFT := 7.0
+const FRONT_BOB := 1.0
+func _pose_facing(name: String, t: float, breath: float) -> Dictionary:
+	if name == "walk":
+		var ph := fmod(t, WALK_PERIOD) / WALK_PERIOD
+		var s := sin(TAU * ph)
+		# Facing the camera a step shows as one knee coming up a little while the other leg
+		# bears the weight; the body hardly rises, the arms swing gently.
+		return {
+			"torso": Vector3(0.8 * s, 0.0, -FRONT_BOB * absf(s)),
+			"head": Vector3(-0.8 * s, 0.0, 0.0),
+			"leg_upper": Vector3(0.0, 0.0, -FRONT_LIFT * maxf(0.0, s)),
+			"leg_back_upper": Vector3(0.0, 0.0, -FRONT_LIFT * maxf(0.0, -s)),
+			"arm_upper": Vector3(-6.0 * s, 0.0, 0.0),
+			"arm_back_upper": Vector3(-6.0 * s, 0.0, 0.0),
+		}
+	return {
+		"torso": Vector3(0.0, 0.0, 0.8 * (breath * 0.5 + 0.5)),
+		"head": Vector3(1.5 * breath, 0.0, 0.0),
 	}

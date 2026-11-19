@@ -21,7 +21,8 @@ func _main() -> Main:
 	Engine.get_main_loop().root.add_child(m)
 	m.session.command({"type": "adopt"})
 	var w := m.session.world
-	for e in [["dining_table", "hall", 4, 2], ["altar", "hall", 7, 0], ["stool", "yard", 8, 1],
+	# (The hall's own table and altar are already there, where the pack puts them.)
+	for e in [["stool", "yard", 8, 1],
 			["bookshelf", "hall", 0, 2], ["loom", "bedroom", 3, 3], ["clothesline", "yard", 5, 5]]:
 		w.add_object(e[0], e[1], e[2], e[3])
 	for i in 3:
@@ -133,25 +134,46 @@ func test_routes_go_round_furniture():
 	m.free()
 
 
-func test_low_walls_sort_by_their_top_and_tall_ones_by_their_foot():
+## The 45° view sorts everything standing by how far in front it is (view y of its foot):
+## a back wall is drawn before whoever stands in the room in front of it and after whoever
+## stands outside behind it; a cut wall is drawn after the room's front row (it is only
+## ankle-high) and before whoever stands outside it.
+func test_walls_sort_with_the_people_by_depth():
 	var m := _main()
-	for wp in m.house.walls:
-		if wp.along != "x" or wp.gate:
+	var house := m.house
+	var pv: PersonView = house.people.values()[0]
+	var checked := 0
+	for wp in house.walls:
+		if wp.role != "wall" or wp.open or wp.kind == HouseSite.FENCE:
 			continue
-		var foot := float(wp.line) * HouseSite.CELL.y + WallPiece.thickness(wp.kind) * 0.5
-		if wp.heights[0] == WallPiece.BACK or wp.kind == HouseSite.FENCE:
-			assert_eq(wp.position.y, foot)
-		else:
-			# Feet on the front row (a cell's middle, 18 px from the line) are below its sort point.
-			assert_true(wp.position.y < float(wp.line) * HouseSite.CELL.y - 18.0, "%s %s" % [wp.line, wp.a])
+		var inside := Vector2i(wp.at, wp.line) if wp.along == "x" else Vector2i(wp.line, wp.at)
+		var outside := inside - (Vector2i(0, 1) if wp.along == "x" else Vector2i(1, 0))
+		var d := house.sort_depth(wp)
+		pv.position = HouseSite.CELL * (Vector2(inside) + Vector2(0.5, 0.5))
+		assert_true(house.sort_depth(pv) > d, "in front of %s %s %s" % [wp.along, wp.line, wp.at])
+		pv.position = HouseSite.CELL * (Vector2(outside) + Vector2(0.5, 0.5))
+		assert_true(house.sort_depth(pv) < d, "behind %s %s %s" % [wp.along, wp.line, wp.at])
+		if not wp.tall:
+			assert_true(wp.height <= IsoWall.COMPOUND_LOW, "cut to the ankle")
+		checked += 1
+	assert_true(checked > 50)
+	# Long furniture against a back wall is drawn over every stretch of wall behind it.
+	var w := m.session.world
+	for o in w.objects:
+		if not house.props.has(int(o.uid)):
+			continue
+		var c := HouseLayout.cells_of(house.layout.object_rect(o, w.pack))
+		for wp in house.walls:
+			if wp.role == "wall" and wp.tall and wp.along == "x" and wp.line == c.position.y and wp.at >= c.position.x and wp.at < c.end.x:
+				assert_true(house.sort_depth(house.props[int(o.uid)]) > house.sort_depth(wp), str(o.type))
 	m.free()
 
 
 func test_the_gatehouse_fades_for_someone_under_it():
 	var m := _main()
-	var gate: WallPiece = null
+	var gate: IsoWall = null
 	for wp in m.house.walls:
-		if wp.gate:
+		if wp.role == "gate":
 			gate = wp
 	assert_true(gate != null)
 	var pv: PersonView = m.house.people.values()[0]
@@ -165,22 +187,19 @@ func test_the_gatehouse_fades_for_someone_under_it():
 	m.free()
 
 
+## The 45° view: a picture stays within its footprint's diamond across the screen and stands
+## on its bottom corner, so it never reaches over a wall beside it.
 func test_pictures_keep_to_their_footprint_and_off_walls():
 	var m := _main()
 	var w := m.session.world
-	var site := m.house.layout.site
 	for uid in m.house.props:
 		var piece: PropPiece = m.house.props[uid]
 		var o := w.object(uid)
 		var r := m.house.layout.object_rect(o, w.pack)
-		assert_true(piece.rect.position.x >= r.position.x - 0.01 and piece.rect.end.x <= r.end.x + 0.01, str(o.type))
-		assert_true(piece.rect.position.y >= r.position.y - HouseView.WALL_LEAN - 0.01, str(o.type))
-		var c := HouseLayout.cells_of(r)
-		for y in range(c.position.y, c.end.y):
-			if site.v_walls.has(Vector2i(c.position.x, y)):
-				assert_true(piece.rect.position.x >= r.position.x + HouseView.WALL_GAP - 0.01, str(o.type))
-			if site.v_walls.has(Vector2i(c.end.x, y)):
-				assert_true(piece.rect.end.x <= r.end.x - HouseView.WALL_GAP + 0.01, str(o.type))
+		var d := IsoMath.diamond(r)
+		var pic := Rect2(IsoMath.to_view(piece.position) + piece.rect.position, piece.rect.size)
+		assert_true(pic.position.x >= d[3].x - 0.01 and pic.end.x <= d[1].x + 0.01, str(o.type))
+		assert_true(pic.end.y <= d[2].y + 6.01, str(o.type))
 	m.free()
 
 
@@ -252,4 +271,249 @@ func test_actions_pick_poses_from_the_pack():
 	assert_true(pv.on_object)
 	pv.position = pv.target
 	assert_true(pv.drawn_height() < pv.body_size().y - 10.0, "sitting is lower")
+	m.free()
+
+
+## The 45° view: a cell is a 64 x 32 diamond; plan x runs down-right, plan y down-left; a
+## click lands back on the plan point under it. The smoke pack (no art, no site) keeps the
+## view from above.
+func test_the_view_is_a_45_degree_projection_of_the_plan():
+	var m := _main()
+	assert_true(m.house.iso)
+	assert_eq(IsoMath.to_view(Vector2(48, 0)), Vector2(32, 16))
+	assert_eq(IsoMath.to_view(Vector2(0, 36)), Vector2(-32, 16))
+	assert_true(IsoMath.to_plan(IsoMath.to_view(Vector2(123, 45))).distance_to(Vector2(123, 45)) < 0.001)
+	for s in [0.5, 1.0, 1.7]:
+		m.house.zoom_to(s)
+		var p := Vector2(25 * 48 + 7, 9 * 36 + 11)
+		assert_true(m.house.world_pos(m.house.to_screen(p)).distance_to(p) < 0.001)
+	var smoke := Main.create("_smoke", "user://test_clip_smoke/", _clock)
+	assert_true(not smoke.house.iso)
+	assert_eq(smoke.house.proj, Transform2D.IDENTITY)
+	smoke.free()
+	m.free()
+
+
+## People turn with the way they walk: down the screen towards the camera (the front rig),
+## up it away (the back rig), across it sideways; at furniture the side rig, turned to it.
+func test_people_turn_to_the_camera_or_away_as_they_walk():
+	var m := _main()
+	var w := m.session.world
+	var p := TestKit.adult(w)
+	m.tick(0.016)
+	var pv: PersonView = m.house.people[p.uid]
+	var look := m.house.skin.person_look(p.stage(w.pack), p.gender)
+	assert_true(look.has("rig_front") and look.has("rig_back"), "the facing rigs are there")
+	assert_eq((look.rig_front as CutoutRig).facing, "front")
+	assert_eq((look.rig_back as CutoutRig).facing, "back")
+	pv._turn(Vector2(48, 36))  # south-east: straight down the screen
+	assert_eq(pv.turned, "front")
+	assert_eq(pv._rig_for("walk")[0], look.rig_front)
+	pv._turn(Vector2(-48, -36))  # north-west: up the screen
+	assert_eq(pv.turned, "back")
+	assert_eq(pv._rig_for("walk")[0], look.rig_back)
+	pv._turn(Vector2(48, -36))  # north-east: straight right
+	assert_eq(pv.turned, "side")
+	assert_eq(pv._facing, 1.0)
+	assert_eq(pv._rig_for("walk")[0], look.rig)
+	pv._turn(Vector2(0, 36))  # south: down-left, towards the camera
+	assert_eq(pv.turned, "front")
+	assert_eq(pv._facing, -1.0)
+	# Sitting, working, eating: always the side rig.
+	assert_eq(pv._rig_for("work")[0], look.rig)
+	assert_eq(pv._rig_for("sit")[0], look.rig)
+	# The front walk lifts the legs in turn instead of swinging them.
+	var front: CutoutRig = look.rig_front
+	var a := front.pose("walk", 0.15)
+	var b := front.pose("walk", 0.45)
+	assert_true((a["leg_upper"] as Vector3).z < 0.0 and (b["leg_back_upper"] as Vector3).z < 0.0)
+	assert_eq((a["leg_upper"] as Vector3).x, 0.0)
+	m.free()
+
+
+## A picture's rect on the view, less the transparent margin round the drawing.
+func _pic(house: HouseView, p: PropPiece) -> Rect2:
+	var r := Rect2(IsoMath.to_view(p.position) + p.rect.position, p.rect.size)
+	return r.grow_individual(-r.size.x * 0.12, -r.size.y * 0.12, -r.size.x * 0.12, -r.size.y * 0.04)
+
+
+## Every room built, the pack's own furniture where it puts it: no two pictures overlap by
+## more than a sliver (5 % of the smaller), and no scenery stands over the gatehouse.
+func test_default_furniture_pictures_do_not_overlap():
+	var n2 := "user://test_clip_layout/"
+	DirAccess.make_dir_recursive_absolute(n2)
+	for f in DirAccess.get_files_at(n2):
+		DirAccess.remove_absolute(n2 + f)
+	var m := Main.create("qijia", n2, _clock)
+	Engine.get_main_loop().root.add_child(m)
+	m.session.command({"type": "adopt"})
+	var w := m.session.world
+	w.money = 100000
+	for id in w.pack.rooms:
+		if not id in w.rooms_built:
+			m.session.command({"type": "build_room", "room": id})
+	m.tick(0.016)
+	var uids: Array = m.house.props.keys()
+	assert_true(uids.size() > 15)
+	for i in uids.size():
+		for j in range(i + 1, uids.size()):
+			var a := _pic(m.house, m.house.props[uids[i]])
+			var b := _pic(m.house, m.house.props[uids[j]])
+			var x := a.intersection(b)
+			var frac := x.get_area() / minf(a.get_area(), b.get_area()) if x.has_area() else 0.0
+			assert_true(frac <= 0.05, "%s / %s overlap %.2f" % [w.object(uids[i]).type, w.object(uids[j]).type, frac])
+	for wp in m.house.walls:
+		if wp.role == "gate":
+			for s in m.house.scenery:
+				assert_true(not _pic(m.house, s).intersects(wp.view_box), "scenery over the gatehouse at %s" % (s.position / HouseSite.CELL))
+	m.free()
+
+
+## The 45° view: a point on the upper part of a furniture picture (over the floor behind its
+## footprint) picks that piece, for drops and arrange mode.
+func test_a_point_on_a_tall_picture_picks_the_furniture():
+	var m := _main()
+	var w := m.session.world
+	var o: Dictionary = w.objects.filter(func(x): return x.type == "grape_trellis")[0]
+	var p: PropPiece = m.house.props[int(o.uid)]
+	var top := IsoMath.to_view(p.position) + Vector2(p.rect.get_center().x, p.rect.position.y + p.rect.size.y * 0.25)
+	var plan := IsoMath.to_plan(top)
+	assert_true(not m.house.layout.object_rect(o, w.pack).has_point(plan), "the cell under is behind the piece")
+	var hit := m.house.pick(w, plan)
+	assert_eq(str(hit.kind), "object")
+	assert_eq(int(hit.uid), int(o.uid))
+	m.free()
+
+
+## Walking takes as long on the screen whichever way: a step east covers as many screen
+## pixels as a step south.
+func test_walking_speed_is_even_on_the_screen():
+	var m := _main()
+	var pv: PersonView = m.house.people.values()[0]
+	var start := m.house.layout.cell_center("yard", 3, 3)
+	var dist := []
+	for d in [Vector2(1, 0), Vector2(0, 1), Vector2(1, 1)]:
+		pv.position = start
+		pv.target = start + d * 400.0
+		pv.path = PackedVector2Array()
+		pv._path_goal = pv.target
+		pv._path_from = pv.position
+		pv.walk(30.0)
+		dist.append(IsoMath.basis().basis_xform(pv.position - start).length())
+	assert_near(dist[0], dist[1], 0.01)
+	assert_near(dist[1], dist[2], 0.01)
+	m.free()
+
+
+## The rooms' names lie on a free part of the floor, clear of every furniture picture.
+func test_room_names_are_clear_of_the_furniture():
+	var m := _main()
+	var font := ThemeDB.fallback_font
+	for id in ["hall", "kitchen", "bedroom", "woodshed"]:
+		var rect := m.house.layout.room_rect(id)
+		var name := str(m.session.world.pack.rooms[id]["name"])
+		var wdt := font.get_string_size(name, HORIZONTAL_ALIGNMENT_LEFT, -1, 16).x
+		var at := m.house.ground.free_label_spot(rect, wdt, 16, Vector2(INF, INF))
+		assert_true(at.x != INF, id)
+		var box := Rect2(IsoMath.to_view(at) + Vector2(0, -16), Vector2(wdt, 20))
+		for uid in m.house.props:
+			var r: Rect2 = _pic(m.house, m.house.props[uid])
+			assert_true(not r.intersects(box), "%s name under %s" % [id, m.session.world.object(uid).type])
+	m.free()
+
+
+## Sitting needs a seat: an action that asks to sit, done where there is none (in the shade
+## of the grape trellis), is done standing, never sitting on air.
+func test_no_sitting_without_a_seat():
+	var m := _main()
+	var w := m.session.world
+	var p := TestKit.adult(w)
+	m.tick(0.016)
+	var pv: PersonView = m.house.people[p.uid]
+	var trellis: Dictionary = w.objects.filter(func(o): return o.type == "grape_trellis")[0]
+	AutonomySystem.start(w, p, "trellis_shade", int(trellis.uid))
+	pv.refresh()
+	assert_true(not pv.on_object)
+	assert_eq(pv.action_pose, "idle")
+	var stool: Dictionary = w.objects.filter(func(o): return o.type == "stool")[0]
+	AutonomySystem.start(w, p, "shell_beans", int(stool.uid))
+	pv.refresh()
+	assert_eq(pv.action_pose, "sit", "on a stool they sit")
+	# Sitting tucks the thighs under the jacket's hem.
+	var rig: CutoutRig = m.house.skin.person_look("adult", "male").rig
+	var z: Dictionary = rig.pose("sit", 0.0)["_z"]
+	assert_true(float(z["leg_upper"]) < 3.0, "under the torso")
+	m.free()
+
+
+## The ring under the feet shows only while the player presses on or carries the person; a
+## selected person is known by the plate over their head.
+func test_the_ring_shows_only_while_pressed_or_carried():
+	var m := _main()
+	var pv: PersonView = m.house.people.values()[0]
+	pv.held = true
+	pv.position = m.house.layout.cell_center("yard", 4, 3)
+	pv.held = false
+	pv.target = pv.position
+	m.select(pv.person.uid)
+	assert_true(pv.selected)
+	assert_true(not pv.ring_shown(), "selected alone: no ring")
+	var at := m.house.to_screen(pv.position + Vector2(0, -2)) + Vector2(0, -30 * m.house.scale.y)
+	m.house.press(at)
+	assert_eq(m.house.pressing_uid(), pv.person.uid)
+	assert_true(pv.ring_shown(), "pressed on")
+	m.house.release(at)
+	assert_true(not pv.ring_shown())
+	pv.held = true
+	assert_true(pv.ring_shown(), "carried")
+	pv.held = false
+	assert_eq(PersonView.RING_FILL.r, 1.0)
+	assert_true(PersonView.RING_FILL.a < 0.5, "soft")
+	m.free()
+
+
+## Arrange mode: a piece whose picture would stand over another piece's is not put down
+## there (a toast says why); a clear spot is fine.
+func test_a_piece_is_not_put_where_its_picture_covers_another():
+	var m := _main()
+	var w := m.session.world
+	w.money = 1000
+	assert_true(m.house.picture_blocks("stool", "hall", 6, 2), "right behind the table")
+	var free := Vector2i(-1, -1)
+	for y in 6:
+		for x in 10:
+			if free.x < 0 and HouseSystem.can_place(w, "stool", "hall", x, y) == "" and not m.house.picture_blocks("stool", "hall", x, y):
+				free = Vector2i(x, y)
+	assert_true(free.x >= 0, "somewhere in the hall is clear")
+	m.arrange.enter()
+	m.arrange.pick_type("stool")
+	var r := m.arrange.drop(m.house.layout.cell_center("hall", 6, 2))
+	assert_eq(str(r.get("error", "")), "blocks_view")
+	assert_eq(m.hud.toasts()[-1], m.session.strings.error("blocks_view"))
+	assert_eq(m.arrange.held_type, "stool", "still in hand")
+	r = m.arrange.drop(m.house.layout.cell_center("hall", free.x, free.y))
+	assert_true(r.get("ok", false), str(r))
+	m.free()
+
+
+## The walk keeps step with the ground: a grown-up's cycle per STRIDE screen pixels, an old
+## person slower on the ground.
+func test_the_walk_cycle_follows_the_ground():
+	var m := _main()
+	var w := m.session.world
+	var pv: PersonView = null
+	for uid in m.house.people:
+		var q: PersonView = m.house.people[uid]
+		if q.person.stage(w.pack) == "adult":
+			pv = q
+	assert_true(pv != null)
+	pv.position = m.house.layout.cell_center("yard", 2, 3)
+	pv.target = pv.position + Vector2(48 * 6, 0)
+	var t0 := pv._stride_t
+	var from := pv.position
+	pv.tick(0.25)
+	var screen := IsoMath.basis().basis_xform(pv.position - from).length() / IsoMath.ISO_PACE
+	var k := clampf(float(pv._look.height) / 90.0, 0.6, 1.1)
+	assert_near(pv._stride_t - t0, screen / (PersonView.STRIDE * k) * CutoutRig.WALK_PERIOD, 0.001)
+	assert_true(PersonView.ELDER_PACE < 1.0)
 	m.free()

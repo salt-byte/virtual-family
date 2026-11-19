@@ -132,6 +132,7 @@ func test_selecting_again_recentres():
 
 func test_wheel_zoom_while_following_zooms_around_the_person():
 	var m := _main()
+	m.house.zoom_to(1.0)  # from life-size (the 45° view opens at ISO_START_SCALE)
 	var uid: int = m.session.world.people[0].uid
 	_push_away(m)
 	m.select(uid)

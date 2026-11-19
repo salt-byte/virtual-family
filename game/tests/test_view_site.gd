@@ -160,32 +160,33 @@ func test_back_walls_stand_tall_front_walls_low_and_see_through():
 	var m := _main()
 	var walls := m.house.walls
 	assert_true(walls.size() > 10)
-	var back: WallPiece = null
-	var front: WallPiece = null
+	var back: IsoWall = null
+	var front: IsoWall = null
 	for wp in walls:
-		if wp.along == "x" and wp.line == 6 and wp.a <= 25 and wp.b > 25:
+		if wp.role == "wall" and wp.along == "x" and wp.line == 6 and wp.at == 25:
 			back = wp  # the north wall above the hall
-		if wp.along == "x" and wp.line == 12 and wp.a <= 25 and wp.b > 25:
+		if wp.role == "wall" and wp.along == "x" and wp.line == 12 and wp.at == 25:
 			front = wp  # the hall's south wall, onto the yard
 	assert_true(back != null and front != null)
-	assert_true(back.heights[0] > 76.0, "taller than the comparison image's 76 px")
+	# The 45° view (ART_DIRECTION section 11): the back walls stand 112 px with an eave, the
+	# walls facing the camera are cut to 16.
+	assert_true(back.tall and back.height == IsoWall.BACK)
 	assert_true(back.eave)
-	assert_true(front.heights[0] < 30.0)
-	# A low front wall used to go see-through while someone stood just behind it, as its
-	# sill still covered their feet. It now sorts by its top instead of its foot, so whoever
-	# stands on the room's front row is drawn over it and it never needs to fade.
+	assert_true(not front.tall and front.height == IsoWall.LOW)
+	# Someone on the hall's front row stands behind the cut wall: it only reaches their
+	# ankles and never fades.
 	var pv: PersonView = m.house.people[m.session.world.people[0].uid]
 	pv.position = Vector2(25.5 * 48, 12 * 36 - 18)
 	pv.target = pv.position
+	pv.held = true
 	m.house.tick(0.016)
-	assert_true(front.position.y < pv.position.y, "drawn over the low wall in front of them")
+	assert_true(m.house.sort_depth(front) > m.house.sort_depth(pv))
 	assert_eq(front.modulate.a, 1.0)
-	# The tall back wall still fades for someone behind it (north of the house).
-	pv.position = Vector2(25.5 * 48, 6 * 36 - 30)
-	pv.target = pv.position
+	# The tall back wall fades for someone behind it (north of the house).
+	pv.position = Vector2(24.8 * 48, 6 * 36 - 30)  # on the screen right behind cell 25
 	m.house.tick(0.016)
 	assert_true(back.modulate.a < 1.0, "someone behind the back wall")
-	assert_true(back.position.y > pv.position.y)
+	assert_true(m.house.sort_depth(back) > m.house.sort_depth(pv))
 	m.free()
 
 

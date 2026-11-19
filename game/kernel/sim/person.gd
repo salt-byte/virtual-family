@@ -69,6 +69,9 @@ var father := 0
 ## `now` at which the baby is due (0: not with child), and the father's uid.
 var pregnant_until := 0
 var pregnant_by := 0
+## Which of the pack's looks they wear (`LookSystem`): "" for the stage's own picture as
+## before (old saves, packs without looks), "child" until grown up, else a look id.
+var look := ""
 
 
 ## Status bar: need id -> the label word that applies to the current value.
@@ -117,7 +120,7 @@ func to_dict() -> Dictionary:
 		"mood": mood, "mood_low_s": mood_low_s, "mood_ok_s": mood_ok_s, "generation": generation, "cared_at": cared_at,
 		"spouse": spouse, "mother": mother, "father": father,
 		"pregnant_until": pregnant_until, "pregnant_by": pregnant_by,
-	}
+	}.merged({"look": look} if look != "" else {})
 
 
 ## Rebuilds a Person; tolerates JSON round trips where every number is a float.
@@ -181,4 +184,5 @@ static func from_dict(d: Dictionary) -> Person:
 	p.father = int(d.get("father", 0))
 	p.pregnant_until = int(d.get("pregnant_until", 0))
 	p.pregnant_by = int(d.get("pregnant_by", 0))
+	p.look = str(d.get("look", ""))
 	return p

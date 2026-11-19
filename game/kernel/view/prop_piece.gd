@@ -6,7 +6,8 @@ extends Node2D
 ## used when the pack's skin has a picture for the thing.
 
 var tex: Texture2D
-## Where the picture goes, in house coordinates.
+## Where the picture goes: in house coordinates (`place`), or round this node, upright, in
+## view pixels (`place_at`, the 45° view).
 var rect := Rect2()
 var shadow := true
 ## Opacity (a piece lifted in arrange mode is faded).
@@ -18,23 +19,49 @@ var house: HouseView
 ## (feet just inside its front edge) is drawn over it.
 var sort_lift := 0.0
 const ON_LIFT := 10.0
+## The 45° view: drawn mirrored; how much further back it sorts (view pixels).
+var flip := false
+var sort_bias := 0.0
+var _local := false
 
 
 func place(t: Texture2D, r: Rect2) -> void:
 	tex = t
 	rect = r
+	_local = false
 	position = Vector2(r.get_center().x, r.end.y - sort_lift)
+	queue_redraw()
+
+
+## Stands the picture at plan point `at`; `r` is upright round it, in view pixels.
+func place_at(t: Texture2D, r: Rect2, at: Vector2) -> void:
+	tex = t
+	rect = r
+	_local = true
+	position = at
 	queue_redraw()
 
 
 func _draw() -> void:
 	if tex == null:
 		return
-	draw_set_transform(-position)
+	if not _local:
+		draw_set_transform(-position)
 	if shadow:
 		var foot := Vector2(rect.get_center().x, rect.end.y - 2.0)
 		var w := rect.size.x * 0.95
-		draw_colored_polygon(HouseGround._ellipse(Rect2(foot - Vector2(w * 0.5, 6), Vector2(w, 12))), Color(HouseGround.SHADOW, 0.25 * alpha))
-	draw_texture_rect(tex, rect, false, Color(1, 1, 1, alpha))
+		var h := 12.0
+		if _local:
+			foot.y -= 4.0
+			w = rect.size.x * 0.8
+			h = w * 0.4
+		draw_colored_polygon(HouseGround._ellipse(Rect2(foot - Vector2(w * 0.5, h * 0.5), Vector2(w, h))), Color(HouseGround.SHADOW, 0.25 * alpha))
+	if flip:
+		var mid := rect.get_center().x
+		draw_set_transform(Vector2(2.0 * mid, 0), 0.0, Vector2(-1, 1))
+		draw_texture_rect(tex, rect, false, Color(1, 1, 1, alpha))
+		draw_set_transform(Vector2.ZERO)
+	else:
+		draw_texture_rect(tex, rect, false, Color(1, 1, 1, alpha))
 	if object_uid >= 0 and house != null:
 		house.draw_dishes_on(self, object_uid)

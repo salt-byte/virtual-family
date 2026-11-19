@@ -91,6 +91,7 @@ static func run(pack_id: String, families: int, days: int, seed0: int) -> Dictio
 	var festival_actions := {}  # action id -> starts, for actions tied to a festival
 	var festival_wishes := {"formed": 0, "granted": 0, "ended": 0}
 	var mourned := 0
+	var letters := {}  # letter kind -> letters that came
 	beds_bought = 0
 	sent_out = 0
 	for i in families:
@@ -119,6 +120,8 @@ static func run(pack_id: String, families: int, days: int, seed0: int) -> Dictio
 			if w.season != "":
 				season_hours[w.season] = int(season_hours.get(w.season, 0)) + 1
 			for e in w.drain_events():
+				if e.type == "letter_arrived":
+					letters[e.kind] = int(letters.get(e.kind, 0)) + 1
 				if e.type == "weather_changed":
 					weather_changes += 1
 				elif e.type == "clean_reward":
@@ -207,6 +210,8 @@ static func run(pack_id: String, families: int, days: int, seed0: int) -> Dictio
 		"weather_hours": weather_hours, "season_hours": season_hours, "weather_changes": weather_changes,
 		"weather_only_actions": weather_only,
 		"clean_rewards": clean_rewards, "clean_reward_money": clean_money,
+		"letters_by_kind": letters,
+		"letters_per_family_day": snappedf(float(letters.values().reduce(func(a, b): return a + b, 0)) / (families * days), 0.01) if families * days > 0 else 0.0,
 		"pets": pets, "pet_deaths_by_cause": pet_deaths, "pets_home_at_end": pets_home_end,
 		"pets_avg_fondness": snappedf(fond_sum / pets_home_end, 0.1) if pets_home_end > 0 else 0.0,
 		"festivals_seen": festivals, "festival_actions": festival_actions, "festival_wishes": festival_wishes,

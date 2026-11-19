@@ -12,6 +12,7 @@ const ELDER_TINT := Color(0.62, 0.62, 0.62)
 
 var person: Person
 var session: GameSession
+var house: HouseView
 ## Where the person is heading, after the house has spread out people sharing a cell.
 var target := Vector2.ZERO
 ## Where they would head alone; the house adds the sideways offset on top.
@@ -82,6 +83,27 @@ var _wish := ""
 ## way they face (1 right, -1 left; the pictures face right) and whether they look unwell.
 var _look: Dictionary = {}
 var _facing := 1.0
+## The 45° view: which way the body is turned, for picking a rig: "side", "front" (towards
+## the camera, walking down the screen) or "back" (away, walking up it).
+var turned := "side"
+## The 45° view: the way they would turn to, and for how long it has held (a turn waits
+## TURN_HOLD, so a corner of the path does not flick the body round and back).
+var _turn_want := "side"
+var _turn_held := 0.0
+const TURN_HOLD := 0.12
+## The rig drawn now and the one fading out after a turn (0..1 through TURN_FADE).
+var _rig_now: CutoutRig
+var _rig_now_k := 1.0
+var _rig_was: CutoutRig
+var _rig_was_k := 1.0
+var _fade := 1.0
+const TURN_FADE := 0.16
+## The walk cycle's clock: advances with the distance walked (screen pixels / STRIDE of a
+## grown-up's cycle, shorter for smaller people), so feet do not slide.
+var _stride_t := 0.0
+const STRIDE := 100.0
+## Old people walk this much slower.
+const ELDER_PACE := 0.72
 var _unwell := false
 ## Half a step of the walking bob, in seconds; how high the step lifts.
 const STEP_PERIOD := 0.36
@@ -112,7 +134,15 @@ func setup(p: Person, s: GameSession) -> void:
 
 
 func layout() -> HouseLayout:
-	return get_parent().layout if get_parent() != null and "layout" in get_parent() else null
+	var h := _house()
+	return h.layout if h != null else null
+
+
+## The house this stands in (set by the house; else the parent, as in tests that build one).
+func _house() -> HouseView:
+	if house != null:
+		return house
+	return get_parent() as HouseView
 
 
 func refresh() -> void:
@@ -135,6 +165,9 @@ func refresh() -> void:
 		use_object = {}
 		on_object = false
 		var want := _compute_target(w, l)
+		if action_pose == "sit" and not on_object:
+			# No seat under them: sitting on air reads as broken legs; they stand to do it.
+			action_pose = "idle"
 		# On a seat or a bed the spot is on the piece itself (see `on_spot`).
 		base_target = want if on_object else l.stop_point(want)
 		target = base_target
@@ -157,7 +190,7 @@ func refresh() -> void:
 	_look = {}
 	_unwell = false
 	if skin != null and skin.enabled:
-		_look = skin.person_look(person.stage(w.pack), person.gender)
+		_look = skin.person_look(person.stage(w.pack), person.gender, person.look)
 		var u := skin.unwell()
 		if not u.is_empty() and person.needs.has(u.need):
 			_unwell = float(person.needs[u.need]) < float(u.below)
@@ -165,8 +198,8 @@ func refresh() -> void:
 
 
 func _skin() -> PackSkin:
-	var house = get_parent()
-	return house.skin if house != null and "skin" in house else null
+	var hv = _house()
+	return hv.skin if hv != null and "skin" in hv else null
 
 
 ## The clickable body: the picture's size with the pack's art (narrowed to the figure),
@@ -221,11 +254,70 @@ func tick(delta: float) -> void:
 	if held:
 		return
 	var was := position
-	walk(SPEED * delta)
-	if absf(position.x - was.x) > 0.01:
-		_facing = signf(position.x - was.x)
-	if pictured() and position != was:
+	walk(SPEED * delta * pace())
+	var moved := position - was
+	if _house() != null and _house().iso:
+		moved = IsoMath.basis().basis_xform(moved) / IsoMath.ISO_PACE
+	var tall := (_look.height as float) if not _look.is_empty() else 90.0
+	_stride_t += moved.length() / (STRIDE * clampf(tall / 90.0, 0.6, 1.1) * (0.85 if pace() < 1.0 else 1.0)) * CutoutRig.WALK_PERIOD
+	_fade = minf(1.0, _fade + delta / TURN_FADE)
+	_turn(position - was, delta)
+	if pictured() and position != was or _fade < 1.0:
 		queue_redraw()
+
+
+## How fast they walk, against a grown-up: old people slower.
+func pace() -> float:
+	if person == null or session == null or session.world == null:
+		return 1.0
+	var stages: Array = session.world.pack.cfg("stages")
+	if stages.size() > 2 and person.stage(session.world.pack) == str(stages[-1]["id"]):
+		return ELDER_PACE
+	return 1.0
+
+
+## Which way they face after moving by `d` (house coordinates): left or right on the screen,
+## and in the 45° view towards the camera, away or sideways; standing at furniture they
+## turn sideways to it; standing about they face the camera.
+func _turn(d: Vector2, delta := 1.0) -> void:
+	var iso := _house() != null and _house().iso
+	var v := IsoMath.basis().basis_xform(d) if iso else d
+	if absf(v.x) > 0.01:
+		_facing = signf(v.x)
+	if not iso:
+		return
+	var want := turned
+	if v.length() > 0.01:
+		want = "side" if absf(v.y) < 0.2 * v.length() else ("front" if v.y > 0.0 else "back")
+	elif not use_object.is_empty() and layout() != null and session.world != null:
+		var mid := layout().object_rect(use_object, session.world.pack).get_center()
+		var dv := IsoMath.basis().basis_xform(mid - position)
+		if absf(dv.x) > 1.0:
+			_facing = signf(dv.x)
+		want = "side"
+	elif person != null and person.current.is_empty():
+		want = "front"
+	if want != _turn_want:
+		_turn_want = want
+		_turn_held = 0.0
+	_turn_held += delta
+	if _turn_held >= TURN_HOLD:
+		turned = want
+
+
+## The rig for the pose: a front or back rig while walking or standing about, when the
+## pack has one; else the side rig. With its size factor (heads as big as the side rig's).
+func _rig_for(bp: String) -> Array:
+	var side: CutoutRig = _look.get("rig")
+	if side == null or not bp in ["walk", "idle"] or turned == "side":
+		return [side, 1.0]
+	var r: CutoutRig = _look.get("rig_" + turned)
+	if r == null:
+		return [side, 1.0]
+	var k := 1.0
+	if r.head_height > 0.0 and side.head_height > 0.0:
+		k = clampf((side.head_height / side.height) / (r.head_height / r.height), 0.75, 1.1)
+	return [r, k]
 
 
 ## Moves up to `step` pixels along the way to `target`, round walls through their doors.
@@ -234,11 +326,18 @@ func walk(step: float) -> void:
 		_path_goal = target
 		var l := layout()
 		path = l.site.route(position, target) if l != null and l.site.enabled else PackedVector2Array()
+	# In the 45° view the step is measured on the screen (so walking east is as quick to the
+	# eye as walking south): ISO_PACE turns plan pixels of a north-south walk into screen ones.
+	var iso := _house() != null and _house().iso
+	if iso:
+		step *= IsoMath.ISO_PACE
 	while step > 0.0:
 		var next := path[0] if not path.is_empty() else target
 		var d := position.distance_to(next)
+		if iso and d > 0.0:
+			d = IsoMath.basis().basis_xform(next - position).length()
 		if d > step:
-			position = position.move_toward(next, step)
+			position = position.lerp(next, step / d)
 			break
 		position = next
 		step -= d
@@ -336,6 +435,8 @@ func bob_offset() -> float:
 ## Whether a point in the house's coordinates lands on this person's body or name plate.
 func hit(world_pos: Vector2) -> bool:
 	var local := world_pos - position
+	if _house() != null and _house().iso:
+		local = IsoMath.basis().basis_xform(local)
 	var body := body_size()
 	return Rect2(Vector2(-body.x * 0.5, -body.y), body).grow(4.0).has_point(local)
 
@@ -378,17 +479,17 @@ func _compute_target(w: World, l: HouseLayout) -> Vector2:
 						_key = ""
 						return l.cell_center(str(m.room), int(m.x), int(m.y))
 			# Caring for a baby or a pet: over to where it is, just beside it.
-			var house = get_parent()
-			if house != null and "pets" in house and house.pets.has(tid):
+			var hv = _house()
+			if hv != null and "pets" in hv and hv.pets.has(tid):
 				_key = ""
-				var pet := house.pets[tid] as PetView
+				var pet := hv.pets[tid] as PetView
 				if pictured():
 					# Clear of the animal's own name plate, so the two plates do not overlap.
 					return pet.position + Vector2(body_size().x * 0.5 + pet.body().x * 0.5 + 34.0, 0)
 				return pet.position + Vector2(BODY.x, 0)
-			if house != null and "people" in house and house.people.has(tid) and house.people[tid] != self:
+			if hv != null and "people" in hv and hv.people.has(tid) and hv.people[tid] != self:
 				_key = ""
-				return (house.people[tid] as PersonView).base_target + Vector2(BODY.x, 0)
+				return (hv.people[tid] as PersonView).base_target + Vector2(BODY.x, 0)
 	if cur.is_empty():
 		_key = ""
 		return base_target if base_target != Vector2.ZERO else position
@@ -485,6 +586,16 @@ func _draw_bubble() -> void:
 	draw_string(font, rect.position + Vector2(0, 16), _wish, HORIZONTAL_ALIGNMENT_CENTER, w, 12, Color(0.2, 0.15, 0.1))
 
 
+## The ring under the feet shows only while the player presses on or carries this person.
+const RING_FILL := Color(1, 1, 1, 0.22)
+const RING_LINE := Color(1, 1, 1, 0.7)
+func ring_shown() -> bool:
+	if held:
+		return true
+	var h := _house()
+	return h != null and person != null and h.pressing_uid() == person.uid
+
+
 ## The walking step: a small hop on every step while walking, 0 otherwise.
 func step_lift() -> float:
 	if pose() != "walking":
@@ -503,18 +614,22 @@ func _draw_pictured() -> void:
 	var h: float = _look.height
 	var w := h * tex.get_width() / tex.get_height()
 	var bp := body_pose()
-	var rig: CutoutRig = _look.get("rig")
+	var picked := _rig_for(bp)
+	var rig: CutoutRig = picked[0]
 	var lift := step_lift() if rig == null else 0.0
+	var iso := _house() != null and _house().iso
 	if thanking() and not held:
 		lift = bob_offset()
 	var line := Color("#4A3424")
 	var lying := bp == "sleep" and not bool(_look.get("lying", false))
 	if not lying:
 		draw_colored_polygon(HouseGround._ellipse(Rect2(Vector2(-w * 0.45, -5), Vector2(w * 0.9, 10))), Color(HouseGround.SHADOW, 0.25))
-	if selected:
-		var ring := HouseGround._ellipse(Rect2(Vector2(-27, -10), Vector2(54, 20)), 32)
+	if ring_shown():
+		# Only while the player has them in hand: a soft white ellipse on the floor.
+		var ring := HouseGround._ellipse(Rect2(Vector2(-30, -15), Vector2(60, 30)) if iso else Rect2(Vector2(-27, -10), Vector2(54, 20)), 32)
+		draw_colored_polygon(ring, RING_FILL)
 		ring.append(ring[0])
-		draw_polyline(ring, accent, 3.5)
+		draw_polyline(ring, RING_LINE, 2.5)
 	var tint := Color.WHITE
 	if _unwell:
 		tint = tint.lerp(Color(0.72, 0.8, 0.7), 0.45)
@@ -523,7 +638,20 @@ func _draw_pictured() -> void:
 		# On the back, along the ground (or on what they lie on), head to one side.
 		var at := lie_point()
 		draw_colored_polygon(HouseGround._ellipse(Rect2(at + Vector2(-h * 0.5, 2), Vector2(h, 14))), Color(HouseGround.SHADOW, 0.2))
-		if _look.has("asleep"):
+		if _look.has("asleep") and bool(_look.get("asleep_iso", false)) and iso:
+			# A 45° picture of someone under a quilt, along the piece they lie on.
+			var pic2: Texture2D = _look.asleep
+			var pw := 110.0
+			var along_y := false
+			if on_object and not use_object.is_empty() and layout() != null and session.world != null:
+				var orr := layout().object_rect(use_object, session.world.pack)
+				pw = IsoMath.view_rect(orr).size.x * 0.72
+				along_y = orr.size.y / HouseSite.CELL.y > orr.size.x / HouseSite.CELL.x
+			var ps := Vector2(pic2.get_size()) * (pw / pic2.get_width())
+			draw_set_transform(Vector2.ZERO, 0.0, Vector2(-1 if along_y else 1, 1))
+			draw_texture_rect(pic2, Rect2(Vector2(at.x * (-1 if along_y else 1), at.y) - ps * 0.5, ps), false, tint)
+			draw_set_transform(Vector2.ZERO)
+		elif _look.has("asleep"):
 			var pic: Texture2D = _look.asleep
 			var len := h * 1.15
 			draw_set_transform(Vector2.ZERO, 0.0, flip)
@@ -538,8 +666,20 @@ func _draw_pictured() -> void:
 			draw_texture_rect(tex, Rect2(-w * 0.5, -h * 0.5, w, h), false, tint)
 			draw_set_transform(Vector2.ZERO)
 	elif rig != null:
-		var k2 := h / rig.height
-		rig.draw(self, _rig_pose(rig, bp), Transform2D(0.0, Vector2(_facing * k2, k2), 0.0, Vector2(0, lift + 2.0)), tint)
+		if rig != _rig_now:
+			# A turn: the old view fades out under the new one over TURN_FADE seconds.
+			_rig_was = _rig_now
+			_rig_was_k = _rig_now_k
+			_rig_now = rig
+			_rig_now_k = float(picked[1])
+			_fade = 0.0 if _rig_was != null else 1.0
+		if _fade < 1.0 and _rig_was != null:
+			var k0 := h / _rig_was.height * _rig_was_k
+			var tw := Color(tint, tint.a * (1.0 - _fade))
+			_rig_was.draw(self, _rig_pose(_rig_was, bp), Transform2D(0.0, Vector2(_facing * k0, k0), 0.0, Vector2(0, lift + 2.0)), tw)
+		var k2 := h / rig.height * float(picked[1])
+		var tn := Color(tint, tint.a * smoothstep(0.0, 1.0, _fade))
+		rig.draw(self, _rig_pose(rig, bp), Transform2D(0.0, Vector2(_facing * k2, k2), 0.0, Vector2(0, lift + 2.0)), tn)
 	else:
 		# One flat picture: walking hops and sways; working squashes in time; sitting is
 		# drawn shorter; eating nods.
@@ -627,9 +767,10 @@ func body_pose() -> String:
 ## The rig's pose, bent forward by the look's `lean` (an old back): the torso tips forward,
 ## the legs tip back by as much so they still stand straight.
 func _rig_pose(rig: CutoutRig, name: String) -> Dictionary:
-	var p := rig.pose(name, _t)
+	# Walking keeps step with the ground: the cycle follows the distance covered.
+	var p := rig.pose(name, _stride_t if name == "walk" else _t)
 	var lean: float = _look.get("lean", 0.0)
-	if lean != 0.0 and name != "sleep":
+	if lean != 0.0 and name != "sleep" and rig.facing == "side":
 		p["torso"] = p.get("torso", Vector3.ZERO) + Vector3(lean, 0, 0)
 		p["head"] = p.get("head", Vector3.ZERO) - Vector3(lean * 0.6, 0, 0)
 		for leg in ["leg_upper", "leg_back_upper"]:
@@ -654,7 +795,11 @@ func drawn_height() -> float:
 func lie_point() -> Vector2:
 	if on_object and not use_object.is_empty() and layout() != null and session.world != null:
 		var r := layout().object_rect(use_object, session.world.pack)
-		return Vector2(0, r.get_center().y - 4.0 - position.y)
+		var d := Vector2(0, r.get_center().y - 4.0 - position.y)
+		if _house() != null and _house().iso:
+			# On top of the piece: its middle, raised to its top.
+			return IsoMath.basis().basis_xform(r.get_center() - position) + Vector2(0, -38)
+		return d
 	return Vector2(0, -12)
 
 

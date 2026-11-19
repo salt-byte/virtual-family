@@ -14,6 +14,7 @@ var overlays: Overlays
 var panels: Panels
 var arrange: ArrangeMode
 var settings: SettingsPanel
+var letters: LetterView
 ## Uid of the selected person; -1 for none.
 var selected := -1
 ## Uid of the selected animal (-1: none); while one is selected the bar shows it.
@@ -64,6 +65,9 @@ func _build(pack_id: String, dir: String, real_clock: Callable) -> void:
 	settings = SettingsPanel.new()
 	add_child(settings)
 	settings.setup(self)
+	letters = LetterView.new()
+	add_child(letters)
+	letters.setup(self)
 	hud.open.connect(_on_hud_open)
 	house.blocked = is_house_blocked
 	_sync_selection()
@@ -84,6 +88,12 @@ func _on_hud_open(what: String) -> void:
 			arrange.enter()
 		return
 	arrange.exit()
+	letters.close()
+	if what == "letters":
+		panels.close()
+		settings.close()
+		letters.open_box()
+		return
 	if what == "settings":
 		panels.close()
 		settings.open()
@@ -92,11 +102,46 @@ func _on_hud_open(what: String) -> void:
 	panels.open(what)
 
 
+## A click on a "waiting for you" notice (`Notices`): opens the card that answers it, or
+## takes the view to whoever it is about. Whatever covered the house is put away first.
+func open_notice(n: Dictionary) -> void:
+	var t := int(n.get("target", -1))
+	var kind := str(n.get("kind", ""))
+	arrange.exit()
+	settings.close()
+	panels.close()
+	if not kind in ["letter", "reply", "letters"]:
+		letters.close()
+	match kind:
+		"proposal":
+			overlays.open_proposal(t)
+		"stray":
+			overlays.open_stray()
+		"letter", "reply":
+			letters.open_letter(t)
+		"letters":
+			letters.open_box()
+		"ill", "need", "thanks":
+			select(t)
+		"wish":
+			select(t)
+			var p := session.world.person(t)
+			var wish := WishSystem.current(session.world, p) if p != null else {}
+			if str(wish.get("kind", "")) in ["item", "pet"]:
+				panels.open("shop")
+		"pet_ill":
+			select_pet(t)
+		"pet_away":
+			panels.open("family")
+		"pickup", "pickups":
+			house.look_at_collectible(t)
+
+
 ## True while an overlay, a panel or the build confirmation covers the house; the house then
 ## ignores input.
 func is_house_blocked() -> bool:
 	return overlays.blocks_input() or panels.blocks_input() or arrange.blocks_input() \
-		or settings.blocks_input()
+		or settings.blocks_input() or letters.blocks_input()
 
 
 ## An explicit choice (a click on a person, the family panel): also makes the view follow
@@ -170,6 +215,8 @@ func tick(delta: float) -> void:
 	panels.refresh()
 	arrange.refresh()
 	settings.refresh()
+	letters.refresh()
+	letters.tick(delta)
 
 
 func _process(delta: float) -> void:

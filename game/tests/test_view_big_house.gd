@@ -31,10 +31,11 @@ func _view_centre() -> Vector2:
 	return Vector2(1280, 720 - HouseView.BOTTOM_BAR) * 0.5
 
 
-func test_qijia_opens_at_scale_one_centred_on_the_entrance_room():
+func test_qijia_opens_close_up_centred_on_the_entrance_room():
 	var m := _main()
 	assert_true(m.house.fit_scale(Vector2(1280, 720)) < 1.0)
-	assert_near(m.house.scale.x, 1.0)
+	# The 45° view opens a little closer than life-size (ISO_START_SCALE).
+	assert_near(m.house.scale.x, HouseView.ISO_START_SCALE)
 	var hall := m.house.layout.room_rect("hall").get_center()
 	assert_true(m.house.to_screen(hall).distance_to(_view_centre()) < 120.0, str(m.house.to_screen(hall)))
 	assert_true(absf(m.house.to_screen(hall).x - _view_centre().x) < 0.5)
@@ -51,6 +52,7 @@ func test_smoke_keeps_its_fitted_scale():
 
 func test_zoom_at_keeps_the_house_point_under_the_cursor():
 	var m := _main()
+	m.house.zoom_to(1.0)  # from life-size (the 45° view opens at ISO_START_SCALE)
 	var at := Vector2(700, 300)
 	var under := m.house.world_pos(at)
 	m.house.zoom_at(at, 1.1)
@@ -70,6 +72,7 @@ func test_zoom_at_keeps_the_house_point_under_the_cursor():
 
 func test_mouse_wheel_zooms():
 	var m := _main(); m.session.command({"type": "adopt"}); m.tick(0.016)
+	m.house.zoom_to(1.0)  # from life-size (the 45° view opens at ISO_START_SCALE)
 	var ev := InputEventMouseButton.new()
 	ev.button_index = MOUSE_BUTTON_WHEEL_UP
 	ev.pressed = true
@@ -88,21 +91,22 @@ func test_pan_brings_every_corner_room_to_the_centre():
 		var c := m.house.layout.room_rect(id).get_center()
 		m.house.pan(_view_centre() - m.house.to_screen(c))
 		assert_true(m.house.to_screen(c).distance_to(_view_centre()) < 0.5, "%s at %s" % [id, m.house.to_screen(c)])
-	# but not past the house's own edge
-	var b := m.house.layout.bounds()
+	# but not past the house's own edge (as drawn: in the 45° view the rect round the map's
+	# diamond, walls included)
+	var b := m.house.view_bounds()
 	m.house.pan(Vector2(100000, 100000))
-	assert_true(m.house.to_screen(b.position).distance_to(_view_centre()) < 0.5)
+	assert_true(m.house.view_to_screen(b.position).distance_to(_view_centre()) < 0.5)
 	m.house.pan(Vector2(-100000, -100000))
-	assert_true(m.house.to_screen(b.end).distance_to(_view_centre()) < 0.5)
+	assert_true(m.house.view_to_screen(b.end).distance_to(_view_centre()) < 0.5)
 	m.free()
 
 
 func test_a_house_smaller_than_the_view_stays_centred():
 	var m := _main()
 	m.house.zoom_to(m.house.fit_scale(Vector2(1280, 720)))
-	var b := m.house.layout.bounds()
+	var b := m.house.view_bounds()
 	m.house.pan(Vector2(5000, 0))
-	assert_true(absf(m.house.to_screen(b.get_center()).x - _view_centre().x) < 0.5)
+	assert_true(absf(m.house.view_to_screen(b.get_center()).x - _view_centre().x) < 0.5)
 	var s := _main("_smoke")
 	s.house.pan(Vector2(300, 300))
 	assert_true(s.house.to_screen(s.house.layout.bounds().get_center()).distance_to(_view_centre()) < 0.5)
@@ -128,8 +132,8 @@ func test_edge_scrolling_while_dragging_moves_the_house_and_stops_at_the_clamp()
 	assert_true(pv.position.distance_to(m.house.world_pos(edge)) < 0.01, "the carried person stays under the cursor")
 	for i in 100:
 		m.house.tick(0.1)
-	var b := m.house.layout.bounds()
-	assert_near(m.house.to_screen(b.end).x, _view_centre().x)
+	var b := m.house.view_bounds()
+	assert_near(m.house.view_to_screen(b.end).x, _view_centre().x)
 	var stuck := m.house.position
 	m.house.tick(0.1)
 	assert_eq(m.house.position, stuck)
@@ -168,7 +172,9 @@ func test_drag_onto_furniture_off_screen_after_edge_scrolling():
 	AutonomySystem.cancel(w, p); m.tick(0.016)
 	var o: Dictionary = w.objects.filter(func(x): return x.type == "coop")[0]
 	var centre := m.house.layout.object_rect(o, w.pack).get_center()
-	m.house.pan(Vector2(2000, 0))
+	# In the 45° view the coop sits lower on the screen than the hall: lift the house a
+	# little too, so it comes level with the middle when scrolled back.
+	m.house.pan(Vector2(2000, -100))
 	var screen := Rect2(Vector2.ZERO, Vector2(1280, 720 - HouseView.BOTTOM_BAR))
 	assert_true(not screen.has_point(m.house.to_screen(centre)), str(m.house.to_screen(centre)))
 	var pv: PersonView = m.house.people[p.uid]

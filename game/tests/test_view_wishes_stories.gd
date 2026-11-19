@@ -65,7 +65,9 @@ func test_bubble_bar_and_thanks():
 	assert_true(not m.hud.bar_text().contains("想要个糖人"))
 	assert_eq(pv.pose(), "thanks")
 	assert_true(pv.thanking())
-	assert_true(m.hud.toasts().any(func(t): return t.contains("如愿")), str(m.hud.toasts()))
+	# Told once, by the thank-you notice (was a toast; a toast no longer repeats a notice).
+	assert_true(m.hud.notices().any(func(x): return x["id"] == "thanks:%d" % p.uid), m.hud.notice_text())
+	assert_true(m.hud.notice_text().contains("如愿"), m.hud.notice_text())
 	m.free()
 
 
@@ -77,7 +79,15 @@ func test_shop_marks_the_wished_item():
 	m.panels.open("shop")
 	var t := m.panels.text()
 	assert_true(t.contains(m.session.strings.person_name(p) + "想要"), t)
-	assert_true(t.contains("书铺") and t.contains("布庄"), t)
+	# The goods now sit under the market's tabs (UI_PLAN); a tab that holds more than one
+	# kind of shop still names each, so the clothes tab shows the draper and the sundries.
+	var clothes := ""
+	for tab in m.panels._market_tabs(w):
+		if (tab["cats"] as Array).has("布庄"):
+			clothes = tab["id"]
+	m.panels.press(clothes)
+	t = m.panels.text()
+	assert_true(t.contains("布庄") and t.contains("杂货"), t)
 	m.free()
 
 

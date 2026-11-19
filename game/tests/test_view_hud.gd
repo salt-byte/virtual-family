@@ -50,8 +50,9 @@ func test_bar_shows_selected_person_in_words_not_numbers():
 	# Busy: the bar names the action without a percentage (the plate's line shows progress).
 	var desk: int = w.objects.filter(func(o): return o.type == "desk")[0].uid
 	m.session.command({"type": "drag", "person": p.uid, "object": desk})
-	# Need values whose digits cannot turn up in the age, the money or the larder count.
-	var values := [61.0, 67.0, 83.0, 89.0]
+	# Need values whose digits cannot turn up in the age, the money or the larder count:
+	# two at their worst, one low, one fine.
+	var values := [11.0, 13.0, 43.0, 89.0]
 	var k := 0
 	for nid in p.needs:
 		p.needs[nid] = values[k % values.size()]
@@ -64,8 +65,14 @@ func test_bar_shows_selected_person_in_words_not_numbers():
 	assert_true(text.contains(p.given))
 	assert_true(not text.contains("%"), text)
 	assert_true(text.contains(str(w.pack.actions[p.current.action].label)), text)
+	# The bar shows the words for what is wrong, loudest first, and leaves out the fine one
+	# (UI_PLAN: need words only when something is wrong).
+	var levels := {}
+	for c in m.session.strings.status_chips(p, w):
+		levels[c["word"]] = c["level"]
 	for word in p.status(m.session.pack).values():
-		assert_true(text.contains(word))
+		assert_eq(text.contains(word), levels[word] in ["bad", "warn"], "%s (%s)" % [word, levels[word]])
+	assert_eq(m.hud.chip_levels(), ["bad", "bad", "warn"] as Array[String])
 	var re := RegEx.create_from_string("\\d+%")
 	var stripped := re.sub(text, "", true)
 	assert_true(not stripped.contains("%"), stripped)
@@ -286,3 +293,42 @@ func test_clean_house_pay_floats_over_the_sweeper():
 	assert_eq(m.house.people[p.uid].float_text(), m.session.strings.t("float.clean_reward").replace("{n}", str(amount)))
 	assert_true(m.hud.toasts().has(m.session.strings.t("ev.clean_reward").replace("{n}", str(amount))), str(m.hud.toasts()))
 	m.queue_free()
+
+
+## Something turning up on the ground shows a toast at the top (the pack's words); clicking
+## it brings the thing to the middle of the house area.
+## Was "a pickup shows a toast that takes the view there": the pickup is now told once, by
+## its notice (which takes the view there, see test_view_notices); no toast says it again.
+func test_a_pickup_is_told_by_its_notice_not_a_toast_too():
+	var m := _adopted()
+	var w := m.session.world
+	var uid := CollectibleSystem.spawn(w)
+	assert_true(uid >= 0)
+	m.tick(0.016)
+	var c := CollectibleSystem.find(w, uid)
+	var line: String = m.session.strings.t("ev.pickup_spotted").format({"room": str(w.pack.rooms[str(c.room)]["name"])})
+	assert_true(not m.hud.toasts().has(line), str(m.hud.toasts()))
+	assert_true(m.hud.notices().any(func(x): return x["id"] == "pickup:%d" % uid))
+	# A toast given a click runs it and goes; one without a click does nothing when clicked.
+	var hit := [false]
+	m.hud.toast("clickable", func(): hit[0] = true)
+	assert_true(m.hud.click_toast(m.hud.toasts().find("clickable")))
+	assert_true(hit[0])
+	assert_true(not m.hud.toasts().has("clickable"), "the toast goes once clicked")
+	m.hud.toast("plain")
+	assert_true(not m.hud.click_toast(m.hud.toasts().find("plain")))
+	m.free()
+
+
+func test_toasts_take_turns_two_at_most_and_say_nothing_twice():
+	var m := _adopted()
+	for t in ["一", "二", "三"]:
+		m.hud.toast(t)
+	m.hud.toast("二")
+	assert_eq(m.hud.toasts(), ["一", "二", "三"] as Array[String], "the same words are not queued twice")
+	assert_eq(m.hud.visible_toasts(), ["一", "二"] as Array[String])
+	m.hud.tick(Hud.TOAST_SECONDS + 0.1)
+	assert_eq(m.hud.visible_toasts(), ["三"] as Array[String], "the waiting one gets its turn")
+	m.hud.tick(Hud.TOAST_SECONDS - 0.2)
+	assert_eq(m.hud.visible_toasts(), ["三"] as Array[String], "with its full time")
+	m.free()

@@ -61,6 +61,8 @@ static func _snapshot(w: World) -> Dictionary:
 		out["pet_saved"] = w.pet_saved.duplicate(true)
 	if w.pet_grief_until > 0:
 		out["pet_grief_until"] = w.pet_grief_until
+	if w.letter_next > 1:  # optional: only once a letter came (older saves lack it)
+		out["letters"] = {"list": w.letters.duplicate(true), "next": w.letter_next, "minor_at": w.letter_minor_at}
 	return out
 
 
@@ -178,6 +180,13 @@ static func _build(pack: Pack, d: Dictionary) -> World:
 	for k in ps:
 		w.pet_saved[str(k)] = float(ps[k])
 	w.pet_grief_until = int(d.get("pet_grief_until", 0))
+	var ld: Dictionary = d.get("letters", {})  # absent in older saves and before the first letter
+	if not ld.is_empty():
+		w.letters.clear()
+		for l in ld["list"]:
+			w.letters.append(_letter(l))
+		w.letter_next = int(ld["next"])
+		w.letter_minor_at = int(ld["minor_at"])
 	PetSystem.rebuild_held(w)
 	if BirthSystem.enabled(pack):
 		_link_old_couple(w)
@@ -370,6 +379,8 @@ static func _valid_person(p) -> bool:
 		return false
 	if p.has("wish_last") and not _is_str(p["wish_last"]):
 		return false
+	if p.has("look") and not _is_str(p["look"]):
+		return false  # optional: older saves lack it
 	if p.has("mood") and not (_is_str(p["mood"]) and p["mood"] in ["", "sad", "depressed"]):
 		return false
 	for k in ["thanks_until", "mood_low_s", "mood_ok_s", "generation", "cared_at",
@@ -483,6 +494,8 @@ static func _valid_save(pack: Pack, d: Dictionary) -> bool:
 				return false
 	if d.has("pet_grief_until") and not (_is_whole(d["pet_grief_until"]) and float(d["pet_grief_until"]) >= 0.0):
 		return false
+	if d.has("letters") and not _valid_letters(d["letters"]):
+		return false
 	# The uid counter must lie above every uid in use, or new things would collide.
 	var top := 0
 	for key in ["people", "objects", "messes", "collectibles"]:
@@ -495,6 +508,62 @@ static func _valid_save(pack: Pack, d: Dictionary) -> bool:
 	for pet in d.get("pets", []):
 		top = maxi(top, int(pet["uid"]))
 	return int(d["next_uid"]) > top
+
+
+## Saved letters: {list, next, minor_at}, every letter well-formed and numbered below `next`.
+static func _valid_letters(ld) -> bool:
+	if not _has(ld, {"list": "a", "next": "i", "minor_at": "i"}):
+		return false
+	for l in ld["list"]:
+		if not _has(l, {"id": "i", "t": "i", "kind": "s", "template": "s", "from": "i", "about": "i",
+				"writer": "s", "hand": "s", "text": "s", "sign": "s", "choices": "a", "answer": "i", "read": "b"}):
+			return false
+		if int(l["id"]) >= int(ld["next"]):
+			return false
+		for ch in l["choices"]:
+			if not _has(ch, {"label": "s", "effect": "d"}) or not _valid_effect(ch["effect"]):
+				return false
+	return true
+
+
+## A letter choice's effect: a known type with the fields that type acts on.
+static func _valid_effect(e: Dictionary) -> bool:
+	if not _has(e, {"type": "s"}) or not str(e["type"]) in LetterSystem.EFFECTS:
+		return false
+	match str(e["type"]):
+		"mood":
+			return _has(e, {"person": "i", "amount": "n"})
+		"wish_keep":
+			return _has(e, {"person": "i", "wish": "s", "amount": "n", "hours": "n"})
+		"wish_drop":
+			return _has(e, {"person": "i", "wish": "s", "amount": "n"})
+		"answer_proposal":
+			return _has(e, {"proposal": "i", "accept": "b"})
+		"change_track":
+			return _has(e, {"person": "i", "from": "s", "track": "s"})
+		"money":
+			return _has(e, {"amount": "i"})
+	return true
+
+
+## A saved letter with the exact types the live one has (JSON brings whole numbers back as floats).
+static func _letter(l: Dictionary) -> Dictionary:
+	var out := _ints(l, ["id", "t", "from", "about", "answer"])
+	var choices: Array = []
+	for ch in l["choices"]:
+		var e: Dictionary = ch["effect"].duplicate(true)
+		for k in ["person", "proposal"]:
+			if e.has(k):
+				e[k] = int(e[k])
+		if str(e["type"]) == "money":
+			e["amount"] = int(e["amount"])
+		else:
+			for k in ["amount", "hours"]:
+				if e.has(k):
+					e[k] = float(e[k])
+		choices.append({"label": str(ch["label"]), "effect": e})
+	out["choices"] = choices
+	return out
 
 
 ## A saved pet: its keys with the right types; the optional ones in range.

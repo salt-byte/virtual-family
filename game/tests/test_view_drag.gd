@@ -46,7 +46,7 @@ func test_drop_on_object_starts_its_action():
 func test_drop_on_empty_floor_is_quiet_and_keeps_position():
 	var m := _main_with_adult_and("stool", "hall", 3, 3)
 	var p := m.session.world.people[0]
-	var at := m.house.layout.cell_center("hall", 6, 4)
+	var at := m.house.layout.cell_center("hall", 9, 2)
 	m.drag.begin(p.uid)
 	m.drag.drop(at)
 	assert_eq(m.hud.toasts(), [])
@@ -135,7 +135,7 @@ func test_sick_person_dropped_on_floor_shows_the_symptom():
 	var seen: Array = []
 	m.session.event.connect(func(e: Dictionary): seen.append(e))
 	m.drag.begin(p.uid)
-	var r := m.drag.drop(m.house.layout.cell_center("hall", 6, 4))
+	var r := m.drag.drop(m.house.layout.cell_center("hall", 9, 2))
 	assert_true(not r.ok)
 	assert_true(seen.any(func(e): return e.type == "action_started" and e.get("action") == sym), str(seen))
 	assert_eq(m.hud.toasts().filter(func(t): return t == m.session.strings.error("no_object")), [])
@@ -166,9 +166,9 @@ func test_hover_marks_the_thing_under_the_cursor():
 	m.drag.move(_center(m, o))
 	assert_eq(m.house.hover.kind, "object")
 	assert_eq(int(m.house.hover.uid), int(o.uid))
-	m.drag.move(m.house.layout.cell_center("hall", 6, 4))
+	m.drag.move(m.house.layout.cell_center("hall", 9, 2))
 	assert_eq(m.house.hover.kind, "room")
-	m.drag.drop(m.house.layout.cell_center("hall", 6, 4))
+	m.drag.drop(m.house.layout.cell_center("hall", 9, 2))
 	assert_eq(m.house.hover, {})
 
 

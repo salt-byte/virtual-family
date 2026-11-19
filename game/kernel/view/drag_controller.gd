@@ -28,7 +28,7 @@ func begin(uid: int) -> void:
 	_origin = pv.position
 	pv.held = true
 	pv.z_index = 10
-	_hover(main.house.layout.pick(main.session.world, pv.position))
+	_hover(main.house.pick(main.session.world, pv.position))
 
 
 func move(world_pos: Vector2) -> void:
@@ -43,7 +43,7 @@ func move(world_pos: Vector2) -> void:
 	elif pet >= 0:
 		_hover({"kind": "pet", "uid": pet})
 	else:
-		_hover(main.house.layout.pick(main.session.world, world_pos))
+		_hover(main.house.pick(main.session.world, world_pos))
 
 
 ## Lets go of the person at `world_pos` and returns the command's result; `{}` when nothing
@@ -53,7 +53,7 @@ func drop(world_pos: Vector2) -> Dictionary:
 		return {}
 	var uid := dragging
 	var pv := _view(uid)
-	var hit := main.house.layout.pick(main.session.world, world_pos)
+	var hit := main.house.pick(main.session.world, world_pos)
 	dragging = -1
 	_hover({})
 	if pv == null:

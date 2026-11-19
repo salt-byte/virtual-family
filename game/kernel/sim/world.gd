@@ -69,6 +69,9 @@ var goals_done: Array[String] = []
 var married := false
 ## The person on offer while adopting, in `Person.to_dict()` shape; {} otherwise.
 var candidate: Dictionary = {}
+## Everyone on offer while adopting, side by side (`candidate` first); the command `adopt`
+## takes one by `pick`. Not saved: after a load only `candidate` is on offer until a reroll.
+var candidates: Array[Dictionary] = []
 ## Pending marriage proposals: {id, person: Dictionary, savings, expires_at}.
 var proposals: Array[Dictionary] = []
 ## `now` from which the next proposal may arrive.
@@ -85,14 +88,23 @@ var blessing_illness := 1.0
 ## True while some couple could have a child but the beds have no place for one (see
 ## `BirthSystem`); kept so the hint is given once each time it starts.
 var birth_blocked := false
+## Letters to the player, oldest first (see `LetterSystem`), the id the next one gets, and
+## `now` of the last minor letter (0: none yet).
+var letters: Array[Dictionary] = []
+var letter_next := 1
+var letter_minor_at := 0
 
 ## The living babies as of `_babies_t` (see `babies`); not saved.
 var _babies: Array[Person] = []
-## `AutonomySystem._world_key`'s cache: [now, utc_offset, rooms_built, its size, weather,
-## wet_until, key]; not saved.
+## `AutonomySystem._world_key`'s cache: [hour key, rooms_built, its size, weather, wet,
+## season position, season list, key]; not saved.
 var _flags_ctx: Array = []
 ## `AutonomySystem._objects_by_type`'s cache: [objects, size, last uid, uids by type]; not saved.
 var _by_type_ctx: Array = []
+## `GoalSystem._owned`'s cache: [objects, size, last uid, object types, count]; not saved.
+var _owned_ctx: Array = []
+## `GoalSystem.step`'s cache: [goals_done, its size, goals table, open goals]; not saved.
+var _goals_open: Array = []
 var _babies_t := -1
 ## `PetSystem.home_key` and `PetSystem.room_now` as of [now, pets size]; not saved.
 var _pet_cache: Array = [-1, -1, "", {}]
@@ -102,6 +114,10 @@ var _built_src: Array[String] = []
 var _acc := 0.0
 var _next_uid := 1
 var _events: Array = []
+## Events that may become letters, waiting for `LetterSystem.step`; not saved. Filled only
+## when the pack has letters (`_letter_watch` is then `LetterSystem.WATCH`).
+var _letter_news: Array = []
+var _letter_watch: Dictionary = {}
 
 
 func _init(p: Pack, seed: int) -> void:
@@ -116,6 +132,8 @@ func _init(p: Pack, seed: int) -> void:
 		if bool(p.rooms[id].get("built", false)):
 			rooms_built.append(str(id))
 	phase = "adopting"
+	if LetterSystem.enabled(p):
+		_letter_watch = LetterSystem.WATCH
 	FamilySystem.new_candidate(self)
 
 
@@ -227,6 +245,8 @@ func emit(type: String, data := {}) -> void:
 	var e := {"type": type, "t": now}
 	e.merge(data)
 	_events.append(e)
+	if _letter_watch.has(type):
+		_letter_news.append(e)
 
 
 ## Puts `events` back at the front of the queue, ahead of anything queued since.
@@ -312,7 +332,8 @@ func _run_systems(dt: float) -> void:
 	MoodSystem.step(self, dt)
 	WishSystem.step(self, dt)
 	StorySystem.step(self, dt)
-	PetSystem.step(self, dt)  # last: its hourly look for a stray draws after everything else
+	PetSystem.step(self, dt)  # its hourly look for a stray draws after everything but letters
+	LetterSystem.step(self, dt)  # last: turns this step's news into letters
 
 
 ## Everything that decides what happens next, as plain JSON-safe data; see `WorldSave`.

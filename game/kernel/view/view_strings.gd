@@ -6,7 +6,7 @@ extends RefCounted
 
 const DEFAULTS := {
 	"btn.praise": "赏", "btn.scold": "罚", "btn.family": "家人", "btn.shop": "商店", "btn.ledger": "目标",
-	"btn.arrange": "摆设", "btn.adopt": "领养", "btn.reroll": "换一位", "btn.accept": "应下",
+	"btn.arrange": "摆设", "btn.adopt": "领养", "btn.reroll": "换一批", "btn.accept": "应下",
 	"btn.decline": "回绝", "btn.close": "关闭", "btn.buy": "买", "btn.use_on": "给{name}用",
 	"btn.sell": "卖掉", "btn.build": "加盖", "btn.new_game": "新开一局", "btn.settings": "设置",
 	"idle": "闲着", "money": "钱 {n}", "years": "{n} 岁", "stock": "存货 {n}",
@@ -57,12 +57,18 @@ const DEFAULTS := {
 	"hint.drag": "把人拖到东西上，他就去用它；不拖的时候，他自己过日子",
 	"error.keepsake": "这是旧物，不卖", "error.no_visitor": "门口已经没有人了",
 	"mood.sad": "难过", "mood.depressed": "抑郁",
+	"btn.letters": "信匣", "title.letters": "信匣", "letters.none": "还没有来信。",
+	"letter.from": "{writer}的信", "letter.today": "今天", "letter.days": "{n} 天前",
+	"letter.answered": "已回：{choice}", "letter.stale": "这事已经过去了，回不了了",
+	"away.letters": "这些天来了 {n} 封信，收在信匣里",
+	"error.no_letter": "没有这封信", "error.answered": "这封信已经回过了",
+	"error.too_late": "这事已经过去了", "error.no_choice": "做不了",
 	"ev.mood_depressed": "{name}这几天闷闷不乐", "ev.mood_recovered": "{name}缓过来了",
 	"ev.wish_formed": "{name}心里想着：{text}", "ev.wish_granted": "{name}如愿了：{text}",
 	"ev.wish_expired": "{name}没等到：{text}",
 	"wish.line": "心愿：{text}", "shop.wanted": "{name}想要", "thanks": "谢谢",
 	"btn.stories": "旧事", "stories.locked": "……", "stories.none": "还没有翻出什么旧事。",
-	"ev.fragment": "捡到了{name}", "ev.story_done": "「{title}」有了着落",
+	"ev.pickup_spotted": "{room}地上好像有东西", "error.blocks_view": "放这儿会挡住别的家具", "ev.fragment": "捡到了{name}", "ev.story_done": "「{title}」有了着落",
 	"btn.receive": "收下", "visitor.money": "留下 {money}",
 	"away.fragment": "捡到了{name}", "away.story_done": "「{title}」有了着落",
 	"status.pregnant": "有了身孕", "months": "{n} 个月",
@@ -87,7 +93,23 @@ const DEFAULTS := {
 	"error.no_pet": "没有这只动物", "error.not_for_pet": "这东西不是给动物的", "error.wrong_pet": "它不吃这个",
 	"error.too_many_pets": "家里养不下更多了", "error.no_perch": "还没有它待的地方", "error.no_pet_kind": "没有这种动物",
 	"error.no_stray": "门口已经没有了",
+	"bar.doing": "在做：{text}", "bar.age_job": "{age} · {job}",
+	"notice.head": "有事找你", "notice.more": "还有 {n} 件，点开看", "notice.fold": "收起",
+	"notice.proposal": "有人来给{name}提亲", "notice.proposal_from": "{writer}来给{name}提亲",
+	"notice.proposal_any": "有人上门提亲", "notice.stray": "门口来了一只{kind}",
+	"notice.letter": "{writer}的信，还没拆", "notice.reply": "{writer}的信，等你回话",
+	"notice.letters": "还有 {n} 封信等你看", "notice.thanks": "{name}如愿了，在谢你",
+	"notice.need": "{name}{word}", "notice.pet_away": "{name}跑出去了，还没回来",
+	"notice.pickup": "{room}地上有东西可捡", "notice.pickups": "地上有 {n} 样东西可捡",
+	"notice.wish": "{name}{text}", "status.fine": "身上都好",
+	"adopt.note": "挑一位进门；都不合意，就换一批。", "label.job": "营生",
+	"market.empty": "这里的货还没到。", "market.arrange_note": "家具和加盖屋子都在摆设里挑。",
 }
+
+## How loud a status word is in the bar: "bad" (the worst label of a need, a heavy mood),
+## "warn" (the lower half), "mild" (below the best), "ok" (the best label), "info" (news,
+## not trouble: carrying a child).
+const LEVELS := ["bad", "warn", "info", "mild", "ok"]
 
 var pack: Pack
 ## Problems found while reading ui.json (bad JSON, not an object, non-string values).
@@ -117,6 +139,11 @@ func _init(p: Pack, ui_path := "") -> void:
 			_over[str(k)] = parser.data[k]
 		else:
 			errors.append("ui.json: %s: value must be a string" % k)
+
+
+## True when the pack or the defaults define `key`.
+func has(key: String) -> bool:
+	return _over.has(key) or DEFAULTS.has(key)
 
 
 func t(key: String) -> String:
@@ -184,6 +211,63 @@ func status_line(p: Person, world: World) -> String:
 	for word in p.status(world.pack).values():
 		words.append(str(word))
 	return "、".join(words)
+
+
+## The status words of `p` as chips for the bar, the loudest first (see LEVELS), each
+## {need, name, word, level}; `need` is the need id ("" for mood and pregnancy).
+func status_chips(p: Person, world: World) -> Array[Dictionary]:
+	var out: Array[Dictionary] = []
+	if p.mood != "":
+		out.append({"need": "", "name": "", "word": t("mood." + p.mood), "level": "bad" if p.mood == "depressed" else "warn"})
+	if p.pregnant():
+		out.append({"need": "", "name": "", "word": t("status.pregnant"), "level": "info"})
+	var words := p.status(world.pack)
+	for nid in words:
+		var n: Dictionary = world.pack.needs[nid]
+		out.append({"need": str(nid), "name": str(n.get("name", "")), "word": str(words[nid]),
+			"level": need_level(n.get("labels", []), float(p.needs.get(nid, 0.0)))})
+	return _by_level(out)
+
+
+## The same for an animal: its need words, and "sick" as the loudest.
+func pet_chips(pet: Pet, world: World) -> Array[Dictionary]:
+	var out: Array[Dictionary] = []
+	if pet.sick:
+		out.append({"need": "", "name": "", "word": t("pet.sick"), "level": "bad"})
+	var words := pet.status(world.pack)
+	for n in PetSystem.need_list(world.pack):
+		var nid := str(n.get("id", ""))
+		if words.has(nid):
+			out.append({"need": nid, "name": str(n.get("name", "")), "word": str(words[nid]),
+				"level": need_level(n.get("labels", []), float(pet.needs.get(nid, 0.0)))})
+	return _by_level(out)
+
+
+## Where `v` falls among a need's labels (sorted by `below`, worst first): the first label is
+## "bad", the last "ok", the lower half of the rest "warn", the upper half "mild".
+static func need_level(labels: Array, v: float) -> String:
+	var n := labels.size()
+	if n == 0:
+		return "ok"
+	var idx := n - 1
+	for i in n:
+		if v < float(labels[i]["below"]):
+			idx = i
+			break
+	if idx == n - 1:
+		return "ok"
+	if idx == 0:
+		return "bad"
+	return "warn" if float(idx) <= float(n - 1) * 0.5 else "mild"
+
+
+static func _by_level(chips: Array[Dictionary]) -> Array[Dictionary]:
+	var out: Array[Dictionary] = []
+	for lv in LEVELS:
+		for c in chips:
+			if c["level"] == lv:
+				out.append(c)
+	return out
 
 
 func _name_of(uid: int, world: World) -> String:
@@ -330,6 +414,10 @@ func event(e: Dictionary, world: World) -> String:
 			if str(e["was"]) == "depressed":
 				return _f("ev.mood_recovered", {"name": _name_of(int(e["person"]), world)})
 			return ""
+		"collectible_spawned":
+			# Something turned up on the ground: the toast takes the player there when clicked.
+			var room = world.pack.rooms.get(str(e.get("room", "")), {})
+			return _f("ev.pickup_spotted", {"room": str(room.get("name", "")) if room is Dictionary else ""})
 		"fragment_found":
 			var f := StorySystem.fragment(world.pack, str(e["story"]), str(e["fragment"]))
 			return _f("ev.fragment", {"name": str(f.get("name", ""))})
@@ -445,6 +533,9 @@ func summary_lines(summary: Dictionary, world: World) -> Array[String]:
 		var tk: String = {"pets_ill": "away.pet_ill", "pets_back": "away.pet_back", "pets_cured": "away.pet_cured"}[key]
 		for uid in summary.get(key, []):
 			out.append(_f(tk, {"name": _pet_called(int(uid), world)}))
+	var letters: Array = summary.get("letters", [])
+	if not letters.is_empty():
+		out.append(_f("away.letters", {"n": letters.size()}))
 	if summary.get("game_over", false):
 		out.append(t("away.over"))
 	return out

@@ -111,6 +111,19 @@ static func boosts(pack: Pack, fest: String) -> PackedFloat64Array:
 	return out
 
 
+## The highest of `boosts(pack, fest)` (at least 1): how far the festival can lift a score
+## past the bounds `AutonomySystem` works out without it.
+static func max_boost(pack: Pack, fest: String) -> float:
+	var cached = pack.festival_boosts.get("#" + fest)
+	if cached != null:
+		return cached
+	var m := 1.0
+	for b in boosts(pack, fest):
+		m = maxf(m, b)
+	pack.festival_boosts["#" + fest] = m
+	return m
+
+
 ## Whether an action, an item or anything else that lists `festivals` can happen now: yes
 ## when the list is empty, else only while one of them is on.
 static func allows(world: World, festivals: Array) -> bool:

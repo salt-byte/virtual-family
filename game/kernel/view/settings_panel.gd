@@ -28,9 +28,10 @@ func setup(m: Main) -> void:
 	_root.set_anchors_preset(Control.PRESET_FULL_RECT)
 	_root.mouse_filter = Control.MOUSE_FILTER_STOP
 	_root.visible = false
+	_root.theme = ViewWidgets.panel_theme()
 	add_child(_root)
 	var shade := ColorRect.new()
-	shade.color = Color(0, 0, 0, 0.4)
+	shade.color = Color(0.16, 0.11, 0.07, 0.4)
 	shade.set_anchors_preset(Control.PRESET_FULL_RECT)
 	shade.mouse_filter = Control.MOUSE_FILTER_STOP
 	_root.add_child(shade)

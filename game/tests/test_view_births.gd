@@ -146,6 +146,11 @@ func test_dropping_a_grown_up_on_a_baby_feeds_it():
 	var h := w.person(_wife(w).spouse)
 	AutonomySystem.cancel(w, h)
 	m.tick(0.016)
+	# Whoever else picked the baby up on their own in that frame puts it down again (with
+	# letters the random draws moved, and the mother now happens to start feeding it first).
+	for q in w.people:
+		if q != h and int(q.current.get("target_uid", -1)) == child.uid:
+			AutonomySystem.cancel(w, q)
 	var bpv: PersonView = m.house.people[child.uid]
 	var at := bpv.position + Vector2(0, -6)
 	m.drag.begin(h.uid)

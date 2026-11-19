@@ -31,6 +31,7 @@ static func make_person(world: World, age_range: Array) -> Person:
 	p.lifespan = _range_f(world, world.pack.cfg("lifespan"))
 	for nid in world.pack.needs:
 		p.needs[nid] = float(world.pack.needs[nid]["start"])
+	LookSystem.assign(world, p)
 	return p
 
 
@@ -50,6 +51,18 @@ static func _range_f(world: World, r: Array) -> float:
 
 static func new_candidate(world: World) -> void:
 	world.candidate = make_person(world, world.pack.cfg("adopt_age")).to_dict()
+	# The others on offer come from a die of their own, seeded by the first: the world's
+	# dice roll exactly as they did with one candidate.
+	world.candidates = [world.candidate]
+	var keep := world.rng
+	world.rng = SimRng.new(hash(str(world.candidate)))
+	for i in CHOICES - 1:
+		world.candidates.append(make_person(world, world.pack.cfg("adopt_age")).to_dict())
+	world.rng = keep
+
+
+## How many people are on offer at once while adopting.
+const CHOICES := 3
 
 
 static func reroll(world: World, _cmd: Dictionary) -> Dictionary:
@@ -64,10 +77,15 @@ static func reroll(world: World, _cmd: Dictionary) -> Dictionary:
 	return Commands.success()
 
 
-static func adopt(world: World, _cmd: Dictionary) -> Dictionary:
+## Command {pick?}: takes in the candidate at `pick` in `candidates` (default the first).
+static func adopt(world: World, cmd: Dictionary) -> Dictionary:
+	var pick := int(cmd.get("pick", 0))
+	if pick > 0 and pick < world.candidates.size():
+		world.candidate = world.candidates[pick]
 	var p := Person.from_dict(world.candidate)
 	world.add_person(p)
 	world.candidate = {}
+	world.candidates = []
 	if not world.adopted_once:
 		world.adopted_once = true
 		world.money = int(world.pack.cfg("start_money"))
@@ -134,6 +152,7 @@ static func step(world: World, _dt: float) -> void:
 	var person := make_person(world, world.pack.cfg("adopt_age"))
 	person.gender = "female" if head.gender == "male" else "male"
 	person.given = str(world.rng.pick(world.pack.names.get(person.gender, [])))
+	LookSystem.ensure(world, person)
 	var id := world.next_uid()
 	var pr := {
 		"id": id, "person": person.to_dict(),
