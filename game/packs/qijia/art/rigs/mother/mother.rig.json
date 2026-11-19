@@ -1,0 +1,290 @@
+{
+ "name": "mother",
+ "facing": "right",
+ "sheet_rows": [
+  [
+   "head",
+   "torso"
+  ],
+  [
+   "arm_upper",
+   "arm_lower"
+  ],
+  [
+   "leg_upper",
+   "leg_lower"
+  ]
+ ],
+ "parts": [
+  {
+   "id": "head",
+   "parent": "torso",
+   "z": 2,
+   "pivot": {
+    "y": 0.9,
+    "x": "center"
+   },
+   "attach": {
+    "y": 0.04,
+    "x": "center",
+    "dx": 0.04
+   },
+   "what": "头和脖子，侧脸朝右；脖子往下多画一截，会藏到躯干后面",
+   "image": "head.png",
+   "pivot_px": [
+    138.85,
+    217.5
+   ],
+   "attach_px": [
+    88.15,
+    11.4
+   ],
+   "size": [
+    247.5,
+    243.0
+   ]
+  },
+  {
+   "id": "torso",
+   "parent": null,
+   "z": 3,
+   "pivot": {
+    "y": 0.93,
+    "x": "center"
+   },
+   "what": "躯干，从肩到胯，侧面朝右；不带胳膊和腿",
+   "image": "torso.png",
+   "pivot_px": [
+    87.0,
+    232.15
+   ],
+   "size": [
+    173.5,
+    251.0
+   ]
+  },
+  {
+   "id": "arm_upper",
+   "parent": "torso",
+   "z": 7,
+   "pivot": {
+    "top_w": 0.5,
+    "x": "center"
+   },
+   "attach": {
+    "y": 0.16,
+    "x": "center"
+   },
+   "what": "上臂，竖直向下垂，肩头画成圆的",
+   "image": "arm_upper.png",
+   "pivot_px": [
+    64.7,
+    46.1
+   ],
+   "attach_px": [
+    83.9,
+    41.2
+   ],
+   "size": [
+    123.0,
+    213.0
+   ]
+  },
+  {
+   "id": "arm_lower",
+   "parent": "arm_upper",
+   "z": 8,
+   "pivot": {
+    "top_w": 0.5,
+    "x": "center"
+   },
+   "attach": {
+    "bottom_w": 0.5,
+    "x": "center"
+   },
+   "what": "前臂连手，竖直向下垂，手握拳或张开都行；肘头画成圆的",
+   "image": "arm_lower.png",
+   "pivot_px": [
+    51.75,
+    50.75
+   ],
+   "attach_px": [
+    61.3,
+    153.25
+   ],
+   "size": [
+    106.5,
+    202.5
+   ]
+  },
+  {
+   "id": "leg_upper",
+   "parent": "torso",
+   "z": 4,
+   "pivot": {
+    "top_w": 0.5,
+    "x": "center"
+   },
+   "attach": {
+    "y": 0.9,
+    "x": "center",
+    "dx": 0.06
+   },
+   "what": "大腿，竖直向下，胯头画成圆的",
+   "image": "leg_upper.png",
+   "pivot_px": [
+    63.65,
+    62.25
+   ],
+   "attach_px": [
+    97.0,
+    224.7
+   ],
+   "size": [
+    127.5,
+    215.0
+   ]
+  },
+  {
+   "id": "leg_lower",
+   "parent": "leg_upper",
+   "z": 5,
+   "pivot": {
+    "top_w": 0.5,
+    "x": "center"
+   },
+   "attach": {
+    "bottom_w": 0.5,
+    "x": "center"
+   },
+   "what": "小腿连脚，竖直向下，脚尖朝右；膝头画成圆的",
+   "image": "leg_lower.png",
+   "pivot_px": [
+    53.75,
+    53.0
+   ],
+   "attach_px": [
+    63.45,
+    162.75
+   ],
+   "size": [
+    147.5,
+    218.5
+   ]
+  },
+  {
+   "id": "arm_back_upper",
+   "same_as": "arm_upper",
+   "tint": 0.72,
+   "parent": "torso",
+   "z": 1,
+   "pivot": {
+    "top_w": 0.5,
+    "x": "center"
+   },
+   "attach": {
+    "y": 0.16,
+    "x": "center",
+    "dx": -0.1
+   },
+   "pivot_px": [
+    64.7,
+    46.1
+   ],
+   "attach_px": [
+    66.85,
+    41.2
+   ],
+   "size": [
+    123.0,
+    213.0
+   ]
+  },
+  {
+   "id": "arm_back_lower",
+   "same_as": "arm_lower",
+   "tint": 0.72,
+   "parent": "arm_back_upper",
+   "z": 0,
+   "pivot": {
+    "top_w": 0.5,
+    "x": "center"
+   },
+   "attach": {
+    "bottom_w": 0.5,
+    "x": "center"
+   },
+   "pivot_px": [
+    51.75,
+    50.75
+   ],
+   "attach_px": [
+    61.3,
+    153.25
+   ],
+   "size": [
+    106.5,
+    202.5
+   ]
+  },
+  {
+   "id": "leg_back_upper",
+   "same_as": "leg_upper",
+   "tint": 0.72,
+   "parent": "torso",
+   "z": 2,
+   "pivot": {
+    "top_w": 0.5,
+    "x": "center"
+   },
+   "attach": {
+    "y": 0.9,
+    "x": "center",
+    "dx": -0.08
+   },
+   "pivot_px": [
+    63.65,
+    62.25
+   ],
+   "attach_px": [
+    73.15,
+    224.7
+   ],
+   "size": [
+    127.5,
+    215.0
+   ]
+  },
+  {
+   "id": "leg_back_lower",
+   "same_as": "leg_lower",
+   "tint": 0.72,
+   "parent": "leg_back_upper",
+   "z": 1,
+   "pivot": {
+    "top_w": 0.5,
+    "x": "center"
+   },
+   "attach": {
+    "bottom_w": 0.5,
+    "x": "center"
+   },
+   "pivot_px": [
+    53.75,
+    53.0
+   ],
+   "attach_px": [
+    63.45,
+    162.75
+   ],
+   "size": [
+    147.5,
+    218.5
+   ]
+  }
+ ],
+ "root_px": [
+  0.0,
+  -256.55
+ ]
+}

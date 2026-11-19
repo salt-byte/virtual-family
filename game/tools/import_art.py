@@ -9,8 +9,16 @@ sized for the game: drawn at 2x, so a texture pixel is half a house pixel.
 - props/: trimmed to their outline, the longer side at most 300 px.
 - chars/: trimmed, 2x the height the game draws them at (adult 180); green-screen fringe
   left at the feet is cleared.
+- chars/a_<name>/ with a `<anything>.rig.json` (a cutout rig: parts + joints) -> rigs/<name>/:
+  the part pictures and every pixel value in the rig halved (RIG_SCALE), the rig saved as
+  rigs/<name>/<name>.rig.json.
+
+    python3 game/tools/import_art.py --rigs-only <assets dir> <pack art dir>
+
+copies only the rigs (leaves the other pictures as they are).
 Needs Pillow.
 """
+import json
 import sys
 from pathlib import Path
 
@@ -42,7 +50,35 @@ def fit(im, longest):
     return im.resize((max(1, round(im.width * k)), max(1, round(im.height * k))), Image.LANCZOS)
 
 
+RIG_SCALE = 0.5
+RIG_KEYS = ("pivot_px", "attach_px", "root_px", "size")
+
+
+def import_rigs(src: Path, dst: Path) -> None:
+    for d in sorted((src / "chars").glob("a_*")):
+        rigs = list(d.glob("*.rig.json")) if d.is_dir() else []
+        if not rigs:
+            continue
+        name = d.name[2:]
+        out = dst / "rigs" / name
+        out.mkdir(parents=True, exist_ok=True)
+        rig = json.loads(rigs[0].read_text())
+        rig["name"] = name
+        for part in rig.get("parts", []):
+            for k in RIG_KEYS:
+                if k in part:
+                    part[k] = [round(v * RIG_SCALE, 2) for v in part[k]]
+            img = part.get("image")
+            if img and (d / img).exists():
+                im = Image.open(d / img).convert("RGBA")
+                im.resize((max(1, round(im.width * RIG_SCALE)), max(1, round(im.height * RIG_SCALE))), Image.LANCZOS).save(out / img, optimize=True)
+        if "root_px" in rig:
+            rig["root_px"] = [round(v * RIG_SCALE, 2) for v in rig["root_px"]]
+        (out / f"{name}.rig.json").write_text(json.dumps(rig, ensure_ascii=False, indent=1))
+
+
 def main(src: Path, dst: Path) -> None:
+    import_rigs(src, dst)
     for sub in ("tiles", "props", "chars"):
         (dst / sub).mkdir(parents=True, exist_ok=True)
     for f in sorted((src / "tiles").glob("a_*.png")):
@@ -60,6 +96,9 @@ def main(src: Path, dst: Path) -> None:
 
 
 if __name__ == "__main__":
-    if len(sys.argv) != 3:
+    args = sys.argv[1:]
+    only = "--rigs-only" in args
+    args = [a for a in args if a != "--rigs-only"]
+    if len(args) != 2:
         sys.exit(__doc__)
-    main(Path(sys.argv[1]), Path(sys.argv[2]))
+    (import_rigs if only else main)(Path(args[0]), Path(args[1]))
