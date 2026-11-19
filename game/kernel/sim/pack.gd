@@ -16,7 +16,7 @@ const FILES := {
 }
 ## Files a pack may leave out; without them the feature is simply absent.
 const OPTIONAL_FILES := {"wishes": "wishes.json", "stories": "stories.json", "dishes": "dishes.json",
-	"pets": "pets.json", "festivals": "festivals.json", "letters": "letters.json"}
+	"pets": "pets.json", "festivals": "festivals.json", "letters": "letters.json", "services": "services.json"}
 
 const DEFAULT_CONFIG := {
 	"hours_per_year": 2.0, "offline_cap_hours": 48, "offline_need_floor": 15,
@@ -72,6 +72,10 @@ const DEFAULT_CONFIG := {
 	# Letters to the player (off while empty or without a letters.json; see `LetterSystem`
 	# and `PackValidator._check_letters` for the keys).
 	"letters": {},
+	# The market (off while empty: then the catalogue groups goods by what they are). See
+	# `MarketSystem` and `PackValidator._check_market` for the keys: `sections` (order and
+	# names), `default` (section per kind of goods) and `secondhand` (the used-goods stall).
+	"market": {},
 }
 
 ## Per-file field defaults (applied to every entry that lacks the key).
@@ -81,14 +85,16 @@ const ENTRY_DEFAULTS := {
 		"slow": false, "rooms": [], "completes_story": "", "tends": {}, "serves": "", "eats": [],
 		"yields": {}, "seasons": [], "weather": [], "not_wet": false, "pet": {},
 		"festivals": [], "outing": {}, "mourns": false},
-	"object_types": {"outdoor": false, "capacity": 1, "fixed": false, "keepsake": false},
+	"object_types": {"outdoor": false, "capacity": 1, "fixed": false, "keepsake": false, "market": ""},
 	"collectibles": {"rooms": []},
 	"wishes": {"likes": [], "stages": [], "weight": 1.0, "festival": "", "actions": []},
 	"dishes": {"on": [], "leaves": "", "ttl_hours": 0, "max_out": 1, "scraps": ""},
 	"pets": {"price": 0, "stray": false, "names": [], "lifespan": [10, 14], "age": [1, 2], "drains": {},
-		"home": [], "perch": "", "actions": [], "wishes": [], "perks": {}, "thanks": "", "size": 0.6},
-	"rooms": {"outdoor": false, "props": [], "outside": false},
-	"items": {"stock": {}, "cures": "", "needs": {}, "work": {}, "childhood": {}, "pet": {}, "festivals": []},
+		"home": [], "perch": "", "actions": [], "wishes": [], "perks": {}, "thanks": "", "size": 0.6, "market": ""},
+	"rooms": {"outdoor": false, "props": [], "outside": false, "market": ""},
+	"items": {"stock": {}, "cures": "", "needs": {}, "work": {}, "childhood": {}, "pet": {}, "market": "",
+		"festivals": []},
+	"services": {"market": "", "price_step": 0, "requires": {}, "category": ""},
 	"festivals": {"boost": {}, "wish_chance": 0.5, "banner": "", "start_text": "", "end_text": ""},
 	"needs": {"when_empty": {}},
 	"letters": {"hand": [], "weight": 1.0, "if": {}, "choices": [], "sign": "", "from": "", "story": "", "on": ""},
@@ -109,6 +115,7 @@ const INT_FIELDS := {
 	"goals": ["reward"],
 	"dishes": ["portions", "max_out"],
 	"pets": ["price"],
+	"services": ["price", "price_step"],
 }
 
 var id := ""
@@ -138,6 +145,8 @@ var festival_prep: Array = []
 var festival_boosts: Dictionary = {}
 ## Letter templates (optional letters.json; see `LetterSystem`).
 var letters: Dictionary = {}
+## Services and upgrades sold at the market (optional services.json; see `ServiceSystem`).
+var services: Dictionary = {}
 ## pet action id -> its entry, over every kind (filled by `PetSystem.action`).
 var pet_actions: Dictionary = {}
 var names: Dictionary = {}
@@ -355,6 +364,11 @@ func _apply_defaults() -> void:
 	config["site"] = _deep_ints(config["site"])
 	config["seasons"] = _deep_ints(config["seasons"])
 	config["clean_reward"] = _deep_ints(config["clean_reward"])
+	config["market"] = _deep_ints(config["market"])
+	for sv in services.values():
+		for f in sv:
+			if not f in ["price", "price_step"]:
+				sv[f] = _deep_ints(sv[f])
 	for r in rooms.values():
 		if r["props"] is Array:
 			for pr in r["props"]:

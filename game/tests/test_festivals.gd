@@ -100,13 +100,22 @@ func test_people_take_part_on_their_own():
 
 func test_festival_items_are_sold_only_during_their_festival():
 	var w := _w(30); TestKit.adult(w); w.money = 500
-	assert_true(not Commands.on_sale(w, "mooncake"))
-	assert_eq(w.command({"type": "buy", "item": "mooncake"}).error, "not_festival")
+	var why := func(id: String) -> String:
+		for sec in MarketSystem.catalogue(w):
+			for e in sec.entries:
+				if e.kind == "item" and e.id == id:
+					return str(e.why)
+		return "?"
+	assert_true(not Commands.on_sale(w, "realgar_wine"))
+	assert_eq(why.call("realgar_wine"), "not_festival", "the market greys it out")
+	assert_eq(w.command({"type": "buy", "item": "realgar_wine"}).error, "not_festival")
 	assert_eq(w.money, 500)
 	assert_true(Commands.on_sale(w, "rice"), "everyday goods are always sold")
-	w.set_time(YEAR_START + MID["mid_autumn"] * 60, 0)
-	assert_true(w.command({"type": "buy", "item": "mooncake"}).ok)
-	assert_eq(int(w.inventory["mooncake"]), 1)
+	assert_eq(why.call("rice"), "")
+	w.set_time(YEAR_START + MID["duanwu"] * 60, 0)
+	assert_eq(why.call("realgar_wine"), "")
+	assert_true(w.command({"type": "buy", "item": "realgar_wine"}).ok)
+	assert_eq(int(w.inventory["realgar_wine"]), 1)
 
 
 func test_festival_wishes_come_with_the_festival_and_end_with_it_unpenalised():

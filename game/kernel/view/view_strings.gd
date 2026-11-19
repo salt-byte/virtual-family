@@ -61,6 +61,7 @@ const DEFAULTS := {
 	"letter.from": "{writer}的信", "letter.today": "今天", "letter.days": "{n} 天前",
 	"letter.answered": "已回：{choice}", "letter.stale": "这事已经过去了，回不了了",
 	"away.letters": "这些天来了 {n} 封信，收在信匣里",
+	"shop.why.not_festival": "过节才有",
 	"error.away": "人出门了，还没回来", "error.closed": "这个时辰去不成", "error.not_festival": "得等到过节才有",
 	"btn.go_out": "出门", "title.go_out": "叫{name}出门", "go_out.none": "这会儿没有能去的地方。",
 	"go_out.away": "去了几个时辰，回来带点东西", "status.away": "出门去了",
@@ -98,6 +99,19 @@ const DEFAULTS := {
 	"error.no_pet": "没有这只动物", "error.not_for_pet": "这东西不是给动物的", "error.wrong_pet": "它不吃这个",
 	"error.too_many_pets": "家里养不下更多了", "error.no_perch": "还没有它待的地方", "error.no_pet_kind": "没有这种动物",
 	"error.no_stray": "门口已经没有了",
+	"shop.full_price": "原价 {n}", "shop.restock": "{t}后换一批货", "shop.why.already_built": "已盖好",
+	"shop.why.owned": "已经有了", "shop.why.sold": "卖掉了", "shop.why.max": "眼下买够了", "shop.why.full": "家里住满了",
+	"shop.why.pending": "先回个话", "shop.why.needs_object": "先得有{thing}", "shop.why.no_space": "家里摆不下",
+	"shop.why.too_many_pets": "养不下了", "shop.why.no_perch": "先得有{thing}",
+	"btn.place": "去摆", "btn.open_ticket": "刮开", "shop.candidate": "上门的人：{line}",
+	"shop.ticket_wait": "第 {n} 张，{t}后开奖", "shop.ticket_drawn": "第 {n} 张开奖了",
+	"shop.helper": "帮手还来 {t}", "shop.speed": "日子过得快，还有 {t}",
+	"time.minutes": "{n} 分钟", "time.hours": "{n} 小时", "time.days": "{n} 天",
+	"ev.lottery_won": "开奖了，中了 {n}", "ev.lottery_lost": "开奖了，没中", "ev.adopted": "{name}进了家门",
+	"ev.helper_came": "帮手来过了", "ev.secondhand_restocked": "旧货换了一批",
+	"error.no_service": "没有这一项", "error.owned": "已经有了", "error.max": "眼下买够了", "error.full": "家里住满了",
+	"error.pending": "先回眼前这一位的话", "error.no_candidate": "眼下没有人", "error.sold": "已经卖掉了",
+	"error.no_space": "家里摆不下了", "error.needs_object": "先得有{thing}", "error.not_drawn": "还没开奖", "error.no_ticket": "没有这张",
 	"bar.doing": "在做：{text}", "bar.age_job": "{age} · {job}",
 	"notice.head": "有事找你", "notice.more": "还有 {n} 件，点开看", "notice.fold": "收起",
 	"notice.proposal": "有人来给{name}提亲", "notice.proposal_from": "{writer}来给{name}提亲",
@@ -108,7 +122,10 @@ const DEFAULTS := {
 	"notice.pickup": "{room}地上有东西可捡", "notice.pickups": "地上有 {n} 样东西可捡",
 	"notice.wish": "{name}{text}", "status.fine": "身上都好",
 	"adopt.note": "挑一位进门；都不合意，就换一批。", "label.job": "营生",
-	"market.empty": "这里的货还没到。", "market.arrange_note": "家具和加盖屋子都在摆设里挑。",
+	"market.empty": "这里的货还没到。",
+	"market.plain.items": "货品", "market.plain.objects": "家具", "market.plain.rooms": "加盖",
+	"market.plain.pets": "动物", "market.plain.services": "服务", "btn.dismiss": "都不要",
+	"adopt.cost": "领一位进门要花 {n}",
 }
 
 ## How loud a status word is in the bar: "bad" (the worst label of a need, a heavy mood),
@@ -483,6 +500,14 @@ func event(e: Dictionary, world: World) -> String:
 			return _f("ev.mourned", {"name": _name_of(int(e["person"]), world), "dead": _name_of(int(e["dead"]), world)})
 		"clean_reward":
 			return _f("ev.clean_reward", {"n": int(e["amount"])})
+		"lottery_drawn":
+			if int(e["amount"]) > 0:
+				return _f("ev.lottery_won", {"n": t("money").replace("{n}", str(int(e["amount"])))})
+			return t("ev.lottery_lost")
+		"adopted":
+			return _f("ev.adopted", {"name": _name_of(int(e["person"]), world)})
+		"helper_came", "secondhand_restocked":
+			return t("ev." + str(e["type"]))
 		"pet_arrived", "pet_ran_away", "pet_came_back", "pet_fell_ill", "pet_cured", "pet_saved":
 			return _f("ev." + str(e["type"]), {"name": _pet_called(int(e["pet"]), world)})
 		"pet_died":

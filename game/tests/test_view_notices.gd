@@ -341,12 +341,14 @@ func test_the_extra_candidates_leave_the_world_dice_alone():
 
 func test_the_market_has_the_pack_tabs_in_order_and_the_animals_under_theirs():
 	var m := _main()
+	m.session.world.secondhand = {}  # the used-goods stall before its first stock
 	m.panels.open("shop")
 	var s := m.session.strings
 	var names: Array = []
 	for t in m.panels._market_tabs(m.session.world):
 		names.append(t["name"])
-	assert_eq(names, Array(s.t("market.tabs").split(",")))
+	# The tabs are the pack's market sections (pack.json market.sections), in order.
+	assert_eq(names, MarketSystem.sections(m.session.pack).map(func(x): return x.name))
 	var text := m.panels.text()
 	for name in names:
 		assert_true(text.contains(name), text)
@@ -360,13 +362,15 @@ func test_the_market_has_the_pack_tabs_in_order_and_the_animals_under_theirs():
 	_done(m)
 
 
-func test_without_tab_names_every_item_category_is_a_tab():
+func test_without_a_market_every_kind_of_goods_is_a_tab():
 	var m := _main("_smoke")
-	var cats := {}
-	for id in m.session.pack.items:
-		cats[str(m.session.pack.items[id].get("category", ""))] = true
+	var s := m.session.strings
+	var want: Array = []
+	for sec in MarketSystem.catalogue(m.session.world):
+		want.append(s.t("market.plain." + str(sec.id)))
 	var names: Array = []
 	for t in m.panels._market_tabs(m.session.world):
 		names.append(t["name"])
-	assert_eq(names, cats.keys())
+	assert_eq(names, want)
+	assert_true(names.has("货品"), str(names))
 	_done(m)

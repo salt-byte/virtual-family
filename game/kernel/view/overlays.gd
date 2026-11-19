@@ -128,6 +128,8 @@ func press(button_key: String) -> void:
 				_adopt(0)
 			elif button_key.begins_with("pick:"):
 				_adopt(int(button_key.substr(5)))
+			elif button_key == "btn.dismiss":
+				session.command({"type": "dismiss_candidate"})
 			else:
 				session.command({"type": "reroll"})
 		"over":
@@ -193,7 +195,8 @@ func refresh() -> void:
 	elif not _away.is_empty() and w != null:
 		kind = "away"
 		sig = str(_away)
-	elif w != null and w.phase == "adopting":
+	elif w != null and (w.phase == "adopting" or (w.phase == "living" and not w.candidate.is_empty())):
+		# The game's first adoption, or one bought at the market later (the same picker).
 		kind = "adopt"
 		sig = str(w.candidate) + str(w.candidates.size())
 	elif w != null and w.phase == "over":
@@ -281,6 +284,13 @@ func _rebuild(w: World, proposal: Dictionary) -> void:
 			var row := _row()
 			row.alignment = BoxContainer.ALIGNMENT_CENTER
 			_button("btn.reroll", row)
+			if w.phase == "living":
+				# Bought at the market: taking one in costs the service's price; or send them off.
+				var cost := ServiceSystem.price(w, w.adopt_service)
+				_box.add_child(_label(s.t("adopt.cost").replace("{n}", s.t("money").replace("{n}", str(cost)))))
+				for i in offer.size():
+					_buttons["pick:%d" % i].disabled = w.money < cost
+				_button("btn.dismiss", row)
 		"over":
 			_title(s.t("title.over"))
 			_box.add_child(_label(s.t("over.reason")))

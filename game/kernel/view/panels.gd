@@ -10,6 +10,8 @@ const BODY_HEIGHT := 340.0
 const MARGIN := 24.0
 const DONE_MARK := "✓ "
 const UNKNOWN := "？"
+## Market tab ids are this prefix plus a market section id (see `_market_tabs`).
+const MARKET_TAB := "market:"
 
 var main: Main
 var session: GameSession
@@ -170,6 +172,25 @@ func press(id: String) -> void:
 	elif id.begins_with("buy_pet:"):
 		session.command({"type": "buy_pet", "kind": id.substr(8)})
 		refresh()
+	elif id.begins_with("place:"):
+		# New furniture is set down by hand: hand it to arrange mode.
+		close()
+		main.arrange.enter()
+		main.arrange.pick_type(id.substr(6))
+	elif id.begins_with("build:"):
+		session.command({"type": "build_room", "room": id.substr(6)})
+		refresh()
+	elif id.begins_with("service:"):
+		session.command({"type": "buy_service", "service": id.substr(8)})
+		refresh()
+	elif id.begins_with("used:"):
+		session.command({"type": "buy_secondhand", "listing": int(id.substr(5))})
+		refresh()
+	elif id.begins_with("ticket:"):
+		var r := session.command({"type": "open_ticket", "ticket": int(id.substr(7))})
+		if r.get("ok", false):
+			main.hud.toast(session.strings.event({"type": "lottery_drawn", "amount": int(r["amount"])}, session.world))
+		refresh()
 	elif id.begins_with("pet:"):
 		close()
 		main.select_pet(int(id.substr(4)))
@@ -182,9 +203,6 @@ func press(id: String) -> void:
 	elif id == "proposal":
 		close()
 		main.overlays.open_proposal()
-	elif id == "go_arrange":
-		close()
-		main.arrange.enter()
 	elif id.begins_with("change:"):
 		_changing = int(id.substr(7))
 		refresh()
@@ -227,8 +245,12 @@ func _data_signature(w: World) -> String:
 			var pets := ""
 			for pet in w.pets:
 				pets += "%d%s%s" % [pet.uid, pet.state, str(pet.wish)]
+			var market := "%s|%s|%s|%s|%d|%d|%d" % [str(w.secondhand), str(w.services_bought), str(w.tickets), str(w.candidate),
+				w.helper_until, w.speed_until, w.rooms_built.size()]
+			if _tab != "tab.inventory":
+				market += "|%d" % (w.now / 60)  # the countdowns on the stall and the services
 			return "%d|%d|%s|%s|%s|%d|%s|%d|%s" % [w.money, total, str(w.inventory), s.person_name(sel) if sel != null and sel.alive else "", wishes,
-				main.selected_pet, pets, w.objects.size(), w.festival]
+				main.selected_pet, pets, w.objects.size(), market + "|" + w.festival]
 		"go_out":
 			var who := w.person(main.selected)
 			if who == null:
@@ -270,12 +292,15 @@ func _rebuild() -> void:
 	if _kind == "go_out" and w.person(main.selected) != null:
 		title.text = s.t("title.go_out").replace("{name}", s.person_name(w.person(main.selected)))
 	title.add_theme_font_size_override("font_size", 22)
+	ViewWidgets.use_title_font(title)
 	head.add_child(title)
 	var gap := Control.new()
 	gap.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	head.add_child(gap)
 	if _kind == "shop":
-		head.add_child(ViewWidgets.label(s.t("money").replace("{n}", str(w.money))))
+		var money := ViewWidgets.label(s.t("money").replace("{n}", str(w.money)))
+		ViewWidgets.use_title_font(money)
+		head.add_child(money)
 	_button("btn.close", s.t("btn.close"), head)
 	var tabs := _tabs()
 	if not tabs.is_empty():
@@ -307,8 +332,8 @@ func _rebuild() -> void:
 	list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	list.add_theme_constant_override("separation", 6)
 	scroll.add_child(list)
-	if _kind == "shop" and _tab.begins_with("tab.m:"):
-		_fill_market(list, w, _market_tabs(w)[int(_tab.substr(6))])
+	if _kind == "shop" and _tab.begins_with(MARKET_TAB):
+		_fill_market(list, w, _tab.substr(MARKET_TAB.length()))
 		return
 	match _tab if not _kind in ["family", "stories", "go_out"] else _kind:
 		"go_out":
@@ -325,40 +350,32 @@ func _rebuild() -> void:
 			_fill_stories(list, w)
 
 
-## The goods tabs of the market, in order: {id "tab.m:<i>", name, cats (item categories it
-## holds), pets (the animals for sale are here)}.
-## HOOK (branch market): once the kernel lists its catalogue by category (with services
-## such as adopting again or doubled time), build the tabs from that list here. Until then
-## the pack's ui.json names the tabs (`market.tabs`, comma separated) and files each item
-## category under one (`market.cat.<category>`, `market.cat.pets` for the animals); with
-## none of that, every item category is a tab of its own.
+## The goods tabs of the market, in order: {id "market:<section id>", sid, name, cats (the
+## `group` headings of its entries), pets (animals for sale are here)}, one per section of
+## the kernel's catalogue (`MarketSystem`). With a market in the pack every section is a tab,
+## also while it is empty (the used-goods stall before its first stock); without one, the
+## kinds of goods that have anything are.
 func _market_tabs(w: World) -> Array[Dictionary]:
 	var s := session.strings
-	var order: Array[String] = []
-	var tabs := {}
-	if s.has("market.tabs"):
-		for n in s.t("market.tabs").split(","):
-			if n.strip_edges() != "":
-				order.append(n.strip_edges())
-	var place := func(tab_name: String) -> Dictionary:
-		if not tabs.has(tab_name):
-			tabs[tab_name] = {"name": tab_name, "cats": [], "pets": false}
-			if not tab_name in order:
-				order.append(tab_name)
-		return tabs[tab_name]
-	for id in w.pack.items:
-		var cat := str(w.pack.items[id].get("category", ""))
-		var tab_name := s.t("market.cat." + cat) if s.has("market.cat." + cat) else (cat if cat != "" else s.t("tab.items"))
-		var t: Dictionary = place.call(tab_name)
-		if not cat in t["cats"]:
-			t["cats"].append(cat)
-	if PetSystem.enabled(w.pack):
-		place.call(s.t("market.cat.pets") if s.has("market.cat.pets") else s.t("shop.pets"))["pets"] = true
+	var cat := MarketSystem.catalogue(w)
+	var by_id := {}
+	for sec in cat:
+		by_id[sec.id] = sec
+	var secs: Array = MarketSystem.sections(w.pack) if MarketSystem.enabled(w.pack) else cat
 	var out: Array[Dictionary] = []
-	for i in order.size():
-		var t: Dictionary = tabs.get(order[i], {"name": order[i], "cats": [], "pets": false})
-		t["id"] = "tab.m:%d" % i
-		out.append(t)
+	for sec in secs:
+		var entries: Array = by_id.get(sec.id, {}).get("entries", [])
+		var cats: Array = []
+		var pets := false
+		for e in entries:
+			if not str(e.group) in cats:
+				cats.append(str(e.group))
+			if e.kind == "pet":
+				pets = true
+		var name := str(sec.name)
+		if not MarketSystem.enabled(w.pack) and s.has("market.plain." + name):
+			name = s.t("market.plain." + name)
+		out.append({"id": MARKET_TAB + str(sec.id), "sid": str(sec.id), "name": name, "cats": cats, "pets": pets})
 	return out
 
 
@@ -373,116 +390,165 @@ func _market_tab_for(alias: String) -> String:
 
 
 func _tab_name(id: String) -> String:
-	if id.begins_with("tab.m:"):
-		var tabs := _market_tabs(session.world)
-		var i := int(id.substr(6))
-		return str(tabs[i]["name"]) if i < tabs.size() else id
+	if id.begins_with(MARKET_TAB):
+		for t in _market_tabs(session.world):
+			if t["id"] == id:
+				return str(t["name"])
+		return id
 	return session.strings.t(id)
 
 
-## One goods tab: its items by category, its animals, or a note that nothing is in yet. The
-## tab that is the arrange catalogue's (`market.arrange_tab`) points there.
-func _fill_market(list: VBoxContainer, w: World, tab: Dictionary) -> void:
+## One market section from the kernel's catalogue: its entries under their `group` headings,
+## each a row of name, a note (who wants it, why it cannot be had, the new price of used goods),
+## price and a button. The services section starts with what is waiting on the player; an
+## empty section says the goods have not come in yet.
+func _fill_market(list: VBoxContainer, w: World, sid: String) -> void:
 	var s := session.strings
-	if s.has("market.arrange_tab") and tab["name"] == s.t("market.arrange_tab"):
-		list.add_child(ViewWidgets.wrapped(s.t("market.arrange_note")))
-		_button("go_arrange", s.t("btn.arrange"), list)
-	elif (tab["cats"] as Array).is_empty() and not tab["pets"]:
+	var section := {}
+	for sec in MarketSystem.catalogue(w):
+		if sec.id == sid:
+			section = sec
+	var entries: Array = section.get("entries", [])
+	if sid == str(MarketSystem.secondhand_cfg(w.pack).get("section", "")):
+		var left := MarketSystem.secondhand_refresh_at(w) - w.now
+		list.add_child(_note(s.t("shop.restock").replace("{t}", _span(left))))
+	if entries.any(func(e): return e.kind == "service"):
+		_fill_service_news(list, w)
+	if entries.is_empty():
 		var none := ViewWidgets.wrapped(s.t("market.empty"))
 		none.add_theme_color_override("font_color", ViewWidgets.MUTED)
 		list.add_child(none)
-	_fill_items(list, w, tab["cats"])
-	if tab["pets"]:
-		_fill_pet_shop(list, w)
-
-
-func _fill_items(list: VBoxContainer, w: World, cats: Array) -> void:
-	var s := session.strings
-	var by_cat: Dictionary = {}
-	for id in w.pack.items:
-		var cat := str(w.pack.items[id].get("category", ""))
-		if not cat in cats:
-			continue
-		if not by_cat.has(cat):
-			by_cat[cat] = []
-		by_cat[cat].append(id)
-	for cat in by_cat:
-		if cat != "" and by_cat.size() > 1:
-			var head := ViewWidgets.wrapped(cat)
-			head.add_theme_color_override("font_color", ViewWidgets.WOOD)
-			list.add_child(head)
-		for id in by_cat[cat]:
-			var it: Dictionary = w.pack.items[id]
-			var row := ViewWidgets.row(list)
-			row.add_child(ViewWidgets.name_label(str(it["name"])))
-			var wanted := _wanted_by(w, str(id))
-			if wanted != "":
-				var mark := ViewWidgets.price_label(s.t("shop.wanted").replace("{name}", wanted))
-				mark.add_theme_color_override("font_color", ViewWidgets.ACCENT)
-				row.add_child(mark)
-			row.add_child(ViewWidgets.price_label(s.t("money").replace("{n}", str(int(it["price"])))))
-			var buy := _button("buy:" + id, s.t("btn.buy"), row)
-			buy.disabled = w.money < int(it["price"])
-			if buy.disabled:
-				buy.text = s.t("error.no_money")
-			if not Commands.on_sale(w, str(id)):   # a festival's goods: only at their festival
-				buy.disabled = true
-				buy.text = s.t("error.not_festival")
-
-
-## Where the selected person could go: the outings (away for a few hours, back with
-## something) first, then the places outside the wall; one that cannot be done now is
-## greyed with the reason.
-func _fill_go_out(list: VBoxContainer, w: World) -> void:
-	var s := session.strings
-	var p := w.person(main.selected)
-	if p == null:
 		return
-	var all := OutingSystem.options(w, p)
-	var opts := all.filter(func(o): return o["outing"]) + all.filter(func(o): return not o["outing"])
-	if opts.is_empty():
-		var none := ViewWidgets.wrapped(s.t("go_out.none"))
-		none.add_theme_color_override("font_color", ViewWidgets.MUTED)
-		list.add_child(none)
-	for o in opts:
+	var groups := {}
+	for e in entries:
+		groups[str(e.group)] = true
+	var group := ""
+	for e in entries:
+		if str(e.group) != group:
+			group = str(e.group)
+			if group != "" and groups.size() > 1:
+				var head := ViewWidgets.wrapped(group)
+				ViewWidgets.use_title_font(head)
+				head.add_theme_color_override("font_color", ViewWidgets.WOOD)
+				list.add_child(head)
 		var row := ViewWidgets.row(list)
-		row.add_child(ViewWidgets.name_label(str(o["label"])))
-		if o["outing"]:
-			var note := ViewWidgets.price_label(s.t("go_out.away"))
-			note.add_theme_color_override("font_color", ViewWidgets.WOOD)
-			row.add_child(note)
-		var go := _button("go:" + str(o["action"]), s.t("btn.go_out"), row)
-		if str(o["why"]) != "":
-			go.disabled = true
-			go.text = s.error(str(o["why"]))
-
-
-## The animals for sale (kinds with a price); one that needs a perch says so until there is one.
-func _fill_pet_shop(list: VBoxContainer, w: World) -> void:
-	if not PetSystem.enabled(w.pack):
-		return
-	var s := session.strings
-	var heading := false
-	for kind in w.pack.pets:
-		var k: Dictionary = w.pack.pets[kind]
-		if int(k.get("price", 0)) <= 0:
-			continue
-		if not heading:
-			list.add_child(ViewWidgets.wrapped(s.t("shop.pets")))
-			heading = true
-		var row := ViewWidgets.row(list)
-		row.add_child(ViewWidgets.name_label(str(k.get("name", ""))))
-		var why := PetSystem.can_take(w, str(kind))
-		var wanted := _pet_wanted_by(w, str(kind))
-		if why == "no_perch":
-			var perch := str(w.pack.object_types.get(str(k.get("perch", "")), {}).get("name", ""))
-			row.add_child(ViewWidgets.price_label(s.t("pet.need_perch").replace("{perch}", perch)))
-		elif wanted != "":
-			var mark := ViewWidgets.price_label(s.t("shop.wanted").replace("{name}", wanted))
-			mark.add_theme_color_override("font_color", ViewWidgets.ACCENT)
+		var name := ViewWidgets.name_label(str(e.name))
+		row.add_child(name)
+		var note := _entry_note(w, e)
+		if note != "":
+			var mark := ViewWidgets.price_label(note)
+			mark.add_theme_color_override("font_color", ViewWidgets.ACCENT if str(e.why) == "" else ViewWidgets.MUTED)
 			row.add_child(mark)
-		row.add_child(ViewWidgets.price_label(s.t("money").replace("{n}", str(int(k["price"])))))
-		_button("buy_pet:" + str(kind), s.t("btn.buy_pet"), row).disabled = why != "" or w.money < int(k["price"])
+		row.add_child(ViewWidgets.price_label(s.t("money").replace("{n}", str(int(e.price)))))
+		var b := _button(_entry_button(e), s.t(_entry_label(e)), row)
+		b.disabled = str(e.why) != ""
+		if str(e.why) == "no_money":
+			b.text = s.t("error.no_money")
+		if str(e.get("desc", "")) != "":
+			list.add_child(_note("　" + str(e.desc)))
+
+
+## The id of the button that buys a catalogue entry.
+static func _entry_button(e: Dictionary) -> String:
+	match str(e.kind):
+		"item":
+			return "buy:" + str(e.id)
+		"object":
+			return "place:" + str(e.id)
+		"room":
+			return "build:" + str(e.id)
+		"pet":
+			return "buy_pet:" + str(e.id)
+		"service":
+			return "service:" + str(e.id)
+	return "used:%d" % int(e.id)
+
+
+static func _entry_label(e: Dictionary) -> String:
+	match str(e.kind):
+		"object":
+			return "btn.place"
+		"room":
+			return "btn.build"
+		"pet":
+			return "btn.buy_pet"
+	return "btn.buy"
+
+
+## The small note beside an entry: why it cannot be had (not for want of money), who wishes
+## for it, or what used goods cost new.
+func _entry_note(w: World, e: Dictionary) -> String:
+	var s := session.strings
+	var why := str(e.why)
+	if why != "" and why != "no_money":
+		var thing := ""
+		if why == "no_perch":
+			thing = str(w.pack.object_types.get(str(w.pack.pets[e.id].get("perch", "")), {}).get("name", ""))
+		elif why == "needs_object":
+			thing = str(w.pack.object_types.get(str(w.pack.services[e.id]["requires"].get("object", "")), {}).get("name", ""))
+		return s.t("shop.why." + why).replace("{thing}", thing)
+	var wanted := ""
+	match str(e.kind):
+		"item":
+			wanted = _wanted_by(w, str(e.id))
+		"pet":
+			wanted = _pet_wanted_by(w, str(e.id))
+		"object", "room":
+			wanted = _place_wanted_by(w, str(e.kind), str(e.id))
+		"secondhand":
+			if str(e.of) == "item":
+				wanted = _wanted_by(w, str(e.ref))
+			if wanted == "":
+				return s.t("shop.full_price").replace("{n}", s.t("money").replace("{n}", str(int(e.full_price))))
+	if wanted != "":
+		return s.t("shop.wanted").replace("{name}", wanted)
+	return ""
+
+
+## What is waiting on the player among the services: lottery tickets, a hired hand's days
+## left and a faster clock's time left. (People on offer get the adoption picker.)
+func _fill_service_news(list: VBoxContainer, w: World) -> void:
+	var s := session.strings
+	for t in w.tickets:
+		if int(t.amount) < 0:
+			list.add_child(_note(s.t("shop.ticket_wait").replace("{n}", str(int(t.id))).replace("{t}", _span(int(t.draw_at) - w.now))))
+		else:
+			var row := ViewWidgets.row(list)
+			row.add_child(ViewWidgets.name_label(s.t("shop.ticket_drawn").replace("{n}", str(int(t.id)))))
+			_button("ticket:%d" % int(t.id), s.t("btn.open_ticket"), row)
+	if w.helper_until > w.now:
+		list.add_child(_note(s.t("shop.helper").replace("{t}", _span(w.helper_until - w.now))))
+	var fast := w.speed_until - int(ServiceSystem.real_now(w))
+	if fast > 0:
+		list.add_child(_note(s.t("shop.speed").replace("{t}", _span(fast))))
+
+
+## The names of the living people who wish for that piece of furniture or that room.
+func _place_wanted_by(w: World, kind: String, id: String) -> String:
+	var names: Array[String] = []
+	for p in w.people:
+		if not p.alive:
+			continue
+		var wish := WishSystem.current(w, p)
+		if str(wish.get("kind", "")) == kind and str(wish.get(kind, "")) == id:
+			names.append(session.strings.person_name(p))
+	return "、".join(names)
+
+
+## A span of seconds in the largest whole unit that fits: days, hours or minutes (at least 1).
+func _span(seconds: int) -> String:
+	var s := session.strings
+	if seconds >= 86400:
+		return s.t("time.days").replace("{n}", str(seconds / 86400))
+	if seconds >= 3600:
+		return s.t("time.hours").replace("{n}", str(seconds / 3600))
+	return s.t("time.minutes").replace("{n}", str(maxi(1, seconds / 60)))
+
+
+func _note(text: String) -> Label:
+	var l := ViewWidgets.wrapped(text)
+	l.add_theme_color_override("font_color", ViewWidgets.MUTED)
+	return l
 
 
 ## The names of the living people who wish for an animal of this kind, joined.
@@ -708,3 +774,30 @@ func _button(id: String, label: String, parent: Control) -> Button:
 	parent.add_child(b)
 	_buttons[id] = b
 	return b
+
+
+## Where the selected person could go: the outings (away for a few hours, back with
+## something) first, then the places outside the wall; one that cannot be done now is
+## greyed with the reason.
+func _fill_go_out(list: VBoxContainer, w: World) -> void:
+	var s := session.strings
+	var p := w.person(main.selected)
+	if p == null:
+		return
+	var all := OutingSystem.options(w, p)
+	var opts := all.filter(func(o): return o["outing"]) + all.filter(func(o): return not o["outing"])
+	if opts.is_empty():
+		var none := ViewWidgets.wrapped(s.t("go_out.none"))
+		none.add_theme_color_override("font_color", ViewWidgets.MUTED)
+		list.add_child(none)
+	for o in opts:
+		var row := ViewWidgets.row(list)
+		row.add_child(ViewWidgets.name_label(str(o["label"])))
+		if o["outing"]:
+			var note := ViewWidgets.price_label(s.t("go_out.away"))
+			note.add_theme_color_override("font_color", ViewWidgets.WOOD)
+			row.add_child(note)
+		var go := _button("go:" + str(o["action"]), s.t("btn.go_out"), row)
+		if str(o["why"]) != "":
+			go.disabled = true
+			go.text = s.error(str(o["why"]))

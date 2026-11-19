@@ -63,6 +63,23 @@ static func _snapshot(w: World) -> Dictionary:
 		out["pet_grief_until"] = w.pet_grief_until
 	if w.letter_next > 1:  # optional: only once a letter came (older saves lack it)
 		out["letters"] = {"list": w.letters.duplicate(true), "next": w.letter_next, "minor_at": w.letter_minor_at}
+	# Optional, written only once the market has something to keep (older saves lack it).
+	var market := {}
+	if not w.secondhand.is_empty():
+		market["secondhand"] = w.secondhand.duplicate(true)
+	if not w.services_bought.is_empty():
+		market["bought"] = w.services_bought.duplicate(true)
+	if w.ticket_next > 1:
+		market["tickets"] = w.tickets.duplicate(true)
+		market["ticket_next"] = w.ticket_next
+	if w.helper_until > 0:
+		market["helper"] = {"until": w.helper_until, "service": w.helper_service}
+	if w.adopt_service != "":
+		market["adopt_service"] = w.adopt_service
+	if w.speed_until > 0 or w.clock_lead != 0:
+		market["speed"] = {"until": w.speed_until, "factor": w.speed_factor, "lead": w.clock_lead}
+	if not market.is_empty():
+		out["market"] = market
 	return out
 
 
@@ -187,6 +204,7 @@ static func _build(pack: Pack, d: Dictionary) -> World:
 			w.letters.append(_letter(l))
 		w.letter_next = int(ld["next"])
 		w.letter_minor_at = int(ld["minor_at"])
+	_restore_market(w, d.get("market", {}))
 	PetSystem.rebuild_held(w)
 	if BirthSystem.enabled(pack):
 		_link_old_couple(w)
@@ -195,6 +213,69 @@ static func _build(pack: Pack, d: Dictionary) -> World:
 			MoodSystem.refresh_cap(w, p)
 	w._events = []
 	return w
+
+
+## The market's part of a save (see `_snapshot`); `md` passed `_valid_market`. Listings and
+## services the pack no longer has are dropped.
+static func _restore_market(w: World, md: Dictionary) -> void:
+	var sh: Dictionary = md.get("secondhand", {})
+	if not sh.is_empty():
+		var list: Array = []
+		for l in sh["list"]:
+			var src: Dictionary = w.pack.items if str(l["kind"]) == "item" else w.pack.object_types
+			if src.has(str(l["id"])):
+				list.append({"n": int(l["n"]), "kind": str(l["kind"]), "id": str(l["id"]), "price": int(l["price"]), "sold": bool(l["sold"])})
+		w.secondhand = {"slot": int(sh["slot"]), "list": list, "next": int(sh["next"])}
+	var bought: Dictionary = md.get("bought", {})
+	for k in bought:
+		if w.pack.services.has(str(k)):
+			w.services_bought[str(k)] = int(bought[k])
+	for t in md.get("tickets", []):
+		if w.pack.services.has(str(t["service"])):
+			w.tickets.append({"id": int(t["id"]), "service": str(t["service"]), "draw_at": int(t["draw_at"]), "amount": int(t["amount"])})
+	w.ticket_next = int(md.get("ticket_next", 1))
+	var hd: Dictionary = md.get("helper", {})
+	if not hd.is_empty() and w.pack.services.has(str(hd["service"])):
+		w.helper_until = int(hd["until"])
+		w.helper_service = str(hd["service"])
+	w.adopt_service = str(md.get("adopt_service", ""))
+	if not w.pack.services.has(w.adopt_service):
+		w.adopt_service = ""
+		if w.phase == "living":
+			w.candidate = {}  # an offer from a service the pack lost
+	var sp: Dictionary = md.get("speed", {})
+	if not sp.is_empty():
+		w.speed_until = int(sp["until"])
+		w.speed_factor = float(sp["factor"])
+		w.clock_lead = int(sp["lead"])
+
+
+## Shape of the optional `market` part of a save.
+static func _valid_market(m) -> bool:
+	if typeof(m) != TYPE_DICTIONARY:
+		return false
+	if m.has("secondhand"):
+		var sh = m["secondhand"]
+		if not _has(sh, {"slot": "i", "list": "a", "next": "i"}):
+			return false
+		for l in sh["list"]:
+			if not _has(l, {"n": "i", "kind": "s", "id": "s", "price": "i", "sold": "b"}) or not (l["kind"] in ["item", "object"]):
+				return false
+	if m.has("bought") and not _count_map(m["bought"]):
+		return false
+	if m.has("tickets"):
+		if typeof(m["tickets"]) != TYPE_ARRAY or not _is_whole(m.get("ticket_next")):
+			return false
+		for t in m["tickets"]:
+			if not _has(t, {"id": "i", "service": "s", "draw_at": "i", "amount": "i"}):
+				return false
+	if m.has("helper") and not _has(m["helper"], {"until": "i", "service": "s"}):
+		return false
+	if m.has("adopt_service") and not _is_str(m["adopt_service"]):
+		return false
+	if m.has("speed") and not _has(m["speed"], {"until": "i", "factor": "n", "lead": "i"}):
+		return false
+	return true
 
 
 ## A save from before spouses were linked: a household that had its wedding links its first
@@ -495,6 +576,8 @@ static func _valid_save(pack: Pack, d: Dictionary) -> bool:
 	if d.has("pet_grief_until") and not (_is_whole(d["pet_grief_until"]) and float(d["pet_grief_until"]) >= 0.0):
 		return false
 	if d.has("letters") and not _valid_letters(d["letters"]):
+		return false
+	if d.has("market") and not _valid_market(d["market"]):
 		return false
 	# The uid counter must lie above every uid in use, or new things would collide.
 	var top := 0

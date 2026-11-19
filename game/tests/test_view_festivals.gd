@@ -38,6 +38,18 @@ func _to_minute(m: Main, minute: float) -> void:
 	w.advance(float(clk.unix) + minute * 60.0 - float(w.now))
 	m.session._dispatch_events()
 	m.tick(0.016)
+	_clear_overlays(m)
+
+
+## Reads away whatever card turned up meanwhile (a story fragment, a proposal), so the
+## panels can open.
+func _clear_overlays(m: Main) -> void:
+	for i in 6:
+		if m.overlays.current() == "":
+			return
+		var keys: Array = m.overlays._buttons.keys()
+		m.overlays.press("btn.close" if keys.has("btn.close") else str(keys[0]))
+		m.tick(0.016)
 
 
 func test_the_festival_board_shows_the_festival_and_the_time_left():
@@ -138,16 +150,16 @@ func test_festival_goods_are_greyed_out_of_season():
 	m.panels.open("shop")
 	m.panels.press("tab.items")   # 食物与药 holds the festival goods
 	m.tick(0.016)
-	assert_true(m.panels.has_button("buy:mooncake"))
-	assert_true(m.panels.is_disabled("buy:mooncake"))
-	assert_eq(m.panels.button_node("buy:mooncake").text, m.session.strings.t("error.not_festival"))
+	assert_true(m.panels.has_button("buy:realgar_wine"))
+	assert_true(m.panels.is_disabled("buy:realgar_wine"))
+	assert_true(m.panels.text().contains(m.session.strings.t("shop.why.not_festival")), m.panels.text())
 	assert_true(not m.panels.is_disabled("buy:rice"))
 	m.panels.close()
-	_to_minute(m, 150)   # 中秋
+	_to_minute(m, 84)   # 端午
 	m.panels.open("shop")
 	m.panels.press("tab.items")
 	m.tick(0.016)
-	assert_true(not m.panels.is_disabled("buy:mooncake"))
+	assert_true(not m.panels.is_disabled("buy:realgar_wine"))
 	_done(m)
 
 

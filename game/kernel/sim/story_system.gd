@@ -34,7 +34,7 @@ static func step(world: World, dt: float) -> void:
 			world.emit("story_unlocked", {"story": sid})
 	if _fragment_lying(world) or _waiting(world).is_empty():
 		return
-	if world.rng.chance(1.0 / float(pack.cfg("story_interval_min")) * (dt / 60.0)):
+	if world.rng.chance(1.0 / float(pack.cfg("story_interval_min")) * (dt / 60.0) * ServiceSystem.drop_factor(world)):
 		spawn_fragment(world)
 
 

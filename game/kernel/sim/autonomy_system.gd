@@ -1236,7 +1236,7 @@ static func _finish(world: World, p: Person) -> void:
 	var yields = action.get("yields")
 	if yields != null and not (yields as Dictionary).is_empty():
 		for k in yields:
-			var n := roundi(float(yields[k]) * WeatherSystem.yield_factor(world, str(k)))
+			var n := roundi(float(yields[k]) * WeatherSystem.yield_factor(world, str(k))) + ServiceSystem.yield_bonus(world, str(k))
 			world.stock[k] = int(world.stock.get(k, 0)) + n
 	var mess: Dictionary = action["mess"]
 	if not mess.is_empty() and world.rng.chance(float(mess.get("chance", 0.0))):
