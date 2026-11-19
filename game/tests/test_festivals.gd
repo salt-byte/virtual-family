@@ -246,3 +246,20 @@ func test_validator_checks_festivals_and_what_uses_them():
 	p.festivals["qingming"]["from"] = 0.05
 	p.festivals["lantern"]["season"] = "spring"
 	assert_true(PackValidator.validate(p).has("festivals.json: qingming: overlaps lantern"))
+
+
+func test_a_festival_boost_counts_the_same_in_the_choice_and_in_the_score():
+	var p0 := Pack.load_dir("res://packs/qijia")
+	assert_near(FestivalSystem.action_factor(p0, p0.actions["eavesdrop"], "new_year"), 1.3)  # tagged 爱热闹
+	assert_near(FestivalSystem.action_factor(p0, p0.actions["eavesdrop"], ""), 1.0)
+	assert_eq(FestivalSystem.action_factor(p0, p0.actions["paste_couplets"], "lantern"), 0.0)
+	var w := _w(MID["new_year"]); var p := TestKit.adult(w)
+	w.advance(5)
+	p.current = {}
+	p.wish = {}
+	var cands := AutonomySystem.candidates(w, p)
+	assert_true(cands.any(func(c): return c.action == "eavesdrop"))
+	assert_true(cands.any(func(c): return c.action == "paste_couplets"))
+	for c in cands:
+		var want := AutonomySystem._score(w, p, w.pack.actions[c.action])
+		assert_near(c.score, want, 1e-6 * maxf(1.0, want), c.action)

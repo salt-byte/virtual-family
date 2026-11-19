@@ -50,6 +50,9 @@ class Info:
 	var has_story := false
 	## only while someone of the family has died (`mourns`)
 	var mourns := false
+	## only during one of these festivals (`festivals`; [] and false: any time)
+	var fests: Array = []
+	var has_fests := false
 	## slow_in_hours, has_story, has_serves or mourns: one test in the hot loop for the rare
 	## special cases
 	var gated := false
@@ -159,6 +162,8 @@ static func _table(pack: Pack) -> Array:
 		i.serves = str(a.get("serves", ""))
 		i.has_serves = i.serves != ""
 		i.mourns = bool(a.get("mourns", false))
+		i.fests = a.get("festivals", [])
+		i.has_fests = not i.fests.is_empty()
 		i.gated = i.slow_in_hours or i.has_story or i.has_serves or i.mourns
 		i.mood_req = i.requires.has("mood")
 		i.mood = str(i.requires.get("mood", ""))
@@ -285,7 +290,6 @@ static func _flags(world: World, p: Person, hour: float) -> Array:
 	var season := WeatherSystem.season_at(pack, world.now)
 	var wx := WeatherSystem.weather_entry(pack, world.weather)
 	var is_wet := WeatherSystem.wet(world)
-	var fest := FestivalSystem.id_at(pack, world.now)
 	for i: Info in table:
 		var b := 0
 		for t in i.tags:
@@ -302,7 +306,7 @@ static func _flags(world: World, p: Person, hour: float) -> Array:
 			if not somewhere:
 				b |= _F_NOWHERE
 		if seasons:
-			var wf := WeatherSystem.factor_for(pack, pack.actions[i.id], i.place_kind, season, wx, is_wet, fest)
+			var wf := WeatherSystem.factor_for(pack, pack.actions[i.id], i.place_kind, season, wx, is_wet)
 			factors[i.idx] = wf
 			if wf == 0.0:
 				b |= _F_OFF
@@ -380,15 +384,17 @@ static func _pet_fits(i: Info, key: String) -> bool:
 
 
 ## `_stage_track_table` without the actions `_flags` rules out here and now (no place built
-## for them, or the season / weather / wet ground says no), kept with those flags.
-static func _live(pack: Pack, flagged: Array, stage: String, track: String, mood: String, pregnant: bool, babies: bool, pets := "") -> Array:
-	var key := stage + "|" + track + "|" + mood + ("|p" if pregnant else "") + ("|b" if babies else "") + ("|q" + pets if pets != "" else "")
+## for them, or the season / weather / wet ground says no) and those of festivals other than
+## `fest` (the festival on, "" for none), kept with those flags.
+static func _live(pack: Pack, flagged: Array, stage: String, track: String, mood: String, pregnant: bool, babies: bool, pets := "", fest := "") -> Array:
+	var key := stage + "|" + track + "|" + mood + ("|p" if pregnant else "") + ("|b" if babies else "") + ("|q" + pets if pets != "" else "") \
+		+ ("|f" + fest if fest != "" else "")
 	var cache: Dictionary = flagged[2]
 	var t = cache.get(key)
 	if t == null:
 		var flags: PackedByteArray = flagged[0]
 		t = _stage_track_table(pack, stage, track, mood, pregnant, babies, pets).filter(func(i: Info):
-			return flags[i.idx] & (_F_NOWHERE | _F_OFF) == 0)
+			return flags[i.idx] & (_F_NOWHERE | _F_OFF) == 0 and (not i.has_fests or i.fests.has(fest)))
 		cache[key] = t
 	return t
 
@@ -469,7 +475,11 @@ static func candidates(world: World, p: Person, pool := 0) -> Array[Dictionary]:
 	# The cheap yes/no tests come first; only what passes them is scored.
 	var pets_home := PetSystem.home_key(world) if not world.pets.is_empty() else ""
 	var pet_room = null  # pet need id -> the most any pet at home lacks of it (filled on first need)
-	for i: Info in _live(pack, flagged, stage, p.track, p.mood, pregnant, not world.babies().is_empty(), pets_home):
+	# The festival on: its actions join the live list, and its boost (if any) by `Info.idx`.
+	var fest := FestivalSystem.id_at(pack, world.now) if not pack.festivals.is_empty() else ""
+	var fb := FestivalSystem.boosts(pack, fest)
+	var has_fb := not fb.is_empty()
+	for i: Info in _live(pack, flagged, stage, p.track, p.mood, pregnant, not world.babies().is_empty(), pets_home, fest):
 		if i.gated:
 			if i.slow_in_hours and not _in_hours(hour, i.hours):
 				continue
@@ -498,6 +508,8 @@ static func candidates(world: World, p: Person, pool := 0) -> Array[Dictionary]:
 				cap *= low
 			if boosted and dmp[i.idx] > 1.0:
 				cap *= dmp[i.idx]
+			if has_fb:
+				cap *= fb[i.idx]
 			if cap * 1.000001 <= top_s[pool - 1]:
 				continue
 		var uid := -1
@@ -567,6 +579,8 @@ static func candidates(world: World, p: Person, pool := 0) -> Array[Dictionary]:
 		var wfv := wfs[i.idx]
 		if wfv != 1.0:
 			s *= wfv
+		if has_fb and fb[i.idx] != 1.0:
+			s *= fb[i.idx]
 		var dv := dmp[i.idx]
 		if dv != 1.0:
 			s *= dv
@@ -973,7 +987,8 @@ static func _score(world: World, p: Person, a: Dictionary, hour := -1.0) -> floa
 	var hours: Array = a.get("hours", [])
 	if not hours.is_empty() and not _in_hours(hour if hour >= 0.0 else world.local_hour(), hours):
 		score *= 0.1
-	var wf := WeatherSystem.action_factor(world, a, WeatherSystem.place_kind(world.pack, a))
+	var wf := WeatherSystem.action_factor(world, a, WeatherSystem.place_kind(world.pack, a)) \
+		* FestivalSystem.action_factor(world.pack, a, FestivalSystem.id_at(world.pack, world.now))
 	if wf != 1.0:
 		score *= wf
 	var memory := int(world.pack.cfg("repeat_memory"))

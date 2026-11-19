@@ -130,6 +130,8 @@ var pets: Dictionary = {}
 var festivals: Dictionary = {}
 ## `FestivalSystem`'s prepared calendar (built on first use).
 var festival_prep: Array = []
+## festival id -> `FestivalSystem.boosts` for it (built on first use).
+var festival_boosts: Dictionary = {}
 ## pet action id -> its entry, over every kind (filled by `PetSystem.action`).
 var pet_actions: Dictionary = {}
 var names: Dictionary = {}

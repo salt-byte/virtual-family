@@ -6,7 +6,7 @@ extends RefCounted
 ## on:
 ## - actions that list it in `festivals` can be done (and only then), and its `boost`
 ##   multiplies the score of actions whose id, object type or one of whose tags is a key
-##   (see `WeatherSystem.factor_for`);
+##   (see `action_factor`; `AutonomySystem` reads the same through `boosts`);
 ## - wishes that name it (`festival`) can be formed; when it begins, everyone who holds no
 ##   wish forms one of them with chance `wish_chance` (not while the player is away, not
 ##   babies, the depressed or those asleep); such a wish ends with the festival, unpenalised;
@@ -70,6 +70,44 @@ static func calendar(pack: Pack) -> Array:
 	for c in _calendar(pack):
 		out.append({"id": c[2], "start_s": int(c[0]), "end_s": int(c[1])})
 	out.sort_custom(func(a, b): return a.start_s < b.start_s)
+	return out
+
+
+## The score factor festival `fest` ("" for none) puts on action `a`: 0 when the action
+## lists `festivals` and `fest` is not among them, else the product of the festival's
+## `boost` entries keyed by the action's id, object type or one of its tags.
+static func action_factor(pack: Pack, a: Dictionary, fest: String) -> float:
+	var only: Array = a.get("festivals", [])
+	if not only.is_empty() and not only.has(fest):
+		return 0.0
+	if fest == "":
+		return 1.0
+	var boost: Dictionary = pack.festivals.get(fest, {}).get("boost", {})
+	if boost.is_empty():
+		return 1.0
+	var f := 1.0
+	var keys: Array = [str(a["id"]), str(a.get("object", ""))]
+	keys.append_array(a.get("tags", []))
+	for k in keys:
+		if k != "" and boost.has(k):
+			f *= float(boost[k])
+	return f
+
+
+## Festival `fest`'s boost per action of `AutonomySystem._table` (by `Info.idx`), built once
+## per pack and festival; an empty array when it boosts nothing.
+static func boosts(pack: Pack, fest: String) -> PackedFloat64Array:
+	if fest == "":
+		return PackedFloat64Array()
+	var cached = pack.festival_boosts.get(fest)
+	if cached != null:
+		return cached
+	var out := PackedFloat64Array()
+	if not (pack.festivals.get(fest, {}).get("boost", {}) as Dictionary).is_empty():
+		for i in AutonomySystem._table(pack):
+			var a: Dictionary = pack.actions[i.id]
+			out.append(action_factor(pack, a, fest))
+	pack.festival_boosts[fest] = out
 	return out
 
 
