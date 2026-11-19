@@ -32,6 +32,8 @@ const NOTICES_MAX := 3
 const FYI := ["pickup", "pickups", "thanks"]
 const FYI_SECONDS := 10.0
 const NOTICE_WIDTH := 280.0
+## Where the toasts start while the festival board shows above them.
+const FEST_TOAST_TOP := 82.0
 const WHO_WIDTH := 250.0
 
 var main: Main
@@ -54,7 +56,7 @@ var _praise: Button
 var _scold: Button
 ## "出门": the places the selected person could be sent to (`OutingSystem.options`).
 var _go_out: Button
-## The festival on: a wooden board top right, its name in the title face and the time left.
+## The festival on: a board top middle, its name in the title face and the time left.
 var _fest_box: PanelContainer
 var _fest_title: Label
 var _fest_left: Label
@@ -238,13 +240,11 @@ func _build() -> void:
 	_notice_box.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	root.add_child(_notice_box)
 
-	# The festival board, top right.
+	# The festival board, top middle (the toasts drop below it while it shows).
 	_fest_box = PanelContainer.new()
-	_fest_box.set_anchors_preset(Control.PRESET_TOP_RIGHT)
-	_fest_box.grow_horizontal = Control.GROW_DIRECTION_BEGIN
-	_fest_box.offset_left = -12
-	_fest_box.offset_right = -12
-	_fest_box.offset_top = 12
+	_fest_box.set_anchors_preset(Control.PRESET_CENTER_TOP)
+	_fest_box.grow_horizontal = Control.GROW_DIRECTION_BOTH
+	_fest_box.offset_top = 10
 	_fest_box.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var board := ViewWidgets.chip_style(ViewWidgets.ACCENT, ViewWidgets.INK)
 	board.set_corner_radius_all(14)
@@ -434,6 +434,7 @@ func refresh() -> void:
 	_fest_box.visible = fest["banner"] != ""
 	_fest_title.text = fest["banner"]
 	_fest_left.text = fest["left"]
+	_toast_box.offset_top = FEST_TOAST_TOP if _fest_box.visible else 12.0
 	_refresh_notices()
 
 
