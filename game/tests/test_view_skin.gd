@@ -155,6 +155,18 @@ func test_qijia_house_stands_pictures_and_people():
 	_done(m)
 
 
+func test_unwell_mark_follows_the_need_threshold():
+	var m := _main("qijia")
+	var pv: PersonView = m.house.people.values()[0]
+	pv.person.needs["health"] = 30.0
+	pv.refresh()
+	assert_true(pv._unwell)
+	pv.person.needs["health"] = 90.0
+	pv.refresh()
+	assert_true(not pv._unwell)
+	_done(m)
+
+
 func test_props_follow_objects_moved_and_removed():
 	var m := _main("qijia")
 	var house := m.house

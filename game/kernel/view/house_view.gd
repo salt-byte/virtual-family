@@ -688,16 +688,18 @@ func draw_dishes_on(ci: CanvasItem, uid: int) -> void:
 	var o := w.object(uid)
 	if o.is_empty():
 		return
-	var n := 0
-	for d in w.dishes:
-		if int(d.object_uid) == uid:
-			_dish(ci, w, o, d, n)
-			n += 1
+	var on: Array = w.dishes.filter(func(d): return int(d.object_uid) == uid)
+	# Side by side across the middle of the picture's top, about a third of the way down.
+	var pic: Rect2 = props[uid].rect if props.has(uid) else layout.object_rect(o, w.pack)
+	for n in on.size():
+		var at := Vector2(pic.get_center().x + (n - (on.size() - 1) * 0.5) * 32.0, pic.position.y + pic.size.y * 0.3)
+		_dish(ci, w, o, on[n], n, at)
 
 
-func _dish(ci: CanvasItem, w: World, o: Dictionary, d: Dictionary, n: int) -> void:
+func _dish(ci: CanvasItem, w: World, o: Dictionary, d: Dictionary, n: int, at := Vector2(INF, INF)) -> void:
 	var rect := layout.object_rect(o, w.pack)
-	var at := Vector2(rect.position.x + 22.0 + n * 38.0, rect.position.y + 18.0)
+	if at.x == INF:
+		at = Vector2(rect.position.x + 22.0 + n * 38.0, rect.position.y + 18.0)
 	var dt: Dictionary = w.pack.dishes.get(str(d.type), {})
 	ci.draw_colored_polygon(HouseGround._ellipse(Rect2(at - Vector2(14, 8), Vector2(28, 16))), Color(0.97, 0.96, 0.93))
 	ci.draw_colored_polygon(HouseGround._ellipse(Rect2(at - Vector2(10, 5), Vector2(20, 10))), pack_color(dt, DISH_COLOR))
