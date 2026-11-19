@@ -2,8 +2,9 @@ class_name LetterView
 extends Node
 ## Letters in the view: a carrier bird that lands on the compound wall while a letter waits
 ## unread (a little tube tied to its leg), the open letter on a sheet of paper with its
-## choices, and the letter box (every letter kept, newest first). The bird and the box button
-## sit on their own layer above the house; the paper sits above the panels. Reads the World;
+## choices, and the letter box (every letter kept, newest first). The bird sits on its own
+## layer above the house, the box button in the bottom bar (`Hud`), the paper above the
+## panels. Unread letters and letters waiting for an answer are also notices (`Notices`). Reads the World;
 ## reading and answering go through session commands. Does nothing for a pack without
 ## letters (`LetterSystem.enabled`).
 
@@ -59,15 +60,9 @@ func setup(m: Main) -> void:
 	bird.visible = false
 	bird.pressed.connect(open_newest)
 	top.add_child(bird)
-	box_button = Button.new()
-	box_button.text = session.strings.t("btn.letters")
-	box_button.set_anchors_preset(Control.PRESET_TOP_RIGHT)
-	box_button.grow_horizontal = Control.GROW_DIRECTION_BEGIN
-	box_button.offset_right = -12
-	box_button.offset_top = 12
-	box_button.custom_minimum_size.y = 44
-	box_button.pressed.connect(open_box)
-	top.add_child(box_button)
+	# The letter box is one of the bar's main buttons (the bar sends its press to Main, which
+	# opens the box); this view keeps its words and whether it shows.
+	box_button = main.hud.button("letters")
 
 	_paper_layer = CanvasLayer.new()
 	_paper_layer.layer = PAPER_LAYER
@@ -317,7 +312,12 @@ func _spot_screen(map: Vector2) -> Vector2:
 		base = h.call("map_to_screen", map)
 	else:
 		base = h.to_screen(map * HouseLayout.CELL)
-	return base + Vector2(0.0, -WALL_TOP * h.scale.y)
+	var top := WALL_TOP * h.scale.y
+	if h.has_method("wall_top_at"):
+		var t: float = h.call("wall_top_at", map)
+		if t >= 0.0:
+			top = t  # the 45° view's walls: 74 px at the back, 22 cut low
+	return base + Vector2(0.0, -top)
 
 
 ## Perch spots every third cell along the compound wall, door openings left out; without a

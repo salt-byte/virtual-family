@@ -9,7 +9,7 @@ static func step(world: World, dt: float) -> void:
 	# Per-minute chance scaled to the step (x1.0 at 60 s steps, so those draw exactly as before).
 	var chance := float(pack.cfg("illness_daily_chance")) / 1440.0 * (dt / 60.0)
 	chance *= world.blessing_illness
-	var floor_v := float(pack.cfg("offline_need_floor"))
+	var floor_v := -1.0  # read for the first one who is ill (usually nobody)
 	for p in world.people:
 		if not p.alive:
 			continue
@@ -22,6 +22,8 @@ static func step(world: World, dt: float) -> void:
 			if p.needs.has(nid):
 				p.needs[nid] = clampf(float(p.needs[nid]) - absf(float(drain[nid])) * dt / 3600.0, 0.0, 100.0)
 		if world.offline:
+			if floor_v < 0.0:
+				floor_v = float(pack.cfg("offline_need_floor"))
 			for nid in drain:
 				if p.needs.has(nid):
 					p.needs[nid] = maxf(float(p.needs[nid]), floor_v)

@@ -25,6 +25,9 @@ extends RefCounted
 ##               "lean": 8,                      # degrees bent forward (a stoop), rig only
 ##               "asleep": "<sprite>",           # the picture lying asleep (under a quilt)
 ##               "lying": false}],               # the picture already lies (a swaddled baby)
+##   "looks": {"<look id>": {"rig": ..., "rig_front": ..., "rig_back": ..., "height": 90,
+##             "lean": 0, "portrait": "portraits/x.png", "name": "...", "description": "..."}},
+##                                               # a Person.look's own rigs over its stage's entry
 ##   "pets": {"<pet kind>": {"sprite": "<sprite>", "height": 40, "front": "<sprite>", "back": "<sprite>"}},
 ##   "poses": {"actions": {"<action id>": "<pose>"}, "objects": {"<object type>": "<pose>"},
 ##             "on": ["<object type>"]},          # see `pose_for`; on: sat / lain on, not beside
@@ -34,6 +37,7 @@ extends RefCounted
 ##   "iso": {                                     # what the 45° view uses instead (each optional)
 ##     "objects": {"<object type>": "<sprite>"},  # pictures drawn at 45°, long side along plan x
 ##     "axis": {"<sprite>": "y"},                 # this picture's long side runs along plan y
+##     "scale": {"<sprite>": 0.8},                # drawn this much of the footprint's width
 ##     "walls": {"gate": "<sprite>", "fence_x": "<sprite>", "fence_y": "<sprite>"},
 ##     "asleep": "<sprite>",                      # someone asleep on furniture, along plan x
 ##     "decals": [{"sprite": "<sprite>", "room": "<room id>", "side": "north" | "west",
@@ -123,6 +127,15 @@ func object_axis(type: String) -> String:
 	if not name is String or sprite(str(name)) == null:
 		return ""
 	return "y" if str(_iso_table("axis").get(name, "x")) == "y" else "x"
+
+
+## How much smaller or larger the 45° picture of object type `type` stands than its
+## footprint's diamond (`iso.scale`, by picture name; 1 by default).
+func object_scale(type: String) -> float:
+	var name = _iso_table("objects").get(type)
+	if not name is String:
+		return 1.0
+	return clampf(float(_iso_table("scale").get(name, 1.0)), 0.3, 1.5)
 
 
 ## The 45° view's wall pictures: [{tex, room, side, at, w, y}].
@@ -246,7 +259,51 @@ func collectible_sprite(type: String) -> Texture2D:
 
 ## The look of a person: the first `people` entry whose stage and sex (each optional) match:
 ## {tex, height}; {} when nothing matches.
-func person_look(stage: String, sex: String) -> Dictionary:
+func person_look(stage: String, sex: String, look := "") -> Dictionary:
+	var base := _stage_look(stage, sex)
+	var e = _table("looks").get(look) if look != "" else null
+	if not e is Dictionary or not e.get("rig") is String:
+		return base
+	var r := rig(str(e["rig"]))
+	if r == null:
+		return base
+	# A look of its own: its rigs and height over the stage's entry (whose flat picture stays
+	# the fallback for poses without a rig).
+	var out := base.duplicate()
+	if out.is_empty():
+		var tex := portrait(look)
+		if tex == null:
+			return base
+		out = {"tex": tex, "lying": false}
+	out["rig"] = r
+	out.erase("rig_front")
+	out.erase("rig_back")
+	out["height"] = float(e.get("height", out.get("height", 90.0)))
+	out["lean"] = float(e.get("lean", out.get("lean", 0.0)))
+	out["look"] = look
+	for k in ["rig_front", "rig_back"]:
+		if e.get(k) is String and FileAccess.file_exists(_base + "/" + str(e[k])):
+			var r2 := rig(str(e[k]))
+			if r2 != null:
+				out[k] = r2
+	return out
+
+
+## A look's portrait (for the adoption card, the bar's face): null when it has none.
+func portrait(look: String) -> Texture2D:
+	var e = _table("looks").get(look)
+	return texture(str(e["portrait"])) if e is Dictionary and e.get("portrait") is String else null
+
+
+## A look's words: {name, description}; {} when the look is unknown.
+func look_text(look: String) -> Dictionary:
+	var e = _table("looks").get(look)
+	if not e is Dictionary:
+		return {}
+	return {"name": str(e.get("name", "")), "description": str(e.get("description", ""))}
+
+
+func _stage_look(stage: String, sex: String) -> Dictionary:
 	var list = _data.get("people", [])
 	if not list is Array:
 		return {}

@@ -89,12 +89,52 @@ func _on_hud_open(what: String) -> void:
 		return
 	arrange.exit()
 	letters.close()
+	if what == "letters":
+		panels.close()
+		settings.close()
+		letters.open_box()
+		return
 	if what == "settings":
 		panels.close()
 		settings.open()
 		return
 	settings.close()
 	panels.open(what)
+
+
+## A click on a "waiting for you" notice (`Notices`): opens the card that answers it, or
+## takes the view to whoever it is about. Whatever covered the house is put away first.
+func open_notice(n: Dictionary) -> void:
+	var t := int(n.get("target", -1))
+	var kind := str(n.get("kind", ""))
+	arrange.exit()
+	settings.close()
+	panels.close()
+	if not kind in ["letter", "reply", "letters"]:
+		letters.close()
+	match kind:
+		"proposal":
+			overlays.open_proposal(t)
+		"stray":
+			overlays.open_stray()
+		"letter", "reply":
+			letters.open_letter(t)
+		"letters":
+			letters.open_box()
+		"ill", "need", "thanks":
+			select(t)
+		"wish":
+			select(t)
+			var p := session.world.person(t)
+			var wish := WishSystem.current(session.world, p) if p != null else {}
+			if str(wish.get("kind", "")) in ["item", "pet"]:
+				panels.open("shop")
+		"pet_ill":
+			select_pet(t)
+		"pet_away":
+			panels.open("family")
+		"pickup", "pickups":
+			house.look_at_collectible(t)
 
 
 ## True while an overlay, a panel or the build confirmation covers the house; the house then

@@ -226,12 +226,12 @@ func test_layout_fits_560_and_row_labels_are_safe():
 	var m := _living()
 	m.session.world.inventory["rice"] = 2
 	m.session.world.goals_done.append("tidy_home")
-	# Every market section's tab (the stall stocked, a ticket and a candidate waiting), then the rest.
+	# Every market section's tab (the stall stocked, a ticket and a hired hand), then the rest.
 	var w := m.session.world
 	w.advance(5)
 	w.money = 5000
 	w.command({"type": "buy_service", "service": "lottery_ticket"})
-	w.command({"type": "buy_service", "service": "adopt_more"})
+	w.command({"type": "buy_service", "service": "hire_help"})
 	m.panels.open("shop")
 	var steps: Array = []
 	for t in m.panels._tabs():
@@ -313,7 +313,7 @@ func test_market_tabs_follow_the_catalogue_sections():
 	var w := m.session.world
 	w.advance(5)
 	m.panels.open("shop")
-	var want: Array = MarketSystem.catalogue(w).map(func(s): return Panels.MARKET_TAB + str(s.id))
+	var want: Array = MarketSystem.sections(w.pack).map(func(s): return Panels.MARKET_TAB + str(s.id))
 	assert_eq(m.panels._tabs(), want + ["tab.inventory"])
 	assert_true(m.panels.is_disabled("market:provisions"), "the first section is open")
 	assert_true(m.panels.text().contains("食物与药") and m.panels.text().contains("升级与服务"))
@@ -348,11 +348,32 @@ func test_market_buttons_build_place_and_buy_services():
 	m.panels.press("ticket:%d" % int(w.tickets[0].id))
 	assert_true(w.tickets.is_empty())
 	assert_true(m.hud.toasts().any(func(t): return t.contains("中了")), str(m.hud.toasts()))
+	# Taking in another person opens the same picker as the game's start, a lot at a time.
 	m.panels.press("service:adopt_more")
-	assert_true(m.panels.has_button("candidate.take"))
+	m.tick(0.016)
+	assert_eq(m.overlays.current(), "adopt")
+	assert_eq(m.panels.opened(), "")
+	assert_eq(w.candidates.size(), FamilySystem.CHOICES)
+	var lot := w.candidates.duplicate(true)
+	m.overlays.press("btn.reroll")
+	assert_true(w.candidates != lot, "换一批")
 	var n := w.people.size()
-	m.panels.press("candidate.take")
+	var picked: Dictionary = w.candidates[2]
+	money = w.money
+	m.overlays.press("pick:2")
 	assert_eq(w.people.size(), n + 1)
+	assert_eq(w.people[-1].given, str(picked["given"]))
+	assert_eq(w.money, money - 300)
+	m.tick(0.016)
+	assert_true(m.overlays.current() != "adopt")
+	# Sent off: nobody new, nothing paid.
+	m.panels.open("shop")
+	m.panels.press("market:upgrades")
+	m.panels.press("service:adopt_more")
+	m.tick(0.016)
+	m.overlays.press("btn.dismiss")
+	assert_eq(w.people.size(), n + 1)
+	assert_true(w.candidate.is_empty() and w.candidates.is_empty())
 	m.free()
 
 

@@ -4,10 +4,11 @@ extends RefCounted
 ## `kind`, a `name` and a `price`; `requires` ({object: type}) keeps it off the counter until
 ## the house has such an object. Kinds:
 ##
-## - "adopt": another person joins the household. Buying it (free) puts a candidate on offer
-##   (`world.candidate`, made like the first adoptee, aged `age` or the pack's `adopt_age`);
-##   the `adopt` command takes them in and pays `price` + `price_step` x (people adopted this
-##   way so far); `reroll` shows someone else, `dismiss_candidate` sends them off. Not while
+## - "adopt": another person joins the household. Buying it (free) puts candidates on offer
+##   the way the first adoption does (`world.candidates`, `FamilySystem.new_candidate`, aged
+##   `age` or the pack's `adopt_age`); `adopt {pick}` takes one in and pays `price` +
+##   `price_step` x (people adopted this way so far); `reroll` brings a new lot,
+##   `dismiss_candidate` sends them all off. Not while
 ##   `max_people` (0: no limit) are alive. The newcomer takes the household's family name.
 ## - "speed": the clock runs `factor` times as fast for `hours` of real time (bought again it
 ##   adds up, to at most `max_hours` ahead). See `World.sync`: the sim clock runs ahead of
@@ -127,10 +128,10 @@ static func buy(world: World, cmd: Dictionary) -> Dictionary:
 static func _new_candidate(world: World) -> void:
 	var sv: Dictionary = world.pack.services[world.adopt_service]
 	var age = sv.get("age", world.pack.cfg("adopt_age"))
-	world.candidate = FamilySystem.make_person(world, age).to_dict()
+	FamilySystem.new_candidate(world, age)
 
 
-## `reroll` while living: someone else is on offer.
+## `reroll` while living: a new lot is on offer.
 static func reroll_candidate(world: World) -> Dictionary:
 	if world.candidate.is_empty() or not world.pack.services.has(world.adopt_service):
 		return Commands.fail("no_candidate")
@@ -143,6 +144,7 @@ static func dismiss_candidate(world: World, _cmd: Dictionary) -> Dictionary:
 	if world.candidate.is_empty() or world.phase != "living":
 		return Commands.fail("no_candidate")
 	world.candidate = {}
+	world.candidates = []
 	world.adopt_service = ""
 	return Commands.success()
 
@@ -169,6 +171,7 @@ static func adopt_candidate(world: World) -> Dictionary:
 		p.generation = head.generation + (1 if p.stage(world.pack) in ["baby", "child"] else 0)
 	world.add_person(p)
 	world.candidate = {}
+	world.candidates = []
 	world.adopt_service = ""
 	world.services_bought[id] = times(world, id) + 1
 	MoodSystem.cared(world, p)

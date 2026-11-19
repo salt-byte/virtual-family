@@ -50,8 +50,9 @@ func test_bar_shows_selected_person_in_words_not_numbers():
 	# Busy: the bar names the action without a percentage (the plate's line shows progress).
 	var desk: int = w.objects.filter(func(o): return o.type == "desk")[0].uid
 	m.session.command({"type": "drag", "person": p.uid, "object": desk})
-	# Need values whose digits cannot turn up in the age, the money or the larder count.
-	var values := [61.0, 67.0, 83.0, 89.0]
+	# Need values whose digits cannot turn up in the age, the money or the larder count:
+	# two at their worst, one low, one fine.
+	var values := [11.0, 13.0, 43.0, 89.0]
 	var k := 0
 	for nid in p.needs:
 		p.needs[nid] = values[k % values.size()]
@@ -64,8 +65,14 @@ func test_bar_shows_selected_person_in_words_not_numbers():
 	assert_true(text.contains(p.given))
 	assert_true(not text.contains("%"), text)
 	assert_true(text.contains(str(w.pack.actions[p.current.action].label)), text)
+	# The bar shows the words for what is wrong, loudest first, and leaves out the fine one
+	# (UI_PLAN: need words only when something is wrong).
+	var levels := {}
+	for c in m.session.strings.status_chips(p, w):
+		levels[c["word"]] = c["level"]
 	for word in p.status(m.session.pack).values():
-		assert_true(text.contains(word))
+		assert_eq(text.contains(word), levels[word] in ["bad", "warn"], "%s (%s)" % [word, levels[word]])
+	assert_eq(m.hud.chip_levels(), ["bad", "bad", "warn"] as Array[String])
 	var re := RegEx.create_from_string("\\d+%")
 	var stripped := re.sub(text, "", true)
 	assert_true(not stripped.contains("%"), stripped)
