@@ -10,6 +10,8 @@ const BODY_HEIGHT := 340.0
 const MARGIN := 24.0
 const DONE_MARK := "✓ "
 const UNKNOWN := "？"
+## Shop tab ids are this prefix plus a market section id.
+const MARKET_TAB := "market:"
 
 var main: Main
 var session: GameSession
@@ -90,7 +92,14 @@ func close() -> void:
 func _tabs() -> Array:
 	match _kind:
 		"shop":
-			return ["tab.items", "tab.inventory"]
+			# One tab per market section that has something in it (see `MarketSystem`), then
+			# what the household holds.
+			var out: Array = []
+			if session.world != null:
+				for s in MarketSystem.catalogue(session.world):
+					out.append(MARKET_TAB + str(s.id))
+			out.append("tab.inventory")
+			return out
 		"ledger":
 			return ["tab.goals", "tab.collection"]
 	return []
@@ -151,6 +160,29 @@ func press(id: String) -> void:
 	elif id.begins_with("buy_pet:"):
 		session.command({"type": "buy_pet", "kind": id.substr(8)})
 		refresh()
+	elif id.begins_with("place:"):
+		# New furniture is set down by hand: hand it to arrange mode.
+		close()
+		main.arrange.enter()
+		main.arrange.pick_type(id.substr(6))
+	elif id.begins_with("build:"):
+		session.command({"type": "build_room", "room": id.substr(6)})
+		refresh()
+	elif id.begins_with("service:"):
+		session.command({"type": "buy_service", "service": id.substr(8)})
+		refresh()
+	elif id.begins_with("used:"):
+		session.command({"type": "buy_secondhand", "listing": int(id.substr(5))})
+		refresh()
+	elif id.begins_with("ticket:"):
+		var r := session.command({"type": "open_ticket", "ticket": int(id.substr(7))})
+		if r.get("ok", false):
+			main.hud.toast(session.strings.event({"type": "lottery_drawn", "amount": int(r["amount"])}, session.world))
+		refresh()
+	elif id in ["candidate.take", "candidate.reroll", "candidate.dismiss"]:
+		var type: String = {"candidate.take": "adopt", "candidate.reroll": "reroll", "candidate.dismiss": "dismiss_candidate"}[id]
+		session.command({"type": type})
+		refresh()
 	elif id.begins_with("pet:"):
 		close()
 		main.select_pet(int(id.substr(4)))
@@ -205,8 +237,12 @@ func _data_signature(w: World) -> String:
 			var pets := ""
 			for pet in w.pets:
 				pets += "%d%s%s" % [pet.uid, pet.state, str(pet.wish)]
-			return "%d|%d|%s|%s|%s|%d|%s|%d" % [w.money, total, str(w.inventory), s.person_name(sel) if sel != null and sel.alive else "", wishes,
-				main.selected_pet, pets, w.objects.size()]
+			var market := "%s|%s|%s|%s|%d|%d|%d" % [str(w.secondhand), str(w.services_bought), str(w.tickets), str(w.candidate),
+				w.helper_until, w.speed_until, w.rooms_built.size()]
+			if _tab != "tab.inventory":
+				market += "|%d" % (w.now / 60)  # the countdowns on the stall and the services
+			return "%d|%d|%s|%s|%s|%d|%s|%d|%s" % [w.money, total, str(w.inventory), s.person_name(sel) if sel != null and sel.alive else "", wishes,
+				main.selected_pet, pets, w.objects.size(), market]
 		"stories":
 			return str(w.stories)
 		"ledger":
@@ -247,10 +283,10 @@ func _rebuild() -> void:
 	_button("btn.close", s.t("btn.close"), head)
 	var tabs := _tabs()
 	if not tabs.is_empty():
-		var row := HBoxContainer.new()
+		var row := HFlowContainer.new()  # many market sections wrap onto a second line
 		_box.add_child(row)
 		for t in tabs:
-			_button(t, s.t(t), row).disabled = (t == _tab)
+			_button(t, _tab_label(w, t), row).disabled = (t == _tab)
 	var scroll := ScrollContainer.new()
 	scroll.custom_minimum_size = Vector2(PANEL_WIDTH - 2.0 * MARGIN, BODY_HEIGHT)
 	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
@@ -259,9 +295,10 @@ func _rebuild() -> void:
 	list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	list.add_theme_constant_override("separation", 6)
 	scroll.add_child(list)
+	if _tab.begins_with(MARKET_TAB):
+		_fill_section(list, w, _tab.substr(MARKET_TAB.length()))
+		return
 	match _tab if not _kind in ["family", "stories"] else _kind:
-		"tab.items":
-			_fill_items(list, w)
 		"tab.inventory":
 			_fill_inventory(list, w)
 		"tab.goals":
@@ -274,57 +311,170 @@ func _rebuild() -> void:
 			_fill_stories(list, w)
 
 
-func _fill_items(list: VBoxContainer, w: World) -> void:
+## The tab's label: a market section's name from the pack, else the strings table.
+func _tab_label(w: World, tab: String) -> String:
+	if tab.begins_with(MARKET_TAB):
+		var sid := tab.substr(MARKET_TAB.length())
+		for sec in MarketSystem.sections(w.pack):
+			if sec.id == sid:
+				return str(sec.name)
+	return session.strings.t(tab)
+
+
+## One market section from the kernel's catalogue: its entries under their `group` headings,
+## each a row of name, a note (who wants it, why it cannot be had, the new price of used goods),
+## price and a button. The services section starts with what is waiting on the player.
+func _fill_section(list: VBoxContainer, w: World, sid: String) -> void:
 	var s := session.strings
-	var by_cat: Dictionary = {}
-	for id in w.pack.items:
-		var cat := str(w.pack.items[id].get("category", ""))
-		if not by_cat.has(cat):
-			by_cat[cat] = []
-		by_cat[cat].append(id)
-	for cat in by_cat:
-		if cat != "":
-			list.add_child(ViewWidgets.wrapped(cat))
-		for id in by_cat[cat]:
-			var it: Dictionary = w.pack.items[id]
-			var row := ViewWidgets.row(list)
-			row.add_child(ViewWidgets.name_label(str(it["name"])))
-			var wanted := _wanted_by(w, str(id))
-			if wanted != "":
-				var mark := ViewWidgets.price_label(s.t("shop.wanted").replace("{name}", wanted))
-				mark.add_theme_color_override("font_color", Color(0.95, 0.6, 0.3))
-				row.add_child(mark)
-			row.add_child(ViewWidgets.price_label(s.t("money").replace("{n}", str(int(it["price"])))))
-			_button("buy:" + id, s.t("btn.buy"), row).disabled = w.money < int(it["price"])
-	_fill_pet_shop(list, w)
-
-
-## The animals for sale (kinds with a price); one that needs a perch says so until there is one.
-func _fill_pet_shop(list: VBoxContainer, w: World) -> void:
-	if not PetSystem.enabled(w.pack):
+	var section := {}
+	for sec in MarketSystem.catalogue(w):
+		if sec.id == sid:
+			section = sec
+	if section.is_empty():
 		return
-	var s := session.strings
-	var heading := false
-	for kind in w.pack.pets:
-		var k: Dictionary = w.pack.pets[kind]
-		if int(k.get("price", 0)) <= 0:
-			continue
-		if not heading:
-			list.add_child(ViewWidgets.wrapped(s.t("shop.pets")))
-			heading = true
+	var kinds := {}
+	for e in section.entries:
+		kinds[e.kind] = true
+	if kinds.has("service"):
+		_fill_service_news(list, w)
+	if kinds.has("secondhand"):
+		var left := MarketSystem.secondhand_refresh_at(w) - w.now
+		list.add_child(_note(s.t("shop.restock").replace("{t}", _span(left))))
+	var group := ""
+	for e in section.entries:
+		if str(e.group) != group:
+			group = str(e.group)
+			if group != "":
+				list.add_child(ViewWidgets.wrapped(group))
 		var row := ViewWidgets.row(list)
-		row.add_child(ViewWidgets.name_label(str(k.get("name", ""))))
-		var why := PetSystem.can_take(w, str(kind))
-		var wanted := _pet_wanted_by(w, str(kind))
-		if why == "no_perch":
-			var perch := str(w.pack.object_types.get(str(k.get("perch", "")), {}).get("name", ""))
-			row.add_child(ViewWidgets.price_label(s.t("pet.need_perch").replace("{perch}", perch)))
-		elif wanted != "":
-			var mark := ViewWidgets.price_label(s.t("shop.wanted").replace("{name}", wanted))
-			mark.add_theme_color_override("font_color", Color(0.95, 0.6, 0.3))
+		var name := ViewWidgets.name_label(str(e.name))
+		row.add_child(name)
+		var note := _entry_note(w, e)
+		if note != "":
+			var mark := ViewWidgets.price_label(note)
+			if str(e.why) == "":
+				mark.add_theme_color_override("font_color", Color(0.95, 0.6, 0.3))
 			row.add_child(mark)
-		row.add_child(ViewWidgets.price_label(s.t("money").replace("{n}", str(int(k["price"])))))
-		_button("buy_pet:" + str(kind), s.t("btn.buy_pet"), row).disabled = why != "" or w.money < int(k["price"])
+		var price := ViewWidgets.price_label(s.t("money").replace("{n}", str(int(e.price))))
+		row.add_child(price)
+		if str(e.why) != "":
+			name.modulate = Color(1, 1, 1, 0.55)
+			price.modulate = Color(1, 1, 1, 0.55)
+		_button(_entry_button(e), s.t(_entry_label(e)), row).disabled = str(e.why) != ""
+		if str(e.get("desc", "")) != "":
+			list.add_child(_note("　" + str(e.desc)))
+
+
+## The id of the button that buys a catalogue entry.
+static func _entry_button(e: Dictionary) -> String:
+	match str(e.kind):
+		"item":
+			return "buy:" + str(e.id)
+		"object":
+			return "place:" + str(e.id)
+		"room":
+			return "build:" + str(e.id)
+		"pet":
+			return "buy_pet:" + str(e.id)
+		"service":
+			return "service:" + str(e.id)
+	return "used:%d" % int(e.id)
+
+
+static func _entry_label(e: Dictionary) -> String:
+	match str(e.kind):
+		"object":
+			return "btn.place"
+		"room":
+			return "btn.build"
+		"pet":
+			return "btn.buy_pet"
+	return "btn.buy"
+
+
+## The small note beside an entry: why it cannot be had (not for want of money), who wishes
+## for it, or what used goods cost new.
+func _entry_note(w: World, e: Dictionary) -> String:
+	var s := session.strings
+	var why := str(e.why)
+	if why != "" and why != "no_money":
+		var thing := ""
+		if why == "no_perch":
+			thing = str(w.pack.object_types.get(str(w.pack.pets[e.id].get("perch", "")), {}).get("name", ""))
+		elif why == "needs_object":
+			thing = str(w.pack.object_types.get(str(w.pack.services[e.id]["requires"].get("object", "")), {}).get("name", ""))
+		return s.t("shop.why." + why).replace("{thing}", thing)
+	var wanted := ""
+	match str(e.kind):
+		"item":
+			wanted = _wanted_by(w, str(e.id))
+		"pet":
+			wanted = _pet_wanted_by(w, str(e.id))
+		"object", "room":
+			wanted = _place_wanted_by(w, str(e.kind), str(e.id))
+		"secondhand":
+			if str(e.of) == "item":
+				wanted = _wanted_by(w, str(e.ref))
+			if wanted == "":
+				return s.t("shop.full_price").replace("{n}", s.t("money").replace("{n}", str(int(e.full_price))))
+	if wanted != "":
+		return s.t("shop.wanted").replace("{name}", wanted)
+	return ""
+
+
+## What is waiting on the player among the services: someone at the door to be taken in,
+## lottery tickets, a hired hand's days left and a faster clock's time left.
+func _fill_service_news(list: VBoxContainer, w: World) -> void:
+	var s := session.strings
+	if not w.candidate.is_empty():
+		var c := Person.from_dict(w.candidate)
+		var line := "%s  %s" % [s.person_name(c), s.t("years").replace("{n}", str(int(c.age)))]
+		list.add_child(ViewWidgets.wrapped(s.t("shop.candidate").replace("{line}", line)))
+		var row := ViewWidgets.row(list)
+		var cost := ServiceSystem.price(w, w.adopt_service)
+		_button("candidate.take", "%s（%s）" % [s.t("btn.adopt"), s.t("money").replace("{n}", str(cost))], row).disabled = w.money < cost
+		_button("candidate.reroll", s.t("btn.reroll"), row)
+		_button("candidate.dismiss", s.t("btn.cancel"), row)
+	for t in w.tickets:
+		if int(t.amount) < 0:
+			list.add_child(_note(s.t("shop.ticket_wait").replace("{n}", str(int(t.id))).replace("{t}", _span(int(t.draw_at) - w.now))))
+		else:
+			var row := ViewWidgets.row(list)
+			row.add_child(ViewWidgets.name_label(s.t("shop.ticket_drawn").replace("{n}", str(int(t.id)))))
+			_button("ticket:%d" % int(t.id), s.t("btn.open_ticket"), row)
+	if w.helper_until > w.now:
+		list.add_child(_note(s.t("shop.helper").replace("{t}", _span(w.helper_until - w.now))))
+	var fast := w.speed_until - int(ServiceSystem.real_now(w))
+	if fast > 0:
+		list.add_child(_note(s.t("shop.speed").replace("{t}", _span(fast))))
+
+
+## The names of the living people who wish for that piece of furniture or that room.
+func _place_wanted_by(w: World, kind: String, id: String) -> String:
+	var names: Array[String] = []
+	for p in w.people:
+		if not p.alive:
+			continue
+		var wish := WishSystem.current(w, p)
+		if str(wish.get("kind", "")) == kind and str(wish.get(kind, "")) == id:
+			names.append(session.strings.person_name(p))
+	return "、".join(names)
+
+
+## A span of seconds in the largest whole unit that fits: days, hours or minutes (at least 1).
+func _span(seconds: int) -> String:
+	var s := session.strings
+	if seconds >= 86400:
+		return s.t("time.days").replace("{n}", str(seconds / 86400))
+	if seconds >= 3600:
+		return s.t("time.hours").replace("{n}", str(seconds / 3600))
+	return s.t("time.minutes").replace("{n}", str(maxi(1, seconds / 60)))
+
+
+func _note(text: String) -> Label:
+	var l := ViewWidgets.wrapped(text)
+	l.modulate = Color(1, 1, 1, 0.75)
+	return l
 
 
 ## The names of the living people who wish for an animal of this kind, joined.

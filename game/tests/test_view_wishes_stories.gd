@@ -77,7 +77,11 @@ func test_shop_marks_the_wished_item():
 	m.panels.open("shop")
 	var t := m.panels.text()
 	assert_true(t.contains(m.session.strings.person_name(p) + "想要"), t)
-	assert_true(t.contains("书铺") and t.contains("布庄"), t)
+	# Books and clothes sit in their own market sections now, still under their shop headings.
+	m.panels.press("market:trades")
+	assert_true(m.panels.text().contains("书铺"), m.panels.text())
+	m.panels.press("market:clothes")
+	assert_true(m.panels.text().contains("布庄"), m.panels.text())
 	m.free()
 
 

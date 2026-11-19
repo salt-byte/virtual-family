@@ -83,6 +83,7 @@ func test_the_shop_sells_pets_and_the_family_panel_keeps_the_dead():
 	var w := m.session.world
 	w.money = 1000
 	m.panels.open("shop")
+	m.panels.press("market:animals")  # the animals have their own market section
 	assert_true(m.panels.has_button("buy_pet:dog"))
 	assert_true(m.panels.is_disabled("buy_pet:bird"), "no cage yet")
 	m.panels.press("buy_pet:dog")

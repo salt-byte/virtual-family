@@ -93,6 +93,19 @@ const DEFAULTS := {
 	"error.no_pet": "没有这只动物", "error.not_for_pet": "这东西不是给动物的", "error.wrong_pet": "它不吃这个",
 	"error.too_many_pets": "家里养不下更多了", "error.no_perch": "还没有它待的地方", "error.no_pet_kind": "没有这种动物",
 	"error.no_stray": "门口已经没有了",
+	"shop.full_price": "原价 {n}", "shop.restock": "{t}后换一批货", "shop.why.already_built": "已盖好",
+	"shop.why.owned": "已经有了", "shop.why.sold": "卖掉了", "shop.why.max": "眼下买够了", "shop.why.full": "家里住满了",
+	"shop.why.pending": "先回个话", "shop.why.needs_object": "先得有{thing}", "shop.why.no_space": "家里摆不下",
+	"shop.why.too_many_pets": "养不下了", "shop.why.no_perch": "先得有{thing}",
+	"btn.place": "去摆", "btn.open_ticket": "刮开", "shop.candidate": "上门的人：{line}",
+	"shop.ticket_wait": "第 {n} 张，{t}后开奖", "shop.ticket_drawn": "第 {n} 张开奖了",
+	"shop.helper": "帮手还来 {t}", "shop.speed": "日子过得快，还有 {t}",
+	"time.minutes": "{n} 分钟", "time.hours": "{n} 小时", "time.days": "{n} 天",
+	"ev.lottery_won": "开奖了，中了 {n}", "ev.lottery_lost": "开奖了，没中", "ev.adopted": "{name}进了家门",
+	"ev.helper_came": "帮手来过了", "ev.secondhand_restocked": "旧货换了一批",
+	"error.no_service": "没有这一项", "error.owned": "已经有了", "error.max": "眼下买够了", "error.full": "家里住满了",
+	"error.pending": "先回眼前这一位的话", "error.no_candidate": "眼下没有人", "error.sold": "已经卖掉了",
+	"error.no_space": "家里摆不下了", "error.needs_object": "先得有{thing}", "error.not_drawn": "还没开奖", "error.no_ticket": "没有这张",
 }
 
 var pack: Pack
@@ -375,6 +388,14 @@ func event(e: Dictionary, world: World) -> String:
 			return t("ev.proposal_expired")
 		"clean_reward":
 			return _f("ev.clean_reward", {"n": int(e["amount"])})
+		"lottery_drawn":
+			if int(e["amount"]) > 0:
+				return _f("ev.lottery_won", {"n": t("money").replace("{n}", str(int(e["amount"])))})
+			return t("ev.lottery_lost")
+		"adopted":
+			return _f("ev.adopted", {"name": _name_of(int(e["person"]), world)})
+		"helper_came", "secondhand_restocked":
+			return t("ev." + str(e["type"]))
 		"pet_arrived", "pet_ran_away", "pet_came_back", "pet_fell_ill", "pet_cured", "pet_saved":
 			return _f("ev." + str(e["type"]), {"name": _pet_called(int(e["pet"]), world)})
 		"pet_died":
