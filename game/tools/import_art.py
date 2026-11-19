@@ -16,6 +16,12 @@ sized for the game: drawn at 2x, so a texture pixel is half a house pixel.
     python3 game/tools/import_art.py --rigs-only <assets dir> <pack art dir>
 
 copies only the rigs (leaves the other pictures as they are).
+
+    python3 game/tools/import_art.py --iso-only <assets dir> <pack art dir>
+
+copies only what the 45° view adds: iso/<id>.png -> iso/<id>.png (trimmed, the longer side at
+most ISO_MAX), the facing rigs chars/a_<name>_front|_back/ -> rigs/<name>_front|_back/, and
+the animals' single facing pictures chars/a_<kind>_front|_back/<file>.png -> chars/<kind>_front|_back.png.
 Needs Pillow.
 """
 import json
@@ -25,6 +31,8 @@ from pathlib import Path
 from PIL import Image
 
 PROPS_MAX = 300
+ISO_MAX = 400
+ISO_SKIP = {"gatehouse_green", "kang_sleeper"}  # made for the target picture only
 CHAR_H = 200
 WALLS = {"a_wall", "a_wall_compound"}
 
@@ -54,10 +62,12 @@ RIG_SCALE = 0.5
 RIG_KEYS = ("pivot_px", "attach_px", "root_px", "size")
 
 
-def import_rigs(src: Path, dst: Path) -> None:
+def import_rigs(src: Path, dst: Path, facing_only=False) -> None:
     for d in sorted((src / "chars").glob("a_*")):
         rigs = list(d.glob("*.rig.json")) if d.is_dir() else []
         if not rigs:
+            continue
+        if facing_only and not (d.name.endswith("_front") or d.name.endswith("_back")):
             continue
         name = d.name[2:]
         out = dst / "rigs" / name
@@ -75,6 +85,25 @@ def import_rigs(src: Path, dst: Path) -> None:
         if "root_px" in rig:
             rig["root_px"] = [round(v * RIG_SCALE, 2) for v in rig["root_px"]]
         (out / f"{name}.rig.json").write_text(json.dumps(rig, ensure_ascii=False, indent=1))
+
+
+def import_iso(src: Path, dst: Path) -> None:
+    (dst / "iso").mkdir(parents=True, exist_ok=True)
+    for f in sorted((src / "iso").glob("*.png")):
+        if f.stem in ISO_SKIP:
+            continue
+        im = trim(Image.open(f).convert("RGBA"))
+        fit(im, ISO_MAX).save(dst / "iso" / f.name, optimize=True)
+    import_rigs(src, dst, facing_only=True)
+    (dst / "chars").mkdir(parents=True, exist_ok=True)
+    for d in sorted((src / "chars").glob("a_*_front")) + sorted((src / "chars").glob("a_*_back")):
+        if not d.is_dir() or list(d.glob("*.rig.json")):
+            continue
+        pics = [p for p in d.glob("*.png") if not p.name.startswith("_")]
+        if pics:
+            im = trim(Image.open(pics[0]).convert("RGBA"))
+            k = CHAR_H / 2 / im.height
+            im.resize((round(im.width * k), round(CHAR_H / 2)), Image.LANCZOS).save(dst / "chars" / f"{d.name[2:]}.png", optimize=True)
 
 
 def main(src: Path, dst: Path) -> None:
@@ -98,7 +127,8 @@ def main(src: Path, dst: Path) -> None:
 if __name__ == "__main__":
     args = sys.argv[1:]
     only = "--rigs-only" in args
-    args = [a for a in args if a != "--rigs-only"]
+    iso = "--iso-only" in args
+    args = [a for a in args if a not in ("--rigs-only", "--iso-only")]
     if len(args) != 2:
         sys.exit(__doc__)
-    (import_rigs if only else main)(Path(args[0]), Path(args[1]))
+    (import_iso if iso else import_rigs if only else main)(Path(args[0]), Path(args[1]))
