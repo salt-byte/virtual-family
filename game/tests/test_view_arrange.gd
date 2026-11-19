@@ -146,7 +146,7 @@ func test_cannot_afford_new_furniture():
 	w.money = 50
 	m.arrange.enter(); m.arrange.pick_type("kang")
 	assert_true(not m.arrange.can_drop())
-	var free_hall := m.house.layout.cell_center("hall", 6, 4)
+	var free_hall := m.house.layout.cell_center("hall", 7, 1)
 	m.arrange.hover(free_hall)
 	assert_true(not m.arrange.can_drop())
 	var r := m.arrange.drop(free_hall)
