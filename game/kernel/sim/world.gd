@@ -67,6 +67,9 @@ var goals_done: Array[String] = []
 var married := false
 ## The person on offer while adopting, in `Person.to_dict()` shape; {} otherwise.
 var candidate: Dictionary = {}
+## Everyone on offer while adopting, side by side (`candidate` first); the command `adopt`
+## takes one by `pick`. Not saved: after a load only `candidate` is on offer until a reroll.
+var candidates: Array[Dictionary] = []
 ## Pending marriage proposals: {id, person: Dictionary, savings, expires_at}.
 var proposals: Array[Dictionary] = []
 ## `now` from which the next proposal may arrive.
