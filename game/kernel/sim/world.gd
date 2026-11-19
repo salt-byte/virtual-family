@@ -93,6 +93,8 @@ var _flags_ctx: Array = []
 var _by_type_ctx: Array = []
 ## `GoalSystem._owned`'s cache: [objects, size, last uid, object types, count]; not saved.
 var _owned_ctx: Array = []
+## `GoalSystem.step`'s cache: [goals_done, its size, goals table, open goals]; not saved.
+var _goals_open: Array = []
 var _babies_t := -1
 ## `PetSystem.home_key` and `PetSystem.room_now` as of [now, pets size]; not saved.
 var _pet_cache: Array = [-1, -1, "", {}]

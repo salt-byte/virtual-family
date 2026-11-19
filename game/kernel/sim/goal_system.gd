@@ -10,29 +10,38 @@ static func step(world: World, _dt: float) -> void:
 	var ids: Array = t[0]
 	var types: PackedInt32Array = t[1]
 	var args: Array = t[2]
-	for k in ids.size():
-		var id = ids[k]
-		if world.goals_done.has(id):
-			continue
+	# The goals not done yet, by position in the table, kept on the world while `goals_done`
+	# is the same array with the same size (goals are only ever added to it).
+	var done := world.goals_done
+	var c := world._goals_open
+	if c.is_empty() or not is_same(c[0], done) or c[1] != done.size() or not is_same(c[2], t):
+		var open := PackedInt32Array()
+		for k in ids.size():
+			if not done.has(ids[k]):
+				open.append(k)
+		c = [done, done.size(), t, open]
+		world._goals_open = c
+	for k in c[3]:
 		# `is_met`, read from the table
+		var type := types[k]
 		var met := false
-		match types[k]:
-			_MESS_CLEARED:
-				met = int(world.stats["all_clean"]) >= 1
-			_CURED:
-				met = int(world.stats["cured"]) >= 1
-			_MARRIED:
-				met = world.married
-			_MONEY:
-				met = world.money >= args[k]
-			_ROOM:
-				met = world.rooms_built.has(args[k])
-			_COLLECTED:
-				met = int(world.stats["collected"]) >= args[k]
-			_OTHER:
-				met = is_met(world, world.pack.goals[id])
+		if type == _MONEY:
+			met = world.money >= args[k]
+		elif type == _ROOM:
+			met = world.rooms_built.has(args[k])
+		elif type == _COLLECTED:
+			met = int(world.stats["collected"]) >= args[k]
+		elif type == _CURED:
+			met = int(world.stats["cured"]) >= 1
+		elif type == _MESS_CLEARED:
+			met = int(world.stats["all_clean"]) >= 1
+		elif type == _MARRIED:
+			met = world.married
+		elif type == _OTHER:
+			met = is_met(world, world.pack.goals[ids[k]])
 		if not met:
 			continue
+		var id = ids[k]
 		var g: Dictionary = world.pack.goals[id]
 		var reward := int(g["reward"])
 		EconomySystem.earn(world, reward, "goal")
