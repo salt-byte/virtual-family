@@ -572,16 +572,26 @@ static func candidates(world: World, p: Person, pool := 0) -> Array[Dictionary]:
 	var pack := world.pack
 	var stage := p.stage(pack)
 	var hour := world.local_hour()
-	var damp := _repeat_damping(p, int(pack.cfg("repeat_memory")), float(pack.cfg("repeat_factor")))
-	# The damping by `Info.idx` (1.0: none), so the loop needs no lookup by action id.
+	# The damping by `Info.idx` (1.0: none), so the loop needs no lookup by action id:
+	# `_repeat_damping`, written straight into the array.
 	var table := _table(pack)
 	var dmp := PackedFloat64Array()
 	dmp.resize(table.size())
 	dmp.fill(1.0)
-	for id in damp:
-		var ix = pack.autonomy_index.get(id)
+	var memory := int(pack.cfg("repeat_memory"))
+	var rf := float(pack.cfg("repeat_factor"))
+	if memory == 1:
+		var ix = pack.autonomy_index.get(p.last_action)
 		if ix != null:
-			dmp[ix] = float(damp[id])
+			dmp[ix] = rf
+	else:
+		var powers := _damp_powers(memory, rf)
+		var seen := PackedInt32Array()  # the indexes set so far: an action counts where first found
+		for k in mini(memory, p.recent_actions.size()):
+			var ix = pack.autonomy_index.get(p.recent_actions[k])
+			if ix != null and not seen.has(ix):
+				seen.append(ix)
+				dmp[ix] = powers[k]
 	var low := float(pack.cfg("mood_depressed_factor")) if p.mood == "depressed" else 1.0
 	var needs := p.needs
 	var habits := p.habits
