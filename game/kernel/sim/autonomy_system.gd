@@ -199,7 +199,39 @@ static func _table(pack: Pack) -> Array:
 		pack.autonomy_index[i.id] = i.idx
 	pack.autonomy_whole_hours = out.all(func(i: Info):
 		return not i.has_hours or (i.hour_from == floorf(i.hour_from) and i.hour_to == floorf(i.hour_to)))
+	var bits := PackedInt32Array()
+	var bases := PackedFloat64Array()
+	var gmax := PackedFloat64Array()
+	var oixs := PackedInt32Array()
+	var capas := PackedInt32Array()
+	for i: Info in out:
+		bits.append((_B_GATED if i.gated else 0) | (_B_OBJECT if i.has_object else 0) \
+			| (_B_WORK if i.has_work else 0) | (_B_REQ if i.has_requires else 0) \
+			| (_B_TEND if i.tend else 0) | (_B_PET if i.pet else 0) | (_B_MOOD if i.mood_req else 0) \
+			| (_B_KIND if i.has_kind else 0) | (_B_CONSUMES if i.has_consumes else 0) \
+			| (_B_NEEDS if not i.need_ix.is_empty() else 0) | (_B_CLEANS if i.cleans != "" else 0))
+		bases.append(i.base)
+		gmax.append(i.gain_max)
+		oixs.append(i.obj_ix)
+		capas.append(i.capacity)
+	pack.autonomy_soa = [bits, bases, gmax, oixs, capas]
 	return out
+
+
+## `Info` flags by `Info.idx` (`pack.autonomy_soa`), so the hot loop of `candidates` reads
+## one packed int instead of a property per test (a property read of another object is a
+## lookup by name in GDScript).
+const _B_GATED := 1
+const _B_OBJECT := 2
+const _B_WORK := 4
+const _B_REQ := 8
+const _B_TEND := 16
+const _B_PET := 32
+const _B_MOOD := 64
+const _B_KIND := 128
+const _B_CONSUMES := 256
+const _B_NEEDS := 512
+const _B_CLEANS := 1024
 
 
 ## By object type index (`Info.obj_ix`): the uids of the world's objects of that type, in
@@ -234,17 +266,28 @@ static func _person_key(p: Person) -> String:
 
 
 ## "hour|rooms built|season|weather|wet" for `_flags`, kept on the world while none of them
-## can have changed (same clock, offset, rooms list, weather and wet-until).
+## has changed (same hour key, rooms list, weather, wetness and season), so the string is not
+## put together again on every step.
 static func _world_key(world: World, hour: float) -> String:
+	var pack := world.pack
+	var hkey: Variant = int(hour) if pack.autonomy_whole_hours else hour
+	var wet := WeatherSystem.wet(world)
+	# The season as `WeatherSystem.season_at` finds it: its list and position (-1: seasons off).
+	var seasons = pack.cfg("seasons")
+	var list: Variant = null
+	var pos := -1
+	if seasons is Dictionary and not (seasons as Dictionary).is_empty():
+		list = seasons["list"]
+		var year := float(pack.cfg("hours_per_year")) * 3600.0
+		var len := year / float((list as Array).size())
+		pos = clampi(int(fposmod(float(world.now), year) / len), 0, (list as Array).size() - 1)
 	var c := world._flags_ctx
-	if c.is_empty() or c[0] != world.now or c[1] != world.utc_offset or not is_same(c[2], world.rooms_built) \
-			or c[3] != world.rooms_built.size() or c[4] != world.weather or c[5] != world.wet_until:
-		var hkey: Variant = int(hour) if world.pack.autonomy_whole_hours else hour
+	if c.is_empty() or c[0] != hkey or not is_same(c[1], world.rooms_built) or c[2] != world.rooms_built.size() \
+			or c[3] != world.weather or c[4] != wet or c[5] != pos or not is_same(c[6], list):
 		var key := "%s|%s|%s" % [hkey, world.rooms_built, WeatherSystem.key(world)]
-		world._flags_ctx = [world.now, world.utc_offset, world.rooms_built, world.rooms_built.size(),
-			world.weather, world.wet_until, key]
+		world._flags_ctx = [hkey, world.rooms_built, world.rooms_built.size(), world.weather, wet, pos, list, key]
 		return key
-	return c[6]
+	return c[7]
 
 
 const _F_TAGS := 1  ## a tag of the action is among the person's likes or dislikes
@@ -258,8 +301,9 @@ const _F_OFF := 8  ## the season, weather or wet ground rules the action out (fa
 ## the weather's score factor (`WeatherSystem.action_factor`): the tests `candidates` would
 ## otherwise repeat for every action on every choice. With whole-hour windows only (the
 ## usual case) the hour bits hold for the whole hour, so the result is kept on the pack.
-## Returns [flags: PackedByteArray, factors: PackedFloat64Array, cache for `_live`,
-## score caps: PackedFloat64Array].
+## Returns [flags: PackedByteArray, factors: PackedFloat64Array, cache for `_live` and
+## `_live_by_cap`, score caps: PackedFloat64Array, plain scores: PackedFloat64Array] and, once
+## `_live_by_cap` has worked it out, the order of the actions by their caps.
 static func _flags(world: World, p: Person, hour: float) -> Array:
 	var pack := world.pack
 	var table := _table(pack)
@@ -267,25 +311,72 @@ static func _flags(world: World, p: Person, hour: float) -> Array:
 	var f = pack.autonomy_flags.get(key)
 	if f != null:
 		return f
+	# The parts that do not depend on the person are worked out once for everyone here and
+	# now, those that only depend on the likes once per person.
+	var wkey := "@" + _world_key(world, hour)
+	var wp = pack.autonomy_flags.get(wkey)
+	if wp == null:
+		wp = _world_flags(world, table, hour)
+		pack.autonomy_flags[wkey] = wp
+	var pkey := "~" + _person_key(p)
+	var pp = pack.autonomy_flags.get(pkey)
+	if pp == null:
+		pp = _person_flags(p, table)
+		pack.autonomy_flags[pkey] = pp
+	var wbits: PackedByteArray = wp[0]
+	var factors: PackedFloat64Array = wp[1]
+	var pbits: PackedByteArray = pp[0]
+	var pm: PackedFloat64Array = pp[1]
+	var out := PackedByteArray()
+	out.resize(table.size())
+	var mult := PackedFloat64Array()
+	mult.resize(table.size())
+	for k in table.size():
+		var b := wbits[k] | pbits[k]
+		out[k] = b
+		var m := pm[k]
+		if b & _F_HOURS:
+			m *= 0.1
+		mult[k] = m * factors[k]
+	# For a plain action (no flag bits in `autonomy_soa` but maybe an object: no needs, target,
+	# test or stock) the score before habits, damping and low mood, worked out as `candidates`
+	# does.
+	var kb: PackedInt32Array = pack.autonomy_soa[0]
+	var plain := PackedFloat64Array()
+	plain.resize(table.size())
+	for i: Info in table:
+		var k := i.idx
+		if kb[k] & ~_B_OBJECT != 0:
+			continue
+		var sc := i.base + 0.0
+		var b := out[k]
+		if b & _F_TAGS:
+			for t in i.tags:
+				if t in p.likes:
+					sc *= 1.5
+				if t in p.dislikes:
+					sc *= 0.5
+		if b & _F_HOURS:
+			sc *= 0.1
+		if factors[k] != 1.0:
+			sc *= factors[k]
+		plain[k] = sc
+	if pack.autonomy_flags.size() > 4096:
+		pack.autonomy_flags = {}
+	var both := [out, factors, {}, mult, plain]  # the third: stage-track key -> `_live` list
+	pack.autonomy_flags[key] = both
+	return both
+
+
+## `_flags`' bits and weather factors that hold for everyone here and now: [bits, factors].
+static func _world_flags(world: World, table: Array, hour: float) -> Array:
+	var pack := world.pack
 	var built := world.built_set()
 	var out := PackedByteArray()
 	out.resize(table.size())
-	var factors := PackedFloat64Array()
-	factors.resize(table.size())
-	factors.fill(1.0)
-	# The product of the factors fixed here (likes, hours, weather): with `gain_max` it caps
-	# the score, so `candidates` can pass over what could not reach the pool.
-	var mult := PackedFloat64Array()
-	mult.resize(table.size())
-	var seasons := WeatherSystem.enabled(pack)
-	var season := WeatherSystem.season_at(pack, world.now)
-	var wx := WeatherSystem.weather_entry(pack, world.weather)
-	var is_wet := WeatherSystem.wet(world)
+	var factors := _weather_factors(world, table)
 	for i: Info in table:
 		var b := 0
-		for t in i.tags:
-			if t in p.likes or t in p.dislikes:
-				b |= _F_TAGS
 		if i.has_hours and not _in_hours(hour, i.hours):
 			b |= _F_HOURS
 		if not i.has_object and i.has_rooms:
@@ -296,26 +387,50 @@ static func _flags(world: World, p: Person, hour: float) -> Array:
 					break
 			if not somewhere:
 				b |= _F_NOWHERE
-		if seasons:
-			var wf := WeatherSystem.factor_for(pack, pack.actions[i.id], i.place_kind, season, wx, is_wet)
-			factors[i.idx] = wf
-			if wf == 0.0:
-				b |= _F_OFF
+		if factors[i.idx] == 0.0:
+			b |= _F_OFF
 		out[i.idx] = b
+	return [out, factors]
+
+
+## Per action of `_table`, `WeatherSystem.factor_for` in this season and weather and with the
+## ground as wet as it is (all 1.0 with seasons off), kept on the pack by `WeatherSystem.key`.
+static func _weather_factors(world: World, table: Array) -> PackedFloat64Array:
+	var pack := world.pack
+	var key := "%" + WeatherSystem.key(world)
+	var f = pack.autonomy_flags.get(key)
+	if f != null:
+		return f
+	var factors := PackedFloat64Array()
+	factors.resize(table.size())
+	factors.fill(1.0)
+	if WeatherSystem.enabled(pack):
+		var season := WeatherSystem.season_at(pack, world.now)
+		var wx := WeatherSystem.weather_entry(pack, world.weather)
+		var is_wet := WeatherSystem.wet(world)
+		for i: Info in table:
+			factors[i.idx] = WeatherSystem.factor_for(pack, pack.actions[i.id], i.place_kind, season, wx, is_wet)
+	pack.autonomy_flags[key] = factors
+	return factors
+
+
+## `_flags`' bits and score factors from `p`'s likes and dislikes: [bits, factors].
+static func _person_flags(p: Person, table: Array) -> Array:
+	var out := PackedByteArray()
+	out.resize(table.size())
+	var mult := PackedFloat64Array()
+	mult.resize(table.size())
+	for i: Info in table:
 		var m := 1.0
 		for t in i.tags:
+			if t in p.likes or t in p.dislikes:
+				out[i.idx] = _F_TAGS
 			if t in p.likes:
 				m *= 1.5
 			if t in p.dislikes:
 				m *= 0.5
-		if b & _F_HOURS:
-			m *= 0.1
-		mult[i.idx] = m * factors[i.idx]
-	if pack.autonomy_flags.size() > 4096:
-		pack.autonomy_flags = {}
-	var both := [out, factors, {}, mult]  # the third: stage-track key -> `_live` list
-	pack.autonomy_flags[key] = both
-	return both
+		mult[i.idx] = m
+	return [out, mult]
 
 
 ## The births `avoid_tag` of the pack ("" for none).
@@ -348,11 +463,32 @@ static func _stage_track_table(pack: Pack, stage: String, track: String, mood :=
 	var t = pack.autonomy_by_stage_track.get(key)
 	if t == null:
 		t = _stage_table(pack, stage).filter(func(i: Info):
-			return (not i.has_work or i.track == track) and (not i.mood_req or i.mood == mood) \
-				and not (pregnant and i.avoid) and (i.preg < 0 or (i.preg == 1) == pregnant) \
-				and (babies or not i.tend) and (not i.pet or _pet_fits(i, pets)))
+			return _open_to(i, track, mood, pregnant, babies) and (not i.pet or _pet_fits(i, pets)))
 		pack.autonomy_by_stage_track[key] = t
 	return t
+
+
+## `_stage_track_table`'s tests but the one for pets.
+static func _open_to(i: Info, track: String, mood: String, pregnant: bool, babies: bool) -> bool:
+	return (not i.has_work or i.track == track) and (not i.mood_req or i.mood == mood) \
+		and not (pregnant and i.avoid) and (i.preg < 0 or (i.preg == 1) == pregnant) \
+		and (babies or not i.tend)
+
+
+## By `Info.idx`, 1 for the care actions `_pet_fits` lets through with the pets at home as
+## `key` lists them (0 for all other actions), kept on the pack.
+static func _pet_mask(pack: Pack, key: String) -> PackedByteArray:
+	var k := "!" + key
+	var m = pack.autonomy_by_stage_track.get(k)
+	if m == null:
+		var table := _table(pack)
+		m = PackedByteArray()
+		m.resize(table.size())
+		for i: Info in table:
+			if i.pet and _pet_fits(i, key):
+				m[i.idx] = 1
+		pack.autonomy_by_stage_track[k] = m
+	return m
 
 
 ## Whether a care action suits the pets at home as `PetSystem.home_key` lists them: a pet of
@@ -388,6 +524,49 @@ static func _live(pack: Pack, flagged: Array, stage: String, track: String, mood
 	return t
 
 
+## The actions `_flags` leaves possible here and now and `_open_to` lets through (care
+## actions for pets whatever pets are at home: `candidates` tests those itself), ordered by
+## the most each could score for this person, (`base` + `gain_max`) times the factors
+## `_flags` fixed, highest first: [`Info.idx` of each, bounds], where bounds[k] is the
+## highest of those from position k on. `candidates` fills its pool from the top and stops
+## once no bound left can reach it. The order is worked out once per `_flags` entry and only
+## filtered here.
+static func _live_by_cap(pack: Pack, flagged: Array, stage: String, track: String, mood: String, pregnant: bool, babies: bool) -> Array:
+	var key := "^" + stage + "|" + track + "|" + mood + ("|p" if pregnant else "") + ("|b" if babies else "")
+	var cache: Dictionary = flagged[2]
+	var t = cache.get(key)
+	if t != null:
+		return t
+	var table := _table(pack)
+	var flags: PackedByteArray = flagged[0]
+	var mult: PackedFloat64Array = flagged[3]
+	if flagged.size() < 6:
+		var keyed: Array = []
+		for i: Info in table:
+			if flags[i.idx] & (_F_NOWHERE | _F_OFF) == 0:
+				keyed.append([-(i.base + i.gain_max) * mult[i.idx], i.idx])
+		keyed.sort()
+		var order := PackedInt32Array()
+		for e in keyed:
+			order.append(e[1])
+		flagged.append(order)
+	var by := PackedInt32Array()
+	for ix in flagged[5]:
+		var i: Info = table[ix]
+		if stage in i.stages and _open_to(i, track, mood, pregnant, babies):
+			by.append(ix)
+	var bounds := PackedFloat64Array()
+	bounds.resize(by.size())
+	var hi := -INF
+	for k in range(by.size() - 1, -1, -1):
+		var i: Info = table[by[k]]
+		hi = maxf(hi, (i.base + i.gain_max) * mult[i.idx])
+		bounds[k] = hi
+	t = [by, bounds]
+	cache[key] = t
+	return t
+
+
 ## Everything `p` could start right now, scored. Order is stable (pack action order).
 ## Gives exactly what `can_do(..., -1)` and `_score` give, action by action, except that a
 ## slow action with an `hours` window is not chosen outside that window (it would end at
@@ -404,16 +583,26 @@ static func candidates(world: World, p: Person, pool := 0) -> Array[Dictionary]:
 	var pack := world.pack
 	var stage := p.stage(pack)
 	var hour := world.local_hour()
-	var damp := _repeat_damping(p, int(pack.cfg("repeat_memory")), float(pack.cfg("repeat_factor")))
-	# The damping by `Info.idx` (1.0: none), so the loop needs no lookup by action id.
+	# The damping by `Info.idx` (1.0: none), so the loop needs no lookup by action id:
+	# `_repeat_damping`, written straight into the array.
 	var table := _table(pack)
 	var dmp := PackedFloat64Array()
 	dmp.resize(table.size())
 	dmp.fill(1.0)
-	for id in damp:
-		var ix = pack.autonomy_index.get(id)
+	var memory := int(pack.cfg("repeat_memory"))
+	var rf := float(pack.cfg("repeat_factor"))
+	if memory == 1:
+		var ix = pack.autonomy_index.get(p.last_action)
 		if ix != null:
-			dmp[ix] = float(damp[id])
+			dmp[ix] = rf
+	else:
+		var powers := _damp_powers(memory, rf)
+		var seen := PackedInt32Array()  # the indexes set so far: an action counts where first found
+		for k in mini(memory, p.recent_actions.size()):
+			var ix = pack.autonomy_index.get(p.recent_actions[k])
+			if ix != null and not seen.has(ix):
+				seen.append(ix)
+				dmp[ix] = powers[k]
 	var low := float(pack.cfg("mood_depressed_factor")) if p.mood == "depressed" else 1.0
 	var needs := p.needs
 	var habits := p.habits
@@ -421,6 +610,7 @@ static func candidates(world: World, p: Person, pool := 0) -> Array[Dictionary]:
 	var likes := p.likes
 	var dislikes := p.dislikes
 	var pregnant := p.pregnant_until > 0
+	var track := p.track
 	# By `Info.obj_ix`: the first object of that type free for `p` (-1: none, -2: not looked
 	# up yet), and the uids of that type's objects in `objects` order.
 	var free := PackedInt32Array()
@@ -445,6 +635,7 @@ static func candidates(world: World, p: Person, pool := 0) -> Array[Dictionary]:
 	var flags: PackedByteArray = flagged[0]
 	var wfs: PackedFloat64Array = flagged[1]
 	var caps: PackedFloat64Array = flagged[3]
+	var plain: PackedFloat64Array = flagged[4]
 	var top_s := PackedFloat64Array()  # with `pool`: the best scores so far, best first
 	var top_i := PackedInt32Array()  # `Info.idx`, object uid and target uid for each of `top_s`
 	var top_o := PackedInt32Array()
@@ -452,36 +643,147 @@ static func candidates(world: World, p: Person, pool := 0) -> Array[Dictionary]:
 	# The cheap yes/no tests come first; only what passes them is scored.
 	var pets_home := PetSystem.home_key(world) if not world.pets.is_empty() else ""
 	var pet_room = null  # pet need id -> the most any pet at home lacks of it (filled on first need)
-	for i: Info in _live(pack, flagged, stage, p.track, p.mood, pregnant, not world.babies().is_empty(), pets_home):
-		if i.gated:
+	# With a pool the actions come best bound first (`_live_by_cap`), so the pool fills with
+	# good scores early and the loop ends when no bound left can beat its worst; `top_s`
+	# then orders ties by `Info.idx`, which keeps them in pack order as before.
+	var live: PackedInt32Array  # `Info.idx` of the actions to look at, in that order
+	var bounds := PackedFloat64Array()
+	var pet_ok := PackedByteArray()  # with a pool: `_pet_mask` for the pets at home
+	var bmul := 1.000001  # how far habits, low mood and damping can lift a score past its bound
+	var any_babies := not world.babies().is_empty()
+	if pool > 0:
+		var lb := _live_by_cap(pack, flagged, stage, p.track, p.mood, pregnant, any_babies)
+		live = lb[0]
+		bounds = lb[1]
+		pet_ok = _pet_mask(pack, pets_home)
+		for h in habits.values():
+			bmul = maxf(bmul, 1.000001 * float(h))
+		bmul *= maxf(low, 1.0) * maxf(float(pack.cfg("repeat_factor")), 1.0)
+	else:
+		for i: Info in _live(pack, flagged, stage, p.track, p.mood, pregnant, any_babies, pets_home):
+			live.append(i.idx)
+	var soa: Array = pack.autonomy_soa
+	var kb: PackedInt32Array = soa[0]
+	var bases: PackedFloat64Array = soa[1]
+	var gmax: PackedFloat64Array = soa[2]
+	var oixs: PackedInt32Array = soa[3]
+	var capas: PackedInt32Array = soa[4]
+	# Once the pool is full: its worst score and that entry's `Info.idx`.
+	var full := false
+	var worst := 0.0
+	var worst_i := 0
+	var li := -1
+	for ix in live:
+		li += 1
+		var kbits := kb[ix]
+		if pool > 0:
+			if full and bounds[li] * bmul <= worst:
+				break
+			if kbits & _B_PET and pet_ok[ix] == 0:
+				continue
+		if pool > 0 and kbits & ~_B_OBJECT == 0 and not any_habits:
+			# A plain action: its score is `plain` (the arithmetic below, done ahead) damped,
+			# and it needs a free object if it names one.
+			var ps := plain[ix]
+			var pdv := dmp[ix]
+			if pdv != 1.0:
+				ps *= pdv
+			if low != 1.0:
+				ps *= low
+			if ps <= 0.0:
+				continue
+			if full and (ps < worst or (ps == worst and ix > worst_i)):
+				continue
+			var puid := -1
+			if kbits & _B_OBJECT:
+				var poix := oixs[ix]
+				puid = free[poix]
+				if puid == -2:
+					if users.is_empty():
+						users[-1] = 0
+						for q in world.people:
+							if q != p and q.alive and not q.current.is_empty():
+								var ou := int(q.current.get("object_uid", -1))
+								users[ou] = int(users.get(ou, 0)) + 1
+					puid = -1  # `_first_unoccupied`, written out
+					var capacity := capas[ix]
+					for ouid in by_type[poix]:
+						if int(users.get(ouid, 0)) < capacity:
+							puid = ouid
+							break
+					free[poix] = puid
+				if puid < 0:
+					continue
+			var pj := top_s.size()
+			while pj > 0 and (ps > top_s[pj - 1] or (ps == top_s[pj - 1] and ix < top_i[pj - 1])):
+				pj -= 1
+			top_s.insert(pj, ps)
+			top_i.insert(pj, ix)
+			top_o.insert(pj, puid)
+			top_t.insert(pj, -1)
+			if top_s.size() > pool:
+				top_s.resize(pool)
+				top_i.resize(pool)
+				top_o.resize(pool)
+				top_t.resize(pool)
+			if top_s.size() == pool:
+				full = true
+				worst = top_s[pool - 1]
+				worst_i = top_i[pool - 1]
+			continue
+		var i: Info = table[ix]
+		if kbits & _B_GATED:
 			if i.slow_in_hours and not _in_hours(hour, i.hours):
 				continue
 			if i.has_story and not StorySystem.finale_open(world, i.story):
 				continue
 			if i.has_serves and not DishSystem.may_serve(world, i.serves):
 				continue
-		var fl := flags[i.idx]
+		var fl := flags[ix]
 		if fl & (_F_NOWHERE | _F_OFF):
 			continue
-		if pool > 0 and top_s.size() == pool:
+		if full and kbits & _B_PET:
 			# Its score can be at most this (damping and low mood only lower it): when that
-			# cannot beat the pool, the action is passed over as the full scoring would. For a
-			# care action the pet's part is bounded by what the pets at home lack now.
-			var gm := i.gain_max
-			if i.pet:
-				if pet_room == null:
-					pet_room = PetSystem.room_now(world)
-				gm = i.self_gain + PetSystem.gain_bound(world, i.pet_ids, i.pet_gains, i.pet_cures, pet_room)
-			var cap := (i.base + gm) * caps[i.idx]
+			# cannot beat the pool, the action is passed over as the full scoring would. The
+			# pet's part is bounded by what the pets at home lack now (for other actions the
+			# bound `_live_by_cap` gives is as good, and the loop already stops on it).
+			if pet_room == null:
+				pet_room = PetSystem.room_now(world)
+			var gm := i.self_gain + PetSystem.gain_bound(world, i.pet_ids, i.pet_gains, i.pet_cures, pet_room)
+			var cap := (bases[ix] + gm) * caps[ix]
 			if any_habits:
 				cap *= float(habits.get(i.id, 1.0))
-			if low > 1.0 and not i.mood_req:
+			if low > 1.0 and not kbits & _B_MOOD:
 				cap *= low
-			if cap * 1.000001 <= top_s[pool - 1]:
+			if cap * 1.000001 <= worst:
 				continue
+		if kbits & _B_WORK and i.track != track:
+			continue
+		if kbits & _B_REQ:
+			if i.req_fast:  # `_requires_ok` for need_below alone, written out
+				var below_ok := true
+				var req_ix := i.req_ix
+				var req_below := i.req_below
+				for k in req_ix.size():
+					var nx := req_ix[k]
+					if (nv_of[nx] if nx >= 0 and has[nx] == 1 else 100.0) >= req_below[k]:
+						below_ok = false
+						break
+				if not below_ok:
+					continue
+			elif not _requires_ok(p, i.requires):
+				continue
+		if kbits & _B_CLEANS and not kbits & (_B_TEND | _B_PET):
+			if not mess_seen:
+				mess_seen = true
+				for m in world.messes:
+					mess_present[m.type] = true
+			if not mess_present.has(i.cleans):
+				continue  # nothing of that kind to clean (`MessSystem.first_free` gives -1)
 		var uid := -1
-		if i.has_object:
-			var fu := free[i.obj_ix]
+		if kbits & _B_OBJECT:
+			var oix := i.obj_ix
+			var fu := free[oix]
 			if fu == -2:
 				if users.is_empty():
 					users[-1] = 0
@@ -490,48 +792,38 @@ static func candidates(world: World, p: Person, pool := 0) -> Array[Dictionary]:
 							var ou := int(q.current.get("object_uid", -1))
 							users[ou] = int(users.get(ou, 0)) + 1
 				fu = -1  # `_first_unoccupied`, written out
-				for ouid in by_type[i.obj_ix]:
-					if int(users.get(ouid, 0)) < i.capacity:
+				var capacity := i.capacity
+				for ouid in by_type[oix]:
+					if int(users.get(ouid, 0)) < capacity:
 						fu = ouid
 						break
-				free[i.obj_ix] = fu
+				free[oix] = fu
 			uid = fu
 			if uid < 0:
-				continue
-		if i.has_work and i.track != p.track:
-			continue
-		if i.has_requires:
-			if i.req_fast:  # `_requires_ok` for need_below alone, written out
-				var below_ok := true
-				for k in i.req_ix.size():
-					var ix := i.req_ix[k]
-					if (nv_of[ix] if ix >= 0 and has[ix] == 1 else 100.0) >= i.req_below[k]:
-						below_ok = false
-						break
-				if not below_ok:
-					continue
-			elif not _requires_ok(p, i.requires):
 				continue
 		# The score: `_score`'s arithmetic in the same order, written out here.
 		var gain := 0.0
 		var target := -1
-		if i.tend:
+		if kbits & _B_TEND:
 			# Caring for a baby scores by what the baby lacks, not by the carer's own needs.
 			target = _tend_target(world, i.tend_ids, i.tend_gains, p)
 			if target < 0:
 				continue
 			gain = _tend_gain
-		elif i.pet:
+		elif kbits & _B_PET:
 			target = PetSystem.best_target(world, i.pet_kinds, i.pet_ids, i.pet_gains, i.pet_cures, p)
 			if target < 0:
 				continue
 			gain = PetSystem.target_gain
-		for k in i.need_ix.size():
-			var ix := i.need_ix[k]
-			if ix >= 0 and has[ix] == 1:
-				var room := 100.0 - nv_of[ix]
-				gain += minf(i.need_gains[k], room) * room / 100.0
-		var s := i.base + gain
+		if kbits & _B_NEEDS:
+			var need_ix := i.need_ix
+			var need_gains := i.need_gains
+			for k in need_ix.size():
+				var nx := need_ix[k]
+				if nx >= 0 and has[nx] == 1:
+					var room := 100.0 - nv_of[nx]
+					gain += minf(need_gains[k], room) * room / 100.0
+		var s := bases[ix] + gain
 		if any_habits:  # x1.0 for an action without a habit changes nothing
 			s *= float(habits.get(i.id, 1.0))
 		if fl != 0:
@@ -543,30 +835,23 @@ static func candidates(world: World, p: Person, pool := 0) -> Array[Dictionary]:
 						s *= 0.5
 			if fl & _F_HOURS:
 				s *= 0.1
-		var wfv := wfs[i.idx]
+		var wfv := wfs[ix]
 		if wfv != 1.0:
 			s *= wfv
-		var dv := dmp[i.idx]
+		var dv := dmp[ix]
 		if dv != 1.0:
 			s *= dv
-		if low != 1.0 and not i.mood_req:
+		if low != 1.0 and not kbits & _B_MOOD:
 			s *= low
 		if s <= 0.0:
 			continue
-		if pool > 0 and top_s.size() == pool and s <= top_s[pool - 1]:
+		if full and (s < worst or (s == worst and ix > worst_i)):
 			continue  # would not make the pool whatever the tests below say
-		if i.has_kind and not i.tend and not i.pet:
-			if i.cleans != "":
-				if not mess_seen:
-					mess_seen = true
-					for m in world.messes:
-						mess_present[m.type] = true
-				if not mess_present.has(i.cleans):
-					continue  # nothing of that kind to clean (`MessSystem.first_free` gives -1)
+		if kbits & _B_KIND and not kbits & (_B_TEND | _B_PET):
 			target = _first_free_target(world, pack.actions[i.id], p)
 			if target < 0:
 				continue
-		if i.has_consumes:
+		if kbits & _B_CONSUMES:
 			var ok := true
 			for item in i.consumes:
 				if int(world.stock.get(item, 0)) < int(i.consumes[item]):
@@ -578,10 +863,10 @@ static func candidates(world: World, p: Person, pool := 0) -> Array[Dictionary]:
 			out.append({"action": i.id, "object_uid": uid, "target_uid": target, "score": s})
 			continue
 		var j := top_s.size()
-		while j > 0 and s > top_s[j - 1]:
+		while j > 0 and (s > top_s[j - 1] or (s == top_s[j - 1] and ix < top_i[j - 1])):
 			j -= 1
 		top_s.insert(j, s)
-		top_i.insert(j, i.idx)
+		top_i.insert(j, ix)
 		top_o.insert(j, uid)
 		top_t.insert(j, target)
 		if top_s.size() > pool:
@@ -589,6 +874,10 @@ static func candidates(world: World, p: Person, pool := 0) -> Array[Dictionary]:
 			top_i.resize(pool)
 			top_o.resize(pool)
 			top_t.resize(pool)
+		if top_s.size() == pool:
+			full = true
+			worst = top_s[pool - 1]
+			worst_i = top_i[pool - 1]
 	for k in top_s.size():
 		out.append({"action": (table[top_i[k]] as Info).id, "object_uid": top_o[k], "target_uid": top_t[k], "score": top_s[k]})
 	return out
@@ -776,16 +1065,17 @@ static func target_claimed(world: World, uid: int, kind: String, except: Person)
 static func start(world: World, p: Person, action_id: String, object_uid: int, target_uid := -1) -> void:
 	cancel(world, p)
 	var a: Dictionary = world.pack.actions[action_id]
-	if target_uid < 0:
+	var kind := target_kind(a)
+	if target_uid < 0 and kind != "":  # (`_first_free_target` gives -1 without a kind)
 		target_uid = _first_free_target(world, a, p)
 	var uid := _free_object(world, p, a, object_uid) if str(a["object"]) != "" else -1
 	for item in a["consumes"]:
 		world.stock[item] = int(world.stock.get(item, 0)) - int(a["consumes"][item])
 		if not world.pets.is_empty():
 			PetSystem.on_consumed(world, str(item), int(a["consumes"][item]))
-	if target_uid >= 0 and not world.pets.is_empty() and target_kind(a) == TARGET_PET:
+	if target_uid >= 0 and not world.pets.is_empty() and kind == TARGET_PET:
 		PetSystem.on_tended(world, target_uid, p.uid)
-	if uid < 0 and target_uid >= 0 and target_kind(a) == TARGET_DISH:
+	if uid < 0 and target_uid >= 0 and kind == TARGET_DISH:
 		# Eating: at the table (or stove) the dish stands on.
 		uid = int(DishSystem.find(world, target_uid).get("object_uid", -1))
 	p.current = {"action": action_id, "object_uid": uid, "target_uid": target_uid,
@@ -825,39 +1115,66 @@ static func cancel(world: World, p: Person) -> void:
 ## that length and pays over it. At speed 1 lengths never changed, and only the last
 ## `duration_s` seconds of a longer `remaining_s` pay, as always.
 static func _progress(world: World, p: Person, dt: float) -> void:
-	var a: Dictionary = world.pack.actions[p.current["action"]]
+	var cur := p.current
+	var pack := world.pack
+	var c = pack.autonomy_progress.get(cur["action"])
+	if c == null:
+		c = _progress_entry(pack, str(cur["action"]))
+	var a: Dictionary = c[0]
 	# A slow action with an `hours` window (sleep) ends as soon as the local hour is outside
 	# it: people get up when the night is over, or when the day/night setting flips.
-	if bool(a.get("slow", false)) and not (a["hours"] as Array).is_empty() \
-			and not _in_hours(world.local_hour(), a["hours"]):
+	if c[1] and not _in_hours(world.local_hour(), c[2]):
 		_finish(world, p)
 		return
-	var dur := duration_s(world, a)
-	var remaining := int(p.current["remaining_s"])
-	if remaining > dur and float(world.pack.cfg("action_speed")) != 1.0:
+	var speed := float(pack.cfg("action_speed"))
+	var dur: int = c[6]
+	if c[7] != speed or c[8] != world.step_s:
+		dur = duration_s(world, a)
+		c[6] = dur
+		c[7] = speed
+		c[8] = world.step_s
+	var remaining := int(cur["remaining_s"])
+	if remaining > dur and speed != 1.0:
 		remaining = dur
-		p.current["remaining_s"] = remaining
-	var paid := clampf(dt - float(remaining - dur), 0.0, dt)
-	var gain_frac := paid / float(dur)
-	var cost_frac := paid / (float(a["duration_min"]) * 60.0)
-	for n in a["needs"]:
-		if p.needs.has(n):
-			var v := float(a["needs"][n])
-			var nv := clampf(float(p.needs[n]) + v * (gain_frac if v >= 0.0 else cost_frac), 0.0, 100.0)
-			if v > 0.0 and p.mood_cap < 100.0 and n == world.pack.cfg("praise_need"):
-				# Without the player's attention, one's own doings only lift the mood so far.
-				nv = minf(nv, maxf(float(p.needs[n]), p.mood_cap))
-			p.needs[n] = nv
-	var tends = a.get("tends")  # no default: this runs every step for everyone busy
-	if tends != null and not (tends as Dictionary).is_empty():
-		var t := world.person(int(p.current.get("target_uid", -1)))
-		if t != null and t.alive:
-			for n in tends:
-				if t.needs.has(n):
-					t.needs[n] = clampf(float(t.needs[n]) + float(tends[n]) * gain_frac, 0.0, 100.0)
-	p.current["remaining_s"] = remaining - int(dt)
-	if int(p.current["remaining_s"]) <= 0:
+		cur["remaining_s"] = remaining
+	var needs: Dictionary = c[3]
+	if not needs.is_empty() or c[5]:  # most actions only count down
+		var paid := clampf(dt - float(remaining - dur), 0.0, dt)
+		var gain_frac := paid / float(dur)
+		var cost_frac := paid / (float(a["duration_min"]) * 60.0)
+		for n in needs:
+			if p.needs.has(n):
+				var v := float(needs[n])
+				var nv := clampf(float(p.needs[n]) + v * (gain_frac if v >= 0.0 else cost_frac), 0.0, 100.0)
+				if v > 0.0 and p.mood_cap < 100.0 and n == pack.cfg("praise_need"):
+					# Without the player's attention, one's own doings only lift the mood so far.
+					nv = minf(nv, maxf(float(p.needs[n]), p.mood_cap))
+				p.needs[n] = nv
+		if c[5]:
+			var tends: Dictionary = c[4]
+			var t := world.person(int(cur.get("target_uid", -1)))
+			if t != null and t.alive:
+				for n in tends:
+					if t.needs.has(n):
+						t.needs[n] = clampf(float(t.needs[n]) + float(tends[n]) * gain_frac, 0.0, 100.0)
+	remaining -= int(dt)
+	cur["remaining_s"] = remaining
+	if remaining <= 0:
 		_finish(world, p)
+
+
+## What `_progress` reads of action `id` on every step, kept on the pack (a pack's content
+## does not change once worlds use it): [the action, slow with an `hours` window, its hours,
+## its needs, its tends, whether it tends, then `duration_s` and the action speed and step
+## length it was worked out for].
+static func _progress_entry(pack: Pack, id: String) -> Array:
+	var a: Dictionary = pack.actions[id]
+	var tends = a.get("tends")
+	var tending := tends != null and not (tends as Dictionary).is_empty()
+	var c := [a, bool(a.get("slow", false)) and not (a["hours"] as Array).is_empty(), a["hours"],
+		a["needs"], tends if tending else {}, tending, 0, NAN, 0]
+	pack.autonomy_progress[id] = c
+	return c
 
 
 ## Runs once when an action's time is up.
@@ -987,22 +1304,16 @@ static func _requires_ok(p: Person, req: Dictionary) -> bool:
 ## uid of an object of the action's type that is free for `p` (`object_uid` >= 0 asks for that
 ## exact one), else -1. An object `p` is already using does not count as occupied for them.
 static func _free_object(world: World, p: Person, a: Dictionary, object_uid: int) -> int:
+	var type = a["object"]
 	for o in world.objects:
-		if o.type != a["object"] or (object_uid >= 0 and o.uid != object_uid):
+		if (object_uid >= 0 and o.uid != object_uid) or o.type != type:
 			continue
-		if not _occupied(world, o.uid, p):
+		# Occupied when it already has as many other users as its type's `capacity`.
+		var uid := int(o.uid)
+		var users := 0
+		for q in world.people:
+			if q != p and q.alive and not q.current.is_empty() and int(q.current.get("object_uid", -1)) == uid:
+				users += 1
+		if users < int(world.pack.object_types.get(o["type"], {}).get("capacity", 1)):
 			return o.uid
 	return -1
-
-
-## True when the object already has as many other users as its type's `capacity`.
-static func _occupied(world: World, uid: int, except: Person) -> bool:
-	var users := 0
-	for q in world.people:
-		if q != except and q.alive and not q.current.is_empty() and int(q.current.get("object_uid", -1)) == uid:
-			users += 1
-	var o := world.object(uid)
-	var capacity := 1
-	if not o.is_empty():
-		capacity = int(world.pack.object_types.get(o["type"], {}).get("capacity", 1))
-	return users >= capacity
