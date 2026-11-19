@@ -25,6 +25,8 @@ static var handlers: Dictionary = {
 	"receive_visitor": StorySystem.receive_visitor,
 	"buy_pet": PetSystem.buy,
 	"answer_stray": PetSystem.answer_stray,
+	"read_letter": LetterSystem.read,
+	"answer_letter": LetterSystem.answer,
 }
 
 

@@ -14,6 +14,7 @@ var overlays: Overlays
 var panels: Panels
 var arrange: ArrangeMode
 var settings: SettingsPanel
+var letters: LetterView
 ## Uid of the selected person; -1 for none.
 var selected := -1
 ## Uid of the selected animal (-1: none); while one is selected the bar shows it.
@@ -64,6 +65,9 @@ func _build(pack_id: String, dir: String, real_clock: Callable) -> void:
 	settings = SettingsPanel.new()
 	add_child(settings)
 	settings.setup(self)
+	letters = LetterView.new()
+	add_child(letters)
+	letters.setup(self)
 	hud.open.connect(_on_hud_open)
 	house.blocked = is_house_blocked
 	_sync_selection()
@@ -84,6 +88,7 @@ func _on_hud_open(what: String) -> void:
 			arrange.enter()
 		return
 	arrange.exit()
+	letters.close()
 	if what == "settings":
 		panels.close()
 		settings.open()
@@ -96,7 +101,7 @@ func _on_hud_open(what: String) -> void:
 ## ignores input.
 func is_house_blocked() -> bool:
 	return overlays.blocks_input() or panels.blocks_input() or arrange.blocks_input() \
-		or settings.blocks_input()
+		or settings.blocks_input() or letters.blocks_input()
 
 
 ## An explicit choice (a click on a person, the family panel): also makes the view follow
@@ -170,6 +175,8 @@ func tick(delta: float) -> void:
 	panels.refresh()
 	arrange.refresh()
 	settings.refresh()
+	letters.refresh()
+	letters.tick(delta)
 
 
 func _process(delta: float) -> void:

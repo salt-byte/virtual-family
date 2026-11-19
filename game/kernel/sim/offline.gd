@@ -13,11 +13,13 @@ static func catch_up(world: World, elapsed_seconds: float) -> Dictionary:
 	var seconds := minf(elapsed_seconds, float(cap))
 	var t0 := world.now
 	var money0 := world.money
+	var letter0 := world.letter_next
 	var held := world.drain_events()
 	var was_offline := world.offline
 	world.offline = true
 	world.advance(seconds)
 	world.offline = was_offline
+	summary["letters"] = LetterSystem.trim_new(world, letter0)
 	var events := world.drain_events()
 	world.requeue_events(held)
 	summary["capped"] = elapsed_seconds > float(cap)
@@ -58,4 +60,4 @@ static func _empty() -> Dictionary:
 		"deaths": [], "illnesses": [], "level_ups": [], "proposals_expired": 0,
 		"proposals_waiting": 0, "goals_done": [], "messes_now": 0, "game_over": false,
 		"fragments": [], "stories_done": [], "births": [], "relatives": [],
-		"pets_died": [], "pets_ill": [], "pets_back": [], "pets_cured": []}
+		"pets_died": [], "pets_ill": [], "pets_back": [], "pets_cured": [], "letters": []}

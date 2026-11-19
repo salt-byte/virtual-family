@@ -57,6 +57,12 @@ const DEFAULTS := {
 	"hint.drag": "把人拖到东西上，他就去用它；不拖的时候，他自己过日子",
 	"error.keepsake": "这是旧物，不卖", "error.no_visitor": "门口已经没有人了",
 	"mood.sad": "难过", "mood.depressed": "抑郁",
+	"btn.letters": "信匣", "title.letters": "信匣", "letters.none": "还没有来信。",
+	"letter.from": "{writer}的信", "letter.today": "今天", "letter.days": "{n} 天前",
+	"letter.answered": "已回：{choice}", "letter.stale": "这事已经过去了，回不了了",
+	"away.letters": "这些天来了 {n} 封信，收在信匣里",
+	"error.no_letter": "没有这封信", "error.answered": "这封信已经回过了",
+	"error.too_late": "这事已经过去了", "error.no_choice": "做不了",
 	"ev.mood_depressed": "{name}这几天闷闷不乐", "ev.mood_recovered": "{name}缓过来了",
 	"ev.wish_formed": "{name}心里想着：{text}", "ev.wish_granted": "{name}如愿了：{text}",
 	"ev.wish_expired": "{name}没等到：{text}",
@@ -449,6 +455,9 @@ func summary_lines(summary: Dictionary, world: World) -> Array[String]:
 		var tk: String = {"pets_ill": "away.pet_ill", "pets_back": "away.pet_back", "pets_cured": "away.pet_cured"}[key]
 		for uid in summary.get(key, []):
 			out.append(_f(tk, {"name": _pet_called(int(uid), world)}))
+	var letters: Array = summary.get("letters", [])
+	if not letters.is_empty():
+		out.append(_f("away.letters", {"n": letters.size()}))
 	if summary.get("game_over", false):
 		out.append(t("away.over"))
 	return out

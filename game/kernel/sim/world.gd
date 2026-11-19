@@ -83,6 +83,11 @@ var blessing_illness := 1.0
 ## True while some couple could have a child but the beds have no place for one (see
 ## `BirthSystem`); kept so the hint is given once each time it starts.
 var birth_blocked := false
+## Letters to the player, oldest first (see `LetterSystem`), the id the next one gets, and
+## `now` of the last minor letter (0: none yet).
+var letters: Array[Dictionary] = []
+var letter_next := 1
+var letter_minor_at := 0
 
 ## The living babies as of `_babies_t` (see `babies`); not saved.
 var _babies: Array[Person] = []
@@ -100,6 +105,10 @@ var _built_src: Array[String] = []
 var _acc := 0.0
 var _next_uid := 1
 var _events: Array = []
+## Events that may become letters, waiting for `LetterSystem.step`; not saved. Filled only
+## when the pack has letters (`_letter_watch` is then `LetterSystem.WATCH`).
+var _letter_news: Array = []
+var _letter_watch: Dictionary = {}
 
 
 func _init(p: Pack, seed: int) -> void:
@@ -114,6 +123,8 @@ func _init(p: Pack, seed: int) -> void:
 		if bool(p.rooms[id].get("built", false)):
 			rooms_built.append(str(id))
 	phase = "adopting"
+	if LetterSystem.enabled(p):
+		_letter_watch = LetterSystem.WATCH
 	FamilySystem.new_candidate(self)
 
 
@@ -225,6 +236,8 @@ func emit(type: String, data := {}) -> void:
 	var e := {"type": type, "t": now}
 	e.merge(data)
 	_events.append(e)
+	if _letter_watch.has(type):
+		_letter_news.append(e)
 
 
 ## Puts `events` back at the front of the queue, ahead of anything queued since.
@@ -309,7 +322,8 @@ func _run_systems(dt: float) -> void:
 	MoodSystem.step(self, dt)
 	WishSystem.step(self, dt)
 	StorySystem.step(self, dt)
-	PetSystem.step(self, dt)  # last: its hourly look for a stray draws after everything else
+	PetSystem.step(self, dt)  # its hourly look for a stray draws after everything but letters
+	LetterSystem.step(self, dt)  # last: turns this step's news into letters
 
 
 ## Everything that decides what happens next, as plain JSON-safe data; see `WorldSave`.
