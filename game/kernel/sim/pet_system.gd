@@ -100,21 +100,40 @@ static func home_key(world: World) -> String:
 	return world._pet_cache[2]
 
 
-## Fills `world._pet_cache` for this step (pets only change between steps or by being added).
+## Fills `world._pet_cache` for this step (pets only change between steps or by being added):
+## [now, pets size, `home_key`, `room_now`, then what the key was last put together from].
 static func _cache(world: World) -> void:
 	var c := world._pet_cache
 	if c[0] == world.now and c[1] == world.pets.size():
 		return
 	c[0] = world.now
 	c[1] = world.pets.size()
-	c[2] = _home_key(world)
-	c[3] = _room_now(world)
+	# The key only changes when a pet comes home or leaves, falls ill or gets well, or one of
+	# its needs crosses `care_below`: those are read into `sig`, and the key is put together
+	# again only when they differ from last time.
+	var line := _num(cfg(world.pack), "care_below", 101.0)
+	var sig := PackedByteArray()
+	for p in world.pets:
+		if p.home():
+			sig.append(2 if p.sick else 1)
+			sig.append(p.needs.size())
+			for n in p.needs:
+				sig.append(1 if float(p.needs[n]) < line else 0)
+		else:
+			sig.append(0)
+	if c.size() < 7:
+		c.resize(7)
+	if c[4] != sig or c[5] != line or not is_same(c[6], world.pets):
+		c[2] = _home_key(world, line)
+		c[4] = sig
+		c[5] = line
+		c[6] = world.pets
+	c[3] = null  # `room_now` works it out when first asked for in this step
 
 
-static func _home_key(world: World) -> String:
+static func _home_key(world: World, line: float) -> String:
 	var key := ""
 	var ill := false
-	var line := _num(cfg(world.pack), "care_below", 101.0)
 	for p in world.pets:
 		if p.home():
 			if not key.contains("," + p.kind + ","):
@@ -128,10 +147,14 @@ static func _home_key(world: World) -> String:
 
 
 ## Pet need id -> the most any pet at home lacks of it (100 - its value), plus "" -> 1 so the
-## result is never empty.
+## result is never empty. Worked out on its first use in a step; within a step pets' needs
+## only rise (people looking after them), so it stays a bound for `gain_bound`.
 static func room_now(world: World) -> Dictionary:
 	_cache(world)
-	return world._pet_cache[3]
+	var c := world._pet_cache
+	if c[3] == null:
+		c[3] = _room_now(world)
+	return c[3]
 
 
 static func _room_now(world: World) -> Dictionary:
