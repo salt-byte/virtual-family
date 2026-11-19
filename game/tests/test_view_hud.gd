@@ -64,8 +64,8 @@ func test_bar_shows_selected_person_in_words_not_numbers():
 	assert_true(text.contains(p.given))
 	assert_true(not text.contains("%"), text)
 	assert_true(text.contains(str(w.pack.actions[p.current.action].label)), text)
-	for word in p.status(m.session.pack).values():
-		assert_true(text.contains(word))
+	# The status: the feeling of the moment, and need words only where something is wrong.
+	assert_true(text.contains(m.session.strings.status_line(p, w)), text)
 	var re := RegEx.create_from_string("\\d+%")
 	var stripped := re.sub(text, "", true)
 	assert_true(not stripped.contains("%"), stripped)

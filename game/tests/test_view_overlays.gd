@@ -118,9 +118,11 @@ func test_returning_after_hours_shows_summary_once():
 	assert_true(m2.overlays.text().contains(m2.session.strings.t("away.time").replace("{h}", "5")))
 	m2.overlays.press("btn.close")
 	m2.tick(0.016)
-	assert_eq(m2.overlays.current(), "")
+	# Shown once. (Something else that happened while away, an old story's visitor at the
+	# gate say, may come up next: old things turn up every 45 minutes or so now.)
+	assert_true(m2.overlays.current() != "away", m2.overlays.current())
 	m2.tick(0.016)
-	assert_eq(m2.overlays.current(), "")
+	assert_true(m2.overlays.current() != "away", m2.overlays.current())
 	m2.free()
 
 

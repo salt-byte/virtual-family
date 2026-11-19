@@ -215,6 +215,15 @@ func pose() -> String:
 	return "busy" if not person.current.is_empty() else "idle"
 
 
+## The words over them while they face the screen: news of what they earned, else thanks.
+func thanks_words() -> String:
+	return session.strings.thanks_text(person, session.world)
+
+
+func thanks_width() -> float:
+	return maxf(80.0, ThemeDB.fallback_font.get_string_size(thanks_words(), HORIZONTAL_ALIGNMENT_LEFT, -1, 14).x + 8.0)
+
+
 ## The text of the thought bubble ("" when there is no wish).
 func wish_bubble() -> String:
 	return _wish
@@ -503,8 +512,9 @@ func _draw() -> void:
 		var sway := 0.5 * sin(TAU * _t / THANKS_PERIOD)
 		var shoulder := top + Vector2(BODY.x * 0.5, 14)
 		draw_line(shoulder, shoulder + Vector2(10, -16).rotated(sway), _body.darkened(0.25), 5.0)
-		draw_string(ThemeDB.fallback_font, Vector2(-40, -BODY.y - 44), session.strings.t("thanks"),
-			HORIZONTAL_ALIGNMENT_CENTER, 80, 14, Color(0.75, 0.2, 0.1))
+		var tw := thanks_width()
+		draw_string(ThemeDB.fallback_font, Vector2(-tw * 0.5, -BODY.y - 44), thanks_words(),
+			HORIZONTAL_ALIGNMENT_CENTER, tw, 14, Color(0.75, 0.2, 0.1))
 	elif _wish != "":
 		_draw_bubble()
 	var plate := StyleBoxFlat.new()
@@ -746,7 +756,7 @@ func label_size() -> Vector2:
 	var bw := 0.0
 	if thanking():
 		extra = 20.0
-		bw = 80.0
+		bw = thanks_width()
 	elif _wish != "":
 		extra = 30.0
 		bw = font.get_string_size(_wish, HORIZONTAL_ALIGNMENT_LEFT, -1, 12).x + 16.0
@@ -789,8 +799,9 @@ func draw_label(ci: CanvasItem, at: Vector2) -> void:
 		ci.draw_string(font, Vector2(rect.position.x, at.y - 5), _name, HORIZONTAL_ALIGNMENT_CENTER, nw, 12, line)
 	var y := rect.position.y
 	if thanking():
-		ci.draw_string_outline(font, Vector2(at.x - 40, y - 4), session.strings.t("thanks"), HORIZONTAL_ALIGNMENT_CENTER, 80, 14, 3, Color.WHITE)
-		ci.draw_string(font, Vector2(at.x - 40, y - 4), session.strings.t("thanks"), HORIZONTAL_ALIGNMENT_CENTER, 80, 14, accent)
+		var tw := thanks_width()
+		ci.draw_string_outline(font, Vector2(at.x - tw * 0.5, y - 4), thanks_words(), HORIZONTAL_ALIGNMENT_CENTER, tw, 14, 3, Color.WHITE)
+		ci.draw_string(font, Vector2(at.x - tw * 0.5, y - 4), thanks_words(), HORIZONTAL_ALIGNMENT_CENTER, tw, 14, accent)
 	elif _wish != "":
 		_draw_bubble_at(ci, Vector2(at.x, y - 6))
 

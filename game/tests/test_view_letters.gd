@@ -106,6 +106,8 @@ func test_a_proposal_letter_is_answered_from_the_paper():
 
 func test_the_letter_box_lists_letters_newest_first():
 	var m := _main()
+	# No old things turn up in the half hour (their card would cover the box).
+	m.session.world.pack.config["story_interval_min"] = 1000000
 	var a := _ill_letter(m)
 	m.session.world.advance(30 * 60)
 	var b := _ill_letter(m)

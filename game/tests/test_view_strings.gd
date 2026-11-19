@@ -129,8 +129,13 @@ func test_person_helpers():
 	var aid: String = w.pack.actions.keys()[0]
 	p.current = {"action": aid}
 	assert_eq(s.doing(p, w), str(w.pack.actions[aid]["label"]))
-	var st := p.status(w.pack)
-	assert_eq(s.status_line(p, w), "、".join(st.values()))
+	# qijia has feelings: the feeling of the moment, and no need word while every need is fine.
+	assert_eq(s.status_line(p, w), FeelingSystem.now(w, p))
+	assert_true(FeelingSystem.warnings(w, p).is_empty())
+	# A pack without feelings lists every need's word, as before.
+	var sw := TestKit.world("_smoke")
+	var q := TestKit.adult(sw)
+	assert_eq(ViewStrings.new(sw.pack).status_line(q, sw), "、".join(q.status(sw.pack).values()))
 
 func test_summary_lines():
 	var w := _living()

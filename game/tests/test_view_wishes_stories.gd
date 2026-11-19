@@ -86,10 +86,11 @@ func test_status_shows_the_low_mood_word_and_events_have_lines():
 	var w := m.session.world
 	var p := w.people[0]
 	var s := m.session.strings
+	# The bar leads with what they feel now; the low mood is among the warning words after it.
 	p.mood = "sad"
-	assert_true(s.status_line(p, w).begins_with("难过"))
+	assert_true(s.status_line(p, w).contains(" · 难过"), s.status_line(p, w))
 	p.mood = "depressed"
-	assert_true(s.status_line(p, w).begins_with("抑郁"))
+	assert_true(s.status_line(p, w).contains(" · 抑郁"), s.status_line(p, w))
 	var name := s.person_name(p)
 	assert_eq(s.event({"type": "mood_changed", "person": p.uid, "mood": "depressed", "was": "sad"}, w), name + "这几天闷闷不乐")
 	assert_eq(s.event({"type": "mood_changed", "person": p.uid, "mood": "sad", "was": "depressed"}, w), name + "缓过来了")

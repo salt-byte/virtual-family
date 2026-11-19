@@ -162,4 +162,27 @@ func pick(world: World, pos: Vector2, furniture_only := false) -> Dictionary:
 		for o in world.objects:
 			if o.room == room and object_rect(o, world.pack).has_point(pos):
 				return {"kind": "object", "uid": o.uid, "room": room}
+		if not furniture_only:
+			# Litter and pick-ups are small and drawn a little below their cell (in the 45°
+			# view especially): a drop on a neighbouring cell of the same room still counts,
+			# the nearest one winning.
+			var near := _near_thing(world, room, pos)
+			if not near.is_empty():
+				return near
 	return {"kind": "room", "uid": -1, "room": room}
+
+
+## The collectible or mess within one cell of `pos` in `room` whose cell centre is nearest
+## (collectibles first on a tie), as `pick` returns it; {} for none.
+func _near_thing(world: World, room: String, pos: Vector2) -> Dictionary:
+	var best := {}
+	var best_d := INF
+	for pair in [["collectible", world.collectibles], ["mess", world.messes]]:
+		for t in pair[1]:
+			if t.room != room:
+				continue
+			var d := cell_center(room, int(t.x), int(t.y)) - pos
+			if absf(d.x) <= CELL.x * 1.5 and absf(d.y) <= CELL.y * 1.5 and d.length() < best_d:
+				best_d = d.length()
+				best = {"kind": pair[0], "uid": t.uid, "room": room}
+	return best

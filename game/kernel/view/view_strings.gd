@@ -181,15 +181,35 @@ func doing(p: Person, world: World) -> String:
 	return t("idle")
 
 
+## The status bar: what they feel right now (`FeelingSystem.now`), then only the words that
+## are a warning (being with child, a low mood, the needs below their `warn_below`):
+## "干活呢 · 饿得心慌". A pack without `feelings` lists every need's word, as before.
 func status_line(p: Person, world: World) -> String:
 	var words: Array[String] = []
 	if p.pregnant():
 		words.append(t("status.pregnant"))
 	if p.mood != "":
 		words.append(t("mood." + p.mood))
-	for word in p.status(world.pack).values():
-		words.append(str(word))
-	return "、".join(words)
+	var feel := FeelingSystem.now(world, p)
+	if feel == "":
+		for word in p.status(world.pack).values():
+			words.append(str(word))
+		return "、".join(words)
+	words.append_array(FeelingSystem.warnings(world, p))
+	return feel if words.is_empty() else feel + " · " + "、".join(words)
+
+
+## The words over someone turned to the screen: what they are sharing (`ShareSystem.text`),
+## else the thank-you.
+func thanks_text(p: Person, world: World) -> String:
+	var said := ShareSystem.text(world, p) if p != null and world != null else ""
+	return said if said != "" else t("thanks")
+
+
+## The pack's icon name for the wish `p` holds (`icon` in wishes.json; "" for none): the art
+## key of what would fix it, for the thought bubble to draw beside the words.
+func wish_icon(p: Person, world: World) -> String:
+	return str(WishSystem.current(world, p).get("icon", ""))
 
 
 func _name_of(uid: int, world: World) -> String:
