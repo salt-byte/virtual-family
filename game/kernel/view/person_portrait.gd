@@ -39,9 +39,12 @@ static func make(p: Person, sk: PackSkin, pk: Pack, side := Vector2(150, 160), l
 func portrait() -> Texture2D:
 	if look == "" or skin == null or not skin.enabled:
 		return null
-	if skin.has_method("look_portrait"):
-		var t = skin.call("look_portrait", look)
+	if skin.has_method("portrait"):
+		var t = skin.call("portrait", look)
 		return t if t is Texture2D else null
+	if skin.has_method("look_portrait"):
+		var t2 = skin.call("look_portrait", look)
+		return t2 if t2 is Texture2D else null
 	var file := "chars/portraits/%s.png" % look
 	if not ResourceLoader.exists(str(skin.get("_base")) + "/" + file):
 		return null
@@ -52,7 +55,7 @@ func portrait() -> Texture2D:
 func look_for() -> Dictionary:
 	if skin == null or not skin.enabled or person == null or pack == null:
 		return {}
-	return skin.person_look(person.stage(pack), person.gender)
+	return skin.person_look(person.stage(pack), person.gender, str(person.get("look") if person.get("look") != null else ""))
 
 
 func _process(delta: float) -> void:
