@@ -291,7 +291,7 @@ func free_label_spot(rect: Rect2, w: float, size: int, fallback: Vector2) -> Vec
 			var c := cells.position + Vector2i(col, row)
 			if site.furniture.has(c) or site.furniture.has(c + Vector2i(1, 0)):
 				continue
-			var at := (Vector2(c) + Vector2(0.15, 0.85)) * HouseSite.CELL
+			var at := (Vector2(c) + Vector2(0.15, 0.55)) * HouseSite.CELL  # clear of a cut wall in front
 			var v := IsoMath.to_view(at)
 			var box := Rect2(v + Vector2(0, -size), Vector2(w, size + 4))
 			if pics.all(func(pr: Rect2): return not pr.intersects(box)):
