@@ -31,6 +31,18 @@
 	"mood_neglect_floor": 10,
 	"story_interval_min": 240,
 	"story_ttl_min": 600,
+	"looks": [
+		{"id": "adult_1", "sex": "male", "stage": "adult", "livelihoods": ["farming"]},
+		{"id": "adult_2", "sex": "male", "stage": "adult", "livelihoods": ["reading"]},
+		{"id": "adult_3", "sex": "male", "stage": "adult", "livelihoods": ["peddling"]},
+		{"id": "adult_4", "sex": "male", "stage": "adult", "livelihoods": ["carpentry"]},
+		{"id": "adult_5", "sex": "female", "stage": "adult", "livelihoods": ["embroidery"]},
+		{"id": "adult_6", "sex": "female", "stage": "adult", "livelihoods": ["tofu"]},
+		{"id": "adult_7", "sex": "female", "stage": "adult", "livelihoods": ["medicine"]},
+		{"id": "adult_8", "sex": "female", "stage": "adult", "livelihoods": ["farming", "embroidery"]},
+		{"id": "elder_1", "sex": "male", "stage": "elder", "livelihoods": ["medicine", "reading"]},
+		{"id": "elder_2", "sex": "female", "stage": "elder", "livelihoods": ["tofu", "embroidery"]}
+	],
 	"clean_reward": {"amount": 15},
 	"pets": {
 		"needs": [

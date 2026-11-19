@@ -63,6 +63,8 @@ static func step(world: World, dt: float) -> void:
 		p.age += age_per_step
 		if grown >= 0.0 and was < grown and p.age >= grown:
 			LivelihoodSystem.come_of_age(world, p)
+		if p.look != "" and world.pack.stage_of(was) != world.pack.stage_of(p.age):
+			LookSystem.ensure(world, p)  # grown up or grown old: a look for the new stage
 		if vital != "" and p.needs.has(vital) and float(p.needs[vital]) <= 0.0:
 			world.kill_person(p, "neglect")
 		elif p.age >= p.lifespan:

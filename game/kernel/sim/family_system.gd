@@ -31,6 +31,7 @@ static func make_person(world: World, age_range: Array) -> Person:
 	p.lifespan = _range_f(world, world.pack.cfg("lifespan"))
 	for nid in world.pack.needs:
 		p.needs[nid] = float(world.pack.needs[nid]["start"])
+	LookSystem.assign(world, p)
 	return p
 
 
@@ -134,6 +135,7 @@ static func step(world: World, _dt: float) -> void:
 	var person := make_person(world, world.pack.cfg("adopt_age"))
 	person.gender = "female" if head.gender == "male" else "male"
 	person.given = str(world.rng.pick(world.pack.names.get(person.gender, [])))
+	LookSystem.ensure(world, person)
 	var id := world.next_uid()
 	var pr := {
 		"id": id, "person": person.to_dict(),

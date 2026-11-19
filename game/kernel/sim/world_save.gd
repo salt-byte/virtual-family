@@ -373,6 +373,8 @@ static func _valid_person(p) -> bool:
 		return false
 	if p.has("wish_last") and not _is_str(p["wish_last"]):
 		return false
+	if p.has("look") and not _is_str(p["look"]):
+		return false  # optional: older saves lack it
 	if p.has("mood") and not (_is_str(p["mood"]) and p["mood"] in ["", "sad", "depressed"]):
 		return false
 	for k in ["thanks_until", "mood_low_s", "mood_ok_s", "generation", "cared_at",
