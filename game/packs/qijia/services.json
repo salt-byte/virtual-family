@@ -1,0 +1,16 @@
+[
+	{"id": "adopt_more", "name": "再收留一个人", "kind": "adopt", "price": 300, "price_step": 200, "age": [6, 30], "max_people": 8,
+	 "desc": "托人从镇上领一个落脚的人回来，进门就随这家的姓。领得越多，托人的花销越大。"},
+	{"id": "double_time", "name": "日子快一倍", "kind": "speed", "price": 120, "factor": 2, "hours": 4, "max_hours": 12,
+	 "desc": "往后四个钟头，家里的日子过得比外头快一倍。再买一回接着往后加，最多攒十二个钟头。"},
+	{"id": "garden_care", "name": "请老把式看菜畦", "kind": "yield", "price": 260, "bonus": {"greens": 1}, "requires": {"object": "garden"},
+	 "desc": "老把式教了怎么沤肥、怎么掐尖，往后每回掐菜多得一把。得先有块菜畦。"},
+	{"id": "lucky_charm", "name": "庙里求个好彩头", "kind": "drops", "price": 300, "factor": 2,
+	 "desc": "在门楣上挂一道红布条。往后院里地上冒出好东西、翻出旧物的回数多一倍。"},
+	{"id": "lottery_ticket", "name": "一张彩票", "kind": "lottery", "price": 10, "draw_hours": 2, "max_tickets": 3,
+	 "prizes": [{"chance": 0.01, "amount": 500}, {"chance": 0.04, "amount": 40}, {"chance": 0.12, "amount": 10}],
+	 "desc": "两个钟头后开奖。头奖五百，十张里有一两张能把本钱捞回来。"},
+	{"id": "hire_help", "name": "雇个帮佣（一天）", "kind": "helper", "price": 45, "days": 1, "max_days": 7, "hours": [7, 17],
+	 "cleans": true, "cooks": "porridge", "consumes": {"food": 1},
+	 "desc": "早上七点、傍晚五点各来一趟，把屋里院里扫干净，拿家里的米熬一锅粥。"}
+]

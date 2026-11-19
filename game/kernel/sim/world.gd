@@ -88,6 +88,24 @@ var birth_blocked := false
 var letters: Array[Dictionary] = []
 var letter_next := 1
 var letter_minor_at := 0
+## The market (see `MarketSystem`, `ServiceSystem`; all stay empty / 0 without one): the
+## used-goods stall, service id -> times bought, lottery tickets {id, service, draw_at,
+## amount (-1 until drawn)} and the id the next one gets, until when (`now`) a hired hand
+## comes and which service hired them, and the service a candidate on offer while living
+## came from.
+var secondhand: Dictionary = {}
+var services_bought: Dictionary = {}
+var tickets: Array[Dictionary] = []
+var ticket_next := 1
+var helper_until := 0
+var helper_service := ""
+var adopt_service := ""
+## A faster clock (see `ServiceSystem` "speed"): the real unix time until which game time
+## runs `speed_factor` times as fast, and how many seconds the sim clock has run ahead of
+## the real one because of it (0 for a world that never sped up: the clocks then agree).
+var speed_until := 0
+var speed_factor := 1.0
+var clock_lead := 0
 
 ## The living babies as of `_babies_t` (see `babies`); not saved.
 var _babies: Array[Person] = []
@@ -135,26 +153,35 @@ func _init(p: Pack, seed: int) -> void:
 ## - A clock that did not move forward changes nothing (time never runs backwards).
 ## - While adopting (time frozen), or before the world was ever given a time (`now` 0),
 ##   `now` just jumps to `unix`.
-## - Afterwards the sim clock (`now` plus the partial step not yet simulated) equals `unix`,
-##   also after an absence beyond the cap or one that ended the game.
+## - Afterwards the sim clock (`now` plus the partial step not yet simulated) equals `unix`
+##   plus `clock_lead`, also after an absence beyond the cap or one that ended the game.
+## - While a faster clock was bought (`speed_until`), the part of the gap before it ends
+##   counts `speed_factor` times; the surplus goes into `clock_lead`. Whether the gap is an
+##   absence is judged on real time.
 func sync(unix: int, offset: int) -> Dictionary:
 	utc_offset = offset
-	var clock := float(now) + _acc
+	var clock := float(now) + _acc - float(clock_lead)
 	if float(unix) <= clock:
 		return Offline.zero_summary(self)
 	if phase == "adopting" or now == 0:
-		now = unix
+		now = unix + clock_lead
 		_acc = 0.0
 		return Offline.zero_summary(self)
 	var gap := float(unix) - clock
+	var away := gap > SYNC_OFFLINE_GAP  # judged on real time
+	# While the clock runs fast, game time gains on real time.
+	if speed_until > 0 and clock < float(speed_until):
+		var extra := roundi((minf(float(unix), float(speed_until)) - clock) * (speed_factor - 1.0))
+		clock_lead += extra
+		gap += float(extra)
 	var summary: Dictionary
-	if gap > SYNC_OFFLINE_GAP:
+	if away:
 		summary = catch_up(gap)
 	else:
 		advance(gap)
 		summary = Offline.zero_summary(self)
-	if float(now) + _acc != float(unix):  # capped, game over, or not living: snap to real time
-		now = unix
+	if float(now) + _acc != float(unix + clock_lead):  # capped, game over, or not living: snap
+		now = unix + clock_lead
 		_acc = 0.0
 	return summary
 
@@ -227,7 +254,8 @@ func command(cmd: Dictionary) -> Dictionary:
 			if type != "reroll":
 				return Commands.fail("not_running")
 		_:
-			if type == "adopt" or type == "reroll":
+			# While living, only a candidate offered by a service can be taken in or swapped.
+			if (type == "adopt" or type == "reroll") and candidate.is_empty():
 				return Commands.fail("not_adopting")
 	return handler.call(self, cmd)
 
@@ -323,7 +351,9 @@ func _run_systems(dt: float) -> void:
 	WishSystem.step(self, dt)
 	StorySystem.step(self, dt)
 	PetSystem.step(self, dt)  # its hourly look for a stray draws after everything but letters
-	LetterSystem.step(self, dt)  # last: turns this step's news into letters
+	LetterSystem.step(self, dt)  # turns this step's news into letters
+	MarketSystem.step(self, dt)  # last two: draw only in packs with a market or services
+	ServiceSystem.step(self, dt)
 
 
 ## Everything that decides what happens next, as plain JSON-safe data; see `WorldSave`.

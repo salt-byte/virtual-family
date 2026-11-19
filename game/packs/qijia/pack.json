@@ -32,6 +32,20 @@
 	"story_interval_min": 240,
 	"story_ttl_min": 600,
 	"clean_reward": {"amount": 15},
+	"market": {
+		"sections": [
+			{"id": "provisions", "name": "食物与药"},
+			{"id": "used_goods", "name": "二手市场"},
+			{"id": "trades", "name": "营生用具"},
+			{"id": "house", "name": "房屋"},
+			{"id": "clothes", "name": "衣裳"},
+			{"id": "animals", "name": "宠物"},
+			{"id": "upgrades", "name": "升级与服务"}
+		],
+		"default": {"item": "provisions", "object": "house", "room": "house", "pet": "animals", "service": "upgrades"},
+		"secondhand": {"section": "used_goods", "refresh_hours": 3, "count": 4, "price_factor": [0.6, 0.85],
+			"from": ["trades", "house", "clothes"]}
+	},
 	"pets": {
 		"needs": [
 			{"id": "belly", "name": "肚子", "start": 80,

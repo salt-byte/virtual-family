@@ -27,6 +27,10 @@ static var handlers: Dictionary = {
 	"answer_stray": PetSystem.answer_stray,
 	"read_letter": LetterSystem.read,
 	"answer_letter": LetterSystem.answer,
+	"buy_service": ServiceSystem.buy,
+	"buy_secondhand": MarketSystem.buy_used,
+	"open_ticket": ServiceSystem.open_ticket,
+	"dismiss_candidate": ServiceSystem.dismiss_candidate,
 }
 
 
@@ -313,12 +317,7 @@ static func _buy(world: World, cmd: Dictionary) -> Dictionary:
 		return fail("bad_qty")
 	if not EconomySystem.spend(world, int(item["price"]) * qty):
 		return fail("no_money")
-	var stock: Dictionary = item["stock"]
-	if stock.is_empty():
-		world.inventory[id] = int(world.inventory.get(id, 0)) + qty
-	else:
-		for s in stock:
-			world.stock[s] = int(world.stock.get(s, 0)) + int(stock[s]) * qty
+	MarketSystem.give_item(world, id, qty)
 	return success()
 
 

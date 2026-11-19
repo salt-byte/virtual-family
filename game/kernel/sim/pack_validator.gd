@@ -25,6 +25,7 @@ const REQUIRED := {
 	"stories.json": {"title": TYPE_STRING, "unlock": TYPE_DICTIONARY, "fragments": TYPE_ARRAY, "finale": TYPE_DICTIONARY},
 	"pets.json": {"name": TYPE_STRING},
 	"letters.json": {"kind": TYPE_STRING, "text": TYPE_STRING},
+	"services.json": {"name": TYPE_STRING, "kind": TYPE_STRING, "price": TYPE_NIL},
 }
 ## Whole-number fields and their minimum (money, sizes and durations are never fractional or negative).
 const MIN_INT := {
@@ -36,6 +37,7 @@ const MIN_INT := {
 	"goals.json": {"reward": 0},
 	"dishes.json": {"portions": 1, "max_out": 1},
 	"pets.json": {"price": 0},
+	"services.json": {"price": 0, "price_step": 0},
 }
 const LEVEL_FIELDS := ["name", "daily_income", "work_bonus_per_hour", "progress_to_next"]
 ## The moods an action may require (see `MoodSystem`).
@@ -81,6 +83,8 @@ func _run() -> void:
 	_check_seasons()
 	_check_pets()
 	_check_letters()
+	_check_market()
+	_check_services()
 
 
 func _check_required() -> void:
@@ -1306,3 +1310,131 @@ func _check_letters() -> void:
 				_err("letters.json", id, "choices: each needs a label and an effect")
 			elif not str(ch["effect"].get("type", "")) in LetterSystem.EFFECTS:
 				_err("letters.json", id, "effect type '%s' is unknown" % [str(ch["effect"].get("type", ""))])
+
+
+func _num_at_least(v, minimum: float) -> bool:
+	return (v is int or v is float) and float(v) >= minimum
+
+
+## pack.json `market` (see `MarketSystem`) and every entry's `market` section.
+func _check_market() -> void:
+	var m = _p.config.get("market", {})
+	if not m is Dictionary:
+		_err("pack.json", _p.id, "market must be an object")
+		return
+	var ids := {}
+	if not (m as Dictionary).is_empty():
+		var secs = m.get("sections")
+		if not (secs is Array and not (secs as Array).is_empty()):
+			_err("pack.json", _p.id, "market.sections must be a non-empty list")
+			return
+		for s in secs:
+			if not (s is Dictionary and s.get("id") is String and s.get("name") is String and str(s["id"]) != ""):
+				_err("pack.json", _p.id, "market.sections: each needs an id and a name")
+			elif ids.has(s["id"]):
+				_err("pack.json", _p.id, "market.sections: duplicate id '%s'" % [s["id"]])
+			else:
+				ids[s["id"]] = true
+		var d = m.get("default", {})
+		if not d is Dictionary:
+			_err("pack.json", _p.id, "market.default must be an object")
+		else:
+			for k in d:
+				if not k in MarketSystem.KINDS:
+					_err("pack.json", _p.id, "market.default: '%s' is not a kind of goods" % [k])
+				elif not ids.has(d[k]):
+					_err("pack.json", _p.id, "market.default.%s: '%s' is not a section" % [k, str(d[k])])
+		if m.has("secondhand"):
+			_check_secondhand(m["secondhand"], ids)
+	for pair in [["items.json", _p.items], ["objects.json", _p.object_types], ["rooms.json", _p.rooms],
+			["pets.json", _p.pets], ["services.json", _p.services]]:
+		for e in (pair[1] as Dictionary).values():
+			var sec = e.get("market", "")
+			if not sec is String:
+				_err(pair[0], e["id"], "market must be a section id")
+			elif sec != "" and not ids.has(sec):
+				_err(pair[0], e["id"], "market '%s' is not a section" % [sec])
+
+
+func _check_secondhand(sh, ids: Dictionary) -> void:
+	if not sh is Dictionary:
+		_err("pack.json", _p.id, "market.secondhand must be an object")
+		return
+	if not ids.has(sh.get("section")):
+		_err("pack.json", _p.id, "market.secondhand.section must be a section")
+	if not (_num_at_least(sh.get("refresh_hours"), 0.0) and float(sh["refresh_hours"]) > 0.0):
+		_err("pack.json", _p.id, "market.secondhand.refresh_hours must be above 0")
+	if not (sh.get("count") is int and sh["count"] >= 1):
+		_err("pack.json", _p.id, "market.secondhand.count must be a whole number of at least 1")
+	var pf = sh.get("price_factor")
+	var back := float(_p.cfg("sell_back_ratio")) if _is_num(_p.cfg("sell_back_ratio")) else 0.0
+	if not (pf is Array and pf.size() == 2 and _is_num(pf[0]) and _is_num(pf[1]) \
+			and float(pf[0]) > back and float(pf[0]) <= float(pf[1]) and float(pf[1]) <= 1.0):
+		_err("pack.json", _p.id, "market.secondhand.price_factor must be [lo, hi] with sell_back_ratio < lo <= hi <= 1")
+	var from = sh.get("from")
+	if not (from is Array and (from as Array).all(func(s): return ids.has(s))):
+		_err("pack.json", _p.id, "market.secondhand.from must list sections")
+
+
+## services.json (see `ServiceSystem`).
+func _check_services() -> void:
+	for sv in _p.services.values():
+		var id: String = sv["id"]
+		var kind := str(sv.get("kind", ""))
+		if not kind in ServiceSystem.KINDS:
+			_err("services.json", id, "kind '%s' is unknown" % [kind])
+			continue
+		var req = sv.get("requires", {})
+		if not req is Dictionary or req.keys().any(func(k): return k != "object") \
+				or (req.has("object") and not _p.object_types.has(req["object"])):
+			_err("services.json", id, "requires must be {object: an object type}")
+		match kind:
+			"adopt":
+				var age = sv.get("age", [0, 0])
+				if not (age is Array and age.size() == 2 and _is_num(age[0]) and _is_num(age[1]) and age[0] <= age[1]):
+					_err("services.json", id, "age must be [from, to]")
+				if sv.has("max_people") and not (sv["max_people"] is int and sv["max_people"] >= 0):
+					_err("services.json", id, "max_people must be a whole number of at least 0")
+			"speed":
+				if not (_num_at_least(sv.get("factor"), 1.0) and _num_at_least(sv.get("hours"), 0.0) and float(sv["hours"]) > 0.0):
+					_err("services.json", id, "speed needs factor >= 1 and hours > 0")
+				elif sv.has("max_hours") and not _num_at_least(sv["max_hours"], float(sv["hours"])):
+					_err("services.json", id, "max_hours must be at least hours")
+			"yield":
+				var b = sv.get("bonus")
+				if not (b is Dictionary and not b.is_empty() and b.values().all(func(v): return v is int and v >= 1)):
+					_err("services.json", id, "bonus must map stocks to whole numbers of at least 1")
+			"drops":
+				if not _num_at_least(sv.get("factor"), 1.0):
+					_err("services.json", id, "factor must be a number of at least 1")
+			"lottery":
+				var prizes = sv.get("prizes")
+				var total := 0.0
+				if not prizes is Array or prizes.is_empty():
+					_err("services.json", id, "prizes must be a non-empty list")
+				else:
+					for pr in prizes:
+						if not (pr is Dictionary and _num_at_least(pr.get("chance"), 0.0) and pr.get("amount") is int and pr["amount"] >= 0):
+							_err("services.json", id, "prizes: each needs a chance and a whole amount")
+						else:
+							total += float(pr["chance"])
+					if total > 1.0:
+						_err("services.json", id, "prizes: the chances add up to more than 1")
+				if not _num_at_least(sv.get("draw_hours"), 0.0):
+					_err("services.json", id, "draw_hours must be a number of at least 0")
+				if sv.has("max_tickets") and not (sv["max_tickets"] is int and sv["max_tickets"] >= 1):
+					_err("services.json", id, "max_tickets must be a whole number of at least 1")
+			"helper":
+				if not (_num_at_least(sv.get("days"), 0.0) and float(sv["days"]) > 0.0):
+					_err("services.json", id, "days must be above 0")
+				elif sv.has("max_days") and not _num_at_least(sv["max_days"], float(sv["days"])):
+					_err("services.json", id, "max_days must be at least days")
+				var hours = sv.get("hours", [])
+				if not (hours is Array and hours.all(func(h): return h is int and h >= 0 and h < 24)):
+					_err("services.json", id, "hours must list whole hours 0-23")
+				var cooks = sv.get("cooks", "")
+				if not (cooks is String and (cooks == "" or _p.dishes.has(cooks))):
+					_err("services.json", id, "cooks must be a dish id")
+				var cons = sv.get("consumes", {})
+				if not (cons is Dictionary and cons.values().all(func(v): return v is int and v >= 0)):
+					_err("services.json", id, "consumes must map stocks to whole numbers")

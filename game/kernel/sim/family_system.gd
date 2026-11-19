@@ -53,18 +53,23 @@ static func new_candidate(world: World) -> void:
 
 
 static func reroll(world: World, _cmd: Dictionary) -> Dictionary:
+	if world.phase == "living":
+		return ServiceSystem.reroll_candidate(world)
 	if world.phase == "over":
 		world.people.clear()
 		world.proposals.clear()
 		world.income_carry.clear()
 		world.married = false
 		world.declined_once = false
+		world.adopt_service = ""
 		world.phase = "adopting"
 	new_candidate(world)
 	return Commands.success()
 
 
 static func adopt(world: World, _cmd: Dictionary) -> Dictionary:
+	if world.phase == "living":
+		return ServiceSystem.adopt_candidate(world)
 	var p := Person.from_dict(world.candidate)
 	world.add_person(p)
 	world.candidate = {}
