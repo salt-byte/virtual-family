@@ -15,7 +15,7 @@
 	"illness_daily_chance": 0.3,
 	"collectible_interval_min": 20,
 	"collectible_ttl_min": 30,
-	"wish_chance_per_hour": 2.0,
+	"wish_chance_per_hour": 1.8,
 	"wish_check_min": 5,
 	"need_wish_check_min": 2,
 	"wish_miss_penalty": 10,

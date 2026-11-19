@@ -32,8 +32,7 @@ static func now(world: World, p: Person) -> String:
 ## Whether every condition of `rule` holds for `p` now.
 static func holds(world: World, p: Person, rule: Dictionary) -> bool:
 	var a: Dictionary = {}
-	if not p.current.is_empty():
-		a = world.pack.actions.get(str(p.current["action"]), {})
+	a = world.pack.actions.get(str(p.current.get("action", "")), {})
 	if rule.has("doing"):
 		var any := false
 		for sort in rule["doing"]:

@@ -372,3 +372,12 @@ func test_a_save_from_before_the_clean_need_loads():
 	assert_true(again != null)
 	assert_eq(again.people[0].earned, 40)
 	assert_eq(ShareSystem.text(again, again.people[0]), "今天挣了 40 文！")
+
+
+## A running entry without an action id (a half-built one, as a script might leave it) reads
+## as doing nothing instead of failing.
+func test_feeling_reads_an_entry_without_an_action_as_idle():
+	var w := _home()
+	var p := w.people[0]
+	p.current = {"remaining_s": 60}
+	assert_eq(FeelingSystem.now(w, p), "歇口气")
