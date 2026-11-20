@@ -102,7 +102,7 @@
 			 "labels": [{"below": 40, "text": "蔫了"}, {"below": 101, "text": "欢实"}]}
 		],
 		"food_need": "belly", "love_need": "fondness", "clean_need": "coat", "health_need": "vigor",
-		"max": 3, "content_above": 50, "age_rate": 0.4, "action_speed": 6, "care_below": 75,
+		"max": 3, "content_above": 50, "age_rate": 0.4, "action_speed": 30, "offline_action_speed": 3, "effect_speed": 6, "care_below": 75,
 		"run_below": 10, "run_after_hours": 12,
 		"come_back_after_hours": 8, "come_back_chance_per_hour": 0.06, "come_back_at": 50, "gone_after_hours": 96,
 		"stray_chance_per_hour": 0.03, "stray_ttl_hours": 6,

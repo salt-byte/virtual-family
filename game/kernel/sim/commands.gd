@@ -56,6 +56,8 @@ static func _drag(world: World, cmd: Dictionary) -> Dictionary:
 				and AutonomySystem.player_led(world.pack.actions[p.current["action"]]):
 			p.current["led"] = true
 		IllnessSystem.show_symptom(world, p)
+		if result.ok:
+			PetSystem.notice(world, "dragged", p)
 	return result
 
 

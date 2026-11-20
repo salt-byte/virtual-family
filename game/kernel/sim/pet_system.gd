@@ -30,6 +30,17 @@ extends RefCounted
 ## - While the player is away nothing harsh happens: no running away (the clocks stand
 ##   still), no new strays, wishes or grief, and needs (health too) stay at least at
 ##   `offline_need_floor`. Ageing goes on, so a pet may die of old age.
+## - Pace: a pet's own actions run on `pets.action_speed` while someone may be watching and
+##   on `pets.offline_action_speed` during a catch-up (nobody sees it, and fewer choices cost
+##   less). An action's `needs` and `mess.chance` are what it does at `pets.effect_speed`
+##   (default: the pace it runs at), scaled by effect_speed / pace so the effect per hour does
+##   not depend on the pace; actions limited by the clock (`every_hours`), by what lies about
+##   (`scraps`) or by what happens (`on`) do their full amount each time.
+## - Reactions: an action with `on` ("back": someone came home from an outing; "dragged": the
+##   player set someone down) is never chosen on its own. When that happens a pet at home that
+##   is awake to it (its `hours`, not sick, not held, not showing its joy) drops what it is
+##   doing with the action's `chance` and does it: in its `rooms`, or (`follows` "who") after
+##   that person. `follows` "anyone" trails a person at home who is not a baby.
 ## Dead and lost pets stay in `world.pets` (alive false) as the household's record.
 
 
@@ -358,6 +369,8 @@ static func step(world: World, dt: float) -> void:
 			pass  # showing its joy, or being looked after: it keeps still
 		elif not pet.current.is_empty():
 			_progress(world, pet, dt)
+			if pet.current.is_empty() and pet.thanks_until <= world.now:
+				_choose(world, pet)  # straight on to the next thing, no step standing about
 		else:
 			_choose(world, pet)
 
@@ -548,7 +561,7 @@ static func _options(world: World, pet: Pet) -> Array:
 	var hour := world.local_hour()
 	for a in k.get("actions", []):
 		var sick_only := bool(a.get("sick", false))
-		if sick_only != pet.sick:
+		if sick_only != pet.sick or str(a.get("on", "")) != "":
 			continue
 		var hours: Array = a.get("hours", [])
 		if not hours.is_empty() and not AutonomySystem._in_hours(hour, hours):
@@ -582,7 +595,7 @@ static func _options(world: World, pet: Pet) -> Array:
 			extra["rooms"] = built
 		var follows := str(a.get("follows", ""))
 		if follows != "":
-			var who: Array = world.people.filter(func(q: Person): return q.alive and q.stage(world.pack) == follows)
+			var who := _followable(world, follows)
 			if who.is_empty():
 				continue
 			extra["follow"] = who
@@ -610,6 +623,15 @@ static func _options(world: World, pet: Pet) -> Array:
 	return out
 
 
+## The people a pet may trail after for `follows`: a stage id, or "anyone" (at home, not a
+## baby).
+static func _followable(world: World, follows: String) -> Array:
+	if follows != "anyone":
+		return world.people.filter(func(q: Person): return q.alive and q.stage(world.pack) == follows)
+	return world.people.filter(func(q: Person): return q.alive and q.stage(world.pack) != "baby" \
+			and not OutingSystem.away(world, q))
+
+
 static func _choose(world: World, pet: Pet) -> void:
 	var opts := _options(world, pet)
 	if opts.is_empty():
@@ -619,6 +641,8 @@ static func _choose(world: World, pet: Pet) -> void:
 	var a: Dictionary = pick[0]
 	var extra: Dictionary = pick[2]
 	pet.current = {"action": str(a["id"]), "remaining_s": duration_s(world, a)}
+	if world.offline:
+		pet.current["slow"] = true
 	if extra.has("object_uid"):
 		pet.current["object_uid"] = int(extra["object_uid"])
 	if extra.has("rooms"):
@@ -630,21 +654,45 @@ static func _choose(world: World, pet: Pet) -> void:
 
 
 ## Real seconds a pet's action takes: `duration_min` on the pets' own fast clock
-## (`pets.action_speed`, else the pack's `action_speed`), in whole steps (at least one).
-static func duration_s(world: World, a: Dictionary) -> int:
-	var speed := _num(cfg(world.pack), "action_speed", float(world.pack.cfg("action_speed")))
-	var s := ceili(float(a["duration_min"]) * 60.0 / maxf(speed, 1.0) - 1e-9)
+## (`pace`), in whole steps (at least one).
+static func duration_s(world: World, a: Dictionary, offline := world.offline) -> int:
+	var s := ceili(float(a["duration_min"]) * 60.0 / pace(world, offline) - 1e-9)
 	return maxi(ceili(float(s) / world.step_s), 1) * world.step_s
+
+
+## The pets' action speed: `pets.action_speed` (else the pack's `action_speed`), during a
+## catch-up `pets.offline_action_speed` (else the same).
+static func pace(world: World, offline := world.offline) -> float:
+	var c := cfg(world.pack)
+	var speed := _num(c, "action_speed", float(world.pack.cfg("action_speed")))
+	if offline:
+		speed = _num(c, "offline_action_speed", speed)
+	return maxf(speed, 1.0)
+
+
+## The factor on an action's `needs` and `mess.chance` at the pace it ran at (see the top).
+static func effect_factor(world: World, a: Dictionary) -> float:
+	if float(a.get("every_hours", 0)) > 0.0 or str(a.get("scraps", "")) != "" or str(a.get("on", "")) != "":
+		return 1.0
+	var sp := pace(world)
+	return _num(cfg(world.pack), "effect_speed", sp) / sp
 
 
 static func _progress(world: World, pet: Pet, dt: float) -> void:
 	var cur := pet.current
 	var rem := int(cur["remaining_s"]) - int(dt)
+	if cur.has("slow") and not world.offline:
+		# Begun during a catch-up at the slow pace: watched again, it takes no longer than
+		# it would at the watched pace.
+		cur.erase("slow")
+		var a0 := action(world.pack, str(cur.get("action", "")))
+		if not a0.is_empty():
+			rem = mini(rem, duration_s(world, a0))
 	cur["remaining_s"] = rem
 	var done := rem <= 0
 	if not done and cur.has("follow"):
 		var q := world.person(int(cur["follow"]))
-		done = q == null or not q.alive
+		done = q == null or not q.alive or OutingSystem.away(world, q)
 	if not done:
 		return
 	var a := action(world.pack, str(cur.get("action", "")))
@@ -663,11 +711,12 @@ static func _finish(world: World, pet: Pet, a: Dictionary) -> void:
 			needs = {}  # someone cleared it away first, or another pet got there
 		else:
 			m["licked"] = true
+	var f := effect_factor(world, a)
 	for n in needs:
 		if pet.needs.has(n):
-			pet.needs[n] = clampf(float(pet.needs[n]) + float(needs[n]), 0.0, 100.0)
+			pet.needs[n] = clampf(float(pet.needs[n]) + float(needs[n]) * f, 0.0, 100.0)
 	var mess: Dictionary = a.get("mess", {})
-	if not mess.is_empty() and world.rng.chance(_num(mess, "chance", 0.0)):
+	if not mess.is_empty() and world.rng.chance(minf(_num(mess, "chance", 0.0) * f, 1.0)):
 		MessSystem.spawn(world, str(mess.get("type", "")), room_of(world, pet))
 	var id := str(a["id"])
 	pet.current = {}
@@ -675,6 +724,37 @@ static func _finish(world: World, pet: Pet, a: Dictionary) -> void:
 	if float(a.get("every_hours", 0)) > 0.0:
 		pet.done_at[id] = world.now
 	_wish_by_action(world, pet, id)
+
+
+## Something happened that pets may react to (`what`: "back", "dragged"; `p` the person it
+## happened to): see "Reactions" at the top.
+static func notice(world: World, what: String, p: Person) -> void:
+	if world.pets.is_empty() or p == null or not enabled(world.pack):
+		return
+	var hour := world.local_hour()
+	for pet in world.pets:
+		if not pet.home() or pet.sick or pet.thanks_until > world.now or held(world, pet, null):
+			continue
+		for a in kind_of(world.pack, pet).get("actions", []):
+			if str(a.get("on", "")) != what:
+				continue
+			if str(pet.current.get("action", "")) == str(a["id"]):
+				break  # already at it
+			var hours: Array = a.get("hours", [])
+			if not hours.is_empty() and not AutonomySystem._in_hours(hour, hours):
+				continue
+			var rooms := _rooms_for(world, a)
+			if not (a.get("rooms", []) as Array).is_empty() and rooms.is_empty():
+				continue
+			if not world.rng.chance(_num(a, "chance", 1.0)):
+				break
+			pet.current = {"action": str(a["id"]), "remaining_s": duration_s(world, a)}
+			if not rooms.is_empty():
+				pet.current["room"] = str(world.rng.pick(rooms))
+			if str(a.get("follows", "")) == "who":
+				pet.current["follow"] = p.uid
+			world.emit("pet_reacted", {"pet": pet.uid, "action": str(a["id"]), "person": p.uid})
+			break
 
 
 ## The room the pet is in by what it is doing ("" when it is idle about the house).

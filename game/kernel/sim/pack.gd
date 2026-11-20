@@ -99,7 +99,8 @@ const ENTRY_DEFAULTS := {
 	"wishes": {"likes": [], "stages": [], "weight": 1.0, "festival": "", "actions": []},
 	"dishes": {"on": [], "leaves": "", "ttl_hours": 0, "max_out": 1, "scraps": ""},
 	"pets": {"price": 0, "stray": false, "names": [], "lifespan": [10, 14], "age": [1, 2], "drains": {},
-		"home": [], "perch": "", "actions": [], "wishes": [], "perks": {}, "thanks": "", "size": 0.6, "market": ""},
+		"home": [], "perch": "", "actions": [], "wishes": [], "perks": {}, "thanks": "", "size": 0.6, "market": "",
+		"idle": ""},
 	"rooms": {"outdoor": false, "props": [], "outside": false, "market": ""},
 	"items": {"stock": {}, "cures": "", "needs": {}, "work": {}, "childhood": {}, "pet": {}, "market": "",
 		"festivals": []},
@@ -111,7 +112,8 @@ const ENTRY_DEFAULTS := {
 
 ## Field defaults of a pet's own action (an entry of a pets.json kind's `actions`).
 const PET_ACTION_DEFAULTS := {"duration_min": 10, "base": 1, "object": "", "rooms": [], "hours": [],
-	"weather": [], "wet": false, "sick": false, "follows": "", "scraps": "", "needs": {}, "mess": {}, "above": {}, "every_hours": 0}
+	"weather": [], "wet": false, "sick": false, "follows": "", "scraps": "", "needs": {}, "mess": {}, "above": {}, "every_hours": 0,
+	"on": "", "chance": 1.0, "trot": 0, "pace": "", "rest": false}
 
 ## Fields that are always whole numbers (JSON gives floats, so they are converted on load).
 const INT_FIELDS := {
@@ -407,7 +409,7 @@ func _apply_defaults() -> void:
 					if not a.has(f):
 						var d = PET_ACTION_DEFAULTS[f]
 						a[f] = d.duplicate(true) if (d is Array or d is Dictionary) else d
-				for f in ["duration_min", "base"]:
+				for f in ["duration_min", "base", "trot"]:
 					a[f] = _as_int(a[f])
 				if a["hours"] is Array:
 					a["hours"] = (a["hours"] as Array).map(_as_int)

@@ -648,8 +648,9 @@ func _check_pets() -> void:
 	for f in ["stray_chance_per_hour", "come_back_chance_per_hour", "wish_chance_per_hour"]:
 		if c.has(f) and not (_is_num(c[f]) and float(c[f]) >= 0.0 and float(c[f]) <= 1.0):
 			_err("pack.json", _p.id, "pets.%s must be from 0 to 1" % f)
-	if c.has("action_speed") and not (_is_num(c["action_speed"]) and float(c["action_speed"]) >= 1.0):
-		_err("pack.json", _p.id, "pets.action_speed must be a number of at least 1")
+	for f in ["action_speed", "offline_action_speed", "effect_speed"]:
+		if c.has(f) and not (_is_num(c[f]) and float(c[f]) >= 1.0):
+			_err("pack.json", _p.id, "pets.%s must be a number of at least 1" % f)
 	for g in ["cheer", "grief"]:
 		var e = c.get(g, {})
 		if not e is Dictionary:
@@ -672,6 +673,8 @@ func _check_pets() -> void:
 		var perch = k["perch"]
 		if not (perch is String and (perch == "" or _p.object_types.has(perch))):
 			_err("pets.json", id, "perch '%s' is not an object type" % [str(perch)])
+		if not (k["idle"] is String and k["idle"] in ["", "wag", "flick", "bob"]):
+			_err("pets.json", id, "idle must be one of wag, flick, bob")
 		if not _is_num(k["size"]) or float(k["size"]) <= 0.0:
 			_err("pets.json", id, "size must be a number above 0")
 		if k.has("color") and not _color_ok(k["color"]):
@@ -741,8 +744,19 @@ func _check_pet_action(kind: String, k: Dictionary, a, ids: Dictionary, seen: Di
 		if not a[f] is bool:
 			_err("pets.json", aid, "%s must be true or false" % f)
 	var st = _p.config["stages"]
-	if not (a["follows"] is String and (a["follows"] == "" or (st is Array and (st as Array).any(func(s): return s is Dictionary and s.get("id") == a["follows"])))):
-		_err("pets.json", aid, "follows must be a stage id")
+	var who_ok: bool = a["follows"] is String and (a["follows"] in ["", "anyone"] or (a["follows"] == "who" and a["on"] is String and a["on"] != ""))
+	if not (who_ok or (a["follows"] is String and st is Array and (st as Array).any(func(s): return s is Dictionary and s.get("id") == a["follows"]))):
+		_err("pets.json", aid, "follows must be a stage id, \"anyone\" or (with on) \"who\"")
+	if not (a["on"] is String and a["on"] in ["", "back", "dragged"]):
+		_err("pets.json", aid, "on must be \"back\" or \"dragged\"")
+	if not (_is_num(a["chance"]) and float(a["chance"]) >= 0.0 and float(a["chance"]) <= 1.0):
+		_err("pets.json", aid, "chance must be from 0 to 1")
+	if not (a["trot"] is int and a["trot"] >= 0):
+		_err("pets.json", aid, "trot must be a whole number of at least 0")
+	if not (a["pace"] is String and a["pace"] in ["", "trot", "slink", "dash", "leap", "hop", "flap"]):
+		_err("pets.json", aid, "pace must be one of trot, slink, dash, leap, hop, flap")
+	if not a["rest"] is bool:
+		_err("pets.json", aid, "rest must be true or false")
 	if not (a["scraps"] is String and (a["scraps"] == "" or _p.mess_types.has(a["scraps"]))):
 		_err("pets.json", aid, "scraps must be a mess type")
 	if not (a["needs"] is Dictionary and (a["needs"] as Dictionary).keys().all(func(n): return ids.has(n) and _is_num(a["needs"][n]))):
