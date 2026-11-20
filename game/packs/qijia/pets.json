@@ -22,8 +22,8 @@
 		{"id": "dog_sick", "label": "耷拉着耳朵趴着不动", "sick": true, "rooms": ["gate", "yard"], "duration_min": 30, "base": 10, "rest": true}
 	 ],
 	 "wishes": [
-		{"id": "dog_bone", "text": "想啃根骨头", "item": "pork_bone", "ttl_hours": 8, "joy": 25},
-		{"id": "dog_romp", "text": "想有人陪它撒欢", "actions": ["play_with_pet"], "ttl_hours": 8, "joy": 20}
+		{"id": "dog_bone", "text": "想啃根骨头", "bubble": "想啃骨头", "icon": "bowl", "item": "pork_bone", "ttl_hours": 8, "joy": 25},
+		{"id": "dog_romp", "text": "想有人陪它撒欢", "bubble": "想撒欢", "icon": "ball", "actions": ["play_with_pet"], "ttl_hours": 8, "joy": 20}
 	 ]},
 	{"id": "cat", "name": "狸花猫", "price": 40, "stray": true, "color": "#8C7A5C", "size": 0.5, "thanks": "喵", "idle": "flick",
 	 "names": ["花花", "阿狸", "小虎", "咪咪", "团子"], "lifespan": [15, 19], "age": [0.5, 1], "stray_age": [1, 4],
@@ -45,8 +45,8 @@
 		{"id": "cat_sick", "label": "缩在炕角不吃不喝", "sick": true, "object": "kang", "duration_min": 30, "base": 10, "rest": true}
 	 ],
 	 "wishes": [
-		{"id": "cat_fish", "text": "想吃条小鱼", "item": "dried_fish", "actions": ["feed_cat_fish"], "ttl_hours": 8, "joy": 25},
-		{"id": "cat_sunny", "text": "想晒晒太阳", "actions": ["cat_sun", "carry_cat_to_sun"], "ttl_hours": 8, "joy": 20}
+		{"id": "cat_fish", "text": "想吃条小鱼", "bubble": "想吃鱼", "icon": "bowl", "item": "dried_fish", "actions": ["feed_cat_fish"], "ttl_hours": 8, "joy": 25},
+		{"id": "cat_sunny", "text": "想晒晒太阳", "bubble": "想晒太阳", "icon": "sun", "actions": ["cat_sun", "carry_cat_to_sun"], "ttl_hours": 8, "joy": 20}
 	 ]},
 	{"id": "bird", "name": "八哥", "price": 80, "perch": "bird_cage", "color": "#2E2E33", "size": 0.36, "thanks": "好呀好呀", "idle": "bob",
 	 "names": ["了哥", "小黑", "乌豆"], "lifespan": [12, 16], "age": [0.5, 1],
@@ -62,8 +62,8 @@
 		{"id": "bird_sick", "label": "蓬着毛缩在笼角", "sick": true, "duration_min": 30, "base": 10, "rest": true}
 	 ],
 	 "wishes": [
-		{"id": "bird_millet", "text": "想啄几粒小米", "actions": ["feed_bird"], "ttl_hours": 6, "joy": 15},
-		{"id": "bird_chat", "text": "想有人陪它说话", "actions": ["tease_bird"], "ttl_hours": 8, "joy": 20}
+		{"id": "bird_millet", "text": "想啄几粒小米", "bubble": "想吃小米", "icon": "bowl", "actions": ["feed_bird"], "ttl_hours": 6, "joy": 15},
+		{"id": "bird_chat", "text": "想有人陪它说话", "bubble": "想说话", "icon": "heart", "actions": ["tease_bird"], "ttl_hours": 8, "joy": 20}
 	 ]},
 	{"id": "piglet", "name": "小猪崽", "price": 90, "market": "livestock", "color": "#E9A7A0", "size": 0.42, "thanks": "哼哼", "idle": "root",
 	 "names": ["黑花", "墩墩", "二黑", "胖丫", "花脸", "滚子"], "lifespan": [8, 10], "age": [0.1, 0.3],
@@ -81,8 +81,8 @@
 		{"id": "piglet_sick", "label": "缩在圈角，耳朵耷拉着不哼哼", "sick": true, "rooms": ["pigsty"], "duration_min": 30, "base": 10, "rest": true}
 	 ],
 	 "wishes": [
-		{"id": "piglet_hungry", "text": "饿得吱吱叫，拿鼻子顶空槽子", "below": {"belly": 30}, "actions": ["slop_pigs", "feed_pig_bran"], "ttl_hours": 4, "joy": 5},
-		{"id": "piglet_scratch", "text": "想有人挠挠背", "actions": ["scratch_pig"], "ttl_hours": 6, "joy": 15}
+		{"id": "piglet_hungry", "text": "饿得吱吱叫，拿鼻子顶空槽子", "bubble": "饿了", "icon": "bowl", "below": {"belly": 30}, "actions": ["slop_pigs", "feed_pig_bran"], "ttl_hours": 4, "joy": 5},
+		{"id": "piglet_scratch", "text": "想有人挠挠背", "bubble": "挠挠背", "icon": "paw", "actions": ["scratch_pig"], "ttl_hours": 6, "joy": 15}
 	 ]},
 	{"id": "pig", "name": "肥猪", "market": "livestock", "color": "#E2B3A4", "size": 0.7, "thanks": "哼哼", "idle": "root",
 	 "names": ["黑花", "墩墩", "二黑", "胖丫", "花脸", "滚子"], "lifespan": [8, 10], "age": [1, 2],
@@ -103,8 +103,8 @@
 		{"id": "pig_sick", "label": "趴在圈里，哼都不哼一声", "sick": true, "rooms": ["pigsty"], "duration_min": 30, "base": 10, "rest": true}
 	 ],
 	 "wishes": [
-		{"id": "pig_hungry", "text": "饿得嗷嗷叫，拿嘴拱空槽子", "below": {"belly": 30}, "actions": ["slop_pigs", "feed_pig_bran"], "ttl_hours": 4, "joy": 5},
-		{"id": "pig_scratch", "text": "想有人挠挠背", "actions": ["scratch_pig"], "ttl_hours": 6, "joy": 15}
+		{"id": "pig_hungry", "text": "饿得嗷嗷叫，拿嘴拱空槽子", "bubble": "饿了", "icon": "bowl", "below": {"belly": 30}, "actions": ["slop_pigs", "feed_pig_bran"], "ttl_hours": 4, "joy": 5},
+		{"id": "pig_scratch", "text": "想有人挠挠背", "bubble": "挠挠背", "icon": "paw", "actions": ["scratch_pig"], "ttl_hours": 6, "joy": 15}
 	 ]},
 	{"id": "hen", "name": "母鸡", "price": 30, "market": "livestock", "color": "#C9772E", "size": 0.34, "thanks": "咯咯哒", "idle": "peck",
 	 "names": ["芦花", "黄嘴", "大红冠", "麻点", "小翠", "黑翅"], "lifespan": [14, 18], "age": [0.8, 1.5],
@@ -125,7 +125,7 @@
 		{"id": "hen_sick", "label": "缩在鸡笼角上闭着眼", "sick": true, "object": "coop", "duration_min": 30, "base": 10, "rest": true}
 	 ],
 	 "wishes": [
-		{"id": "hen_hungry", "text": "围着人脚咯咯叫，讨口食", "below": {"belly": 25}, "actions": ["feed_chickens", "catch_caterpillars"], "ttl_hours": 4, "joy": 5}
+		{"id": "hen_hungry", "text": "围着人脚咯咯叫，讨口食", "bubble": "讨食", "icon": "bowl", "below": {"belly": 25}, "actions": ["feed_chickens", "catch_caterpillars"], "ttl_hours": 4, "joy": 5}
 	 ]},
 	{"id": "chick", "name": "小鸡崽", "market": "livestock", "color": "#F2D35B", "size": 0.2, "thanks": "叽叽", "idle": "peck",
 	 "names": ["绒球", "豆豆", "小黄", "毛毛", "点点", "米粒"], "lifespan": [14, 18], "age": [0, 0],
@@ -139,6 +139,6 @@
 		{"id": "chick_sick", "label": "缩着脖子，绒毛炸开", "sick": true, "object": "coop", "duration_min": 30, "base": 10, "rest": true}
 	 ],
 	 "wishes": [
-		{"id": "chick_hungry", "text": "张着小嘴叽叽叫", "below": {"belly": 25}, "actions": ["feed_chickens"], "ttl_hours": 4, "joy": 5}
+		{"id": "chick_hungry", "text": "张着小嘴叽叽叫", "bubble": "饿了", "icon": "bowl", "below": {"belly": 25}, "actions": ["feed_chickens"], "ttl_hours": 4, "joy": 5}
 	 ]}
 ]

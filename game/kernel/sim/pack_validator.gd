@@ -932,7 +932,8 @@ func _check_room_positions() -> void:
 ## - `compound`: {x, y, w, h} in cells, inside the map: a wall round it.
 ## - `doors`, `fences`: lists of {x, y, along, len}: `along` "x" is a stretch of the
 ##   east-west line y from cell x, "y" a stretch of the north-south line x from cell y.
-##   A door opens a wall (or fence) there; a fence is a low wall of its own.
+##   A door opens a wall (or fence) there; a fence is a low wall of its own, and with a
+##   `room` it stands only while that room is built.
 ## - `decor`: list of {shape "rect" | "ellipse", x, y, w, h (cells, may be fractional),
 ##   color, solid (blocks walking), passable (lifts `solid` under it)}.
 func _check_site() -> void:
@@ -973,6 +974,8 @@ func _check_site() -> void:
 			if not (d is Dictionary and _site_int(d, "x", size.size.x) and _site_int(d, "y", size.size.y) \
 					and d.get("along") in ["x", "y"] and d.get("len") is int and d["len"] >= 1):
 				_err("pack.json", "site", "%s #%d needs whole-number x, y, len and along \"x\" or \"y\" inside the map" % [key, i])
+			elif d.has("room") and not _p.rooms.has(str(d["room"])):
+				_err("pack.json", "site", "%s #%d: room '%s' is not a room" % [key, i, str(d["room"])])
 	var decor = site.get("decor", [])
 	if not decor is Array:
 		_err("pack.json", "site", "decor must be an array")

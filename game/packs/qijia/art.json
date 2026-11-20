@@ -14,7 +14,7 @@
 			"peddler_pole": "iso_peddler_pole", "bookshelf": "iso_bookshelf", "trough": "iso_trough",
 			"bird_cage": "iso_bird_cage", "ayun_hoop": "iso_embroidery_frame", "washtub": "iso_washtub"
 		},
-		"scale": {"iso_woodpile": 0.75, "iso_millstone": 0.85},
+		"scale": {"iso_woodpile": 0.75, "iso_millstone": 0.85, "iso_coop": 0.4},
 		"walls": {"gate": "iso_gatehouse", "fence_x": "iso_fence", "fence_y": "iso_fence_ns"},
 		"asleep": "iso_sleeper",
 		"decals": [

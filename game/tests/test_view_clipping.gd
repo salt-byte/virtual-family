@@ -216,7 +216,7 @@ func test_name_plates_do_not_overlap_and_only_the_selected_shows_the_action():
 	var spots := m.house.label_spots()
 	var rects: Array = []
 	for uid in spots:
-		var size: Vector2 = m.house.people[uid].label_size()
+		var size: Vector2 = m.house.label_owner(uid).label_size()
 		rects.append(Rect2(spots[uid] - Vector2(size.x * 0.5, size.y), size))
 	for i in rects.size():
 		for j in range(i + 1, rects.size()):

@@ -1191,6 +1191,8 @@ func person_at(wpos: Vector2, except := -1) -> int:
 func set_hover(h: Dictionary) -> void:
 	hover = h
 	queue_redraw()
+	if _labels != null:
+		_labels.queue_redraw()  # an animal shows its name while hovered
 
 
 func _arrange_on() -> bool:
@@ -1389,9 +1391,10 @@ func _draw() -> void:
 	_draw_ghost(w, self)
 
 
-## Where each pictured person's label block goes (uid -> its bottom middle, this node's
-## coordinates: the view's in the 45° view): over their head, pushed up past any block it would overlap. The selected
-## person's block stays put, then whoever stands further south (in front) keeps theirs.
+## Where each pictured person's label block goes, and each pictured animal's that shows one
+## (uid -> its bottom middle, this node's coordinates: the view's in the 45° view): over
+## their head, pushed up past any block it would overlap. The selected one's block stays
+## put, then whoever stands further south (in front) keeps theirs.
 const LABEL_GAP := 2.0
 func label_spots() -> Dictionary:
 	var entries: Array = []
@@ -1400,6 +1403,11 @@ func label_spots() -> Dictionary:
 		if pv.pictured() and pv.visible:
 			var foot := proj * pv.position
 			entries.append({"uid": uid, "size": pv.label_size(), "at": foot + pv.label_anchor(), "sel": pv.selected, "y": foot.y})
+	for uid in pets:
+		var av: PetView = pets[uid]
+		if av.pictured() and av.visible and av.shows_label():
+			var foot := proj * av.position
+			entries.append({"uid": uid, "size": av.label_size(), "at": foot + av.label_anchor(), "sel": av.selected, "y": foot.y})
 	entries.sort_custom(func(a, b):
 		if a.sel != b.sel:
 			return a.sel
@@ -1424,10 +1432,18 @@ func label_spots() -> Dictionary:
 	return out
 
 
+## The person or animal a `label_spots` uid belongs to (people and animals share one uid
+## count), or null.
+func label_owner(uid: int) -> Node2D:
+	if people.has(uid):
+		return people[uid]
+	return pets.get(uid)
+
+
 func _draw_labels() -> void:
 	var spots := label_spots()
 	for uid in spots:
-		people[uid].draw_label(_labels, spots[uid])
+		label_owner(uid).draw_label(_labels, spots[uid])
 	_draw_place_name()
 
 

@@ -25,7 +25,8 @@ var compound := Rect2i()
 var has_compound := false
 var ground := Color(0.77, 0.84, 0.59)
 var compound_ground := Color(0.89, 0.76, 0.58)
-## Pack data, as given: [{x, y, along, len}] and decor dictionaries.
+## Pack data, as given: [{x, y, along, len}] (a fence may name a `room`: it stands only while
+## that room is built) and decor dictionaries.
 var doors: Array = []
 var fences: Array = []
 var decor: Array = []
@@ -142,7 +143,9 @@ func _rebuild() -> void:
 			v_walls[Vector2i(r.position.x, y)] = HOUSE
 			v_walls[Vector2i(r.end.x, y)] = HOUSE
 	for f in fences:
-		_mark(f, FENCE)
+		# A fence that names a room stands once that room is built (a pen's rails).
+		if str(f.get("room", "")) == "" or _built.has(str(f["room"])):
+			_mark(f, FENCE)
 	if has_compound:
 		for x in range(compound.position.x, compound.end.x):
 			h_walls[Vector2i(x, compound.position.y)] = COMPOUND

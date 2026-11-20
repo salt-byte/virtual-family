@@ -1,8 +1,9 @@
 class_name PetView
 extends Node2D
-## One animal of the household as a small coloured shape with a name plate (whitebox until
-## the art pass). It goes to whatever it is doing: the object its action happens at, a cell
-## of the room it names, after the person it follows, or beside whoever is looking after it.
+## One animal of the household as a small coloured shape (whitebox until the art pass), with
+## no name plate unless hovered or selected (`plate_text`). It goes to whatever it is doing:
+## the object its action happens at, a cell of the room it names, after the person it
+## follows, or beside whoever is looking after it.
 ## Reads the World, never writes it.
 ##
 ## It never stands like a cut-out. An action's `trot` sends it from spot to spot of its rooms
@@ -56,6 +57,9 @@ var selected := false:
 	set(v):
 		selected = v
 		queue_redraw()
+		var hv := _house() if is_inside_tree() else null
+		if hv != null and hv._labels != null:
+			hv._labels.queue_redraw()  # its plate comes or goes
 var _path_goal := Vector2(INF, INF)
 ## Giving way (`HouseView.give_way`): how long they have waited for someone in the way, and
 ## the cell of the one they last went round.
@@ -69,7 +73,8 @@ var _rng := RandomNumberGenerator.new()
 var _key := ""
 var _name := ""
 var _doing := ""
-var _wish := ""
+## The call or wish over its head ({} for none; see `ViewStrings.pet_bubble`).
+var _bubble: Dictionary = {}
 var _color := FALLBACK
 var _size := 0.6
 var _t := 0.0
@@ -161,7 +166,7 @@ func refresh() -> void:
 	_look = skin.pet_look(str(pet.kind)) if skin != null and skin.enabled else {}
 	_name = session.strings.pet_name(pet, w)
 	_doing = session.strings.pet_doing(pet, w)
-	_wish = session.strings.pet_wish_text(pet, w)
+	_bubble = session.strings.pet_bubble(pet, w)
 	_act = PetSystem.action(w.pack, str(pet.current.get("action", ""))) if not pet.current.is_empty() else {}
 	var rem := int(pet.current.get("remaining_s", 0))
 	if rem > _last_rem:
@@ -181,8 +186,9 @@ func thanking() -> bool:
 	return pet != null and session.world != null and pet.thanks_until > session.world.now
 
 
+## The words of the bubble over its head ("" for none).
 func wish_bubble() -> String:
-	return _wish
+	return str(_bubble.get("text", ""))
 
 
 func doing_text() -> String:
@@ -687,26 +693,21 @@ func _draw() -> void:
 	var top := -b.y - 6.0
 	if _float != "":
 		draw_string(font, Vector2(-40, top - 40 - _float_age * 20.0), _float, HORIZONTAL_ALIGNMENT_CENTER, 80, 14, Color(0.8, 0.25, 0.15))
-	elif _wish != "":
-		var ww := font.get_string_size(_wish, HORIZONTAL_ALIGNMENT_LEFT, -1, 11).x + 14.0
-		var bubble := StyleBoxFlat.new()
-		bubble.bg_color = Color(1, 1, 1, 0.95)
-		bubble.border_color = Color(0.55, 0.5, 0.45)
-		bubble.set_border_width_all(1)
-		bubble.set_corner_radius_all(9)
-		draw_style_box(bubble, Rect2(Vector2(-ww * 0.5, top - 46), Vector2(ww, 19)))
-		draw_string(font, Vector2(-ww * 0.5, top - 32), _wish, HORIZONTAL_ALIGNMENT_CENTER, ww, 11, Color(0.2, 0.15, 0.1))
+	elif not _bubble.is_empty():
+		NeedBubble.draw(self, Vector2(0, top - 30), _bubble, _t, null)
+	var text := plate_text()
+	if text == "":
+		return
 	var plate := StyleBoxFlat.new()
 	plate.bg_color = Color(1, 1, 1, 0.8)
 	plate.set_corner_radius_all(4)
-	draw_style_box(plate, Rect2(Vector2(-55, top - 24), Vector2(110, 24)))
-	draw_string(font, Vector2(-55, top - 13), _name, HORIZONTAL_ALIGNMENT_CENTER, 110, 11, Color.BLACK)
-	draw_string(font, Vector2(-55, top - 2), _doing, HORIZONTAL_ALIGNMENT_CENTER, 110, 9, Color(0.15, 0.15, 0.15))
+	draw_style_box(plate, Rect2(Vector2(-55, top - 16), Vector2(110, 16)))
+	draw_string(font, Vector2(-55, top - 4), fit_text(text, 104.0), HORIZONTAL_ALIGNMENT_CENTER, 110, 11, Color.BLACK)
 
 
 ## The pack's picture in this frame's pose (`pose_xform`: mirrored when heading left, the
-## gait, the breath and the idle moves); a small cream plate with its name (and what it does
-## when selected).
+## gait, the breath and the idle moves), the selection mark and a joy floating up. Its plate
+## and bubble go on the house's label layer (`draw_label`).
 func _draw_pictured(b: Vector2, bob: float) -> void:
 	var tint := Color(0.85, 0.85, 0.8) if pet.sick else Color.WHITE
 	var xf := pose_xform()
@@ -720,7 +721,6 @@ func _draw_pictured(b: Vector2, bob: float) -> void:
 		pb = Vector2(b.y * pic.get_width() / pic.get_height(), b.y)
 	draw_texture_rect(pic, Rect2(-pb.x * 0.5, -pb.y, pb.x, pb.y), false, tint)
 	draw_set_transform(Vector2.ZERO)
-	var line := Color("#4A3424")
 	var font := ThemeDB.fallback_font
 	var top := -b.y + bob - 4.0
 	if selected:
@@ -728,21 +728,85 @@ func _draw_pictured(b: Vector2, bob: float) -> void:
 		top -= 10.0
 	if _float != "":
 		draw_string(font, Vector2(-40, top - 40 - _float_age * 20.0), _float, HORIZONTAL_ALIGNMENT_CENTER, 80, 14, Color(0.8, 0.25, 0.15))
-	elif _wish != "":
-		var ww := font.get_string_size(_wish, HORIZONTAL_ALIGNMENT_LEFT, -1, 11).x + 14.0
-		var bubble := StyleBoxFlat.new()
-		bubble.bg_color = Color(1, 1, 1, 0.95)
-		bubble.border_color = Color(0.55, 0.5, 0.45)
-		bubble.set_border_width_all(1)
-		bubble.set_corner_radius_all(9)
-		draw_style_box(bubble, Rect2(Vector2(-ww * 0.5, top - 46), Vector2(ww, 19)))
-		draw_string(font, Vector2(-ww * 0.5, top - 32), _wish, HORIZONTAL_ALIGNMENT_CENTER, ww, 11, Color(0.2, 0.15, 0.1))
-	var text := _name if not selected else "%s · %s" % [_name, _doing]
-	var pw := clampf(font.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, 11).x + 12.0, 30.0, 180.0)
-	var plate := StyleBoxFlat.new()
-	plate.bg_color = Color("#FFF4DF", 0.92)
-	plate.border_color = Color("#E5533C") if selected else Color(line, 0.5)
-	plate.set_border_width_all(2 if selected else 1)
-	plate.set_corner_radius_all(6)
-	draw_style_box(plate, Rect2(Vector2(-pw * 0.5, top - 16), Vector2(pw, 16)))
-	draw_string(font, Vector2(-pw * 0.5, top - 4), text, HORIZONTAL_ALIGNMENT_CENTER, pw, 11, line)
+
+
+## The words over it, drawn by the house on its label layer with the people's plates (so
+## they keep clear of each other): nothing by default. Hovered: a plate with its name;
+## selected: its name and what it does; a call or a wish: the short bubble alone (over the
+## plate when it has one too). The whole wish is in the bar and the notices.
+func plate_text() -> String:
+	if selected:
+		return "%s · %s" % [_name, _doing]
+	return _name if hovered() else ""
+
+
+## True while the pointer is on it (the house's hover).
+func hovered() -> bool:
+	var hv := _house()
+	return hv != null and pet != null and str(hv.hover.get("kind", "")) == "pet" and int(hv.hover.get("uid", -1)) == pet.uid
+
+
+## Whether it has anything over its head now (`plate_text` or a bubble).
+func shows_label() -> bool:
+	return not _bubble.is_empty() or plate_text() != ""
+
+
+## Drawn with the pack's pictures (else the whitebox shape, which draws its own words).
+func pictured() -> bool:
+	return not _look.is_empty()
+
+
+const PLATE_H := 16.0
+const PLATE_MAX := 180.0
+
+
+func _plate_width(text: String) -> float:
+	return clampf(ThemeDB.fallback_font.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, 11).x + 12.0, 30.0, PLATE_MAX)
+
+
+## `text` cut to fit `width` at the plates' size, with "…" when cut.
+static func fit_text(text: String, width: float) -> String:
+	var font := ThemeDB.fallback_font
+	if font.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, 11).x <= width:
+		return text
+	var n := text.length()
+	while n > 1 and font.get_string_size(text.left(n) + "…", HORIZONTAL_ALIGNMENT_LEFT, -1, 11).x > width:
+		n -= 1
+	return text.left(n) + "…"
+
+
+## The label block's size (plate and bubble; zero when it shows nothing).
+func label_size() -> Vector2:
+	var text := plate_text()
+	var pw := _plate_width(text) if text != "" else 0.0
+	var ph := PLATE_H if text != "" else 0.0
+	if _bubble.is_empty():
+		return Vector2(pw, ph)
+	return Vector2(maxf(pw, NeedBubble.size_of(_bubble).x), ph + NeedBubble.HEIGHT + 12.0)
+
+
+## Where the label block's bottom middle sits by default, relative to the feet (above the
+## selection mark when selected).
+func label_anchor() -> Vector2:
+	return Vector2(0, -body().y - 4.0 - (10.0 if selected else 0.0))
+
+
+## Draws the label block on `ci` with its bottom middle at `at` (the canvas's coordinates).
+func draw_label(ci: CanvasItem, at: Vector2) -> void:
+	var line := Color("#4A3424")
+	var y := at.y
+	var text := plate_text()
+	if text != "":
+		var pw := _plate_width(text)
+		var plate := StyleBoxFlat.new()
+		plate.bg_color = Color("#FFF4DF", 0.92)
+		plate.border_color = Color("#E5533C") if selected else Color(line, 0.5)
+		plate.set_border_width_all(2 if selected else 1)
+		plate.set_corner_radius_all(6)
+		ci.draw_style_box(plate, Rect2(at.x - pw * 0.5, at.y - PLATE_H, pw, PLATE_H))
+		ci.draw_string(ThemeDB.fallback_font, Vector2(at.x - pw * 0.5, at.y - 4), fit_text(text, pw - 8.0),
+			HORIZONTAL_ALIGNMENT_CENTER, pw, 11, line)
+		y -= PLATE_H
+	if not _bubble.is_empty():
+		var hv := _house()
+		NeedBubble.draw(ci, Vector2(at.x, y - 12.0), _bubble, _t, hv.skin if hv != null else null)

@@ -392,6 +392,18 @@ func pet_wish_text(pet: Pet, world: World) -> String:
 	return str(PetSystem.wish_of(world, pet).get("text", ""))
 
 
+## The short bubble over an animal with a wish or a call: {text, icon, kind: "wish", waiting}
+## ({} for none): the wish's `bubble` words (its `text` when it has none) and `icon`, like
+## the people's asks; the whole `text` goes in the bar and the notices. A call for food (a
+## wish with `below`) waits for the player, so it bobs.
+func pet_bubble(pet: Pet, world: World) -> Dictionary:
+	var wish := PetSystem.wish_of(world, pet)
+	if wish.is_empty():
+		return {}
+	return {"text": str(wish.get("bubble", wish.get("text", ""))), "icon": str(wish.get("icon", "")), "kind": "wish",
+		"waiting": not (wish.get("below", {}) as Dictionary).is_empty()}
+
+
 ## The family record of a pet no longer at home.
 func pet_record(pet: Pet, world: World) -> String:
 	var name := pet_name(pet, world)
