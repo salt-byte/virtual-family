@@ -15,9 +15,9 @@ dest_files=["res://.godot/imported/peddler_pole.png-c775f6d7f89041fa2fdace5d48ab
 
 [params]
 
-compress/mode=0
+compress/mode=1
 compress/high_quality=false
-compress/lossy_quality=0.7
+compress/lossy_quality=0.8
 compress/uastc_level=0
 compress/rdo_quality_loss=0.0
 compress/hdr_compression=1

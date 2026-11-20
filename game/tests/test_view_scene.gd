@@ -386,3 +386,33 @@ func test_arrange_hover_lands_on_the_cell_under_the_pointer_when_zoomed():
 	var g := m.arrange.ghost()
 	assert_eq([str(g.room), int(g.x), int(g.y)], ["hall", 6, 4])
 	m.free()
+
+
+## A long absence replayed in slices: the house is up at once, the "catching up" line shows and
+## the house takes no input until the replay is done.
+func test_sliced_catch_up_shows_the_line_and_blocks_the_house():
+	var d := _clean_dir()
+	var m := Main.create("qijia", d, _clock)
+	Engine.get_main_loop().root.add_child(m)
+	m.session.command({"type": "adopt"})
+	m.tick(0.016)
+	assert_true(m.session.save())
+	m.free()
+	clk.unix += 5 * 3600.0
+	var m2 := Main.create("qijia", d, _clock)
+	Engine.get_main_loop().root.add_child(m2)
+	m2.session.sliced_catch_up = true
+	assert_true(not m2.catch_up.visible)
+	m2.tick(0.016)
+	assert_true(m2.session.catching_up())
+	assert_true(m2.catch_up.visible)
+	assert_true(m2.is_house_blocked())
+	assert_true(m2.catch_up._label.text.begins_with("正在补上你不在时的日子"), m2.catch_up._label.text)
+	var guard := 0
+	while m2.session.catching_up() and guard < 100000:
+		m2.tick(0.016)
+		guard += 1
+	assert_true(not m2.catch_up.visible)
+	assert_true(not m2.is_house_blocked())
+	assert_eq(m2.session.world.now, int(clk.unix))
+	m2.free()

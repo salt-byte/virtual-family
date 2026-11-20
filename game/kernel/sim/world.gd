@@ -168,14 +168,26 @@ func _init(p: Pack, seed: int) -> void:
 ##   counts `speed_factor` times; the surplus goes into `clock_lead`. Whether the gap is an
 ##   absence is judged on real time.
 func sync(unix: int, offset: int) -> Dictionary:
+	var job := begin_sync(unix, offset)
+	if job == null:
+		return Offline.zero_summary(self)
+	job.run(-1)
+	return job.finish()
+
+
+## `sync` in two halves, for a view that must not stall on a long absence: does everything
+## `sync` does, except that an absence comes back unfinished as a `CatchUpJob` (null when there
+## was none). Run it (`run`) in slices, then `finish` it: the world ends up exactly as after
+## `sync`. Until then nothing else may touch the world (no `sync`, `command` or save).
+func begin_sync(unix: int, offset: int) -> CatchUpJob:
 	utc_offset = offset
 	var clock := float(now) + _acc - float(clock_lead)
 	if float(unix) <= clock:
-		return Offline.zero_summary(self)
+		return null
 	if phase == "adopting" or now == 0:
 		now = unix + clock_lead
 		_acc = 0.0
-		return Offline.zero_summary(self)
+		return null
 	var gap := float(unix) - clock
 	var away := gap > SYNC_OFFLINE_GAP  # judged on real time
 	# While the clock runs fast, game time gains on real time.
@@ -183,16 +195,21 @@ func sync(unix: int, offset: int) -> Dictionary:
 		var extra := roundi((minf(float(unix), float(speed_until)) - clock) * (speed_factor - 1.0))
 		clock_lead += extra
 		gap += float(extra)
-	var summary: Dictionary
 	if away:
-		summary = catch_up(gap)
-	else:
-		advance(gap)
-		summary = Offline.zero_summary(self)
-	if float(now) + _acc != float(unix + clock_lead):  # capped, game over, or not living: snap
+		var job := CatchUpJob.new(self, gap)
+		job.snap_unix = unix
+		return job
+	advance(gap)
+	snap_clock(unix)
+	return null
+
+
+## After a sync: when the sim clock is not at `unix` plus `clock_lead` (the absence was capped,
+## ended the game, or the world is not living), puts it there.
+func snap_clock(unix: int) -> void:
+	if float(now) + _acc != float(unix + clock_lead):
 		now = unix + clock_lead
 		_acc = 0.0
-	return summary
 
 
 ## Test / setup only: sets the clock directly. Views use `sync`. Once people live in the
@@ -234,12 +251,30 @@ func local_hour() -> float:
 
 
 func advance(seconds: float) -> void:
+	if queue_time(seconds):
+		run_steps(-1)
+
+
+## Adds `seconds` to the time still to simulate without running it (`run_steps` does); false,
+## with nothing added, unless the world is living and `seconds` is positive.
+func queue_time(seconds: float) -> bool:
 	if phase != "living" or seconds <= 0.0:
-		return
+		return false
 	_acc += seconds
+	return true
+
+
+## Runs up to `max_steps` (all when negative) of the steps queued by `queue_time`; true when
+## none are left (or the game is over).
+func run_steps(max_steps: int) -> bool:
+	var n := 0
 	while _acc >= step_s and phase != "over":
+		if max_steps >= 0 and n >= max_steps:
+			return false
 		_acc -= step_s
 		_step()
+		n += 1
+	return true
 
 
 ## Replays the time the player was away (capped) and returns the summary; see `Offline`.

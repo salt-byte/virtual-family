@@ -15,10 +15,16 @@ var panels: Panels
 var arrange: ArrangeMode
 var settings: SettingsPanel
 var letters: LetterView
+var catch_up: CatchUpBanner
 ## Uid of the selected person; -1 for none.
 var selected := -1
 ## Uid of the selected animal (-1: none); while one is selected the bar shows it.
 var selected_pet := -1
+## True from a real start (`_ready`) until the first frame has run: load phases are logged.
+var _log_load := false
+## Frames, and the microseconds `tick` took in them, while a replay ran (logged at its end).
+var _cu_frames := 0
+var _cu_usec := 0
 
 
 static func create(pack_id: String, dir := "user://", real_clock := Callable()) -> Main:
@@ -68,6 +74,9 @@ func _build(pack_id: String, dir: String, real_clock: Callable) -> void:
 	letters = LetterView.new()
 	add_child(letters)
 	letters.setup(self)
+	catch_up = CatchUpBanner.new()
+	add_child(catch_up)
+	catch_up.setup(session)
 	hud.open.connect(_on_hud_open)
 	house.blocked = is_house_blocked
 	_sync_selection()
@@ -140,7 +149,8 @@ func open_notice(n: Dictionary) -> void:
 ## True while an overlay, a panel or the build confirmation covers the house; the house then
 ## ignores input.
 func is_house_blocked() -> bool:
-	return overlays.blocks_input() or panels.blocks_input() or arrange.blocks_input() \
+	return catch_up.blocks_input() or overlays.blocks_input() or panels.blocks_input() \
+		or arrange.blocks_input() \
 		or settings.blocks_input() or letters.blocks_input()
 
 
@@ -197,11 +207,32 @@ func _apply_selection() -> void:
 
 func _ready() -> void:
 	if session == null:
-		_build(pack_from_args(), "user://", Callable())
+		_log_load = true
+		DebugAway.log("main_ready")
+		var dir := "user://"
+		var away := DebugAway.hours()
+		if away > 0.0:
+			dir = DebugAway.DIR
+			DebugAway.seed_save(pack_from_args(), away)
+		_build(pack_from_args(), dir, Callable())
+		session.sliced_catch_up = true
+		session.catch_up_started.connect(func():
+			DebugAway.log("catchup_start hours=%.1f" % session.catch_up_hours()))
+		session.away.connect(func(summary: Dictionary):
+			DebugAway.log("catchup_done simulated_h=%.1f frames=%d avg_tick_ms=%.1f" % [
+				float(summary.simulated_seconds) / 3600.0, _cu_frames,
+				float(_cu_usec) / 1000.0 / maxf(1.0, float(_cu_frames))]))
+		DebugAway.log("built")
 
 
+## While an absence is being replayed (`GameSession.catching_up`) only the session and the
+## "catching up" line move: the house stays as it was left, so the frame's time goes to the
+## replay, and everything catches up at once when it is done.
 func tick(delta: float) -> void:
 	session.tick(delta)
+	if session.catching_up():
+		catch_up.refresh()
+		return
 	_sync_selection()
 	house.refresh()
 	drag.refresh()
@@ -217,9 +248,22 @@ func tick(delta: float) -> void:
 	settings.refresh()
 	letters.refresh()
 	letters.tick(delta)
+	catch_up.refresh()
 
 
 func _process(delta: float) -> void:
+	if _log_load:
+		var t := Time.get_ticks_usec()
+		tick(delta)
+		_log_load = false
+		DebugAway.log("first_tick_done tick_ms=%.0f" % (float(Time.get_ticks_usec() - t) / 1000.0))
+		return
+	if session.catching_up():
+		var t := Time.get_ticks_usec()
+		tick(delta)
+		_cu_frames += 1
+		_cu_usec += Time.get_ticks_usec() - t
+		return
 	tick(delta)
 
 

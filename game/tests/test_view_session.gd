@@ -268,3 +268,48 @@ func test_autosave_every_30_real_seconds():
 	assert_true(not FileAccess.file_exists(s.save_path()))
 	s.tick(1.0)
 	assert_true(FileAccess.file_exists(s.save_path()))
+
+
+## With `sliced_catch_up` a long absence is replayed over several ticks: commands fail and
+## nothing is saved meanwhile, and the world it ends in is the one the blocking replay gives.
+func test_sliced_catch_up_spans_ticks_and_ends_in_the_same_world():
+	var s := _session("sliced_src")
+	s.start()
+	s.command({"type": "adopt"})
+	s.tick(0.016)
+	assert_true(s.save())
+	var saved := FileAccess.get_file_as_string(s.save_path())
+	clk.unix += 6 * 3600.0
+	# Blocking: one tick.
+	var a := _session("sliced_a")
+	_write(a.save_path(), saved)
+	var got_a := []
+	a.away.connect(func(sum): got_a.append(sum))
+	a.start()
+	a.tick(0.016)
+	assert_eq(got_a.size(), 1)
+	# Sliced: the same save and clock.
+	var b := _session("sliced_b")
+	_write(b.save_path(), saved)
+	b.sliced_catch_up = true
+	var got_b := []
+	var started := []
+	b.away.connect(func(sum): got_b.append(sum))
+	b.catch_up_started.connect(func(): started.append(true))
+	b.start()
+	b.tick(0.016)
+	assert_eq(started.size(), 1)
+	assert_true(b.catching_up(), "6 h is not replayed inside one frame's budget")
+	assert_true(b.catch_up_progress() < 1.0)
+	assert_eq(b.command({"type": "praise", "person": b.world.people[0].uid}).error, "catching_up")
+	assert_true(not b.save())
+	var ticks := 1
+	while b.catching_up() and ticks < 100000:
+		b.tick(0.016)
+		ticks += 1
+	assert_true(ticks > 1)
+	assert_true(not b.catching_up())
+	assert_eq(got_b.size(), 1)
+	assert_eq(got_b[0], got_a[0])
+	assert_eq(JSON.stringify(b.world.to_dict()), JSON.stringify(a.world.to_dict()))
+	assert_true(FileAccess.file_exists(b.save_path()), "saved once the replay is done")

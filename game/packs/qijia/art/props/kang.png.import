@@ -15,9 +15,9 @@ dest_files=["res://.godot/imported/kang.png-8e0b60dd9f180a151a8fc4c706b213fa.cte
 
 [params]
 
-compress/mode=0
+compress/mode=1
 compress/high_quality=false
-compress/lossy_quality=0.7
+compress/lossy_quality=0.8
 compress/uastc_level=0
 compress/rdo_quality_loss=0.0
 compress/hdr_compression=1

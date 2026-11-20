@@ -103,3 +103,57 @@ func test_qijia_offline_matches_online_when_no_floor_hit():
 	var a := _qhome(); var b := _qhome()
 	a.catch_up(2 * 3600); b.offline = true; b.advance(2 * 3600); b.offline = false; b.drain_events()
 	assert_eq(a.to_dict(), b.to_dict())
+## A replay run in slices (`CatchUpJob`) ends in the same world and summary as the one-shot one,
+## whatever the slice size; also through `World.begin_sync` against `World.sync`.
+func _sliced(w: World, elapsed: float, slice: int) -> Dictionary:
+	var job := CatchUpJob.new(w, elapsed)
+	var guard := 0
+	while not job.run(slice):
+		guard += 1
+		assert_true(w.offline, "offline floor stays on mid-replay")
+		if guard > 100000:
+			break
+	assert_near(job.progress(), 1.0, 0.0001)
+	return job.finish()
+func test_sliced_catch_up_equals_one_shot():
+	for slice in [1, 7, 500]:
+		var a := _home(); var b := _home()
+		a.emit("marker"); b.emit("marker")
+		var sa := a.catch_up(6 * 3600)
+		var sb := _sliced(b, 6 * 3600, slice)
+		assert_eq(sb, sa, "summary, slice %d" % slice)
+		assert_eq(b.to_dict(), a.to_dict(), "world, slice %d" % slice)
+		assert_eq(b.drain_events(), a.drain_events())
+		assert_true(not b.offline)
+func test_qijia_sliced_catch_up_equals_one_shot_with_family_and_pets():
+	var a := BalanceRun.family_of_four("qijia", 11); var b := BalanceRun.family_of_four("qijia", 11)
+	PetSystem.add(a, "dog", "bought"); PetSystem.add(b, "dog", "bought")
+	var sa := a.catch_up(3 * 3600)
+	var sb := _sliced(b, 3 * 3600, 13)
+	assert_eq(JSON.stringify(sb), JSON.stringify(sa))
+	assert_eq(JSON.stringify(b.to_dict()), JSON.stringify(a.to_dict()))
+func test_sliced_catch_up_capped_and_game_over_equal_one_shot():
+	var a := _home(); var b := _home()
+	assert_eq(_sliced(b, 30 * 86400, 64), a.catch_up(30 * 86400)); assert_eq(b.to_dict(), a.to_dict())
+	var c := _home(); var d := _home()
+	c.people[0].age = 69.99; c.people[0].lifespan = 70.0; d.people[0].age = 69.99; d.people[0].lifespan = 70.0
+	assert_eq(_sliced(d, 10 * 3600, 3), c.catch_up(10 * 3600)); assert_eq(d.to_dict(), c.to_dict())
+	assert_eq(d.phase, "over")
+func test_begin_sync_in_slices_equals_sync():
+	for gap in [60, 5 * 3600, 60 * 3600]:
+		var a := _home(); var b := _home()
+		var u: int = a.now + gap
+		var sa := a.sync(u, 0)
+		var job := b.begin_sync(u, 0)
+		var sb := Offline.zero_summary(b)
+		if job != null:
+			while not job.run(11):
+				pass
+			sb = job.finish()
+		assert_eq(job != null, gap > World.SYNC_OFFLINE_GAP)
+		assert_eq(sb, sa, "summary, gap %d" % gap); assert_eq(b.to_dict(), a.to_dict(), "world, gap %d" % gap)
+func test_not_living_job_is_done_at_once():
+	var w := World.new(Pack.load_dir("res://packs/_smoke"), 11); w.set_time(1767268800, 0)
+	var job := CatchUpJob.new(w, 3600)
+	assert_true(job.done()); assert_eq(job.progress(), 1.0)
+	assert_eq(job.finish().simulated_seconds, 0); assert_eq(w.now, 1767268800)

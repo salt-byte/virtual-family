@@ -6,6 +6,9 @@ extends RefCounted
 signal event(e: Dictionary)
 signal command_failed(code: String)
 signal away(summary: Dictionary)
+## Emitted when a sliced replay of an absence starts (see `sliced_catch_up`); `away` and the
+## replay's events follow when it is done.
+signal catch_up_started
 ## Emitted once after every step (tick or command) so panels can refresh.
 signal changed
 
@@ -14,6 +17,11 @@ const FLIP_OFFSET := 43200
 ## The longest frame that counts toward debug fast-forward: at ×600 a 0.15 s frame adds about
 ## 90 s, so one slow frame never jumps past World.SYNC_OFFLINE_GAP into an offline catch-up.
 const FF_MAX_DELTA := 0.15
+## With `sliced_catch_up`, the wall-clock time per frame (microseconds) spent replaying an
+## absence; the rest of the frame draws the house. Steps run in groups of `CATCH_UP_SLICE`
+## between two looks at the clock.
+const CATCH_UP_BUDGET_USEC := 24000
+const CATCH_UP_SLICE := 8
 
 var world: World
 var pack: Pack
@@ -22,12 +30,18 @@ var load_error := ""
 ## `clock_skew` is this pack's debug fast-forward (settings.json keeps one per pack); `speed`
 ## always starts at 1 and is not saved; `hint_seen` is true once the drag hint was shown.
 var settings := {"flip_day_night": false, "clock_skew": 0, "speed": 1, "hint_seen": false}
+## When true (the game sets it; tests leave it off unless they test it), a long absence found by
+## `tick` is replayed a slice per frame instead of all at once, so the house shows straight
+## away. Meanwhile `catching_up()` is true, commands fail with "catching_up" and nothing is
+## saved; the finished world is the same either way.
+var sliced_catch_up := false
 
 var _dir: String
 var _real_clock: Callable
 ## Accumulated debug fast-forward in seconds, kept as a float; `settings.clock_skew` mirrors it.
 var _skew := 0.0
 var _since_save := 0.0
+var _job: CatchUpJob = null
 
 
 func _init(pack_id: String, dir := "user://", real_clock := Callable()) -> void:
@@ -92,15 +106,36 @@ func utc_offset() -> int:
 	return off + FLIP_OFFSET if settings.flip_day_night else off
 
 
+## True while a sliced replay of an absence is still running.
+func catching_up() -> bool:
+	return _job != null
+
+
+## How far the running replay has got, 0..1 (1 when none runs).
+func catch_up_progress() -> float:
+	return _job.progress() if _job != null else 1.0
+
+
+## Game hours the running replay covers (0 when none runs).
+func catch_up_hours() -> float:
+	return _job.seconds() / 3600.0 if _job != null else 0.0
+
+
 func tick(delta: float) -> void:
 	if not _running():
+		return
+	if _job != null:
+		_run_job(CATCH_UP_BUDGET_USEC)
+		changed.emit()
 		return
 	var speed := int(settings.speed)
 	if speed > 1:
 		_skew += (speed - 1) * minf(delta, FF_MAX_DELTA)
 		settings.clock_skew = int(_skew)
-	_sync_and_dispatch()
+	_sync_and_dispatch(sliced_catch_up)
 	changed.emit()
+	if _job != null:
+		return
 	_since_save += delta
 	if _since_save >= AUTOSAVE_SECONDS:
 		_since_save = 0.0
@@ -110,6 +145,9 @@ func tick(delta: float) -> void:
 func command(cmd: Dictionary) -> Dictionary:
 	if world == null:
 		return {"ok": false, "error": "not_running"}
+	if _job != null:
+		command_failed.emit("catching_up")
+		return {"ok": false, "error": "catching_up"}
 	if world.phase != "invalid":
 		_sync_and_dispatch()
 	var r := world.command(cmd)
@@ -122,7 +160,7 @@ func command(cmd: Dictionary) -> Dictionary:
 
 ## Writes the settings first, then the world, so a save is never ahead of its clock skew.
 func save() -> bool:
-	if not _running():
+	if not _running() or _job != null:
 		return false
 	_write_settings()
 	return SaveStore.save(world, save_path())
@@ -154,8 +192,37 @@ func _real() -> Dictionary:
 	}
 
 
-func _sync_and_dispatch() -> void:
-	var summary := world.sync(now_unix(), utc_offset())
+## Syncs the world to the clock. An absence is replayed at once, or with `sliced` started as
+## a job (`_job`) that `tick` carries on frame by frame; its first slice runs now.
+func _sync_and_dispatch(sliced := false) -> void:
+	var job := world.begin_sync(now_unix(), utc_offset())
+	if job == null:
+		_dispatch_events()
+		return
+	if sliced:
+		_job = job
+		catch_up_started.emit()
+		_run_job(CATCH_UP_BUDGET_USEC)
+		return
+	_finish_job(job)
+
+
+## Runs the replay for about `budget_usec`; once it is done, finishes it and saves, so a reload
+## right after does not replay the same absence again.
+func _run_job(budget_usec: int) -> void:
+	var t := Time.get_ticks_usec()
+	while not _job.run(CATCH_UP_SLICE):
+		if Time.get_ticks_usec() - t >= budget_usec:
+			return
+	var job := _job
+	_job = null
+	_finish_job(job)
+	_since_save = 0.0
+	save()
+
+
+func _finish_job(job: CatchUpJob) -> void:
+	var summary := job.finish()
 	if float(summary.get("simulated_seconds", 0)) > 0.0:
 		away.emit(summary)
 	_dispatch_events()

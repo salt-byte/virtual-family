@@ -5,21 +5,20 @@ extends RefCounted
 
 ## Simulates up to `offline_cap_hours` of `elapsed_seconds` with the offline floor on.
 ## Events that were already queued stay queued; those the replay produces go into the summary.
+## The same replay can be run a slice at a time with a `CatchUpJob`; the result is identical.
 static func catch_up(world: World, elapsed_seconds: float) -> Dictionary:
-	if world.phase != "living" or elapsed_seconds <= 0.0:
-		return zero_summary(world)
+	var job := CatchUpJob.new(world, elapsed_seconds)
+	job.run(-1)
+	return job.finish()
+
+
+## The summary of a finished replay: `t0`, `money0` and `held` (the events queued before it)
+## as they were when it began; requeues `held` and drains everything the replay produced.
+static func summarize(world: World, elapsed_seconds: float, t0: int, money0: int, letters: Array,
+		held: Array) -> Dictionary:
 	var summary := _empty()
 	var cap := int(world.pack.cfg("offline_cap_hours")) * 3600
-	var seconds := minf(elapsed_seconds, float(cap))
-	var t0 := world.now
-	var money0 := world.money
-	var letter0 := world.letter_next
-	var held := world.drain_events()
-	var was_offline := world.offline
-	world.offline = true
-	world.advance(seconds)
-	world.offline = was_offline
-	summary["letters"] = LetterSystem.trim_new(world, letter0)
+	summary["letters"] = letters
 	var events := world.drain_events()
 	world.requeue_events(held)
 	summary["capped"] = elapsed_seconds > float(cap)

@@ -42,6 +42,7 @@ const DEFAULTS := {
 	"ev.married_job": "{name}进了门，{job} · {level}",
 	"gender.male": "男", "gender.female": "女", "label.likes": "喜欢", "label.dislikes": "厌恶",
 	"label.savings": "带来 {n}", "load.backup": "旧存档会留一份备份，不会丢。",
+	"away.catching_up": "正在补上你不在时的日子…", "error.catching_up": "还在补上你不在时的日子，稍等",
 	"load.corrupt": "存档坏了", "load.version": "存档是新版本存的，这个版本读不了",
 	"load.pack_mismatch": "存档是另一个主题包的", "load.pack_changed": "主题包改过，旧存档对不上",
 	"ev.fell_ill": "{name}看着不大对劲", "ev.cured": "{name}的病好了", "ev.level_up": "{name}成了{level}",
