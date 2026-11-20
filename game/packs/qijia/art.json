@@ -129,7 +129,7 @@
 	},
 	"messes": {"dirt": "mess_dirt", "droppings": "mess_droppings", "leaves": "mess_droppings",
 		"bowls": "mess_bowls", "mud": "mess_mud", "pet_hair": "mess_dirt"},
-	"collectibles": {"egg": "col_egg", "coins": "col_coins", "hairpin": "col_hairpin", "greens": "col_greens",
+	"collectibles": {"egg": "col_egg", "old_kite": "col_old_kite", "coins": "col_coins", "hairpin": "col_hairpin", "greens": "col_greens",
 		"herbs": "col_herbs", "cicada_shell": "col_cicada_shell", "purse": "col_purse", "bronze_mirror": "col_bronze_mirror"},
 	"pets": {"dog": {"sprite": "dog", "height": 46, "front": "dog_front", "back": "dog_back"},
 		"cat": {"sprite": "cat", "height": 36, "front": "cat_front", "back": "cat_back"},
@@ -193,6 +193,6 @@
 	"keepsakes": {
 		"cabinet": {"file": "props/ui_cabinet.png", "left": [0, 151, 48, 114], "cell": [158, 151, 115, 114], "right": [482, 151, 49, 114], "top": [0, 0, 532, 50], "bottom": [0, 525, 532, 44], "edge": 48},
 		"tag": "props/ui_tag.png",
-		"pieces": {"ayun_hoop": "props/story/ayun_hoop.png", "birthday_slip": "props/story/birthday_slip.png", "cloth_tiger": "props/story/cloth_tiger.png", "half_sampler": "props/story/half_sampler.png", "half_sugar_monkey": "props/story/half_sugar_monkey.png", "letter_first_half": "props/story/letter_first_half.png", "letter_second_half": "props/story/letter_second_half.png", "poem_burnt": "props/story/poem_burnt.png", "poem_last": "props/story/poem_last.png", "poem_ledger": "props/story/poem_ledger.png", "poem_millstone": "props/story/poem_millstone.png", "poem_nine_steps": "props/story/poem_nine_steps.png", "poem_ten_years": "props/story/poem_ten_years.png", "pressed_flower": "props/story/pressed_flower.png", "rattle_drum": "props/story/rattle_drum.png", "red_shoe": "props/story/red_shoe.png", "tiger_shoe": "props/story/tiger_shoe.png", "yun_hairpin": "props/story/yun_hairpin.png"}
+		"pieces": {"almanac_page": "props/story/almanac_page.png", "ayun_hoop": "props/story/ayun_hoop.png", "bell_clapper": "props/story/bell_clapper.png", "birthday_slip": "props/story/birthday_slip.png", "cloth_tiger": "props/story/cloth_tiger.png", "ferry_tag": "props/story/ferry_tag.png", "half_sampler": "props/story/half_sampler.png", "half_sugar_monkey": "props/story/half_sugar_monkey.png", "kite_ribs": "props/story/kite_ribs.png", "letter_first_half": "props/story/letter_first_half.png", "letter_second_half": "props/story/letter_second_half.png", "pipe_bowl": "props/story/pipe_bowl.png", "poem_burnt": "props/story/poem_burnt.png", "poem_last": "props/story/poem_last.png", "poem_ledger": "props/story/poem_ledger.png", "poem_millstone": "props/story/poem_millstone.png", "poem_nine_steps": "props/story/poem_nine_steps.png", "poem_ten_years": "props/story/poem_ten_years.png", "pole_tip": "props/story/pole_tip.png", "pressed_flower": "props/story/pressed_flower.png", "rattle_drum": "props/story/rattle_drum.png", "red_shoe": "props/story/red_shoe.png", "sugar_wrapper": "props/story/sugar_wrapper.png", "swallow_tail": "props/story/swallow_tail.png", "tag_bundle": "props/story/tag_bundle.png", "tally_stick": "props/story/tally_stick.png", "tangled_line": "props/story/tangled_line.png", "tiger_shoe": "props/story/tiger_shoe.png", "yun_hairpin": "props/story/yun_hairpin.png"}
 	}
 }
