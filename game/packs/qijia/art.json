@@ -129,7 +129,7 @@
 		"tofu_box": "tofu_box", "peddler_pole": "peddler_pole", "bookshelf": "bookshelf", "trough": "trough",
 		"grain_heap": "grain_heap", "bird_cage": "bird_cage", "ayun_hoop": "embroidery_frame"
 	},
-	"messes": {"dirt": "mess_dirt", "droppings": "mess_droppings", "leaves": "mess_droppings",
+	"messes": {"dirt": "mess_dirt", "wrapper": "mess_wrapper", "fruit_core": "mess_fruit_core", "cloth_scraps": "mess_cloth_scraps", "feathers": "mess_feathers", "droppings": "mess_droppings", "leaves": "mess_droppings",
 		"bowls": "mess_bowls", "mud": "mess_mud", "pet_hair": "mess_dirt"},
 	"collectibles": {"egg": "col_egg", "old_kite": "col_old_kite", "coins": "col_coins", "hairpin": "col_hairpin", "greens": "col_greens",
 		"herbs": "col_herbs", "cicada_shell": "col_cicada_shell", "purse": "col_purse", "bronze_mirror": "col_bronze_mirror"},
