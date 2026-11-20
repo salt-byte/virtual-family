@@ -89,7 +89,7 @@ static func _is(world: World, a: Dictionary, sort: String) -> bool:
 		"tends":
 			return not (a.get("tends", {}) as Dictionary).is_empty()
 		"pet":
-			return not (a.get("pet", {}) as Dictionary).is_empty()
+			return not (a.get("pet", {}) as Dictionary).is_empty() and not bool(a["pet"].get("watch", false))
 		"daily", "flavor", "trouble":
 			return str(a.get("kind", "")) == sort
 	return false

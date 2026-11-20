@@ -20,6 +20,7 @@
 	{"id": "pork_bone", "name": "一根猪棒骨", "category": "喂养", "market": "animals", "price": 8, "pet": {"kinds": ["dog"], "needs": {"belly": 30, "fondness": 20}}},
 	{"id": "dried_fish", "name": "一串小鱼干", "category": "喂养", "market": "animals", "price": 10, "pet": {"kinds": ["cat"], "needs": {"belly": 40, "fondness": 15}}},
 	{"id": "millet", "name": "一包小米", "category": "喂养", "market": "animals", "price": 8, "stock": {"millet": 6}},
+	{"id": "bran", "name": "一袋谷糠", "category": "喂养", "market": "livestock", "price": 12, "stock": {"bran": 4}},
 	{"id": "zongzi", "name": "一串粽子", "category": "节令", "price": 20, "needs": {"happy": 15, "fed": 20}},
 	{"id": "mooncake", "name": "一块月饼", "category": "节令", "price": 22, "needs": {"happy": 20, "fed": 10}},
 	{"id": "lined_jacket", "name": "一件夹袄", "category": "布庄", "market": "clothes", "price": 60, "needs": {"happy": 25, "health": 5, "clean": 40}},

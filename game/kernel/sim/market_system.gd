@@ -66,14 +66,16 @@ static func section_of(pack: Pack, kind: String, entry: Dictionary) -> String:
 ## Everything for sale, grouped: [{id, name, entries: [entry]}], sections in pack order and
 ## entries in pack order within each (used goods last, in their stall order). An entry:
 ## {kind, id, name, group, price, why, command}
-## - kind: "item" | "object" | "room" | "pet" | "service" | "secondhand"
+## - kind: "item" | "object" | "room" | "pet" | "service" | "secondhand" | "sale"
+## - "sale" is the other way round: an animal at home that would sell (`LivestockSystem`),
+##   under its kind's section; `id` is its uid, `price` what it fetches, `weight` its weight
 ## - id: the pack id (for "secondhand", the listing number `n`; `of` and `ref` then name the
 ##   kind and pack id of the thing, and `full_price` its new price)
 ## - group: the entry's own `category` label ("" for none)
 ## - why: "" when it can be bought now, else the reason ("no_money", "not_festival" (goods of a
 ##   festival that is not on), "already_built",
 ##   "owned", "max", "full", "pending", "needs_object", "no_perch", "too_many_pets", "sold",
-##   "no_space")
+##   "no_space", "no_pen" (its pen is not built), "pen_full")
 ## - command: the command that buys it; for "object" it still needs room, x and y (a place
 ##   picked by the player), every other one is complete.
 ## Sections with nothing in them are left out.
@@ -119,6 +121,12 @@ static func catalogue(world: World) -> Array:
 			_add(by_section, section_of(pack, "pet", k), {"kind": "pet", "id": str(kind), "name": str(k["name"]),
 				"group": "", "price": int(k["price"]), "why": why,
 				"command": {"type": "buy_pet", "kind": str(kind)}})
+		for pet in world.pets:
+			var sale := LivestockSystem.price(world, pet)
+			if sale > 0:
+				_add(by_section, section_of(pack, "pet", pack.pets[pet.kind]), {"kind": "sale", "id": pet.uid,
+					"name": pet.given, "group": "", "price": sale, "why": "", "weight": pet.weight,
+					"command": {"type": "sell_pet", "pet": pet.uid}})
 	for id in pack.services:
 		var sv: Dictionary = pack.services[id]
 		var price := ServiceSystem.price(world, str(id))

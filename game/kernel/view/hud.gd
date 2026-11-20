@@ -20,7 +20,7 @@ const TOAST_VISIBLE := 2
 const TOAST_MAX := 4
 ## Events that already show as a notice (Notices): they make no toast as well.
 const NOTICE_EVENTS := ["collectible_spawned", "fell_ill", "pet_fell_ill", "pet_ran_away",
-	"stray_arrived", "proposal_arrived", "wish_granted"]
+	"stray_arrived", "proposal_arrived", "wish_granted", "buyer_arrived"]
 const BAR_BUTTONS := ["family", "shop", "letters", "ledger", "stories", "arrange", "settings"]
 ## Big buttons with icons on the top row; the rest sit small underneath.
 const PRIMARY := ["family", "shop", "letters"]

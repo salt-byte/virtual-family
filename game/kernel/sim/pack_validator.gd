@@ -382,8 +382,12 @@ func _check_actions() -> void:
 					or (a.get("tends") is Dictionary and not a["tends"].is_empty()) \
 					or (a.get("eats") is Array and not a["eats"].is_empty()):
 				_err("actions.json", id, "an action that looks after a pet may not also clean, pick up, tend or eat")
-			if (a["object"] is String and a["object"] != "") or (a["rooms"] is Array and not a["rooms"].is_empty()):
-				_err("actions.json", id, "an action that looks after a pet happens where the pet is: no object or rooms")
+			if ((a["object"] is String and a["object"] != "") or (a["rooms"] is Array and not a["rooms"].is_empty())) \
+					and not _penned(a["pet"]):
+				_err("actions.json", id, "an action that looks after a pet happens where the pet is: no object or rooms (only for livestock, which keep to their pen, or watching)")
+		var ca = a.get("counts_as", "")
+		if not (ca is String and (ca == "" or _p.livelihoods.has(ca))):
+			_err("actions.json", id, "counts_as must be a livelihood")
 		_check_food(id, a)
 		var cs = a.get("completes_story", "")
 		if not cs is String:
@@ -593,8 +597,26 @@ func _check_pet_target(file: String, id: String, t) -> void:
 				_err(file, id, "pet.needs key '%s' must be a pet need with a number" % [n])
 	if not t.get("cures", false) is bool:
 		_err(file, id, "pet.cures must be true or false")
+	var watch = t.get("watch", false)
+	if not watch is bool:
+		_err(file, id, "pet.watch must be true or false")
+	elif watch:
+		if file != "actions.json" or not (kinds is Array and not kinds.is_empty()) \
+				or not (needs is Dictionary and needs.is_empty()) or bool(t.get("cures", false)):
+			_err(file, id, "pet.watch needs kinds and gives no needs and no cure (an action only)")
+		return
 	if (needs is Dictionary and needs.is_empty()) and not bool(t.get("cures", false)):
 		_err(file, id, "pet must give the pet some need or cure it")
+
+
+## A `pet` target that may name an object or rooms: watching, or only livestock kinds (they
+## keep to their pen, so the carer goes to the trough or the pen).
+func _penned(t: Dictionary) -> bool:
+	if typeof(t.get("watch", false)) == TYPE_BOOL and t.get("watch", false):
+		return true
+	var kinds = t.get("kinds", [])
+	return kinds is Array and not kinds.is_empty() and (kinds as Array).all(func(k):
+		return _p.pets.has(k) and _p.pets[k].get("livestock") is Dictionary and not _p.pets[k]["livestock"].is_empty())
 
 
 ## The ids of the pack's `pets.needs` (id -> true).
@@ -653,6 +675,7 @@ func _check_pets() -> void:
 	for f in ["action_speed", "offline_action_speed", "effect_speed"]:
 		if c.has(f) and not (_is_num(c[f]) and float(c[f]) >= 1.0):
 			_err("pack.json", _p.id, "pets.%s must be a number of at least 1" % f)
+	_check_livestock_config(c)
 	for g in ["cheer", "grief"]:
 		var e = c.get(g, {})
 		if not e is Dictionary:
@@ -675,8 +698,9 @@ func _check_pets() -> void:
 		var perch = k["perch"]
 		if not (perch is String and (perch == "" or _p.object_types.has(perch))):
 			_err("pets.json", id, "perch '%s' is not an object type" % [str(perch)])
-		if not (k["idle"] is String and k["idle"] in ["", "wag", "flick", "bob"]):
-			_err("pets.json", id, "idle must be one of wag, flick, bob")
+		if not (k["idle"] is String and k["idle"] in ["", "wag", "flick", "bob", "peck", "root"]):
+			_err("pets.json", id, "idle must be one of wag, flick, bob, peck, root")
+		_check_livestock(id, k)
 		if not _is_num(k["size"]) or float(k["size"]) <= 0.0:
 			_err("pets.json", id, "size must be a number above 0")
 		if k.has("color") and not _color_ok(k["color"]):
@@ -718,6 +742,9 @@ func _check_pets() -> void:
 			for f in ["ttl_hours", "joy"]:
 				if w.has(f) and not (_is_num(w[f]) and float(w[f]) >= 0.0):
 					_err("pets.json", id, "%s: %s must be a number of at least 0" % [wid, f])
+			var below = w.get("below", {})
+			if not (below is Dictionary and (below as Dictionary).keys().all(func(n): return ids.has(n) and _is_num(below[n]))):
+				_err("pets.json", id, "%s: below must map pet needs to numbers" % wid)
 
 
 func _check_pet_action(kind: String, k: Dictionary, a, ids: Dictionary, seen: Dictionary) -> void:
@@ -755,10 +782,14 @@ func _check_pet_action(kind: String, k: Dictionary, a, ids: Dictionary, seen: Di
 		_err("pets.json", aid, "chance must be from 0 to 1")
 	if not (a["trot"] is int and a["trot"] >= 0):
 		_err("pets.json", aid, "trot must be a whole number of at least 0")
-	if not (a["pace"] is String and a["pace"] in ["", "trot", "slink", "dash", "leap", "hop", "flap"]):
-		_err("pets.json", aid, "pace must be one of trot, slink, dash, leap, hop, flap")
+	if not (a["pace"] is String and a["pace"] in ["", "trot", "slink", "dash", "leap", "hop", "flap", "peck", "root"]):
+		_err("pets.json", aid, "pace must be one of trot, slink, dash, leap, hop, flap, peck, root")
 	if not a["rest"] is bool:
 		_err("pets.json", aid, "rest must be true or false")
+	if not a["brood"] is bool:
+		_err("pets.json", aid, "brood must be true or false")
+	elif a["brood"] and not (k["livestock"] is Dictionary and k["livestock"].get("young") is Dictionary):
+		_err("pets.json", aid, "brood is for a livestock kind that has young")
 	if not (a["scraps"] is String and (a["scraps"] == "" or _p.mess_types.has(a["scraps"]))):
 		_err("pets.json", aid, "scraps must be a mess type")
 	if not (a["needs"] is Dictionary and (a["needs"] as Dictionary).keys().all(func(n): return ids.has(n) and _is_num(a["needs"][n]))):
@@ -1646,3 +1677,86 @@ func _check_services() -> void:
 				var cons = sv.get("consumes", {})
 				if not (cons is Dictionary and cons.values().all(func(v): return v is int and v >= 0)):
 					_err("services.json", id, "consumes must map stocks to whole numbers")
+
+
+## A kind's `livestock` block (see `LivestockSystem`).
+func _check_livestock(id: String, k: Dictionary) -> void:
+	var b = k.get("livestock", {})
+	if not b is Dictionary:
+		_err("pets.json", id, "livestock must be an object")
+		return
+	if b.is_empty():
+		return
+	var pen = b.get("pen", "")
+	if not (pen is String and _p.rooms.has(pen)):
+		_err("pets.json", id, "livestock.pen must be a room")
+	if not _is_num(b.get("pen_max", 1)) or float(b.get("pen_max", 1)) < 1.0:
+		_err("pets.json", id, "livestock.pen_max must be a number of at least 1")
+	if bool(k.get("stray", false)) or str(k.get("perch", "")) != "":
+		_err("pets.json", id, "livestock never strays in and has no perch")
+	for f in ["weight", "grows_into", "sell", "lays", "young"]:
+		if not b.get(f, {}) is Dictionary:
+			_err("pets.json", id, "livestock.%s must be an object" % f)
+			return
+	var wt: Dictionary = b.get("weight", {})
+	if not wt.is_empty():
+		var st = wt.get("start")
+		if not (st is Array and st.size() == 2 and _is_num(st[0]) and _is_num(st[1]) and float(st[0]) > 0.0 and float(st[0]) <= float(st[1])):
+			_err("pets.json", id, "livestock.weight.start must be [from, to] above 0")
+		for f in ["gain_per_day", "lose_per_day", "fed_above", "hungry_below", "min", "max"]:
+			if wt.has(f) and not (_is_num(wt[f]) and float(wt[f]) >= 0.0):
+				_err("pets.json", id, "livestock.weight.%s must be a number of at least 0" % f)
+	var g: Dictionary = b.get("grows_into", {})
+	if not g.is_empty():
+		if not _p.pets.has(str(g.get("kind", ""))) or str(g.get("kind", "")) == id:
+			_err("pets.json", id, "livestock.grows_into.kind must be another kind")
+		if not ((g.has("age") and _is_num(g["age"])) or (g.has("weight") and _is_num(g["weight"]) and not wt.is_empty())):
+			_err("pets.json", id, "livestock.grows_into needs an age or (with weight) a weight")
+	var s: Dictionary = b.get("sell", {})
+	if not s.is_empty() and not ((s.has("per_weight") and _is_num(s["per_weight"]) and not wt.is_empty()) or (s.has("price") and _is_num(s["price"]))):
+		_err("pets.json", id, "livestock.sell needs a price or (with weight) a per_weight")
+	var l: Dictionary = b.get("lays", {})
+	if not l.is_empty():
+		if not _p.collectibles.has(str(l.get("collectible", ""))):
+			_err("pets.json", id, "livestock.lays.collectible must be a collectible")
+		if not (_is_num(l.get("per_day")) and float(l["per_day"]) >= 0.0):
+			_err("pets.json", id, "livestock.lays.per_day must be a number of at least 0")
+	var y: Dictionary = b.get("young", {})
+	if not y.is_empty():
+		var yk := str(y.get("kind", ""))
+		if not (_p.pets.has(yk) and _p.pets[yk].get("livestock") is Dictionary and str(_p.pets[yk]["livestock"].get("pen", "")) == str(pen)):
+			_err("pets.json", id, "livestock.young.kind must be livestock of the same pen")
+		var c = y.get("count", [1, 1])
+		if not (c is Array and c.size() == 2 and _whole(c[0]) and _whole(c[1]) and float(c[0]) >= 1.0 and float(c[0]) <= float(c[1])):
+			_err("pets.json", id, "livestock.young.count must be [from, to] whole numbers of at least 1")
+		for f in ["chance_per_day", "hours"]:
+			if not (_is_num(y.get(f)) and float(y[f]) >= 0.0):
+				_err("pets.json", id, "livestock.young.%s must be a number of at least 0" % f)
+
+
+## The `pets` settings for livestock: `start` [{kind, count}] and `buyer`.
+func _check_livestock_config(c: Dictionary) -> void:
+	var st = c.get("start", [])
+	if not st is Array or not (st as Array).all(func(e): return e is Dictionary and _p.pets.has(str(e.get("kind", ""))) \
+			and _whole(e.get("count", 1)) and float(e.get("count", 1)) >= 1.0):
+		_err("pack.json", _p.id, "pets.start must be [{kind, count}] of pets.json kinds")
+	var b = c.get("buyer", {})
+	if not b is Dictionary:
+		_err("pack.json", _p.id, "pets.buyer must be an object")
+		return
+	if b.is_empty():
+		return
+	var kinds = b.get("kinds", [])
+	if not (kinds is Array and (kinds as Array).all(func(k): return _p.pets.has(k) and _p.pets[k].get("livestock") is Dictionary \
+			and not (_p.pets[k]["livestock"].get("sell", {}) as Dictionary).is_empty())):
+		_err("pack.json", _p.id, "pets.buyer.kinds must be livestock kinds that sell")
+	if not (_is_num(b.get("chance_per_hour")) and float(b["chance_per_hour"]) >= 0.0 and float(b["chance_per_hour"]) <= 1.0):
+		_err("pack.json", _p.id, "pets.buyer.chance_per_hour must be from 0 to 1")
+	for f in ["ttl_hours", "factor"]:
+		if not (_is_num(b.get(f)) and float(b[f]) > 0.0):
+			_err("pack.json", _p.id, "pets.buyer.%s must be a number above 0" % f)
+
+
+## A whole number (JSON gives every number as a float).
+func _whole(v) -> bool:
+	return _is_num(v) and float(v) == floorf(float(v))

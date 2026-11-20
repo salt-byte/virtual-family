@@ -43,6 +43,10 @@ var came_at := 0
 ## For a pet that is gone: why ("old_age", "illness", "lost") and when.
 var cause := ""
 var died_at := 0
+## Livestock (see `LivestockSystem`): how heavy it is (0 for a kind that keeps no weight), and
+## `now` when the young it carries come (0: none on the way).
+var weight := 0.0
+var young_at := 0
 
 
 ## True while it is at home and alive.
@@ -75,6 +79,7 @@ func to_dict() -> Dictionary:
 		"last_action": last_action, "done_at": done_at.duplicate(), "wish": wish.duplicate(true), "wish_last": wish_last,
 		"thanks_until": thanks_until, "hungry_s": hungry_s, "lonely_s": lonely_s,
 		"away_since": away_since, "how": how, "came_at": came_at, "cause": cause, "died_at": died_at,
+		"weight": weight, "young_at": young_at,
 	}
 
 
@@ -114,4 +119,6 @@ static func from_dict(d: Dictionary) -> Pet:
 	p.came_at = int(d.get("came_at", 0))
 	p.cause = str(d.get("cause", ""))
 	p.died_at = int(d.get("died_at", 0))
+	p.weight = float(d.get("weight", 0.0))  # absent before livestock
+	p.young_at = int(d.get("young_at", 0))
 	return p

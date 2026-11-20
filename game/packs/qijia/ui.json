@@ -57,5 +57,17 @@
 	"notice.pickups": "地上有 {n} 样东西在闪",
 	"status.fine": "身上都好",
 	"adopt.note": "想落脚的人在门口等着。挑一个进门；都不合意，就换一批。",
-	"market.empty": "这几样还没上市，过些日子再来看。"
+	"market.empty": "这几样还没上市，过些日子再来看。",
+	"pet.weight": "{n} 斤",
+	"title.buyer": "猪贩子上门了",
+	"ev.buyer_arrived": "猪贩子在门口转悠，看上了{name}",
+	"ev.buyer_left": "猪贩子等不住，背着手走了",
+	"notice.buyer": "猪贩子要买{name}，出价 {money}",
+	"btn.sell_to_buyer": "卖给他",
+	"btn.keep_it": "留着再喂",
+	"ev.pet_sold": "{name}让人赶走了，进账 {money}",
+	"family.pet_gone.sold": "{name} · 养肥卖了",
+	"shop.why.no_pen": "先盖{thing}",
+	"shop.why.pen_full": "圈里挤不下了",
+	"error.not_for_sale": "还没养到出栏的分量"
 }

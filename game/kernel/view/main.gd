@@ -126,6 +126,8 @@ func open_notice(n: Dictionary) -> void:
 			overlays.open_proposal(t)
 		"stray":
 			overlays.open_stray()
+		"buyer":
+			overlays.open_buyer()
 		"letter", "reply":
 			letters.open_letter(t)
 		"letters":
@@ -138,7 +140,7 @@ func open_notice(n: Dictionary) -> void:
 			var wish := WishSystem.current(session.world, p) if p != null else {}
 			if str(wish.get("kind", "")) in ["item", "pet"]:
 				panels.open("shop")
-		"pet_ill":
+		"pet_ill", "pet_hungry":
 			select_pet(t)
 		"pet_away":
 			panels.open("family")

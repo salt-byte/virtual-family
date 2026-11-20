@@ -181,6 +181,9 @@ func press(id: String) -> void:
 	elif id.begins_with("buy_pet:"):
 		session.command({"type": "buy_pet", "kind": id.substr(8)})
 		refresh()
+	elif id.begins_with("sell_pet:"):
+		session.command({"type": "sell_pet", "pet": int(id.substr(9))})
+		refresh()
 	elif id.begins_with("place:"):
 		# New furniture is set down by hand: hand it to arrange mode.
 		close()
@@ -265,7 +268,7 @@ func _data_signature(w: World) -> String:
 					wishes += str(p.wish)
 			var pets := ""
 			for pet in w.pets:
-				pets += "%d%s%s" % [pet.uid, pet.state, str(pet.wish)]
+				pets += "%d%s%s%s%d" % [pet.uid, pet.state, str(pet.alive), str(pet.wish), int(pet.weight)]
 			var market := "%s|%s|%s|%s|%d|%d|%d" % [str(w.secondhand), str(w.services_bought), str(w.tickets), str(w.candidate),
 				w.helper_until, w.speed_until, w.rooms_built.size()]
 			if _tab != "tab.inventory":
@@ -482,6 +485,8 @@ static func _entry_button(e: Dictionary) -> String:
 			return "build:" + str(e.id)
 		"pet":
 			return "buy_pet:" + str(e.id)
+		"sale":
+			return "sell_pet:%d" % int(e.id)
 		"service":
 			return "service:" + str(e.id)
 	return "used:%d" % int(e.id)
@@ -495,6 +500,8 @@ static func _entry_label(e: Dictionary) -> String:
 			return "btn.build"
 		"pet":
 			return "btn.buy_pet"
+		"sale":
+			return "btn.sell_pet"
 	return "btn.buy"
 
 
@@ -507,11 +514,15 @@ func _entry_note(w: World, e: Dictionary) -> String:
 		var thing := ""
 		if why == "no_perch":
 			thing = str(w.pack.object_types.get(str(w.pack.pets[e.id].get("perch", "")), {}).get("name", ""))
+		elif why == "no_pen":
+			thing = str(w.pack.rooms.get(LivestockSystem.pen_of(w.pack, str(e.id)), {}).get("name", ""))
 		elif why == "needs_object":
 			thing = str(w.pack.object_types.get(str(w.pack.services[e.id]["requires"].get("object", "")), {}).get("name", ""))
 		return s.t("shop.why." + why).replace("{thing}", thing)
 	var wanted := ""
 	match str(e.kind):
+		"sale":
+			return s.weight(float(e.weight))
 		"item":
 			wanted = _wanted_by(w, str(e.id))
 		"pet":

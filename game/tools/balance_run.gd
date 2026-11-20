@@ -19,6 +19,10 @@ const FURNITURE_RESERVE := 400
 const BED_RESERVE := 1000
 ## A baby whose need for food is below this gets someone dragged over to feed it.
 const BABY_HUNGRY := 35.0
+## Money the caretaker keeps back before building a pen for livestock, and before buying a
+## young animal to raise in it.
+const PEN_RESERVE := 600
+const STOCK_RESERVE := 300
 
 ## False: the caretaker leaves the animals alone (no strays taken, none bought for a wish,
 ## no medicine, no treats).
@@ -93,6 +97,11 @@ static func run(pack_id: String, families: int, days: int, seed0: int) -> Dictio
 	var festival_wishes := {"formed": 0, "granted": 0, "ended": 0}
 	var mourned := 0
 	var letters := {}  # letter kind -> letters that came
+	var stock := {"pens_built": 0, "bought": 0, "sold": 0, "sold_money": 0, "sold_to_buyer": 0, "laid": 0,
+		"eggs_collected": 0, "young": 0, "grew": 0, "fell_ill": 0}
+	var stock_deaths := {}  # cause -> livestock that died
+	var stock_home_end := {}  # kind -> at home at the end
+	pens_built = 0
 	beds_bought = 0
 	sent_out = 0
 	for i in families:
@@ -142,9 +151,29 @@ static func run(pack_id: String, families: int, days: int, seed0: int) -> Dictio
 						festival_actions[e.action] = int(festival_actions.get(e.action, 0)) + 1
 					if not (w.pack.actions[e.action].get("weather", []) as Array).is_empty():
 						weather_only[e.action] = int(weather_only.get(e.action, 0)) + 1
+				elif e.type == "pet_arrived" and LivestockSystem.is_livestock(w.pack, PetSystem.find(w, int(e.pet)).kind):
+					if str(e.how) == "bought":
+						stock["bought"] += 1
 				elif e.type == "pet_arrived":
 					pets["pets_arrived"] += 1
 					pets["pets_bought" if str(e.how) == "bought" else "strays_taken"] += 1
+				elif e.type == "pet_sold":
+					stock["sold"] += 1
+					stock["sold_money"] += int(e.price)
+					if str(e.to) == "buyer":
+						stock["sold_to_buyer"] += 1
+				elif e.type == "pet_laid":
+					stock["laid"] += 1
+				elif e.type == "pet_young":
+					stock["young"] += int(e.count)
+				elif e.type == "pet_grew":
+					stock["grew"] += 1
+				elif e.type == "collected" and str(e.kind) == "egg":
+					stock["eggs_collected"] += 1
+				elif e.type == "pet_fell_ill" and LivestockSystem.is_livestock(w.pack, PetSystem.find(w, int(e.pet)).kind):
+					stock["fell_ill"] += 1
+				elif e.type == "pet_died" and LivestockSystem.is_livestock(w.pack, PetSystem.find(w, int(e.pet)).kind):
+					stock_deaths[e.cause] = int(stock_deaths.get(e.cause, 0)) + 1
 				elif e.type == "pet_ran_away":
 					pets["pets_ran_away"] += 1
 				elif e.type == "pet_came_back":
@@ -187,7 +216,9 @@ static func run(pack_id: String, families: int, days: int, seed0: int) -> Dictio
 		messes += w.messes.size()
 		var love := PetSystem.role(w.pack, "love_need")
 		for pet in w.pets:
-			if pet.home():
+			if pet.home() and LivestockSystem.is_livestock(w.pack, pet.kind):
+				stock_home_end[pet.kind] = int(stock_home_end.get(pet.kind, 0)) + 1
+			elif pet.home():
 				pets_home_end += 1
 				fond_sum += float(pet.needs.get(love, 0.0))
 	money.sort()
@@ -219,6 +250,8 @@ static func run(pack_id: String, families: int, days: int, seed0: int) -> Dictio
 		"pets_avg_fondness": snappedf(fond_sum / pets_home_end, 0.1) if pets_home_end > 0 else 0.0,
 		"festivals_seen": festivals, "festival_actions": festival_actions, "festival_wishes": festival_wishes,
 		"outings_back": outings, "outings_sent_by_caretaker": sent_out, "mourned": mourned,
+		"livestock": stock, "livestock_deaths_by_cause": stock_deaths, "livestock_home_at_end": stock_home_end,
+		"livestock_pens_built": pens_built,
 	}
 
 
@@ -257,6 +290,37 @@ static func caretake(w: World) -> void:
 	_care_for_babies(w)
 	_buy_bed_if_needed(w)
 	care_for_pets(w)
+	care_for_livestock(w)
+
+
+## Pens the caretaker has built since the last `run` began.
+static var pens_built := 0
+
+
+## The caretaker's round for livestock: builds the pen of a kind sold young (money above
+## its cost plus PEN_RESERVE), buys young ones while the pen has room (money above their
+## price plus STOCK_RESERVE), and sells each animal as soon as it would sell, to a buyer at
+## the gate when one waits. (Feed, medicine and wishes: `care_for_pets`.)
+static func care_for_livestock(w: World) -> void:
+	if not look_after_pets or not PetSystem.enabled(w.pack):
+		return
+	if not w.pet_buyer.is_empty():
+		w.command({"type": "answer_buyer", "accept": true})
+	for pet in w.pets.duplicate():
+		if LivestockSystem.price(w, pet) > 0:
+			w.command({"type": "sell_pet", "pet": pet.uid})
+	for kind in w.pack.pets:
+		var k: Dictionary = w.pack.pets[kind]
+		if int(k["price"]) <= 0 or not LivestockSystem.is_livestock(w.pack, str(kind)):
+			continue
+		var pen := LivestockSystem.pen_of(w.pack, str(kind))
+		if not w.rooms_built.has(pen) and w.money >= int(w.pack.rooms[pen]["build_cost"]) + PEN_RESERVE:
+			if w.command({"type": "build_room", "room": pen}).ok:
+				pens_built += 1
+		while PetSystem.can_take(w, str(kind)) == "" and w.money >= int(k["price"]) + STOCK_RESERVE \
+				and not LivestockSystem.block(w.pack, str(kind)).has("lays"):
+			if not w.command({"type": "buy_pet", "kind": str(kind)}).ok:
+				break
 
 
 ## The caretaker's round for animals: takes in a stray while fewer than two live at home, doses a sick pet with the first item

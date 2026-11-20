@@ -10,14 +10,14 @@ extends RefCounted
 ## Never reads a person's illness: the sick are the ones the view saw fall ill (`sick`).
 
 ## Kind -> rank (lower comes first) and tone.
-const ORDER := {"proposal": 0, "stray": 1, "reply": 2, "letter": 3, "letters": 4, "ill": 5,
-	"need": 6, "pet_ill": 7, "pet_away": 8, "thanks": 9, "pickup": 10, "pickups": 11, "wish": 12}
-const TONE := {"proposal": "decide", "stray": "decide", "reply": "decide", "letter": "decide",
-	"letters": "decide", "ill": "trouble", "need": "trouble", "pet_ill": "trouble",
+const ORDER := {"proposal": 0, "stray": 1, "buyer": 2, "reply": 3, "letter": 4, "letters": 5, "ill": 6,
+	"need": 7, "pet_ill": 8, "pet_hungry": 9, "pet_away": 10, "thanks": 11, "pickup": 12, "pickups": 13, "wish": 14}
+const TONE := {"proposal": "decide", "stray": "decide", "buyer": "decide", "reply": "decide", "letter": "decide",
+	"letters": "decide", "ill": "trouble", "need": "trouble", "pet_ill": "trouble", "pet_hungry": "trouble",
 	"pet_away": "soft", "thanks": "soft", "pickup": "pickup", "pickups": "pickup", "wish": "soft"}
 ## Icon per kind (HudIcon).
-const ICON := {"proposal": "proposal", "stray": "stray", "reply": "reply", "letter": "letter",
-	"letters": "letters", "ill": "ill", "need": "need", "pet_ill": "ill", "pet_away": "pet_away",
+const ICON := {"proposal": "proposal", "stray": "stray", "buyer": "stray", "reply": "reply", "letter": "letter",
+	"letters": "letters", "ill": "ill", "need": "need", "pet_ill": "ill", "pet_hungry": "need", "pet_away": "pet_away",
 	"thanks": "thanks", "pickup": "pickup", "pickups": "pickup", "wish": "wish"}
 ## Letters and pickups listed one by one up to this many; more fold into one notice.
 const FOLD := 2
@@ -42,6 +42,11 @@ static func collect(w: World, s: ViewStrings, sick: Dictionary) -> Array[Diction
 	if not w.pet_offer.is_empty():
 		var k: Dictionary = w.pack.pets.get(str(w.pet_offer.get("kind", "")), {})
 		_add(out, "stray", 0, s.t("notice.stray").replace("{kind}", str(k.get("name", ""))))
+	if not w.pet_buyer.is_empty():
+		var sold := PetSystem.find(w, int(w.pet_buyer.get("pet", -1)))
+		if sold != null and sold.home():
+			_add(out, "buyer", sold.uid, s.t("notice.buyer").replace("{name}", sold.given)
+				.replace("{money}", s.t("money").replace("{n}", str(int(w.pet_buyer["price"])))))
 	_letters(out, w, s)
 	for p in w.people:
 		if not p.alive:
@@ -59,6 +64,10 @@ static func collect(w: World, s: ViewStrings, sick: Dictionary) -> Array[Diction
 	for pet in w.pets:
 		if pet.home() and pet.sick:
 			_add(out, "pet_ill", pet.uid, s.t("ev.pet_fell_ill").replace("{name}", pet.given))
+		elif pet.home() and not (PetSystem.wish_of(w, pet).get("below", {}) as Dictionary).is_empty():
+			# Calling for food: the player answers by dragging someone to it (or its trough).
+			_add(out, "pet_hungry", pet.uid, s.t("notice.pet_hungry").replace("{name}", pet.given)
+				.replace("{text}", s.pet_wish_text(pet, w)))
 		elif pet.alive and pet.state == "away":
 			_add(out, "pet_away", pet.uid, s.t("notice.pet_away").replace("{name}", pet.given))
 	_pickups(out, w, s)

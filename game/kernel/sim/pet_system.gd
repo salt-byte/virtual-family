@@ -41,6 +41,10 @@ extends RefCounted
 ##   is awake to it (its `hours`, not sick, not held, not showing its joy) drops what it is
 ##   doing with the action's `chance` and does it: in its `rooms`, or (`follows` "who") after
 ##   that person. `follows` "anyone" trails a person at home who is not a baby.
+## - Wishes with `below` ({need: line}) are not drawn by chance: one comes up by itself once
+##   that need is below its line (a hungry animal calling for food) and goes again, without
+##   any penalty, once it is back above.
+## - A kind with a `livestock` block is kept for what it gives: see `LivestockSystem`.
 ## Dead and lost pets stay in `world.pets` (alive false) as the household's record.
 
 
@@ -93,11 +97,11 @@ static func find(world: World, uid: int) -> Pet:
 	return null
 
 
-## How many pets live at home now.
+## How many pets live at home now (livestock not counted: they have their pens).
 static func at_home(world: World) -> int:
 	var n := 0
 	for p in world.pets:
-		if p.home():
+		if p.home() and not LivestockSystem.is_livestock(world.pack, p.kind):
 			n += 1
 	return n
 
@@ -225,6 +229,8 @@ static func add(world: World, kind: String, how: String, given := "", age := -1.
 		p.needs[str(n["id"])] = float(n.get("start", 80))
 	p.how = how
 	p.came_at = world.now
+	if LivestockSystem.is_livestock(world.pack, kind):
+		LivestockSystem.on_added(world, p)
 	world.pets.append(p)
 	world.emit("pet_arrived", {"pet": p.uid, "how": how})
 	return p
@@ -248,6 +254,8 @@ static func _range(world: World, r: Variant) -> float:
 static func can_take(world: World, kind: String) -> String:
 	if not enabled(world.pack) or not world.pack.pets.has(kind):
 		return "no_pet_kind"
+	if LivestockSystem.is_livestock(world.pack, kind):
+		return LivestockSystem.can_take(world, kind)
 	if at_home(world) >= int(_num(cfg(world.pack), "max", 2.0)):
 		return "too_many_pets"
 	var perch := str(world.pack.pets[kind].get("perch", ""))
@@ -299,7 +307,7 @@ static func _stray(world: World, c: Dictionary) -> void:
 		return
 	var kinds: Array = []
 	for id in world.pack.pets:
-		if bool(world.pack.pets[id].get("stray", false)):
+		if bool(world.pack.pets[id].get("stray", false)) and not LivestockSystem.is_livestock(world.pack, str(id)):
 			kinds.append(str(id))
 	if kinds.is_empty() or not world.rng.chance(_num(c, "stray_chance_per_hour", 0.0)):
 		return
@@ -327,6 +335,8 @@ static func step(world: World, dt: float) -> void:
 	var c: Dictionary = cv
 	if hour_turned:
 		_stray(world, c)
+		if c.has("buyer"):
+			LivestockSystem.buyer_step(world, c)
 	if world.pets.is_empty():
 		return
 	# Ageing, needs, illness, running off and wishes move once per game minute (on the step
@@ -343,21 +353,27 @@ static func step(world: World, dt: float) -> void:
 			if pet.state == "away":
 				_away_step(world, pet, c, hour_turned)
 				continue
-			if pet.age >= pet.lifespan:
+			var stock := LivestockSystem.is_livestock(pack, pet.kind)
+			if pet.age >= pet.lifespan and not (stock and world.offline):
 				die(world, pet, "old_age")
 				continue
 			_needs_step(world, pet, c, md)
 			if pet.sick and float(pet.needs.get(health, 100.0)) <= 0.0:
 				die(world, pet, "illness")
 				continue
-			if _neglect_step(world, pet, c):
+			if stock:
+				if LivestockSystem.minute(world, pet, md):
+					continue
+			elif _neglect_step(world, pet, c):
 				continue
+			_called_wish(world, pet)
 			if hour_turned:
 				_wish_step(world, pet, c)
 			elif not pet.wish.is_empty() and world.now >= int(pet.wish["expires_at"]):
 				_wish_expire(world, pet, c)
-			if not cheer and content(world, pet):
+			if not cheer and not stock and content(world, pet):
 				cheer = true
+		LivestockSystem.flush(world)
 		if cheer:
 			_cheer(world, c, md)
 		if world.pet_grief_until > world.now:
@@ -416,6 +432,11 @@ static func _needs_step(world: World, pet: Pet, c: Dictionary, dt: float) -> voi
 		var clean := role(pack, "clean_need")
 		if clean != "" and float(pet.needs.get(clean, 100.0)) < _num(c, "dirty_below", 30.0):
 			chance *= _num(c, "dirty_illness_factor", 1.0)
+		var ls: Dictionary = k.get("livestock", {})
+		if ls.has("sick_when_hungry"):
+			var wt: Dictionary = ls.get("weight", {})
+			if float(pet.needs.get(role(pack, "food_need"), 100.0)) < _num(wt, "hungry_below", 0.0):
+				chance *= _num(ls, "sick_when_hungry", 1.0)
 		if chance > 0.0 and world.rng.chance(chance):
 			pet.sick = true
 			world.emit("pet_fell_ill", {"pet": pet.uid})
@@ -478,7 +499,7 @@ static func die(world: World, pet: Pet, cause: String) -> void:
 	pet.current = {}
 	pet.wish = {}
 	world.emit("pet_died", {"pet": pet.uid, "cause": cause})
-	if cause != "lost":
+	if cause != "lost" and not LivestockSystem.is_livestock(world.pack, pet.kind):
 		_start_grief(world, cfg(world.pack))
 
 
@@ -559,9 +580,13 @@ static func _options(world: World, pet: Pet) -> Array:
 	var out: Array = []
 	var k := kind_of(world.pack, pet)
 	var hour := world.local_hour()
+	# Carrying young, a kind that broods does only that (see `LivestockSystem`).
+	var brooding := pet.young_at > 0 and (k.get("actions", []) as Array).any(func(x): return bool(x.get("brood", false)))
 	for a in k.get("actions", []):
 		var sick_only := bool(a.get("sick", false))
 		if sick_only != pet.sick or str(a.get("on", "")) != "":
+			continue
+		if bool(a.get("brood", false)) != brooding:
 			continue
 		var hours: Array = a.get("hours", [])
 		if not hours.is_empty() and not AutonomySystem._in_hours(hour, hours):
@@ -778,12 +803,39 @@ static func _wish_step(world: World, pet: Pet, c: Dictionary) -> void:
 	if world.offline or pet.sick:
 		return
 	var ws: Array = kind_of(world.pack, pet).get("wishes", [])
-	var pool: Array = ws.filter(func(w): return str(w.get("id", "")) != pet.wish_last)
+	var pool: Array = ws.filter(func(w): return str(w.get("id", "")) != pet.wish_last and (w.get("below", {}) as Dictionary).is_empty())
 	if pool.is_empty() or not world.rng.chance(_num(c, "wish_chance_per_hour", 0.0)):
 		return
 	var w: Dictionary = world.rng.pick(pool)
 	pet.wish = {"id": str(w["id"]), "expires_at": world.now + int(_num(w, "ttl_hours", 8.0) * 3600.0)}
 	world.emit("pet_wish_formed", {"pet": pet.uid, "wish": str(w["id"])})
+
+
+## The wishes with `below` (see the top): one comes up while its need is below the line (in
+## place of a wish drawn by chance) and goes, quietly, once the need is back above it.
+static func _called_wish(world: World, pet: Pet) -> void:
+	var ws: Array = kind_of(world.pack, pet).get("wishes", [])
+	if ws.is_empty():
+		return
+	var held := str(pet.wish.get("id", ""))
+	for w in ws:
+		var below: Dictionary = w.get("below", {})
+		if below.is_empty():
+			continue
+		var low := false
+		for n in below:
+			if float(pet.needs.get(n, 100.0)) < float(below[n]):
+				low = true
+		var id := str(w.get("id", ""))
+		if held == id:
+			if not low:
+				pet.wish = {}
+				world.emit("pet_wish_dropped", {"pet": pet.uid, "wish": id})
+			return
+		if low and not world.offline and not pet.sick and (held == "" or (wish_of(world, pet).get("below", {}) as Dictionary).is_empty()):
+			pet.wish = {"id": id, "expires_at": world.now + int(_num(w, "ttl_hours", 8.0) * 3600.0)}
+			world.emit("pet_wish_formed", {"pet": pet.uid, "wish": id})
+			return
 
 
 static func _wish_expire(world: World, pet: Pet, c: Dictionary) -> void:

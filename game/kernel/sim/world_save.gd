@@ -64,6 +64,8 @@ static func _snapshot(w: World) -> Dictionary:
 		out["pet_saved"] = w.pet_saved.duplicate(true)
 	if w.pet_grief_until > 0:
 		out["pet_grief_until"] = w.pet_grief_until
+	if not w.pet_buyer.is_empty():
+		out["pet_buyer"] = w.pet_buyer.duplicate(true)
 	if w.letter_next > 1:  # optional: only once a letter came (older saves lack it)
 		out["letters"] = {"list": w.letters.duplicate(true), "next": w.letter_next, "minor_at": w.letter_minor_at}
 	# Optional, written only once the market has something to keep (older saves lack it).
@@ -208,6 +210,9 @@ static func _build(pack: Pack, d: Dictionary) -> World:
 	for k in ps:
 		w.pet_saved[str(k)] = float(ps[k])
 	w.pet_grief_until = int(d.get("pet_grief_until", 0))
+	var pb: Dictionary = d.get("pet_buyer", {})  # absent in older saves and while nobody waits
+	w.pet_buyer = {} if pb.is_empty() else {"pet": int(pb["pet"]), "price": int(pb["price"]),
+		"expires_at": int(pb["expires_at"])}
 	var ld: Dictionary = d.get("letters", {})  # absent in older saves and before the first letter
 	if not ld.is_empty():
 		w.letters.clear()
@@ -593,6 +598,9 @@ static func _valid_save(pack: Pack, d: Dictionary) -> bool:
 		for k in d["pet_saved"]:
 			if not (_is_str(k) and _is_num(d["pet_saved"][k]) and float(d["pet_saved"][k]) >= 0.0):
 				return false
+	if d.has("pet_buyer") and not (typeof(d["pet_buyer"]) == TYPE_DICTIONARY and (d["pet_buyer"].is_empty() \
+			or _has(d["pet_buyer"], {"pet": "i", "price": "i", "expires_at": "i"}))):
+		return false
 	if d.has("pet_grief_until") and not (_is_whole(d["pet_grief_until"]) and float(d["pet_grief_until"]) >= 0.0):
 		return false
 	if d.has("letters") and not _valid_letters(d["letters"]):
@@ -684,6 +692,10 @@ static func _valid_pet(p) -> bool:
 	if not (p["wish"].is_empty() or _has(p["wish"], {"id": "s", "expires_at": "i"})):
 		return false
 	if p.has("done_at") and not _count_map(p["done_at"]):
+		return false
+	if p.has("weight") and not (_is_num(p["weight"]) and float(p["weight"]) >= 0.0):
+		return false
+	if p.has("young_at") and not (_is_whole(p["young_at"]) and float(p["young_at"]) >= 0.0):
 		return false
 	var c: Dictionary = p["current"]
 	if not c.is_empty() and not _has(c, {"action": "s", "remaining_s": "i"}):

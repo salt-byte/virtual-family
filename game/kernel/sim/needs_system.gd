@@ -87,7 +87,7 @@ static func rule_fits(r: Dictionary, a: Dictionary) -> bool:
 		return true
 	if bool(r.get("tends", false)) and not (a.get("tends", {}) as Dictionary).is_empty():
 		return true
-	if bool(r.get("pet", false)) and not (a.get("pet", {}) as Dictionary).is_empty():
+	if bool(r.get("pet", false)) and not (a.get("pet", {}) as Dictionary).is_empty() and not bool(a["pet"].get("watch", false)):
 		return true
 	if bool(r.get("eats", false)) and not (a.get("eats", []) as Array).is_empty():
 		return true

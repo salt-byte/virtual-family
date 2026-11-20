@@ -64,5 +64,81 @@
 	 "wishes": [
 		{"id": "bird_millet", "text": "想啄几粒小米", "actions": ["feed_bird"], "ttl_hours": 6, "joy": 15},
 		{"id": "bird_chat", "text": "想有人陪它说话", "actions": ["tease_bird"], "ttl_hours": 8, "joy": 20}
+	 ]},
+	{"id": "piglet", "name": "小猪崽", "price": 90, "market": "livestock", "color": "#E9A7A0", "size": 0.42, "thanks": "哼哼", "idle": "root",
+	 "names": ["黑花", "墩墩", "二黑", "胖丫", "花脸", "滚子"], "lifespan": [8, 10], "age": [0.1, 0.3],
+	 "drains": {"belly": 5, "fondness": 1.5, "coat": 1}, "home": ["pigsty"],
+	 "livestock": {"pen": "pigsty", "pen_max": 3, "sick_when_hungry": 3,
+		"weight": {"start": [14, 18], "gain_per_day": 22, "lose_per_day": 10, "fed_above": 50, "hungry_below": 20, "min": 10, "max": 170},
+		"grows_into": {"kind": "pig", "weight": 50}},
+	 "actions": [
+		{"id": "piglet_root", "label": "拿小鼻子拱圈里的烂泥", "rooms": ["pigsty"], "trot": 2, "pace": "root", "duration_min": 10, "base": 10, "needs": {"belly": 0.1}},
+		{"id": "piglet_romp", "label": "撒着欢在圈里乱窜", "rooms": ["pigsty"], "trot": 4, "pace": "dash", "duration_min": 6, "base": 7, "hours": [7, 18]},
+		{"id": "piglet_trough", "label": "两只前蹄扒在猪槽沿上往里瞅", "object": "trough", "pace": "root", "duration_min": 5, "base": 6},
+		{"id": "piglet_rub", "label": "贴着栏杆蹭痒，蹭得木头吱吱响", "rooms": ["pigsty"], "duration_min": 6, "base": 4, "needs": {"coat": 0.5}},
+		{"id": "piglet_nap", "label": "四脚朝天在圈角睡午觉", "rooms": ["pigsty"], "hours": [11, 15], "duration_min": 30, "base": 8, "rest": true},
+		{"id": "piglet_sleep", "label": "拱进草堆里只露个屁股睡", "rooms": ["pigsty"], "hours": [20, 6], "duration_min": 120, "base": 14, "rest": true},
+		{"id": "piglet_sick", "label": "缩在圈角，耳朵耷拉着不哼哼", "sick": true, "rooms": ["pigsty"], "duration_min": 30, "base": 10, "rest": true}
+	 ],
+	 "wishes": [
+		{"id": "piglet_hungry", "text": "饿得吱吱叫，拿鼻子顶空槽子", "below": {"belly": 30}, "actions": ["slop_pigs", "feed_pig_bran"], "ttl_hours": 4, "joy": 5},
+		{"id": "piglet_scratch", "text": "想有人挠挠背", "actions": ["scratch_pig"], "ttl_hours": 6, "joy": 15}
+	 ]},
+	{"id": "pig", "name": "肥猪", "market": "livestock", "color": "#E2B3A4", "size": 0.7, "thanks": "哼哼", "idle": "root",
+	 "names": ["黑花", "墩墩", "二黑", "胖丫", "花脸", "滚子"], "lifespan": [8, 10], "age": [1, 2],
+	 "drains": {"belly": 4.5, "fondness": 1, "coat": 1.2}, "home": ["pigsty"],
+	 "livestock": {"pen": "pigsty", "pen_max": 3, "sick_when_hungry": 3,
+		"weight": {"start": [50, 60], "gain_per_day": 22, "lose_per_day": 10, "fed_above": 50, "hungry_below": 20, "min": 10, "max": 170},
+		"sell": {"per_weight": 2.4, "min_weight": 100},
+		"young": {"kind": "piglet", "chance_per_day": 0.05, "hours": 30, "count": [2, 3], "fed_above": 60, "min_weight": 120,
+			"text": "{name}的肚子一天天往下坠，走两步就要躺下，怕是要下崽了"}},
+	 "actions": [
+		{"id": "pig_root", "label": "拿鼻子拱圈里的烂泥", "rooms": ["pigsty"], "trot": 2, "pace": "root", "duration_min": 12, "base": 10, "needs": {"belly": 0.1}},
+		{"id": "pig_wallow", "label": "躺进泥坑里来回打滚", "rooms": ["pigsty"], "every_hours": 6, "duration_min": 12, "base": 6},
+		{"id": "pig_trough", "label": "鼻子伸进猪槽里拱来拱去", "object": "trough", "pace": "root", "duration_min": 6, "base": 6},
+		{"id": "pig_rub", "label": "贴着栏杆来回蹭痒", "rooms": ["pigsty"], "duration_min": 8, "base": 5, "needs": {"coat": 0.5}},
+		{"id": "pig_amble", "label": "哼哼唧唧在圈里绕一圈", "rooms": ["pigsty"], "trot": 3, "pace": "trot", "duration_min": 8, "base": 5},
+		{"id": "pig_nap", "label": "侧躺在圈角晒着肚皮睡", "rooms": ["pigsty"], "hours": [11, 15], "duration_min": 40, "base": 8, "rest": true},
+		{"id": "pig_sleep", "label": "挤在圈角打着呼噜睡", "rooms": ["pigsty"], "hours": [20, 6], "duration_min": 120, "base": 14, "rest": true},
+		{"id": "pig_sick", "label": "趴在圈里，哼都不哼一声", "sick": true, "rooms": ["pigsty"], "duration_min": 30, "base": 10, "rest": true}
+	 ],
+	 "wishes": [
+		{"id": "pig_hungry", "text": "饿得嗷嗷叫，拿嘴拱空槽子", "below": {"belly": 30}, "actions": ["slop_pigs", "feed_pig_bran"], "ttl_hours": 4, "joy": 5},
+		{"id": "pig_scratch", "text": "想有人挠挠背", "actions": ["scratch_pig"], "ttl_hours": 6, "joy": 15}
+	 ]},
+	{"id": "hen", "name": "母鸡", "price": 30, "market": "livestock", "color": "#C9772E", "size": 0.34, "thanks": "咯咯哒", "idle": "peck",
+	 "names": ["芦花", "黄嘴", "大红冠", "麻点", "小翠", "黑翅"], "lifespan": [6, 8], "age": [0.8, 1.5],
+	 "drains": {"belly": 3, "fondness": 0.8, "coat": 0.6}, "home": ["coop_run"],
+	 "livestock": {"pen": "coop_run", "pen_max": 6,
+		"lays": {"collectible": "egg", "per_day": 1.0, "fed_above": 40, "max_lying": 4},
+		"young": {"kind": "chick", "chance_per_day": 0.12, "hours": 16, "count": [2, 3], "fed_above": 55,
+			"text": "{name}赖在鸡笼里不肯出来，蓬着毛捂着一窝蛋"}},
+	 "actions": [
+		{"id": "hen_peck", "label": "低着头一路啄过去", "rooms": ["coop_run", "yard"], "trot": 4, "pace": "peck", "duration_min": 12, "base": 10, "hours": [5, 19], "needs": {"belly": 0.2}},
+		{"id": "hen_scratch", "label": "两只爪子轮着刨土找虫", "rooms": ["coop_run"], "pace": "peck", "duration_min": 8, "base": 8, "hours": [5, 19], "needs": {"belly": 0.2}},
+		{"id": "hen_dust_bath", "label": "卧在土窝里扑腾着洗灰澡", "rooms": ["coop_run"], "weather": ["clear"], "duration_min": 12, "base": 4, "needs": {"coat": 2}},
+		{"id": "hen_stroll", "label": "咯咯咯念叨着在鸡舍里踱步", "rooms": ["coop_run"], "trot": 2, "duration_min": 6, "base": 5, "hours": [5, 19]},
+		{"id": "hen_preen", "label": "歪着脖子梳翅膀上的毛", "rooms": ["coop_run"], "duration_min": 6, "base": 4, "needs": {"coat": 0.5}},
+		{"id": "hen_cackle", "label": "下完蛋扯着嗓子咯咯哒", "rooms": ["coop_run"], "every_hours": 8, "duration_min": 4, "base": 3, "hours": [6, 12]},
+		{"id": "hen_roost", "label": "缩着脖子蹲进鸡笼里睡", "object": "coop", "hours": [19, 5], "duration_min": 120, "base": 14, "rest": true},
+		{"id": "hen_brood", "label": "蓬着一身毛趴在一窝蛋上", "object": "coop", "brood": true, "duration_min": 60, "base": 10, "rest": true},
+		{"id": "hen_sick", "label": "缩在鸡笼角上闭着眼", "sick": true, "object": "coop", "duration_min": 30, "base": 10, "rest": true}
+	 ],
+	 "wishes": [
+		{"id": "hen_hungry", "text": "围着人脚咯咯叫，讨口食", "below": {"belly": 25}, "actions": ["feed_chickens", "catch_caterpillars"], "ttl_hours": 4, "joy": 5}
+	 ]},
+	{"id": "chick", "name": "小鸡崽", "market": "livestock", "color": "#F2D35B", "size": 0.2, "thanks": "叽叽", "idle": "peck",
+	 "names": ["绒球", "豆豆", "小黄", "毛毛", "点点", "米粒"], "lifespan": [6, 8], "age": [0, 0],
+	 "drains": {"belly": 3.5, "fondness": 1, "coat": 0.6}, "home": ["coop_run"],
+	 "livestock": {"pen": "coop_run", "pen_max": 6, "grows_into": {"kind": "hen", "age": 1.2}},
+	 "actions": [
+		{"id": "chick_trail", "label": "跟在母鸡屁股后头叽叽叫", "rooms": ["coop_run"], "trot": 3, "pace": "dash", "duration_min": 8, "base": 10, "hours": [6, 18], "needs": {"belly": 0.2}},
+		{"id": "chick_peck", "label": "啄地上的碎米粒", "rooms": ["coop_run"], "pace": "peck", "duration_min": 6, "base": 8, "needs": {"belly": 0.3}},
+		{"id": "chick_huddle", "label": "挤成一团在鸡笼边打盹", "object": "coop", "duration_min": 30, "base": 6, "rest": true},
+		{"id": "chick_sleep", "label": "钻到鸡笼里睡", "object": "coop", "hours": [19, 5], "duration_min": 120, "base": 14, "rest": true},
+		{"id": "chick_sick", "label": "缩着脖子，绒毛炸开", "sick": true, "object": "coop", "duration_min": 30, "base": 10, "rest": true}
+	 ],
+	 "wishes": [
+		{"id": "chick_hungry", "text": "张着小嘴叽叽叫", "below": {"belly": 25}, "actions": ["feed_chickens"], "ttl_hours": 4, "joy": 5}
 	 ]}
 ]

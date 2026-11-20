@@ -112,7 +112,7 @@ const ENTRY_DEFAULTS := {
 	"dishes": {"on": [], "leaves": "", "ttl_hours": 0, "max_out": 1, "scraps": ""},
 	"pets": {"price": 0, "stray": false, "names": [], "lifespan": [10, 14], "age": [1, 2], "drains": {},
 		"home": [], "perch": "", "actions": [], "wishes": [], "perks": {}, "thanks": "", "size": 0.6, "market": "",
-		"idle": ""},
+		"idle": "", "livestock": {}},
 	"rooms": {"outdoor": false, "props": [], "outside": false, "market": ""},
 	"items": {"stock": {}, "cures": "", "needs": {}, "work": {}, "childhood": {}, "pet": {}, "market": "",
 		"festivals": []},
@@ -125,7 +125,7 @@ const ENTRY_DEFAULTS := {
 ## Field defaults of a pet's own action (an entry of a pets.json kind's `actions`).
 const PET_ACTION_DEFAULTS := {"duration_min": 10, "base": 1, "object": "", "rooms": [], "hours": [],
 	"weather": [], "wet": false, "sick": false, "follows": "", "scraps": "", "needs": {}, "mess": {}, "above": {}, "every_hours": 0,
-	"on": "", "chance": 1.0, "trot": 0, "pace": "", "rest": false}
+	"on": "", "chance": 1.0, "trot": 0, "pace": "", "rest": false, "brood": false}
 
 ## Fields that are always whole numbers (JSON gives floats, so they are converted on load).
 const INT_FIELDS := {

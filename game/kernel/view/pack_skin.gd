@@ -32,7 +32,8 @@ extends RefCounted
 ##             "lean": 0, "portrait": "portraits/x.png", "name": "...", "description": "..."}},
 ##                                               # a Person.look's own rigs over its stage's entry
 ##   "pets": {"<pet kind>": {"sprite": "<sprite>", "height": 40, "front": "<sprite>", "back": "<sprite>",
-##             "front34": "<sprite>", "back34": "<sprite>"}},  # three-quarter views, facing right
+##             "front34": "<sprite>", "back34": "<sprite>",   # three-quarter views, facing right
+##             "rest": "<sprite>", "rest_height": 30}},       # lying down / sitting, while it rests
 ##   "poses": {"actions": {"<action id>": "<pose>"}, "objects": {"<object type>": "<pose>"},
 ##             "on": ["<object type>"]},          # see `pose_for`; on: sat / lain on, not beside
 ##   "unwell": {"sprite": "<sprite>", "need": "<need id>", "below": 50},
@@ -399,6 +400,11 @@ func pet_look(kind: String) -> Dictionary:
 		var t := sprite(str(e.get(k, "")))
 		if t != null:
 			out[k] = t
+	# Lying down or sitting (optional): its own picture and height, used while it rests.
+	var r := sprite(str(e.get("rest", "")))
+	if r != null:
+		out["rest"] = r
+		out["rest_height"] = float(e.get("rest_height", out.height))
 	return out
 
 

@@ -83,7 +83,11 @@
 		"iso_well_head": "iso/well_head.png", "iso_woodpile": "iso/woodpile.png", "dog_front": "chars/dog_front.png",
 		"dog_back": "chars/dog_back.png", "cat_front": "chars/cat_front.png", "cat_back": "chars/cat_back.png",
 		"dog_front34": "chars/dog_front34.png", "dog_back34": "chars/dog_back34.png", "cat_front34": "chars/cat_front34.png",
-		"cat_back34": "chars/cat_back34.png"
+		"cat_back34": "chars/cat_back34.png",
+		"pig": "chars/pig.png", "pig_front34": "chars/pig_front34.png", "pig_back34": "chars/pig_back34.png",
+		"pig_sleep": "chars/pig_sleep.png", "piglet": "chars/piglet.png", "piglet_front34": "chars/piglet_front34.png",
+		"piglet_back34": "chars/piglet_back34.png", "hen": "chars/hen.png", "hen_front34": "chars/hen_front34.png",
+		"hen_back34": "chars/hen_back34.png", "hen_sit": "chars/hen_sit.png", "chick_front34": "chars/chick_front34.png"
 	},
 	"ground": "grass",
 	"compound_ground": "yard",
@@ -135,7 +139,11 @@
 		"herbs": "col_herbs", "cicada_shell": "col_cicada_shell", "purse": "col_purse", "bronze_mirror": "col_bronze_mirror"},
 	"pets": {"dog": {"sprite": "dog", "height": 46, "front": "dog_front", "back": "dog_back", "front34": "dog_front34", "back34": "dog_back34"},
 		"cat": {"sprite": "cat", "height": 36, "front": "cat_front", "back": "cat_back", "front34": "cat_front34", "back34": "cat_back34"},
-		"bird": {"sprite": "bird", "height": 30}},
+		"bird": {"sprite": "bird", "height": 30},
+		"pig": {"sprite": "pig", "height": 44, "front34": "pig_front34", "back34": "pig_back34", "rest": "pig_sleep", "rest_height": 29},
+		"piglet": {"sprite": "piglet", "height": 23, "front34": "piglet_front34", "back34": "piglet_back34"},
+		"hen": {"sprite": "hen", "height": 28, "front34": "hen_front34", "back34": "hen_back34", "rest": "hen_sit", "rest_height": 23},
+		"chick": {"sprite": "chick_front34", "height": 14, "front34": "chick_front34"}},
 	"looks": {
 		"adult_1": {"stage": "adult", "sex": "male", "rig": "rigs/adult_1/adult_1.rig.json", "rig_front": "rigs/adult_1_front/adult_1_front.rig.json", "rig_back": "rigs/adult_1_back/adult_1_back.rig.json", "rig_front34": "rigs/adult_1_front34/adult_1_front34.rig.json", "rig_back34": "rigs/adult_1_back34/adult_1_back34.rig.json", "height": 94, "portrait": "portraits/adult_1.png", "asleep": "sleeper", "name": "斗笠农夫", "description": "斗笠压得低，赭黄短褂的袖子挽到小臂，腰里一根土红布带。裤腿卷到小腿肚，脚上一双草鞋，人晒得黝黑。"},
 		"adult_2": {"stage": "adult", "sex": "male", "rig": "rigs/adult_2/adult_2.rig.json", "rig_front": "rigs/adult_2_front/adult_2_front.rig.json", "rig_back": "rigs/adult_2_back/adult_2_back.rig.json", "rig_front34": "rigs/adult_2_front34/adult_2_front34.rig.json", "rig_back34": "rigs/adult_2_back34/adult_2_back34.rig.json", "height": 91, "portrait": "portraits/adult_2.png", "asleep": "sleeper", "name": "清瘦书生", "description": "又高又瘦，头戴黑方巾，月白长衫垂到脚面，领口袖口滚一道深蓝边。嘴总抿着，难得一笑。"},

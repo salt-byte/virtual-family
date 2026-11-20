@@ -41,6 +41,11 @@ static func summarize(world: World, elapsed_seconds: float, t0: int, money0: int
 			"pet_fell_ill": summary["pets_ill"].append(e.pet)
 			"pet_came_back": summary["pets_back"].append(e.pet)
 			"pet_cured": summary["pets_cured"].append(e.pet)
+			# Optional keys, only when it happened (a pack without livestock keeps the summary it had).
+			"pet_young":
+				if int(e.count) > 0:
+					summary.get_or_add("pets_young", []).append({"pet": e.pet, "kind": e.kind, "count": e.count})
+			"pet_grew": summary.get_or_add("pets_grew", []).append({"pet": e.pet, "kind": e.kind})
 			"festival_started": summary["festivals"].append(e.festival)
 			"outing_back": summary["outings"].append({"person": e.person, "action": e.action, "item": e.item, "text": e.text})
 			"lottery_drawn": summary["lottery"].append({"ticket": e.ticket, "amount": e.amount})

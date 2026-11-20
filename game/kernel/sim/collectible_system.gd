@@ -27,8 +27,9 @@ static func _ordinary_count(world: World) -> int:
 
 ## Adds one collectible of `type` ("" picks by weight) in a random built outdoor room (one of
 ## the type's `rooms` when any of those is built and outdoor) and returns its uid; -1 when
-## the type is unknown or there is no outdoor room.
-static func spawn(world: World, type := "") -> int:
+## the type is unknown or there is no outdoor room. `in_room` (built) puts it there instead
+## (an egg laid in the pen).
+static func spawn(world: World, type := "", in_room := "") -> int:
 	var rooms: Array = world.rooms_built.filter(func(r): return bool(world.pack.rooms[r]["outdoor"]))
 	if rooms.is_empty() or world.pack.collectibles.is_empty():
 		return -1
@@ -43,7 +44,7 @@ static func spawn(world: World, type := "") -> int:
 		var there := rooms.filter(func(r): return preferred.has(r))
 		if not there.is_empty():
 			rooms = there
-	var room := str(world.rng.pick(rooms))
+	var room := in_room if in_room != "" and world.rooms_built.has(in_room) else str(world.rng.pick(rooms))
 	var r: Dictionary = world.pack.rooms[room]
 	var uid := world.next_uid()
 	world.collectibles.append({"uid": uid, "type": type, "room": room,

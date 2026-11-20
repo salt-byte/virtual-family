@@ -99,6 +99,9 @@ class Info:
 	var pet_ids: Array[String] = []
 	var pet_gains: Array[float] = []
 	var pet_cures := false
+	## `pet.watch`: only done while an animal of `pet_kinds` is at home, aimed at none of them
+	## (looking on at the pen); `kind` is ""
+	var pet_watch := false
 	## `gain_max` without the pet's part (the person's own gains)
 	var self_gain := 0.0
 	## `player_only`: never chosen by the person, only done when the player drags them to it
@@ -182,6 +185,7 @@ static func _table(pack: Pack) -> Array:
 			i.pet = true
 			i.pet_kinds = pt.get("kinds", [])
 			i.pet_cures = bool(pt.get("cures", false))
+			i.pet_watch = bool(pt.get("watch", false))
 			var pn: Dictionary = pt.get("needs", {})
 			for n in pn:
 				i.pet_ids.append(str(n))
@@ -509,6 +513,11 @@ static func _pet_mask(pack: Pack, key: String) -> PackedByteArray:
 ## of them is ill ("!").
 static func _pet_fits(i: Info, key: String) -> bool:
 	if key == "":
+		return false
+	if i.pet_watch:
+		for k in i.pet_kinds:
+			if key.contains("," + str(k) + ","):
+				return true
 		return false
 	if i.pet_cures:
 		return key.contains("!")
@@ -855,7 +864,7 @@ static func candidates(world: World, p: Person, pool := 0) -> Array[Dictionary]:
 			if target < 0:
 				continue
 			gain = _tend_gain
-		elif kbits & _B_PET:
+		elif kbits & _B_PET and not i.pet_watch:
 			target = PetSystem.best_target(world, i.pet_kinds, i.pet_ids, i.pet_gains, i.pet_cures, p)
 			if target < 0:
 				continue
@@ -1047,7 +1056,7 @@ static func target_kind(a: Dictionary) -> String:
 	if tends != null and not (tends as Dictionary).is_empty():
 		return TARGET_PERSON
 	var pet = a.get("pet")
-	if pet != null and not (pet as Dictionary).is_empty():
+	if pet != null and not (pet as Dictionary).is_empty() and not bool(pet.get("watch", false)):
 		return TARGET_PET
 	return ""
 
@@ -1267,7 +1276,7 @@ static func _finish(world: World, p: Person) -> void:
 	if str(action.get("serves", "")) != "":
 		DishSystem.serve(world, str(action["serves"]))
 	var pet = action.get("pet")
-	if pet != null and not (pet as Dictionary).is_empty():
+	if pet != null and not (pet as Dictionary).is_empty() and not bool(pet.get("watch", false)):
 		PetSystem.cared(world, p, int(p.current.get("target_uid", -1)), id)
 	var yields = action.get("yields")
 	if yields != null and not (yields as Dictionary).is_empty():
@@ -1279,6 +1288,9 @@ static func _finish(world: World, p: Person) -> void:
 		var room := str(world.object(int(p.current.get("object_uid", -1))).get("room", ""))
 		MessSystem.spawn(world, str(mess["type"]), room)
 	if not action["work"].is_empty():
+		EconomySystem.on_work_finished(world, p, duration_s(world, action) / 60.0)
+	elif str(action.get("counts_as", "")) != "" and str(action["counts_as"]) == p.track:
+		# Work of their own livelihood done about the house (feeding the animals for a farmer).
 		EconomySystem.on_work_finished(world, p, duration_s(world, action) / 60.0)
 	if str(action.get("completes_story", "")) != "":
 		StorySystem.complete(world, str(action["completes_story"]), p)

@@ -35,6 +35,13 @@ rigs/<name>_front34|_back34/, the animals' single pictures chars/a_<kind>_front3
 <file>.png -> chars/<kind>_front34|_back34.png, and their animations
 chars/anims.humanoid_34.json -> rigs/anims.humanoid_34.json.
 
+    python3 game/tools/import_art.py --animals pig,piglet,hen,chick <assets dir> <pack art dir>
+
+copies only those animals: their pictures chars/a_<kind>[_<pose>].png -> chars/<kind>[_<pose>].png
+(as the main import does) and their single facing pictures chars/a_<kind>_front34|_back34/
+<file>.png -> chars/<kind>_front34|_back34.png (as --34-only does), leaving every other
+picture as it is.
+
     python3 game/tools/import_art.py --cabinet-only <assets dir> <pack art dir>
 
 copies only the keepsake box (see `import_cabinet`): the story pieces props/story/<id>.png,
@@ -220,6 +227,27 @@ def import_cabinet(src: Path, dst: Path, pack_dir: Path) -> None:
     art.write_text(text)
 
 
+def import_animals(src: Path, dst: Path, kinds) -> None:
+    (dst / "chars").mkdir(parents=True, exist_ok=True)
+    for f in sorted((src / "chars").glob("a_*.png")):
+        name = f.stem[2:]
+        if not any(name == k or name.startswith(k + "_") for k in kinds):
+            continue
+        im = trim(clear_green(trim(Image.open(f).convert("RGBA"))))
+        k = CHAR_H / im.height
+        im.resize((round(im.width * k), CHAR_H), Image.LANCZOS).save(dst / "chars" / f.name[2:], optimize=True)
+    for f in FACINGS_34:
+        for kind in kinds:
+            d = src / "chars" / f"a_{kind}{f}"
+            if not d.is_dir():
+                continue
+            pics = [p for p in d.glob("*.png") if not p.name.startswith("_")]
+            if pics:
+                im = trim(Image.open(pics[0]).convert("RGBA"))
+                k = CHAR_H / 2 / im.height
+                im.resize((round(im.width * k), round(CHAR_H / 2)), Image.LANCZOS).save(dst / "chars" / f"{kind}{f}.png", optimize=True)
+
+
 def main(src: Path, dst: Path) -> None:
     import_rigs(src, dst)
     for sub in ("tiles", "props", "chars"):
@@ -245,9 +273,17 @@ if __name__ == "__main__":
     looks = "--looks-only" in args
     only34 = "--34-only" in args
     cabinet = "--cabinet-only" in args
+    animals = None
+    if "--animals" in args:
+        i = args.index("--animals")
+        animals = [k for k in args[i + 1].split(",") if k]
+        del args[i:i + 2]
     args = [a for a in args if a not in ("--rigs-only", "--iso-only", "--looks-only", "--34-only", "--cabinet-only")]
     if len(args) != 2:
         sys.exit(__doc__)
+    if animals is not None:
+        import_animals(Path(args[0]), Path(args[1]), animals)
+        sys.exit(0)
     if cabinet:
         import_cabinet(Path(args[0]), Path(args[1]), Path(args[1]).parent)
         sys.exit(0)

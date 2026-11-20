@@ -10,9 +10,12 @@ extends Node2D
 ## corners); `pace` also sets the gait (trot: a bounce, slink: low and slow, dash: quick
 ## bounds) and, in place, "leap" (up onto the thing and down again), "hop" and "flap". While
 ## it stays put it breathes, does its kind's `idle` (wag: the tail end swings; flick: a flick
-## and an ear twitch now and then; bob: the head bobs) and shuffles a step now and then;
-## resting (`rest`) it lies flatter, breathes slow and turns over or stretches every so often.
-## All of it is a transform of its one picture (`pose_xform`): no frames needed.
+## and an ear twitch now and then; bob: the head bobs; peck: a quick dip to the ground now and
+## then; root: the snout shoves at the ground) and shuffles a step now and then; `pace` "peck"
+## and "root" do those dips over and over while it is at it (a hen pecking her way along, a
+## pig rooting). Resting (`rest`) it lies flatter, breathes slow and turns over or stretches
+## every so often; a kind with a lying picture (the skin's `rest`) shows that instead.
+## All of it is a transform of its pictures (`pose_xform`): no frames needed.
 
 const SPEED := 120.0
 ## The spot it took beside the piece of furniture `_beside_for` (uid; -1 none).
@@ -29,7 +32,8 @@ const THANKS_HOP := 6.0
 const THANKS_PERIOD := 0.35
 const FALLBACK := Color(0.7, 0.6, 0.45)
 ## Walking speed by `pace`.
-const PACE_SPEED := {"": 1.0, "trot": 1.35, "slink": 0.55, "dash": 1.9, "leap": 1.2, "hop": 0.6, "flap": 0.8}
+const PACE_SPEED := {"": 1.0, "trot": 1.35, "slink": 0.55, "dash": 1.9, "leap": 1.2, "hop": 0.6, "flap": 0.8,
+	"peck": 0.6, "root": 0.5}
 ## Seconds a trot waits at each spot (from, to).
 const DWELL := Vector2(0.6, 2.2)
 ## Seconds between small shuffles while it stays put (from, to), and how far (plan pixels).
@@ -125,13 +129,21 @@ func _house() -> HouseView:
 	return get_parent() as HouseView
 
 
-## The drawn body size.
+## The drawn body size (lying down while it rests, with a lying picture).
 func body() -> Vector2:
 	if not _look.is_empty():
 		var tex: Texture2D = _look.tex
 		var h: float = _look.height
+		if lying():
+			tex = _look.rest
+			h = _look.rest_height
 		return Vector2(h * tex.get_width() / tex.get_height(), h)
 	return BODY * _size
+
+
+## True while it rests and its kind has a lying (or sitting) picture to show for it.
+func lying() -> bool:
+	return _look.has("rest") and resting() and pet != null and position.distance_to(target) <= ARRIVED
 
 
 func refresh() -> void:
@@ -311,8 +323,8 @@ func _pose_now() -> void:
 		return
 	var pace := pace_of()
 	if g == "walking":
-		var period: float = {"trot": 0.32, "slink": 0.7, "dash": 0.24}.get(pace, BOB_PERIOD)
-		var high: float = {"trot": 4.0, "slink": 0.8, "dash": 5.0}.get(pace, BOB_AMPLITUDE)
+		var period: float = {"trot": 0.32, "slink": 0.7, "dash": 0.24, "peck": 0.2, "root": 0.42}.get(pace, BOB_PERIOD)
+		var high: float = {"trot": 4.0, "slink": 0.8, "dash": 5.0, "peck": 1.5, "root": 1.6}.get(pace, BOB_AMPLITUDE)
 		var s := absf(sin(TAU * t / period))
 		_off.y = -high * s
 		# Squashed as it lands, stretched at the top; rocking with the step.
@@ -321,6 +333,13 @@ func _pose_now() -> void:
 			_scale *= Vector2(1.06, 0.88)  # low to the ground
 		else:
 			_rot = 0.05 * sin(TAU * t / period)
+		return
+	if lying():
+		# Its lying picture: a slow deep breath, a shift now and then.
+		_scale = Vector2(1.0, 1.0 + 0.03 * sin(TAU * t / 3.2))
+		if _turn_t >= 0.0:
+			var k := sin(PI * _turn_t / TURN_TIME)
+			_scale *= Vector2(1.0 + 0.06 * k, 1.0 - 0.05 * k)
 		return
 	if resting():
 		# Lying flatter, a slow deep breath; turning over or stretching now and then.
@@ -358,6 +377,10 @@ func _pose_now() -> void:
 			_off.y = -3.0 - 2.0 * absf(sin(TAU * t / 0.5))
 			_scale.x = 1.0 + 0.09 * sin(TAU * t / 0.1)
 			_rot = 0.05 * sin(TAU * t / 0.23)
+		"peck":
+			_peck(t, 0.55, 1.0)
+		"root":
+			_root(t, 1.0)
 	match _idle:
 		"wag":
 			# The tail end swings in bursts: a quick sway about the feet.
@@ -375,6 +398,30 @@ func _pose_now() -> void:
 			if c < 0.18:
 				_off.y -= 2.0 * sin(PI * c / 0.18)
 				_rot += 0.08 * sin(PI * c / 0.18)
+		"peck":
+			if pace != "peck":
+				_peck(t, 3.1, 0.7)  # a dip at the ground now and then
+		"root":
+			if pace != "root":
+				_root(fmod(t, 5.3) if fmod(t, 5.3) < 1.6 else 0.0, 0.6)
+
+
+## A peck every `every` seconds: the body tips forward fast, a tap, and back (`k` how deep).
+func _peck(t: float, every: float, k: float) -> void:
+	var c := fmod(t, every)
+	if c < 0.22:
+		var d := sin(PI * c / 0.22)
+		_rot += 0.32 * k * d
+		_off.y += 1.5 * k * d
+		_scale.y *= 1.0 - 0.05 * k * d
+
+
+## Rooting: the snout shoves forward and up in a slow rhythm, the body leaning into it.
+func _root(t: float, k: float) -> void:
+	var s := sin(TAU * t / 1.6)
+	_rot += k * (0.09 + 0.07 * s)
+	_scale.x *= 1.0 + 0.03 * k * maxf(s, 0.0)
+	_off.y += k * 1.2 * maxf(-s, 0.0)
 
 
 ## This frame's pose as a transform about its feet, facing included (what `_draw` uses).
@@ -649,8 +696,10 @@ func _draw_pictured(b: Vector2, bob: float) -> void:
 	xf.origin += Vector2(0, 2.0)
 	draw_set_transform_matrix(xf)
 	var pic: Texture2D = _look.get(turned, _look.tex) if turned != "side" else _look.tex
+	if lying():
+		pic = _look.rest  # body() is already its size
 	var pb := b
-	if pic != _look.tex:
+	if pic != _look.tex and not lying():
 		pb = Vector2(b.y * pic.get_width() / pic.get_height(), b.y)
 	draw_texture_rect(pic, Rect2(-pb.x * 0.5, -pb.y, pb.x, pb.y), false, tint)
 	draw_set_transform(Vector2.ZERO)

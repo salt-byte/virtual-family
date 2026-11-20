@@ -174,7 +174,7 @@ func test_ignored_attention_ask_ends_with_a_small_mood_loss():
 	w.advance(15.0)
 	assert_true(p.ask.is_empty())
 	assert_true(int(p.ask_again.get("praise_me", 0)) >= w.now + int(w.pack.cfg("ask_again_s")) - 15, "stays away a while")
-	assert_true(float(p.needs["happy"]) < 78.5)
+	assert_true(float(p.needs["happy"]) < 78.5, "%f %s" % [p.needs["happy"], p.current])
 	assert_true(_types(w.drain_events()).has("ask_expired"))
 
 

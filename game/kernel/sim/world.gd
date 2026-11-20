@@ -54,6 +54,9 @@ var pet_offer: Dictionary = {}
 var pet_saved: Dictionary = {}
 ## `now` until which the children miss a pet that ran away or died (0: not).
 var pet_grief_until := 0
+## Someone at the gate who would buy an animal: {pet, price, expires_at}; {} for none (see
+## `LivestockSystem`).
+var pet_buyer: Dictionary = {}
 ## Ids of rooms that exist in the house (pack rooms with `built`, plus any built later).
 var rooms_built: Array[String] = []
 ## Counters that goals read: cured, collected, mess_cleaned, all_clean.

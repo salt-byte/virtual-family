@@ -59,7 +59,7 @@
 		{"actions": ["nap"], "led": true, "text": "躺下歇口气"},
 		{"doing": ["cleans", "picks"], "text": "拾掇着呢"},
 		{"doing": ["tends"], "text": "哄着孩子"},
-		{"doing": ["pet"], "text": "顾着家里的猫狗"},
+		{"doing": ["pet"], "text": "顾着家里养的活物"},
 		{"need_below": {"clean": 30}, "text": "浑身不自在"},
 		{"need_below": {"fed": 30}, "text": "肚子咕咕叫"},
 		{"need_below": {"energy": 25}, "text": "眼皮直打架"},
@@ -89,6 +89,7 @@
 			{"id": "house", "name": "房屋"},
 			{"id": "clothes", "name": "衣裳"},
 			{"id": "animals", "name": "宠物"},
+			{"id": "livestock", "name": "牲口"},
 			{"id": "upgrades", "name": "升级与服务"}
 		],
 		"default": {"item": "provisions", "object": "house", "room": "house", "pet": "animals", "service": "upgrades"},
@@ -106,6 +107,9 @@
 			{"id": "vigor", "name": "精神头", "start": 100,
 			 "labels": [{"below": 40, "text": "蔫了"}, {"below": 101, "text": "欢实"}]}
 		],
+		"start": [{"kind": "hen", "count": 2}],
+		"buyer": {"kinds": ["pig"], "chance_per_hour": 0.05, "ttl_hours": 4, "factor": 1.15,
+			"text": "门口来了个猪贩子，背着手绕猪圈走了一圈，伸手在{name}的后颈上捏了两把，竖起几根指头：“这膘，{price}，我今天就赶走。”"},
 		"food_need": "belly", "love_need": "fondness", "clean_need": "coat", "health_need": "vigor",
 		"max": 3, "content_above": 50, "age_rate": 0.4, "action_speed": 30, "offline_action_speed": 3, "effect_speed": 6, "care_below": 75,
 		"run_below": 10, "run_after_hours": 12,
