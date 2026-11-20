@@ -22,13 +22,17 @@ extends RefCounted
 ##   "people": [{"stage": "<id>", "sex": "<gender>", "sprite": "<sprite>", "height": 90,
 ##               "rig": "rigs/x/x.rig.json",     # a cutout rig, animated (CutoutRig)
 ##               "rig_front": "...", "rig_back": "...",  # facing the camera / away (if present)
+##               "rig_front34": "...", "rig_back34": "...",  # three-quarter views, turned to
+##                                               # the right: walking down-right / up-right
+##                                               # (mirrored for down-left / up-left)
 ##               "lean": 8,                      # degrees bent forward (a stoop), rig only
 ##               "asleep": "<sprite>",           # the picture lying asleep (under a quilt)
 ##               "lying": false}],               # the picture already lies (a swaddled baby)
 ##   "looks": {"<look id>": {"rig": ..., "rig_front": ..., "rig_back": ..., "height": 90,
 ##             "lean": 0, "portrait": "portraits/x.png", "name": "...", "description": "..."}},
 ##                                               # a Person.look's own rigs over its stage's entry
-##   "pets": {"<pet kind>": {"sprite": "<sprite>", "height": 40, "front": "<sprite>", "back": "<sprite>"}},
+##   "pets": {"<pet kind>": {"sprite": "<sprite>", "height": 40, "front": "<sprite>", "back": "<sprite>",
+##             "front34": "<sprite>", "back34": "<sprite>"}},  # three-quarter views, facing right
 ##   "poses": {"actions": {"<action id>": "<pose>"}, "objects": {"<object type>": "<pose>"},
 ##             "on": ["<object type>"]},          # see `pose_for`; on: sat / lain on, not beside
 ##   "unwell": {"sprite": "<sprite>", "need": "<need id>", "below": 50},
@@ -257,6 +261,10 @@ func collectible_sprite(type: String) -> Texture2D:
 	return sprite(str(_table("collectibles").get(type, "")))
 
 
+## The rigs a look may have besides its side rig (see the header).
+const FACING_RIGS := ["rig_front", "rig_back", "rig_front34", "rig_back34"]
+
+
 ## The look of a person: the first `people` entry whose stage and sex (each optional) match:
 ## {tex, height}; {} when nothing matches.
 func person_look(stage: String, sex: String, look := "") -> Dictionary:
@@ -276,12 +284,12 @@ func person_look(stage: String, sex: String, look := "") -> Dictionary:
 			return base
 		out = {"tex": tex, "lying": false}
 	out["rig"] = r
-	out.erase("rig_front")
-	out.erase("rig_back")
+	for k in FACING_RIGS:
+		out.erase(k)
 	out["height"] = float(e.get("height", out.get("height", 90.0)))
 	out["lean"] = float(e.get("lean", out.get("lean", 0.0)))
 	out["look"] = look
-	for k in ["rig_front", "rig_back"]:
+	for k in FACING_RIGS:
 		if e.get(k) is String and FileAccess.file_exists(_base + "/" + str(e[k])):
 			var r2 := rig(str(e[k]))
 			if r2 != null:
@@ -331,7 +339,7 @@ func _stage_look(stage: String, sex: String) -> Dictionary:
 			if r != null:
 				out["rig"] = r
 		# Facing the camera and facing away: used when they are there (else the side rig).
-		for k in ["rig_front", "rig_back"]:
+		for k in FACING_RIGS:
 			if e.get(k) is String and FileAccess.file_exists(_base + "/" + str(e[k])):
 				var r2 := rig(str(e[k]))
 				if r2 != null:
@@ -349,8 +357,8 @@ func pet_look(kind: String) -> Dictionary:
 	if tex == null:
 		return {}
 	var out := {"tex": tex, "height": float(e.get("height", 40.0))}
-	# Facing the camera / turned away (each optional).
-	for k in ["front", "back"]:
+	# Facing the camera / turned away, head-on or three-quarters (each optional).
+	for k in ["front", "back", "front34", "back34"]:
 		var t := sprite(str(e.get(k, "")))
 		if t != null:
 			out[k] = t
@@ -390,6 +398,22 @@ func pose_for(action: String, object: String) -> String:
 func sat_on(object: String) -> bool:
 	var t = _data.get("poses", {})
 	return t is Dictionary and t.get("on") is Array and (t["on"] as Array).has(object)
+
+
+## Where someone sits on furniture of this type (`poses.seats` in art.json): {h: the seat's
+## surface above the floor at the sitting spot, view pixels; in: how far in from the front
+## edge the sitting spot is, in cells}. A seat the pack does not describe sits on the front
+## edge at the floor ({h: 0, in: 0.1}), as before.
+func seat(object: String) -> Dictionary:
+	var t = _data.get("poses", {})
+	var s = t.get("seats", {}).get(object) if t is Dictionary and t.get("seats") is Dictionary else null
+	if not s is Dictionary:
+		return {"h": 0.0, "in": 0.1}
+	return {"h": clampf(float(s.get("h", 0.0)), 0.0, 80.0), "in": clampf(float(s.get("in", 0.1)), 0.0, 1.0)}
+
+
+func seat_height(object: String) -> float:
+	return float(seat(object).h)
 
 
 ## The "looks unwell" mark: {tex, need, below}; {} when the skin has none.

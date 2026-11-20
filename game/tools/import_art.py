@@ -27,8 +27,16 @@ the animals' single facing pictures chars/a_<kind>_front|_back/<file>.png -> cha
 copies only the looks (chars/looks.json): their rigs, all three facings, as
 rigs/<id>[_front|_back]/ (the id without its a_ prefix), and their portraits
 chars/portraits/a_<id>.png -> portraits/<id>.png (trimmed, the longer side at most 256).
+
+    python3 game/tools/import_art.py --34-only <assets dir> <pack art dir>
+
+copies only the three-quarter (45°) views: the rigs chars/a_<name>_front34|_back34/ ->
+rigs/<name>_front34|_back34/, the animals' single pictures chars/a_<kind>_front34|_back34/
+<file>.png -> chars/<kind>_front34|_back34.png, and their animations
+chars/anims.humanoid_34.json -> rigs/anims.humanoid_34.json.
 Needs Pillow.
 """
+import shutil
 import json
 import sys
 from pathlib import Path
@@ -67,14 +75,24 @@ RIG_SCALE = 0.5
 RIG_KEYS = ("pivot_px", "attach_px", "root_px", "size")
 
 
-def import_rigs(src: Path, dst: Path, facing_only=False, only=None) -> None:
+FACINGS = ("_front", "_back")
+FACINGS_34 = ("_front34", "_back34")
+
+
+def _bare(name: str) -> str:
+    for f in FACINGS_34 + FACINGS:
+        name = name.removesuffix(f)
+    return name
+
+
+def import_rigs(src: Path, dst: Path, facing_only=False, only=None, facings=FACINGS) -> None:
     for d in sorted((src / "chars").glob("a_*")):
         rigs = list(d.glob("*.rig.json")) if d.is_dir() else []
         if not rigs:
             continue
-        if facing_only and not (d.name.endswith("_front") or d.name.endswith("_back")):
+        if facing_only and not d.name.endswith(facings):
             continue
-        if only is not None and d.name.removesuffix("_front").removesuffix("_back") not in only:
+        if only is not None and _bare(d.name) not in only:
             continue
         name = d.name[2:]
         out = dst / "rigs" / name
@@ -111,6 +129,29 @@ def import_iso(src: Path, dst: Path) -> None:
             im = trim(Image.open(pics[0]).convert("RGBA"))
             k = CHAR_H / 2 / im.height
             im.resize((round(im.width * k), round(CHAR_H / 2)), Image.LANCZOS).save(dst / "chars" / f"{d.name[2:]}.png", optimize=True)
+
+
+def single_pictures(src: Path, dst: Path, facings) -> None:
+    """The animals' one-picture facings: chars/a_<kind><facing>/<file>.png -> chars/<kind><facing>.png."""
+    (dst / "chars").mkdir(parents=True, exist_ok=True)
+    for f in facings:
+        for d in sorted((src / "chars").glob(f"a_*{f}")):
+            if not d.is_dir() or list(d.glob("*.rig.json")):
+                continue
+            pics = [p for p in d.glob("*.png") if not p.name.startswith("_")]
+            if pics:
+                im = trim(Image.open(pics[0]).convert("RGBA"))
+                k = CHAR_H / 2 / im.height
+                im.resize((round(im.width * k), round(CHAR_H / 2)), Image.LANCZOS).save(dst / "chars" / f"{d.name[2:]}.png", optimize=True)
+
+
+def import_34(src: Path, dst: Path) -> None:
+    import_rigs(src, dst, facing_only=True, facings=FACINGS_34)
+    single_pictures(src, dst, FACINGS_34)
+    anims = src / "chars" / "anims.humanoid_34.json"
+    if anims.exists():
+        (dst / "rigs").mkdir(parents=True, exist_ok=True)
+        shutil.copyfile(anims, dst / "rigs" / "anims.humanoid_34.json")
 
 
 PORTRAIT_MAX = 256
@@ -151,7 +192,8 @@ if __name__ == "__main__":
     only = "--rigs-only" in args
     iso = "--iso-only" in args
     looks = "--looks-only" in args
-    args = [a for a in args if a not in ("--rigs-only", "--iso-only", "--looks-only")]
+    only34 = "--34-only" in args
+    args = [a for a in args if a not in ("--rigs-only", "--iso-only", "--looks-only", "--34-only")]
     if len(args) != 2:
         sys.exit(__doc__)
-    (import_looks if looks else import_iso if iso else import_rigs if only else main)(Path(args[0]), Path(args[1]))
+    (import_34 if only34 else import_looks if looks else import_iso if iso else import_rigs if only else main)(Path(args[0]), Path(args[1]))

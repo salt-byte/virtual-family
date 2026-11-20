@@ -282,13 +282,29 @@ func cell_of(pos: Vector2) -> Vector2i:
 ## straight line is clear (or no route exists: then the person walks straight, as before).
 func route(from: Vector2, to: Vector2) -> PackedVector2Array:
 	var out := PackedVector2Array()
-	if not enabled or clear_line(from, to):
+	if not enabled:
 		return out
-	# From or to a blocked cell (furniture, say): by way of the nearest open cell.
+	# From or to a blocked cell (a seat, a bed): out by, and in by, the open cell nearest the
+	# point itself (the side of the piece they sit on), never across the rest of the piece.
 	var a := cell_of(from)
 	var b := cell_of(to)
-	var a2 := a if walkable(a) else nearest_open(a)
-	var b2 := b if walkable(b) else nearest_open(b)
+	if not walkable(a) and not walkable(b) and from.distance_to(to) < CELL.x * 1.5:
+		return out  # along the same seat or bed: shuffle over
+	# Seats and beds are got on and off from the front (the south side), when it is open.
+	var a2 := a if walkable(a) else nearest_open(a, {}, from + Vector2(0, CELL.y * 0.6))
+	var b2 := b if walkable(b) else nearest_open(b, {}, to + Vector2(0, CELL.y * 0.6))
+	if a2 != a and a2.x >= 0:
+		var exit := _edge_point(from, a, a2)
+		out.append(exit)
+		out.append_array(route(exit, to))
+		return out
+	if b2 != b and b2.x >= 0:
+		var entry := _edge_point(to, b, b2)
+		out = route(from, entry)
+		out.append(entry)
+		return out
+	if clear_line(from, to):
+		return out
 	if a2.x < 0 or b2.x < 0:
 		return out
 	var pts: Array[Vector2] = []
@@ -315,6 +331,52 @@ func route(from: Vector2, to: Vector2) -> PackedVector2Array:
 		anchor = pts[j]
 		i = j + 1
 	return out
+
+
+## A way from `from` to `to` that keeps off `cells` (Vector2i -> true: where someone stands
+## in the way) as well, the start and end cells aside: [found, points] (`route`'s points);
+## found is false when there is no way round.
+func detour(from: Vector2, to: Vector2, cells: Dictionary) -> Array:
+	if not enabled:
+		return [false, PackedVector2Array()]
+	var added: Array[Vector2i] = []
+	var skip := [cell_of(from), cell_of(to)]
+	for c in cells:
+		if _inside(c) and not blocked.has(c) and not c in skip:
+			blocked[c] = true
+			_astar.set_point_disabled(_id(c), true)
+			added.append(c)
+	var pts := route(from, to)
+	# The way found must keep off the cells all along (route falls back to walking straight
+	# when there is no way: that is no way round).
+	var ok := not pts.is_empty() or clear_line(from, to)
+	var at := from
+	for i in pts.size() + 1:
+		var nxt := pts[i] if i < pts.size() else to
+		var n := int(ceil(at.distance_to(nxt) / 6.0))
+		for k in range(1, n + 1):
+			if added.has(cell_of(at.lerp(nxt, float(k) / float(n)))):
+				ok = false
+		at = nxt
+	for c in added:
+		blocked.erase(c)
+		_astar.set_point_disabled(_id(c), false)
+	return [ok, pts]
+
+
+## Where someone at `p` in blocked cell `c` steps out into open cell `n`: straight across
+## the edge between, to the middle of `n` in line with `p`; the middle of `n` when `n` is not
+## beside `c` (or a wall stands between).
+func _edge_point(p: Vector2, c: Vector2i, n: Vector2i) -> Vector2:
+	var d := n - c
+	if absi(d.x) + absi(d.y) != 1 or not edge_free(c, n):
+		return centre(n)
+	var q := centre(n)
+	if d.x == 0:
+		q.x = clampf(p.x, float(n.x) * CELL.x + STOP_MARGIN_X, float(n.x + 1) * CELL.x - STOP_MARGIN_X)
+	else:
+		q.y = clampf(p.y, float(n.y) * CELL.y + STOP_MARGIN_Y, float(n.y + 1) * CELL.y - STOP_MARGIN_Y)
+	return q
 
 
 ## Whether a straight walk from `a` to `b` crosses no standing wall and no blocked cell, with
@@ -512,7 +574,7 @@ func use_spot(r: Rect2i, taken := {}) -> Vector2:
 	var front := r.end.y
 	var mid_x := float(r.position.x) + float(r.size.x) * 0.5
 	var p := Vector2(mid_x * CELL.x, (front + 0.5) * CELL.y)
-	if can_stop(p) and not taken.has(cell_of(p)) and _faces(cell_of(p + Vector2(-FEET, 0)), r) and _faces(cell_of(p + Vector2(FEET, 0)), r):
+	if can_stop(p) and not taken.has(cell_of(p)) and not taken.has(cell_of(p + Vector2(-FEET, 0))) and not taken.has(cell_of(p + Vector2(FEET, 0))) and _faces(cell_of(p + Vector2(-FEET, 0)), r) and _faces(cell_of(p + Vector2(FEET, 0)), r):
 		return p
 	var cands: Array[Vector2i] = []
 	var xs: Array = range(r.position.x, r.end.x)

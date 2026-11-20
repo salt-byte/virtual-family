@@ -234,6 +234,34 @@ func _box() -> void:
 				view_box = Rect2(foot + lo, hi - lo)
 
 
+## The wall's line in plan pixels (a zero-thickness rect along its edge).
+func plan_rect() -> Rect2:
+	var c := HouseSite.CELL
+	if along == "x":
+		return Rect2(Vector2(at * c.x, line * c.y), Vector2(c.x, 0))
+	return Rect2(Vector2(line * c.x, at * c.y), Vector2(0, c.y))
+
+
+## What this piece covers on the view, for sorting people against it: `view_box` for a back
+## wall or the gatehouse; a cut wall's or fence's low face otherwise (none for a door gap or
+## a decal).
+var _cover := Rect2()
+var _cover_at := Vector2(INF, INF)
+func cover_box() -> Rect2:
+	if view_box.size != Vector2.ZERO or role != "wall" or open:
+		return view_box
+	if _cover_at == position:
+		return _cover
+	_cover_at = position
+	var foot := IsoMath.to_view(position)
+	var a := _p(at, line) if along == "x" else _p(line, at)
+	var b := _p(at + 1, line) if along == "x" else _p(line, at + 1)
+	var lo := Vector2(minf(a.x, b.x), minf(a.y, b.y) - height - 4.0)
+	var hi := Vector2(maxf(a.x, b.x), maxf(a.y, b.y) + 4.0)
+	_cover = Rect2(foot + lo, hi - lo)
+	return _cover
+
+
 ## See-through while anyone ([view foot, depth] in `seen`) stands behind this piece under it.
 func fade_for_view(seen: Array, depth: float) -> void:
 	var want := 1.0

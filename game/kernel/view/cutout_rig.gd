@@ -26,9 +26,16 @@ var unit := 1.0
 var height := 1.0
 ## How far the hips drop when sitting (the thigh's length, rig pixels).
 var thigh := 0.0
-## "side" (the rig faces right), "front" (faces the camera) or "back" (turned away). A front
-## or back rig only walks and stands (`pose`): the side rig does the rest.
+## "side" (the rig faces right), "front" (faces the camera) or "back" (turned away), or a
+## three-quarter view: "front34" (turned 45° towards the camera, facing down-right) or
+## "back34" (45° away, facing up-right). A front or back rig only walks and stands (`pose`):
+## the side rig does the rest; a three-quarter rig does every pose but lying down, from the
+## keyframes in `anims.humanoid_34.json` beside the rigs.
 var facing := "side"
+## The three-quarter animations: {name: {length, loop, tracks: {part: {rot: [[t, deg]],
+## pos: [[t, dx, dy]]}}, z: {part: z}}} ({} for other rigs).
+var _anims: Dictionary = {}
+static var _anim_files: Dictionary = {}
 ## The head's height (rig pixels), to size a front or back rig like the side one.
 var head_height := 0.0
 var _by_id: Dictionary = {}
@@ -69,7 +76,10 @@ static func load_file(path: String) -> CutoutRig:
 		r._visit(id, seen)
 	r.root = _v(data.get("root_px", [0, 0]))
 	var f := str(data.get("facing", "right"))
-	r.facing = f if f in ["front", "back"] else "side"
+	r.facing = f if f in ["front", "back", "front34", "back34"] else "side"
+	if r.facing.ends_with("34"):
+		# The three-quarter views play the keyframed animations next to the rigs.
+		r._anims = _anims34(path.get_base_dir().get_base_dir() + "/anims.humanoid_34.json")
 	if r._by_id.has("head"):
 		r.head_height = r._by_id["head"].size.y
 	for p in r.parts:
@@ -137,6 +147,8 @@ func draw(ci: CanvasItem, pose: Dictionary, xform: Transform2D, modulate := Colo
 ## An unknown name is "idle".
 func pose(name: String, t: float) -> Dictionary:
 	var breath := sin(TAU * t / BREATH_PERIOD)
+	if not _anims.is_empty() and name != "sleep":
+		return _pose_34(name, t)
 	if facing != "side":
 		return _pose_facing(name, t, breath)
 	match name:
@@ -224,6 +236,70 @@ func pose(name: String, t: float) -> Dictionary:
 		"arm_lower": Vector3(-6.0, 0.0, 0.0),
 		"arm_back_lower": Vector3(-6.0, 0.0, 0.0),
 	}
+
+
+static func _anims34(path: String) -> Dictionary:
+	if _anim_files.has(path):
+		return _anim_files[path]
+	var out := {}
+	var parser := JSON.new()
+	if FileAccess.file_exists(path) and parser.parse(FileAccess.get_file_as_string(path)) == OK and parser.data is Dictionary:
+		var a = parser.data.get("animations")
+		if a is Dictionary:
+			out = a
+	_anim_files[path] = out
+	return out
+
+
+## A three-quarter pose from the keyframes: the walk is "walk" turned to the camera and
+## "walk_up" turned away (likewise "wave" / "wave_up"); every track eased linearly between
+## its keys, looping. Sitting drops the hips by this rig's own thigh (the table's figure is
+## for an average thigh), so the feet stay on the ground.
+func _pose_34(name: String, t: float) -> Dictionary:
+	var key := name
+	if facing == "back34" and _anims.has(name + "_up"):
+		key = name + "_up"
+	if not _anims.has(key):
+		key = "idle"
+	var a: Dictionary = _anims.get(key, {})
+	var length := maxf(0.01, float(a.get("length", 1.0)))
+	var at := fmod(t, length) if bool(a.get("loop", true)) else minf(t, length)
+	var out := {}
+	var tracks: Dictionary = a.get("tracks", {})
+	for part in tracks:
+		var tr: Dictionary = tracks[part]
+		var rot := _key_at(tr.get("rot", []), at, 1)
+		var pos := _key_at(tr.get("pos", []), at, 2)
+		out[part] = Vector3(rot[0], pos[0], pos[1])
+	if key == "sit" and out.has("torso") and thigh > 0.0:
+		var base: float = _key_at((tracks["torso"] as Dictionary).get("pos", []), 0.0, 2)[1]
+		var v: Vector3 = out["torso"]
+		out["torso"] = Vector3(v.x, v.y, thigh * 0.97 / unit + (v.z - base))
+	if a.get("z") is Dictionary:
+		out["_z"] = a["z"]
+	return out
+
+
+## The values (`n` of them) of a key list [[t, v...]] at time `t`, eased linearly.
+static func _key_at(keys, t: float, n: int) -> Array:
+	var zero := []
+	zero.resize(n)
+	zero.fill(0.0)
+	if not keys is Array or keys.is_empty():
+		return zero
+	var prev: Array = keys[0]
+	if t <= float(prev[0]):
+		return prev.slice(1, n + 1).map(func(x): return float(x))
+	for k in keys:
+		if float(k[0]) >= t:
+			var span := float(k[0]) - float(prev[0])
+			var f := 0.0 if span <= 0.0 else (t - float(prev[0])) / span
+			var out := []
+			for i in n:
+				out.append(lerpf(float(prev[i + 1]), float(k[i + 1]), f))
+			return out
+		prev = k
+	return prev.slice(1, n + 1).map(func(x): return float(x))
 
 
 ## Facing the camera or turned away: walking lifts each leg in turn (it cannot swing it

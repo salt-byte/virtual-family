@@ -6,6 +6,11 @@ extends Node2D
 ## Reads the World, never writes it.
 
 const SPEED := 120.0
+## The spot it took beside the piece of furniture `_spot_for` (uid; -1 none).
+var _spot_for := -1
+var _spot := Vector2.ZERO
+## How far behind the person it follows an animal keeps (plan pixels).
+const FOLLOW_GAP := 52.0
 ## A grown-up's block is 28 x 44; an animal is a low wide shape scaled by its kind's `size`.
 const BODY := Vector2(44, 30)
 const ARRIVED := 1.0
@@ -26,6 +31,11 @@ var selected := false:
 		selected = v
 		queue_redraw()
 var _path_goal := Vector2(INF, INF)
+## Giving way (`HouseView.give_way`): how long they have waited for someone in the way, and
+## the cell of the one they last went round.
+var waited := 0.0
+var walked_round := Vector2i(-9999, -9999)
+var round_age := 99.0
 var _path_from := Vector2(INF, INF)
 var _rng := RandomNumberGenerator.new()
 var _key := ""
@@ -124,15 +134,23 @@ func tick(delta: float) -> void:
 		if _float_age > 1.2:
 			_float = ""
 	var was := position
-	walk(SPEED * delta)
+	var hv := _house()
+	if hv == null or not hv.iso or not hv.give_way(self, delta):
+		walk(SPEED * delta)
 	var iso := _house() != null and _house().iso
 	var v := IsoMath.basis().basis_xform(position - was) if iso else position - was
 	if absf(v.x) > 0.01:
 		_facing = signf(v.x)
-	if iso and v.length() > 0.01:
-		turned = "side" if absf(v.y) < 0.2 * v.length() else ("front" if v.y > 0.0 else "back")
-	elif iso and v.length() <= 0.01 and pose() == "idle":
-		turned = "front"
+	if iso:
+		# As people: three-quarters to the camera, or away walking up the screen; head-on
+		# and side pictures only for a kind without the three-quarter ones.
+		var up := v.length() > 0.01 and v.y <= -PersonView.UP_SCREEN * v.length()
+		if _look.has("front34"):
+			turned = "back34" if up and _look.has("back34") else "front34"
+		elif v.length() > 0.01:
+			turned = "side" if absf(v.y) < 0.2 * v.length() else ("front" if v.y > 0.0 else "back")
+		else:
+			turned = "side"
 	queue_redraw()
 
 
@@ -148,6 +166,8 @@ func float_text() -> String:
 
 func walk(step: float) -> void:
 	if target != _path_goal or position != _path_from:
+		if target != _path_goal:
+			walked_round = Vector2i(-9999, -9999)
 		_path_goal = target
 		var l := layout()
 		path = l.site.route(position, target) if l != null and l.site.enabled else PackedVector2Array()
@@ -196,13 +216,28 @@ func _compute_target(w: World, l: HouseLayout) -> Vector2:
 	var cur := pet.current
 	if cur.has("follow") and hv != null and "people" in hv and hv.people.has(int(cur["follow"])):
 		_key = ""
-		return (hv.people[int(cur["follow"])] as PersonView).position + Vector2(-PersonView.BODY.x, 4)
+		# A step behind them (to the west), not at their heels.
+		var lead := (hv.people[int(cur["follow"])] as PersonView).position
+		return lead + Vector2(-FOLLOW_GAP, 4) if not l.site.enabled else l.stop_point(lead + Vector2(-FOLLOW_GAP, 4), {l.site.cell_of(lead): true})
 	if cur.has("object_uid"):
 		var o := w.object(int(cur["object_uid"]))
 		if not o.is_empty():
 			_key = ""
 			var r := l.object_rect(o, w.pack)
-			return Vector2(r.get_center().x, r.end.y - 4.0)
+			var skin: PackSkin = hv.skin if hv != null and "skin" in hv else null
+			var k := PetSystem.kind_of(w.pack, pet)
+			# On what it lies on (the threshold, the kang) or perches in; beside anything else.
+			if str(k.get("perch", "")) == str(o.type) or not l.site.enabled:
+				return Vector2(r.get_center().x, r.end.y - 4.0)
+			if skin != null and skin.sat_on(str(o.type)):
+				return _on_piece(o, r)
+			# Its spot stays put while nobody comes to stand on it.
+			var taken := _people_cells(l)
+			if _spot_for == int(o.uid) and not taken.has(l.site.cell_of(_spot)):
+				return _spot
+			_spot_for = int(o.uid)
+			_spot = l.stand_pos(o, w.pack, taken)
+			return _spot
 	if cur.has("mess"):
 		var m := MessSystem.find(w, int(cur["mess"]))
 		if not m.is_empty():
@@ -215,7 +250,7 @@ func _compute_target(w: World, l: HouseLayout) -> Vector2:
 	_key = key
 	if room != "" and w.pack.rooms.has(room) and l.room_rect(room).size != Vector2.ZERO:
 		var r: Dictionary = w.pack.rooms[room]
-		return l.cell_center(room, _rng.randi_range(0, int(r.w) - 1), _rng.randi_range(0, int(r.h) - 1))
+		return _free_spot(l, l.cell_center(room, _rng.randi_range(0, int(r.w) - 1), _rng.randi_range(0, int(r.h) - 1)))
 	if cur.is_empty() and base_target != Vector2.ZERO:
 		return base_target
 	return _home_cell(w, l)
@@ -237,7 +272,52 @@ func _home_cell(w: World, l: HouseLayout) -> Vector2:
 		return position
 	var room := str(homes[_rng.randi_range(0, homes.size() - 1)])
 	var rd: Dictionary = w.pack.rooms[room]
-	return l.cell_center(room, _rng.randi_range(0, int(rd.w) - 1), _rng.randi_range(0, int(rd.h) - 1))
+	return _free_spot(l, l.cell_center(room, _rng.randi_range(0, int(rd.w) - 1), _rng.randi_range(0, int(rd.h) - 1)))
+
+
+## Where it lies on a piece people also sit or lie on (the kang, the threshold): along its
+## front edge, as far as it can be from the people on it or heading there.
+func _on_piece(o: Dictionary, r: Rect2) -> Vector2:
+	var y := r.end.y - 4.0
+	var best := Vector2(r.get_center().x, y)
+	var hv := _house()
+	if hv == null:
+		return best
+	var best_d := -INF
+	var n := maxi(1, int(r.size.x / 24.0))
+	for i in n + 1:
+		var p := Vector2(lerpf(r.position.x + 12.0, r.end.x - 12.0, float(i) / float(n)), y)
+		var d := INF
+		for uid in hv.people:
+			var pv: PersonView = hv.people[uid]
+			if int(pv.use_object.get("uid", -2)) == int(o.uid) or r.grow(HouseSite.CELL.y).has_point(pv.target):
+				d = minf(d, absf(pv.target.x - p.x))
+		# The furthest from everyone; the middle when nobody is on it.
+		var score := minf(d, 1000.0) - 0.01 * absf(p.x - r.get_center().x)
+		if score > best_d:
+			best_d = score
+			best = p
+	return best
+
+
+## A spot to stand about at near `p`: off furniture and wall lines, and a cell away from
+## where anyone stands or is heading (an animal keeps a little distance).
+func _free_spot(l: HouseLayout, p: Vector2) -> Vector2:
+	return l.stop_point(p, _people_cells(l))
+
+
+## The cells people are heading to, with the cells their feet reach into (Vector2i -> true).
+func _people_cells(l: HouseLayout) -> Dictionary:
+	var out := {}
+	var hv := _house()
+	if hv == null or not l.site.enabled:
+		return out
+	for uid in hv.people:
+		var pv: PersonView = hv.people[uid]
+		for at in [pv.target]:
+			for dx in [-HouseSite.FEET - 10.0, 0.0, HouseSite.FEET + 10.0]:
+				out[l.site.cell_of(at + Vector2(dx, 0))] = true
+	return out
 
 
 func bob_offset() -> float:

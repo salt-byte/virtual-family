@@ -2,7 +2,7 @@ class_name HouseGround
 extends Node2D
 ## The flat ground of a house with a site plan, drawn once per change of the plan: the map's
 ## ground and decor, room floors and bare foundations, the shadows the walls cast (sun in
-## the north-west), door sills and the names written on the floor. Sits under everything
+## the north-west), door sills, the names written on the floor (seen from above) and the prices of rooms still to build. Sits under everything
 ## (z_index -1); walls are `WallPiece`s, sorted with the people. Reads the World only.
 
 const LINE := Color("#4A3424")
@@ -245,26 +245,16 @@ func _label(w: World, id: String) -> void:
 	draw_string(font, Vector2(pill.position.x, pill.position.y + 17), cost, HORIZONTAL_ALIGNMENT_CENTER, tw, 13, LINE)
 
 
-## The 45° view's names, written upright: a built room's near its front-left corner (the
-## corner nearest the bottom-left of the screen), an unbuilt one's with its price in the middle.
-func _iso_label(w: World, id: String, r: Dictionary, rect: Rect2, font: Font, name: String) -> void:
+## The 45° view writes no names on the floor (the house shows a place's name while the
+## pointer is on it, `HouseView.place_label`): an unbuilt room keeps only its price, on a
+## pill in its middle.
+func _iso_label(w: World, id: String, r: Dictionary, rect: Rect2, font: Font, _name: String) -> void:
 	if id in w.rooms_built:
-		var outside := bool(r.get("outside", false))
-		var size := 20 if outside else 16
-		var at := Vector2(rect.position.x + HouseSite.CELL.x * 0.45, rect.end.y - HouseSite.CELL.y * (0.55 if outside else 0.9))
-		if not outside:
-			at = free_label_spot(rect, font.get_string_size(name, HORIZONTAL_ALIGNMENT_LEFT, -1, size).x, size, at)
-		draw_set_transform_matrix(IsoMath.upright(at))
-		draw_string_outline(font, Vector2.ZERO, name, HORIZONTAL_ALIGNMENT_LEFT, -1, size, 4, CREAM)
-		draw_string(font, Vector2.ZERO, name, HORIZONTAL_ALIGNMENT_LEFT, -1, size, LINE)
-		draw_set_transform_matrix(Transform2D.IDENTITY)
 		return
 	draw_set_transform_matrix(IsoMath.upright(rect.get_center()))
-	draw_string_outline(font, Vector2(-100, -4), name, HORIZONTAL_ALIGNMENT_CENTER, 200, 22, 4, CREAM)
-	draw_string(font, Vector2(-100, -4), name, HORIZONTAL_ALIGNMENT_CENTER, 200, 22, Color(0.51, 0.39, 0.28))
 	var cost := house.session.strings.t("money").replace("{n}", str(int(r.get("build_cost", 0))))
 	var tw := font.get_string_size(cost, HORIZONTAL_ALIGNMENT_LEFT, -1, 13).x + 22.0
-	var pill := Rect2(-tw * 0.5, 6, tw, 24)
+	var pill := Rect2(-tw * 0.5, -12, tw, 24)
 	var box := StyleBoxFlat.new()
 	box.bg_color = PILL
 	box.border_color = LINE
@@ -273,30 +263,6 @@ func _iso_label(w: World, id: String, r: Dictionary, rect: Rect2, font: Font, na
 	draw_style_box(box, pill)
 	draw_string(font, Vector2(pill.position.x, pill.position.y + 17), cost, HORIZONTAL_ALIGNMENT_CENTER, tw, 13, LINE)
 	draw_set_transform_matrix(Transform2D.IDENTITY)
-
-
-## Where a room's name goes in the 45° view: the first cell, front row first and left to
-## right, where the written name (`w` x `size` view pixels, upright from the cell's front-left)
-## is clear of every furniture picture and the cell is free; `fallback` when none is.
-func free_label_spot(rect: Rect2, w: float, size: int, fallback: Vector2) -> Vector2:
-	var pics: Array[Rect2] = []
-	for uid in house.props:
-		var p: PropPiece = house.props[uid]
-		var r := Rect2(IsoMath.to_view(p.position) + p.rect.position, p.rect.size)
-		pics.append(r.grow_individual(-r.size.x * 0.08, -r.size.y * 0.08, -r.size.x * 0.08, 0.0))
-	var site := house.layout.site
-	var cells := HouseLayout.cells_of(rect)
-	for row in range(cells.size.y - 1, -1, -1):
-		for col in cells.size.x:
-			var c := cells.position + Vector2i(col, row)
-			if site.furniture.has(c) or site.furniture.has(c + Vector2i(1, 0)):
-				continue
-			var at := (Vector2(c) + Vector2(0.15, 0.55)) * HouseSite.CELL  # clear of a cut wall in front
-			var v := IsoMath.to_view(at)
-			var box := Rect2(v + Vector2(0, -size), Vector2(w, size + 4))
-			if pics.all(func(pr: Rect2): return not pr.intersects(box)):
-				return at
-	return fallback
 
 
 func _dashed(rect: Rect2, color: Color) -> void:

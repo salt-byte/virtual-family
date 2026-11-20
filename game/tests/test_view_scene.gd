@@ -46,9 +46,10 @@ func test_person_walks_to_the_object_they_use():
 	var pv: PersonView = m.house.people[p.uid]
 	m.tick(0.016)
 	# qijia's art sits people ON a stool (art.json `poses.on`), so the spot is on it, not
-	# below it as for other furniture.
+	# below it as for other furniture: at the seat's anchor (`poses.seats`: a stool's middle).
 	assert_true(pv.on_object)
-	assert_eq(pv.target, PersonView.on_spot(m.house.layout, w.object(uid), w.pack))
+	assert_eq(pv.target, PersonView.on_spot(m.house.layout, w.object(uid), w.pack, float(m.house.skin.seat("stool").in)))
+	assert_true(m.house.layout.object_rect(w.object(uid), w.pack).has_point(pv.target))
 	for i in 200:
 		pv.tick(0.05)
 	assert_true(pv.position.distance_to(pv.target) < 1.0)

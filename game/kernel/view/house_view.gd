@@ -224,18 +224,307 @@ func _sort_stage() -> void:
 	if not iso:
 		return
 	var kids: Array = []
+	var movers: Array = []
 	for c in stage.get_children():
-		if c != ground and c is Node2D:
+		if c == ground or not c is Node2D:
+			continue
+		if c is PersonView or c is PetView:
+			movers.append(c)
+		else:
 			kids.append(c)
 	var keyed: Array = []
 	for i in kids.size():
 		keyed.append([sort_depth(kids[i]), i, kids[i]])
 	keyed.sort_custom(func(a, b): return a[0] < b[0] if a[0] != b[0] else a[1] < b[1])
+	var order: Array = []
+	var deps: Array = []
+	var boxes: Array = []
+	for k in keyed:
+		order.append(k[2])
+		deps.append(k[0])
+		boxes.append(stage_box(k[2]))
+	# People and animals go in one by one, front-most last, each between whatever it must be
+	# drawn over and whatever must be drawn over it (`_slot`).
+	var mk: Array = []
+	for i in movers.size():
+		mk.append([sort_depth(movers[i]), i, movers[i]])
+	mk.sort_custom(func(a, b): return a[0] < b[0] if a[0] != b[0] else a[1] < b[1])
+	for k in mk:
+		var at := _slot(order, deps, boxes, k[2], k[0])
+		order.insert(at, k[2])
+		deps.insert(at, k[0])
+		boxes.insert(at, mover_box(k[2]))
 	var base := 1 if ground != null and ground.get_parent() == stage else 0
-	for i in keyed.size():
-		var n: Node = keyed[i][2]
+	for i in order.size():
+		var n: Node = order[i]
 		if n.get_index() != base + i:
 			stage.move_child(n, base + i)
+
+
+## Local avoidance: someone walking who would walk into another goes round them or waits a
+## moment. Each frame they look LOOK_AHEAD seconds on: if they would then be closer than
+## KEEP_APART to someone (where that one will be, walking on) and closing in, that one is in
+## the way. Someone standing in the way is walked round (a way that keeps off their cell); of
+## two walking into each other the later born gives way (goes round, else waits); behind
+## someone going the same way one waits a step back. An animal gives way to everyone (animals
+## pay one another no mind) and nobody to a walking animal. A wait lasts at most WAIT_MAX,
+## then they go on regardless (a narrow door they both need). Returns true to stand still
+## this frame. `n` is a PersonView or PetView; it keeps `waited` and `walked_round` for this.
+const KEEP_APART := 38.0
+const LOOK_AHEAD := 0.3
+const WAIT_MAX := 1.5
+## A way round may be at most this much longer than the way it replaces (plan pixels), and
+## a walker goes round someone at most once per DETOUR_GAP seconds (no dancing in a crowd).
+const DETOUR_MAX := 120.0
+const DETOUR_GAP := 0.6
+## Waiting this long (seconds) to let someone by, one counts as standing (others go round).
+const STOOD := 0.25
+func give_way(n: Node2D, delta: float) -> bool:
+	if not layout.site.enabled or n.position.distance_to(n.target) <= PersonView.ARRIVED:
+		n.waited = 0.0
+		return false
+	var dir := _heading(n)
+	if dir == Vector2.ZERO:
+		return false
+	var pet := n is PetView
+	var rank := _rank(n)
+	n.round_age += delta
+	var mv: Vector2 = dir * float(n.SPEED)
+	var blocker: Node2D = null
+	var follow := false
+	for o in people.values() + pets.values():
+		if o == n or not o.visible or (o is PersonView and o.held) or (pet and o is PetView):
+			continue
+		var now: float = n.position.distance_to(o.position)
+		if now > KEEP_APART + float(n.SPEED) * LOOK_AHEAD * 2.0:
+			continue
+		# Arrived: standing at their spot. Otherwise on the way (walking, or waiting a moment).
+		# Someone who has stood a moment to let others by counts as standing too.
+		var arrived: bool = o.position.distance_to(o.target) <= PersonView.ARRIVED or float(o.waited) >= STOOD
+		if arrived and o.position.distance_to(n.target) < KEEP_APART:
+			continue  # standing where this one is going: the house spreads them on arrival
+		if not arrived and o is PetView and not pet:
+			continue
+		var od := _heading(o) if not arrived and float(o.waited) <= 0.0 else Vector2.ZERO
+		# The closest the two come within LOOK_AHEAD, each walking on as now.
+		var rel: Vector2 = o.position - n.position
+		var rv: Vector2 = od * float(o.SPEED) - mv
+		var tc := 0.0 if rv.length_squared() < 0.0001 else clampf(-rel.dot(rv) / rv.length_squared(), 0.0, LOOK_AHEAD)
+		var then := (rel + rv * tc).length()
+		# In the way: coming closer than KEEP_APART, or already that close and ahead.
+		var closing := then < KEEP_APART and then < now - 0.5
+		var ahead := now < KEEP_APART and rel.dot(dir) > 0.3 * now
+		if not (closing or ahead):
+			continue
+		var behind := od.dot(dir) > 0.5 and rel.dot(dir) > 0.0
+		if not arrived and not behind and not pet and _rank(o) < rank:
+			continue  # the other gives way (but whoever walks behind another keeps back)
+		follow = behind
+		blocker = o
+		break
+	if blocker == null:
+		n.waited = 0.0
+		return false
+	if n.waited > WAIT_MAX:
+		return false
+	if follow:
+		n.waited += delta
+		return true
+	var cell := layout.site.cell_of(blocker.position)
+	var arrived_b: bool = blocker.position.distance_to(blocker.target) <= PersonView.ARRIVED or float(blocker.waited) >= STOOD
+	if cell == n.walked_round and arrived_b:
+		return false  # already going round them
+	if not arrived_b:
+		# Giving way to someone walking: a step that takes this one off their way goes on.
+		var a0: Vector2 = blocker.position
+		var a1: Vector2 = a0 + _heading(blocker) * HouseSite.CELL.x * 3.0
+		var d0 := Geometry2D.get_closest_point_to_segment(n.position, a0, a1).distance_to(n.position)
+		var p1: Vector2 = n.position + dir * 4.0
+		var d1 := Geometry2D.get_closest_point_to_segment(p1, a0, a1).distance_to(p1)
+		if d1 > d0 + 1.0:
+			return false
+	if cell != n.walked_round and n.round_age >= DETOUR_GAP:
+		var avoid := {cell: true}
+		avoid[layout.site.cell_of(blocker.position + _heading(blocker) * HouseSite.CELL.y)] = true
+		var r := layout.site.detour(n.position, n.target, avoid)
+		var longer := _length(n.position, r[1], n.target) - _length(n.position, n.path, n.target)
+		if r[0] and longer < DETOUR_MAX and _clears(n.position, r[1], n.target, blocker.position):
+			_set_way(n, r[1], cell)
+			return false
+	if not arrived_b and n.round_age >= DETOUR_GAP * 0.5:
+		# No way round (a narrow passage), and they keep coming: the one giving way steps
+		# aside into a free cell beside, off the other's way, and goes on from there.
+		var aside := _aside(n, blocker)
+		if aside.x != INF:
+			var way := PackedVector2Array([aside])
+			way.append_array(layout.site.route(aside, n.target))
+			_set_way(n, way, cell)
+			return false
+	n.waited += delta
+	return true
+
+
+static func _set_way(n: Node2D, way: PackedVector2Array, round_cell: Vector2i) -> void:
+	n.path = way
+	n._path_goal = n.target
+	n._path_from = n.position
+	n.walked_round = round_cell
+	n.round_age = 0.0
+
+
+## A free cell's middle next to `n` that is at least KEEP_APART off the line `o` walks (or off
+## `o`, standing), the furthest such; else the cell behind `n`, away from `o` (backing off out
+## of a doorway); Vector2(INF, INF) when there is none.
+func _aside(n: Node2D, o: Node2D) -> Vector2:
+	var site := layout.site
+	var c := site.cell_of(n.position)
+	var a: Vector2 = o.position
+	var b: Vector2 = a + _heading(o) * HouseSite.CELL.x * 3.0
+	var best := Vector2(INF, INF)
+	var best_d := KEEP_APART
+	for d in [Vector2i(1, 0), Vector2i(-1, 0), Vector2i(0, 1), Vector2i(0, -1), Vector2i(1, 1), Vector2i(-1, 1), Vector2i(1, -1), Vector2i(-1, -1)]:
+		var q: Vector2i = c + d
+		if not site.walkable(q) or not site.step_open(c, q):
+			continue
+		var p := site.centre(q)
+		if not site.can_stop(p) or not site.clear_line(n.position, p):
+			continue
+		var dist := Geometry2D.get_closest_point_to_segment(p, a, b).distance_to(p)
+		if dist >= best_d:
+			best_d = dist
+			best = p
+	if best.x != INF:
+		return best
+	# Nowhere beside (a doorway): back off a cell, away from them.
+	var far := n.position.distance_to(a) + HouseSite.CELL.y * 0.5
+	for d in [Vector2i(1, 0), Vector2i(-1, 0), Vector2i(0, 1), Vector2i(0, -1)]:
+		var q: Vector2i = c + d
+		var p := site.centre(q)
+		if site.walkable(q) and site.step_open(c, q) and site.can_stop(p) and site.clear_line(n.position, p) and p.distance_to(a) > far:
+			far = p.distance_to(a)
+			best = p
+	return best
+
+
+## Whether the way from `from` through `pts` to `to` keeps KEEP_APART * 0.8 from `p` over its
+## first two legs (a way round that does not really go round is no way round).
+static func _clears(from: Vector2, pts: PackedVector2Array, to: Vector2, p: Vector2) -> bool:
+	var at := from
+	for i in mini(pts.size() + 1, 2):
+		var nxt := pts[i] if i < pts.size() else to
+		if Geometry2D.get_closest_point_to_segment(p, at, nxt).distance_to(p) < KEEP_APART * 0.8:
+			return false
+		at = nxt
+	return true
+
+
+## The length of the way from `from` through `pts` to `to`.
+static func _length(from: Vector2, pts: PackedVector2Array, to: Vector2) -> float:
+	var at := from
+	var total := 0.0
+	for p in pts:
+		total += at.distance_to(p)
+		at = p
+	return total + at.distance_to(to)
+
+
+## Which way `n` walks now (a unit vector; zero standing).
+static func _heading(n: Node2D) -> Vector2:
+	var next: Vector2 = n.path[0] if not n.path.is_empty() else n.target
+	var d: Vector2 = next - n.position
+	return d.normalized() if d.length() > 0.5 else Vector2.ZERO
+
+
+## Who gives way to whom: the earlier born (lower uid) goes first.
+static func _rank(n: Node2D) -> int:
+	if n is PersonView:
+		return -int((n as PersonView).person.uid)
+	if n is PetView:
+		return -100000 - int((n as PetView).pet.uid)
+	return 0
+
+
+## Where a person or animal `n` (sort depth `d`) goes into `order` (back to front). Only what
+## overlaps its body on the screen matters: a piece of furniture it stands in front of (east
+## of the footprint's east edge or south of its south edge) is drawn before it, one it stands
+## behind after it, whatever the pieces' middles say (a long piece's middle can be nearer the
+## camera than someone at its front end); the seat or bed it sits or lies on is under it; a
+## back wall likewise by its side; everything else by depth. Its own depth wins when the
+## overlaps disagree.
+func _slot(order: Array, deps: Array, boxes: Array, n: Node2D, d: float) -> int:
+	var natural := deps.bsearch(d, false)
+	var body := mover_box(n)
+	var lo := -1
+	var hi := order.size()
+	var w := session.world if session != null else null
+	var seat := -1
+	if n is PersonView and (n as PersonView).on_object:
+		seat = int((n as PersonView).use_object.get("uid", -1))
+	elif n is PetView and (n as PetView).pet != null:
+		seat = int((n as PetView).pet.current.get("object_uid", -1))
+	for i in order.size():
+		var box: Rect2 = boxes[i]
+		if box.size == Vector2.ZERO or not box.intersects(body):
+			continue
+		var o: Node2D = order[i]
+		var side := 0
+		if o is PropPiece and (o as PropPiece).object_uid >= 0 and w != null:
+			var obj := w.object((o as PropPiece).object_uid)
+			if not obj.is_empty():
+				var fr := layout.object_rect(obj, w.pack)
+				side = 1 if (o as PropPiece).object_uid == seat and fr.grow(2.0).has_point(n.position) else foot_side(n.position, fr)
+		elif o is IsoWall and (o as IsoWall).role == "wall" and (o as IsoWall).tall:
+			side = foot_side(n.position, (o as IsoWall).plan_rect(), 2.0)
+		if side == 0:
+			side = 1 if float(deps[i]) <= d else -1
+		if side == 1:
+			lo = maxi(lo, i)
+		else:
+			hi = mini(hi, i)
+	if lo >= hi:
+		return natural
+	return clampi(natural, lo + 1, hi)
+
+
+## Whether someone standing at plan point `p` is in front of footprint `r` (1: east of its
+## east edge or south of its south edge), behind it (-1: west or north) or neither surely (0).
+static func foot_side(p: Vector2, r: Rect2, reach := 8.0) -> int:
+	var front := p.x - reach >= r.end.x or p.y - reach >= r.end.y
+	var behind := p.x + reach <= r.position.x or p.y + reach <= r.position.y
+	if front and not behind:
+		return 1
+	if behind and not front:
+		return -1
+	return 0
+
+
+## A person's or animal's body on the view (this node's unscaled coordinates).
+func mover_box(n: Node2D) -> Rect2:
+	var foot := proj * n.position
+	if n is PersonView:
+		var pv := n as PersonView
+		if pv.body_pose() == "sleep":
+			var len := pv.body_size().y
+			return Rect2(foot + pv.lie_point() - Vector2(len * 0.5, 16), Vector2(len, 32))
+		var b := pv.body_size()
+		var h := pv.drawn_height() + pv.seat_lift()
+		return Rect2(foot + Vector2(-b.x * 0.5, -h), Vector2(b.x, h + 4.0))
+	if n is PetView:
+		var pb := (n as PetView).body()
+		return Rect2(foot + Vector2(-pb.x * 0.5, -pb.y), Vector2(pb.x, pb.y + 4.0))
+	return Rect2()
+
+
+## What a standing node covers on the view: a picture's rect, a wall's box, a body.
+func stage_box(n: Node2D) -> Rect2:
+	if n is PropPiece:
+		var p := n as PropPiece
+		return Rect2(proj * p.position + p.rect.position, p.rect.size)
+	if n is IsoWall:
+		return (n as IsoWall).cover_box()
+	if n is PersonView or n is PetView:
+		return mover_box(n)
+	return Rect2()
 
 
 ## How far in front a standing node is drawn (view y of its foot, plus its own bias).
@@ -365,6 +654,11 @@ func _spread(w: World) -> void:
 		var there := order.filter(func(u): return people[u].position.distance_to(people[u].base_target) <= PersonView.ARRIVED)
 		order = there + order.filter(func(u): return not there.has(u))
 		var cells := {}
+		# An animal lying or standing about keeps its spot: people take the cells beside it.
+		for pid in pets:
+			var a: PetView = pets[pid]
+			if a.position.distance_to(a.target) <= PersonView.ARRIVED and not layout.site.blocked.has(layout.site.cell_of(a.position)):
+				cells[layout.site.cell_of(a.position)] = true
 		var seated := {}  # object uid -> how many sit or lie on it already
 		for uid in order:
 			var pv: PersonView = people[uid]
@@ -378,7 +672,10 @@ func _spread(w: World) -> void:
 				t.x = clampf(t.x + float(steps[mini(k, 4)]) * 34.0, r.position.x + 14.0, r.end.x - 14.0)
 				pv.target = t
 				continue
-			if cells.has(layout.site.cell_of(t)):
+			var clash := false
+			for dx in [-HouseSite.FEET, 0.0, HouseSite.FEET]:
+				clash = clash or cells.has(layout.site.cell_of(t + Vector2(dx, 0)))
+			if clash:
 				if not pv.use_object.is_empty() and w != null:
 					t = layout.stand_pos(pv.use_object, w.pack, cells)
 				else:
@@ -457,7 +754,7 @@ func _sync_props() -> void:
 				var r: Rect2 = spot.rect
 				if r != piece.rect or tex != piece.tex or a != piece.alpha or spot.flip != piece.flip or spot.at != piece.position:
 					if ground != null and (r != piece.rect or spot.at != piece.position):
-						ground.queue_redraw()  # the names on the floor keep clear of the pictures
+						ground.queue_redraw()
 					piece.alpha = a
 					piece.flip = spot.flip
 					piece.sort_bias = FURNITURE_BIAS - lift * IsoMath.TILE.y / HouseSite.CELL.y
@@ -926,6 +1223,8 @@ func _unhandled_input(event: InputEvent) -> void:
 	elif event is InputEventMouseMotion and _arrange_on():
 		_see_cursor(event.position)
 		arrange.hover(world_pos(event.position))
+	elif event is InputEventMouseMotion:
+		point_at(event.position)
 
 
 func _draw() -> void:
@@ -1054,6 +1353,56 @@ func _draw_labels() -> void:
 	var spots := label_spots()
 	for uid in spots:
 		people[uid].draw_label(_labels, spots[uid])
+	_draw_place_name()
+
+
+## The 45° view writes no names on the floor: the place under the pointer (an unbuilt room,
+## a place out on the map) shows its name, with the price when it is still to build, on a
+## plate over its middle. Built rooms inside the compound show nothing.
+var pointed_room := ""
+func point_at(screen: Vector2) -> void:
+	_see_cursor(screen)
+	var room := ""
+	if iso and session != null and session.world != null and session.world.phase != "invalid":
+		var hit := layout.pos_to_cell(world_pos(screen))
+		if not hit.is_empty():
+			room = str(hit.room)
+	if place_label(room) == "":
+		room = ""
+	if room != pointed_room:
+		pointed_room = room
+		if _labels != null:
+			_labels.queue_redraw()
+
+
+## The hover words for `room`: "<name> · <price>" unbuilt, the name for a place out on the map,
+## "" for a built room (or no room).
+func place_label(room: String) -> String:
+	var w := session.world if session != null else null
+	if room == "" or w == null or not w.pack.rooms.has(room):
+		return ""
+	var r: Dictionary = w.pack.rooms[room]
+	var name := str(r.get("name", ""))
+	if not room in w.rooms_built:
+		return "%s · %s" % [name, session.strings.t("money").replace("{n}", str(int(r.get("build_cost", 0))))]
+	return name if bool(r.get("outside", false)) else ""
+
+
+func _draw_place_name() -> void:
+	var text := place_label(pointed_room)
+	if text == "" or _pressed:
+		return
+	var font := ThemeDB.fallback_font
+	var at := proj * layout.room_rect(pointed_room).get_center() + Vector2(0, -16)
+	var tw := font.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, 15).x + 20.0
+	var plate := Rect2(at.x - tw * 0.5, at.y - 26, tw, 26)
+	var box := StyleBoxFlat.new()
+	box.bg_color = Color("#FFF4DF", 0.94)
+	box.border_color = Color("#4A3424", 0.55)
+	box.set_border_width_all(1)
+	box.set_corner_radius_all(9)
+	_labels.draw_style_box(box, plate)
+	_labels.draw_string(font, Vector2(plate.position.x, plate.position.y + 18), text, HORIZONTAL_ALIGNMENT_CENTER, tw, 15, Color("#4A3424"))
 
 
 ## Hover and the arrange ghost above the standing pictures.

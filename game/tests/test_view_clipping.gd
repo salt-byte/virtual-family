@@ -294,40 +294,59 @@ func test_the_view_is_a_45_degree_projection_of_the_plan():
 	m.free()
 
 
-## People turn with the way they walk: down the screen towards the camera (the front rig),
-## up it away (the back rig), across it sideways; at furniture the side rig, turned to it.
-func test_people_turn_to_the_camera_or_away_as_they_walk():
+## People are seen at 45°, never head-on: walking up the screen they turn away, three-quarters
+## (the back34 rig); walking down or across it, standing, working, sitting, eating they turn
+## three-quarters towards the camera (front34), mirrored by the way they go or face. Lying
+## down is the side rig. A look without the three-quarter rigs falls back to the back rig
+## walking up and the side rig otherwise; the head-on front rig is not used.
+func test_people_turn_three_quarters_as_they_walk():
 	var m := _main()
 	var w := m.session.world
 	var p := TestKit.adult(w)
 	m.tick(0.016)
 	var pv: PersonView = m.house.people[p.uid]
 	var look := m.house.skin.person_look(p.stage(w.pack), p.gender)
-	assert_true(look.has("rig_front") and look.has("rig_back"), "the facing rigs are there")
-	assert_eq((look.rig_front as CutoutRig).facing, "front")
-	assert_eq((look.rig_back as CutoutRig).facing, "back")
+	assert_true(look.has("rig_front34") and look.has("rig_back34"), "the three-quarter rigs are there")
+	assert_eq((look.rig_front34 as CutoutRig).facing, "front34")
+	assert_eq((look.rig_back34 as CutoutRig).facing, "back34")
 	pv._turn(Vector2(48, 36))  # south-east: straight down the screen
-	assert_eq(pv.turned, "front")
-	assert_eq(pv._rig_for("walk")[0], look.rig_front)
-	pv._turn(Vector2(-48, -36))  # north-west: up the screen
+	assert_eq(pv.turned, "front34", "not head-on to the camera")
+	assert_eq(pv._rig_for("walk")[0], look.rig_front34)
+	pv._turn(Vector2(0, 36))  # south: down-left
+	assert_eq(pv.turned, "front34")
+	assert_eq(pv._facing, -1.0, "mirrored")
+	pv._turn(Vector2(48, -36))  # north-east: straight right
+	assert_eq(pv.turned, "front34")
+	assert_eq(pv._facing, 1.0)
+	pv._turn(Vector2(0, -36))  # north: up-right, away
+	assert_eq(pv.turned, "back34")
+	assert_eq(pv._rig_for("walk")[0], look.rig_back34)
+	pv._turn(Vector2(-48, 0))  # west: up-left
+	assert_eq(pv.turned, "back34")
+	assert_eq(pv._facing, -1.0)
+	pv._turn(Vector2.ZERO)  # standing about: towards the camera, still facing left
+	assert_eq(pv.turned, "front34")
+	assert_eq(pv._facing, -1.0)
+	for bp in ["idle", "work", "sit", "eat", "wave"]:
+		assert_eq(pv._rig_for(bp)[0], look.rig_front34, bp)
+	assert_eq(pv._rig_for("sleep")[0], look.rig, "lying down: the side rig")
+	# The three-quarter rigs play the keyframed animations: the walk swings the legs, the
+	# walk turned away is its own ("walk_up"), sitting drops the hips by the rig's own thigh.
+	var f34: CutoutRig = look.rig_front34
+	var b34: CutoutRig = look.rig_back34
+	assert_true(not (f34.pose("walk", 0.0)["leg_upper"] as Vector3).is_equal_approx(f34.pose("walk", 0.18)["leg_upper"]), "legs move")
+	assert_true(not (f34.pose("walk", 0.18)["leg_upper"] as Vector3).is_equal_approx(b34.pose("walk", 0.18)["leg_upper"]), "walk_up")
+	assert_near((f34.pose("sit", 0.0)["torso"] as Vector3).z, f34.thigh * 0.97 / f34.unit, 0.01)
+	assert_true(f34.pose("sit", 0.0).has("_z"), "near leg over the torso")
+	# Without the three-quarter rigs: the back rig up the screen, the side rig otherwise.
+	pv._look.erase("rig_front34")
+	pv._look.erase("rig_back34")
+	pv._turn(Vector2(0, -36))
 	assert_eq(pv.turned, "back")
 	assert_eq(pv._rig_for("walk")[0], look.rig_back)
-	pv._turn(Vector2(48, -36))  # north-east: straight right
-	assert_eq(pv.turned, "side")
-	assert_eq(pv._facing, 1.0)
-	assert_eq(pv._rig_for("walk")[0], look.rig)
-	pv._turn(Vector2(0, 36))  # south: down-left, towards the camera
-	assert_eq(pv.turned, "front")
-	assert_eq(pv._facing, -1.0)
-	# Sitting, working, eating: always the side rig.
 	assert_eq(pv._rig_for("work")[0], look.rig)
-	assert_eq(pv._rig_for("sit")[0], look.rig)
-	# The front walk lifts the legs in turn instead of swinging them.
-	var front: CutoutRig = look.rig_front
-	var a := front.pose("walk", 0.15)
-	var b := front.pose("walk", 0.45)
-	assert_true((a["leg_upper"] as Vector3).z < 0.0 and (b["leg_back_upper"] as Vector3).z < 0.0)
-	assert_eq((a["leg_upper"] as Vector3).x, 0.0)
+	pv._turn(Vector2(0, 36))
+	assert_eq(pv.turned, "side")
 	m.free()
 
 
@@ -405,20 +424,25 @@ func test_walking_speed_is_even_on_the_screen():
 	m.free()
 
 
-## The rooms' names lie on a free part of the floor, clear of every furniture picture.
-func test_room_names_are_clear_of_the_furniture():
+## No names on the floor: a built room shows none; an unbuilt room keeps its price on the
+## floor and shows "name · price" while the pointer is on it; a place out on the map shows
+## its name on hover; a built room in the compound nothing.
+func test_place_names_show_on_hover_not_on_the_floor():
 	var m := _main()
-	var font := ThemeDB.fallback_font
-	for id in ["hall", "kitchen", "bedroom", "woodshed"]:
-		var rect := m.house.layout.room_rect(id)
-		var name := str(m.session.world.pack.rooms[id]["name"])
-		var wdt := font.get_string_size(name, HORIZONTAL_ALIGNMENT_LEFT, -1, 16).x
-		var at := m.house.ground.free_label_spot(rect, wdt, 16, Vector2(INF, INF))
-		assert_true(at.x != INF, id)
-		var box := Rect2(IsoMath.to_view(at) + Vector2(0, -16), Vector2(wdt, 20))
-		for uid in m.house.props:
-			var r: Rect2 = _pic(m.house, m.house.props[uid])
-			assert_true(not r.intersects(box), "%s name under %s" % [id, m.session.world.object(uid).type])
+	var w := m.session.world
+	var money := func(n): return m.session.strings.t("money").replace("{n}", str(n))
+	assert_eq(m.house.place_label("hall"), "", "a built room: no name")
+	var study: Dictionary = w.pack.rooms["study"]
+	assert_true(not "study" in w.rooms_built)
+	assert_eq(m.house.place_label("study"), "%s · %s" % [study.name, money.call(int(study.build_cost))])
+	assert_eq(m.house.place_label("riverside"), str(w.pack.rooms["riverside"].name))
+	# Pointing at the study's middle shows its words; at the hall, nothing.
+	m.house.point_at(m.house.to_screen(m.house.layout.room_rect("study").get_center()))
+	assert_eq(m.house.pointed_room, "study")
+	m.house.point_at(m.house.to_screen(m.house.layout.room_rect("hall").get_center()))
+	assert_eq(m.house.pointed_room, "")
+	m.house.point_at(m.house.to_screen(m.house.layout.room_rect("riverside").get_center()))
+	assert_eq(m.house.pointed_room, "riverside")
 	m.free()
 
 
@@ -516,4 +540,158 @@ func test_the_walk_cycle_follows_the_ground():
 	var k := clampf(float(pv._look.height) / 90.0, 0.6, 1.1)
 	assert_near(pv._stride_t - t0, screen / (PersonView.STRIDE * k) * CutoutRig.WALK_PERIOD, 0.001)
 	assert_true(PersonView.ELDER_PACE < 1.0)
+	m.free()
+
+
+## The 穿模 detector (`ClipProbe`) over a minute and a half of a lived-in house at normal speed: every
+## room built, seven people, a dog, a cat and a bird going about their day. Nobody's feet in
+## furniture or through a wall, nobody drawn on the wrong side of a picture or a back wall,
+## nobody sitting off their seat; people walking into one another, hardly ever.
+func test_a_lived_in_house_has_no_clipping():
+	var tool = load("res://tools/clip_detect.gd")
+	var m: Main = tool.start(Engine.get_main_loop(), "full", clk, _clock)
+	var probe := ClipProbe.new(m.house)
+	var dt := 1.0 / 30.0
+	var opening := 0
+	for f in 2700:
+		clk.unix += dt
+		m.tick(dt)
+		probe.frame(dt)
+		if f % 3 == 0:
+			probe.check()
+		if f == 300:
+			# The first ten seconds: all seven leave the hall at the same moment (a crowd at
+			# one door); the hardly-ever is counted from there on.
+			opening = int(probe.counts["people_overlap"]) + int(probe.counts["pet_overlap"])
+	for k in ["sort_order", "wall_sort", "feet_in_furniture", "walk_wall", "stop_wall_line", "seat_missing", "lie_wall", "sit_height", "hud"]:
+		assert_eq(int(probe.counts[k]), 0, "%s: %s" % [k, probe.events.filter(func(e): return e.kind == k).map(func(e): return "%s %s %s" % [e.who, e.action, e.detail])])
+	assert_true(int(probe.counts["people_overlap"]) + int(probe.counts["pet_overlap"]) - opening <= 3, probe.summary())
+	m.free()
+
+
+## Each seat has its anchor (art.json `poses.seats`): the sitter's hips are on the seat's
+## surface (the body lifted, legs hanging, on a seat higher than their shins) and they are
+## drawn over the seat; on the stool they sit in its middle, on the kang on its edge.
+func test_sitters_sit_on_the_seat_surface():
+	var m := _main()
+	var w := m.session.world
+	var probe := ClipProbe.new(m.house)
+	var jobs := [["shell_beans", "stool"], ["pick_ears", "stone_bench"], ["sit_on_threshold_long", "threshold"]]
+	var pvs: Array = []
+	for pv in m.house.people.values():
+		pv.visible = false  # the household stands about the hall's door; out of the way
+	for j in jobs:
+		var p := TestKit.adult(w)
+		m.tick(0.016)
+		var o: Dictionary = w.objects.filter(func(x): return x.type == j[1])[0]
+		AutonomySystem.start(w, p, j[0], int(o.uid))
+		p.current["remaining_s"] = 99999
+		pvs.append(m.house.people[p.uid])
+	m.house.refresh()
+	for i in 900:
+		m.house.tick(1.0 / 30.0)
+	for k in pvs.size():
+		var pv: PersonView = pvs[k]
+		assert_true(pv.on_object and pv.position.distance_to(pv.target) <= 1.0, jobs[k][1])
+		assert_eq(pv.body_pose(), "sit", jobs[k][1])
+		assert_near(pv.hip_height(), m.house.skin.seat_height(jobs[k][1]), ClipProbe.SIT_SLACK)
+		assert_true(pv.get_index() > m.house.props[int(pv.use_object.uid)].get_index(), "%s drawn over the seat" % jobs[k][1])
+	var stool := m.house.layout.object_rect((pvs[0] as PersonView).use_object, w.pack)
+	assert_near((pvs[0] as PersonView).target.y, stool.get_center().y, 0.5)
+	probe.check()
+	assert_eq(int(probe.counts["sit_height"]) + int(probe.counts["seat_missing"]) + int(probe.counts["sort_order"]), 0, probe.summary())
+	m.free()
+
+
+## Getting off a seat (or onto one) is by its front: the way from a stool to somewhere behind
+## it steps out to the south first, never across the seat.
+func test_ways_off_a_seat_leave_by_its_front():
+	var m := _main()
+	var w := m.session.world
+	var site := m.house.layout.site
+	var uid := -1
+	w.money = 1000
+	var hall := HouseLayout.cells_of(m.house.layout.room_rect("hall")).position
+	for y in range(1, 5):
+		for x in range(1, 9):
+			# Open all round, so the way behind it goes round it.
+			var open := true
+			for d in [Vector2i(-1, -1), Vector2i(0, -1), Vector2i(1, -1), Vector2i(-1, 0), Vector2i(1, 0), Vector2i(-1, 1), Vector2i(0, 1), Vector2i(1, 1)]:
+				open = open and site.walkable(hall + Vector2i(x, y) + d)
+			if uid < 0 and open and HouseSystem.can_place(w, "stool", "hall", x, y) == "":
+				uid = w.add_object("stool", "hall", x, y)
+	assert_true(uid >= 0)
+	m.tick(0.016)
+	var o := w.object(uid)
+	var r := m.house.layout.object_rect(o, w.pack)
+	var seat := Vector2(r.get_center().x, r.get_center().y)
+	var behind := Vector2(r.get_center().x, r.position.y - HouseSite.CELL.y * 0.5)
+	assert_true(site.walkable(site.cell_of(behind)))
+	for pair in [[seat, behind], [behind, seat]]:
+		var pts := site.route(pair[0], pair[1])
+		var at: Vector2 = pair[0]
+		for p in Array(pts) + [pair[1]]:
+			var n := int(ceil(at.distance_to(p) / 3.0))
+			for k in range(1, n):
+				var q := at.lerp(p, float(k) / float(n))
+				assert_true(not r.grow(-3.0).has_point(q) or q.y >= r.get_center().y - 1.0, "%s across the seat at %s" % [pair, q])
+			at = p
+	m.free()
+
+
+## Two people walking at each other along a row of the yard pass without walking through
+## each other (one goes round or waits); someone walking at a person standing in the way
+## goes round them.
+func test_walkers_give_way():
+	var m := _main()
+	var w := m.session.world
+	var a := TestKit.adult(w)
+	var b := TestKit.adult(w)
+	m.tick(0.016)
+	var pa: PersonView = m.house.people[a.uid]
+	var pb: PersonView = m.house.people[b.uid]
+	for pv in m.house.people.values():
+		if pv != pa and pv != pb:
+			pv.visible = false
+	var l := m.house.layout
+	var left := l.cell_center("yard", 9, 3)
+	var right := l.cell_center("yard", 15, 3)
+	var mid := l.cell_center("yard", 12, 3)
+	for runs in [[left, right, right, left], [left, right, mid, mid]]:
+		pa.position = runs[0]
+		pa.target = runs[1]
+		pb.position = runs[2]
+		pb.target = runs[3]
+		pa.waited = 0.0
+		pb.waited = 0.0
+		var closest := INF
+		for i in 240:
+			pa.tick(1.0 / 30.0)
+			pb.tick(1.0 / 30.0)
+			closest = minf(closest, pa.position.distance_to(pb.position))
+		assert_true(closest >= 22.0, "came %.0f px close" % closest)
+		assert_true(pa.position.distance_to(pa.target) <= 1.0, "got there")
+	m.free()
+
+
+## A long piece's picture is drawn behind someone standing in front of its far end, and over
+## someone standing behind it, though its middle is nearer the camera than either of them.
+func test_long_pieces_sort_by_their_edges_not_their_middle():
+	var m := _main()
+	var w := m.session.world
+	var o: Dictionary = w.objects.filter(func(x): return x.type == "grape_trellis")[0]
+	var piece: PropPiece = m.house.props[int(o.uid)]
+	var r := m.house.layout.object_rect(o, w.pack)
+	var pv: PersonView = m.house.people.values()[0]
+	pv.held = true
+	# South of its west end: in front; the middle of the piece sorts deeper than the feet.
+	pv.position = Vector2(r.position.x + 20.0, r.end.y + 16.0)
+	assert_true(m.house.sort_depth(piece) > m.house.sort_depth(pv), "the middle alone would draw it over them")
+	m.house.tick(0.016)
+	assert_true(pv.get_index() > piece.get_index(), "in front of the trellis")
+	# North of its east end: behind it, though deeper than its middle.
+	pv.position = Vector2(r.end.x - 10.0, r.position.y - 10.0)
+	m.house.tick(0.016)
+	if m.house.mover_box(pv).intersects(m.house.stage_box(piece)):
+		assert_true(pv.get_index() < piece.get_index(), "behind the trellis")
 	m.free()
