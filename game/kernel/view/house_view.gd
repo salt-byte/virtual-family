@@ -525,7 +525,7 @@ func _slot(order: Array, deps: Array, boxes: Array, n: Node2D, d: float) -> int:
 			if not obj.is_empty():
 				var fr := layout.object_rect(obj, w.pack)
 				var on := (o as PropPiece).object_uid == seat or (skin != null and skin.step_over(str(obj.type)))
-				side = 1 if on and fr.grow(2.0).has_point(n.position) else foot_side(n.position, fr)
+				side = 1 if on and fr.grow(2.0).has_point(n.position) else foot_side(n.position, fr, 2.0)
 		elif o is IsoWall and (o as IsoWall).role == "wall" and (o as IsoWall).tall:
 			side = foot_side(n.position, (o as IsoWall).plan_rect(), 2.0)
 		if side == 1:
@@ -546,7 +546,8 @@ func _slot(order: Array, deps: Array, boxes: Array, n: Node2D, d: float) -> int:
 
 
 ## Whether someone standing at plan point `p` is in front of footprint `r` (1: east of its
-## east edge or south of its south edge), behind it (-1: west or north) or neither surely (0).
+## east edge or south of its south edge), behind it (-1: west or north) or neither surely (0:
+## over it). Off a corner, both: the side it stands further off wins.
 static func foot_side(p: Vector2, r: Rect2, reach := 8.0) -> int:
 	var front := p.x - reach >= r.end.x or p.y - reach >= r.end.y
 	var behind := p.x + reach <= r.position.x or p.y + reach <= r.position.y
@@ -554,6 +555,11 @@ static func foot_side(p: Vector2, r: Rect2, reach := 8.0) -> int:
 		return 1
 	if behind and not front:
 		return -1
+	if front and behind:
+		# Off a corner (south-west or north-east of it): the side it stands further off wins.
+		var ahead := maxf(p.x - r.end.x, p.y - r.end.y)
+		var back := maxf(r.position.x - p.x, r.position.y - p.y)
+		return 1 if ahead > back else -1
 	return 0
 
 

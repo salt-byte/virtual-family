@@ -154,7 +154,7 @@ func on_own_seat(n: Node2D, uid: int, r: Rect2) -> bool:
 	if uid != using and uid != int(last[0]):
 		return false  # (the seat just left counts too: getting up, off its front edge)
 	depth = float(last[1]) if uid == int(last[0]) else depth
-	return n.position.y >= r.end.y - depth - 6.0 and n.position.x > r.position.x and n.position.x < r.end.x
+	return n.position.y >= r.end.y - depth - 6.0 and n.position.y <= r.end.y + 2.0 and n.position.x > r.position.x and n.position.x < r.end.x
 
 
 ## Whether people walk over pieces of this type (a door sill): standing on it is no 穿模.

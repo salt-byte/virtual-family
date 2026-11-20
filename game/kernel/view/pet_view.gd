@@ -61,6 +61,8 @@ var _path_goal := Vector2(INF, INF)
 ## the cell of the one they last went round.
 var waited := 0.0
 var walked_round := Vector2i(-9999, -9999)
+## The leg of the walk last checked for walls (`walk`).
+var _leg_checked := Vector2(INF, INF)
 var round_age := 99.0
 var _path_from := Vector2(INF, INF)
 var _rng := RandomNumberGenerator.new()
@@ -451,6 +453,21 @@ func walk(step: float) -> void:
 	var iso := _house() != null and _house().iso
 	if iso:
 		step *= IsoMath.ISO_PACE
+	# Every leg is checked once: one that would go through a closed wall (a way worked out
+	# before the house changed, say) is worked out again; with no way at all they stand.
+	var lay := layout()
+	if lay != null and lay.site.enabled:
+		var leg := path[0] if not path.is_empty() else target
+		if leg != _leg_checked:
+			_leg_checked = leg
+			if lay.site.crosses_wall(position, leg):
+				path = lay.site.route(position, target)
+				leg = path[0] if not path.is_empty() else target
+				_leg_checked = leg
+				if lay.site.crosses_wall(position, leg):
+					_leg_checked = Vector2(INF, INF)  # look again next frame
+					_path_from = position
+					return
 	while step > 0.0:
 		var next := path[0] if not path.is_empty() else target
 		var d := position.distance_to(next)
