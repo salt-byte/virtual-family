@@ -55,7 +55,11 @@ func setup(m: Main) -> void:
 	_box = VBoxContainer.new()
 	_box.add_theme_constant_override("separation", 8)
 	panel.add_child(_box)
-	session.away.connect(func(summary: Dictionary): _away = summary)
+	# A pack can turn the "while you were away" card off (`"away_summary": false` in
+	# pack.json): what still needs the player is already in the notices.
+	session.away.connect(func(summary: Dictionary):
+		if bool(session.pack.config.get("away_summary", true)):
+			_away = summary)
 	session.event.connect(func(e: Dictionary):
 		var type := str(e.get("type", ""))
 		if type == "fragment_found":

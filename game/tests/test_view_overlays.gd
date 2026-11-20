@@ -104,7 +104,9 @@ func test_corrupt_save_offers_new_game():
 	m.free()
 
 
-func test_returning_after_hours_shows_summary_once():
+func test_returning_after_hours_shows_no_away_card_in_qijia():
+	# qijia sets "away_summary": false (the user found the card noise; what still needs the
+	# player is in the notices), so coming back after hours opens straight into the house.
 	var m := _main()
 	m.overlays.press("btn.adopt")
 	m.tick(0.016)
@@ -113,14 +115,6 @@ func test_returning_after_hours_shows_summary_once():
 	m.free()
 	clk.unix += 5 * 3600.0
 	var m2 := _main("qijia", d)
-	m2.tick(0.016)
-	assert_eq(m2.overlays.current(), "away")
-	assert_true(m2.overlays.text().contains(m2.session.strings.t("away.time").replace("{h}", "5")))
-	m2.overlays.press("btn.close")
-	m2.tick(0.016)
-	# Shown once. (Something else that happened while away, an old story's visitor at the
-	# gate say, may come up next: old things turn up every 45 minutes or so now.)
-	assert_true(m2.overlays.current() != "away", m2.overlays.current())
 	m2.tick(0.016)
 	assert_true(m2.overlays.current() != "away", m2.overlays.current())
 	m2.free()
@@ -226,7 +220,7 @@ func test_card_is_opaque_and_padded():
 	m.free()
 
 
-func test_death_while_away_shows_summary_with_name_then_game_over_and_no_stale_card():
+func test_death_while_away_goes_to_game_over_with_no_stale_card():
 	var m := _main()
 	m.overlays.press("btn.adopt")
 	m.tick(0.016)
@@ -240,11 +234,9 @@ func test_death_while_away_shows_summary_with_name_then_game_over_and_no_stale_c
 	var m2 := _main("qijia", d)
 	m2.tick(0.016)
 	assert_eq(m2.session.world.phase, "over")
-	assert_eq(m2.overlays.current(), "away")
-	assert_true(m2.overlays.text().contains(who), m2.overlays.text())
-	m2.overlays.press("btn.close")
-	m2.tick(0.016)
+	# No away card in qijia ("away_summary": false): straight to game over.
 	assert_eq(m2.overlays.current(), "over")
+	assert_true(who != "")
 	m2.overlays.press("btn.new_game")
 	m2.tick(0.016)
 	assert_eq(m2.overlays.current(), "adopt")
