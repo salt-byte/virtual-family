@@ -19,6 +19,10 @@
 	"wish_chance_per_hour": 1.8,
 	"wish_check_min": 5,
 	"need_wish_check_min": 2,
+	"ask_chance_per_hour": 6,
+	"ask_check_s": 15,
+	"ask_again_s": 900,
+	"ask_ignored": 2,
 	"wish_miss_penalty": 10,
 	"wish_thanks_min": 2,
 	"mood_low_below": 25,
@@ -34,6 +38,7 @@
 	"mood_neglect_floor": 10,
 	"story_interval_min": 45,
 	"story_ttl_min": 120,
+	"collect_keep": true,
 	"clean_reward": {"amount": 15},
 	"share": {"every": 30, "gap_min": 30, "level": true, "money_text": "今天挣了 {n} 文！", "level_text": "当上{level}了！"},
 	"feelings": [
@@ -102,7 +107,7 @@
 			 "labels": [{"below": 40, "text": "蔫了"}, {"below": 101, "text": "欢实"}]}
 		],
 		"food_need": "belly", "love_need": "fondness", "clean_need": "coat", "health_need": "vigor",
-		"max": 3, "content_above": 50, "age_rate": 0.4, "action_speed": 6, "care_below": 75,
+		"max": 3, "content_above": 50, "age_rate": 0.4, "action_speed": 30, "offline_action_speed": 3, "effect_speed": 6, "care_below": 75,
 		"run_below": 10, "run_after_hours": 12,
 		"come_back_after_hours": 8, "come_back_chance_per_hour": 0.06, "come_back_at": 50, "gone_after_hours": 96,
 		"stray_chance_per_hour": 0.03, "stray_ttl_hours": 6,

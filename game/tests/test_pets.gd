@@ -374,3 +374,134 @@ func test_validator_catches_bad_pet_data():
 	var errs := PackValidator.validate(p)
 	assert_true(errs.any(func(e): return e.contains("perch")), str(errs))
 	assert_true(errs.any(func(e): return e.contains("dragon")), str(errs))
+
+
+# --- liveliness ---
+
+## Watched (online), an awake dog and cat move on to something else every 15-60 s or so:
+## no awake action outlasts a minute and a half, and in ten minutes each does several things.
+func test_an_awake_pet_moves_on_to_something_new_within_a_minute():
+	var w := BalanceRun.family_of_four("qijia", 3)  # noon
+	var dog := _dog(w)
+	var cat := PetSystem.add(w, "cat", "bought")
+	var started := {dog.uid: w.now, cat.uid: w.now}
+	var last := {dog.uid: "", cat.uid: ""}
+	var count := {dog.uid: 0, cat.uid: 0}
+	var longest := {dog.uid: 0, cat.uid: 0}
+	for i in 10 * 12:
+		w.advance(5)
+		for p in [dog, cat]:
+			var a := str(p.current.get("action", ""))
+			if a == last[p.uid]:
+				continue
+			var act := PetSystem.action(w.pack, str(last[p.uid]))
+			if last[p.uid] != "" and not act.get("rest", false):
+				longest[p.uid] = maxi(int(longest[p.uid]), w.now - int(started[p.uid]))
+			last[p.uid] = a
+			started[p.uid] = w.now
+			count[p.uid] = int(count[p.uid]) + 1
+	for p in [dog, cat]:
+		assert_true(int(count[p.uid]) >= 8, "%s changed %d times in 10 min" % [p.kind, count[p.uid]])
+		assert_true(int(longest[p.uid]) <= 90, "%s kept one awake action %d s" % [p.kind, longest[p.uid]])
+	# Every awake action of the three kinds lasts at most a minute watched.
+	for k in ["dog", "cat", "bird"]:
+		for a in w.pack.pets[k]["actions"]:
+			if not a["rest"] and not a["sick"]:
+				assert_true(PetSystem.duration_s(w, a, false) <= 60, a["id"])
+
+
+## During a catch-up pets keep the slow pace (fewer choices, nobody sees them); an action
+## begun then takes no longer than the watched pace once the player is back. What an action
+## does per hour stays the same either way.
+func test_pets_go_slow_during_a_catch_up_and_catch_up_when_watched_again():
+	var w := _q()
+	var dog := _dog(w)
+	var nap: Dictionary = PetSystem.action(w.pack, "dog_sleep")
+	assert_eq(PetSystem.duration_s(w, nap, false), 240)
+	assert_eq(PetSystem.duration_s(w, nap, true), 2400)
+	w.offline = true
+	w.advance(5)
+	assert_true(dog.current.get("slow", false), str(dog.current))
+	dog.current["remaining_s"] = 2400
+	w.offline = false
+	w.advance(5)
+	assert_true(not dog.current.has("slow"))
+	var a := PetSystem.action(w.pack, str(dog.current["action"]))
+	assert_true(int(dog.current["remaining_s"]) <= PetSystem.duration_s(w, a, false), str(dog.current))
+	# Effects scale with the pace: per hour the same, online or off.
+	var wash: Dictionary = PetSystem.action(w.pack, "cat_kang")  # whole steps either way
+	var online := PetSystem.effect_factor(w, wash) / float(PetSystem.duration_s(w, wash, false))
+	w.offline = true
+	var offline := PetSystem.effect_factor(w, wash) / float(PetSystem.duration_s(w, wash, true))
+	assert_near(online, offline, online * 0.05)
+	assert_eq(PetSystem.effect_factor(w, PetSystem.action(w.pack, "dog_mud_roll")), 1.0, "rationed by the clock")
+	assert_eq(PetSystem.effect_factor(w, PetSystem.action(w.pack, "dog_lick_bowls")), 1.0, "rationed by the bowls")
+
+
+## The dog runs to the gate when someone comes back from an outing, and (now and then) to
+## whoever the player sets down; never while it is sick. Reactions are never picked alone.
+func test_the_dog_greets_people_coming_home_and_people_the_player_moves():
+	var w := _q()
+	var p := TestKit.adult(w)
+	var dog := _dog(w)
+	w.advance(5)
+	w.drain_events()
+	PetSystem.notice(w, "back", p)
+	assert_eq(str(dog.current.get("action", "")), "dog_greet_gate")
+	assert_eq(str(dog.current.get("room", "")), "gate")
+	assert_eq(_events(w, "pet_reacted").size(), 1)
+	# A real outing coming back does it too.
+	dog.current = {}
+	assert_true(w.command({"type": "go_out", "person": p.uid, "action": "go_to_market"}).ok)
+	w.drain_events()
+	w.advance(AutonomySystem.duration_s(w, w.pack.actions["go_to_market"]))
+	assert_true(_events(w, "pet_reacted").size() >= 1)
+	# Dropped somewhere by the player: the dog comes up to them (chance 1 for the test).
+	for a in w.pack.pets["dog"]["actions"]:
+		if a["id"] == "dog_greet":
+			a["chance"] = 1.0
+	_keep_alive(w, p)
+	AutonomySystem.cancel(w, p)
+	var stove: int = w.objects.filter(func(o): return o.type == "stove")[0].uid
+	var r := w.command({"type": "drag", "person": p.uid, "object": stove})
+	assert_true(r.ok, str(r))
+	assert_eq(str(dog.current.get("action", "")), "dog_greet")
+	assert_eq(int(dog.current.get("follow", -1)), p.uid)
+	# Sick, it stays where it is.
+	dog.current = {}
+	dog.sick = true
+	PetSystem.notice(w, "back", p)
+	assert_true(dog.current.is_empty())
+	dog.sick = false
+	var picked := false
+	for i in 400:
+		w.advance(5)
+		picked = picked or str(dog.current.get("action", "")).begins_with("dog_greet")
+	assert_true(not picked, "a greeting only comes when something happens")
+
+
+## `follows: "anyone"` trails somebody at home, never someone out on an outing.
+func test_the_dog_tags_along_after_someone_at_home():
+	var w := _q()
+	var p := TestKit.adult(w)
+	var q := TestKit.adult(w)
+	assert_true(w.command({"type": "go_out", "person": q.uid, "action": "go_to_market"}).ok)
+	var who := PetSystem._followable(w, "anyone")
+	assert_eq(who.size(), 1)
+	assert_eq((who[0] as Person).uid, p.uid)
+
+
+func test_validator_catches_bad_lively_pet_fields():
+	var p := Pack.load_dir("res://packs/qijia")
+	assert_eq(PackValidator.validate(p), [] as Array[String])
+	var a: Dictionary = p.pets["dog"]["actions"][0]
+	a["on"] = "sunrise"
+	a["pace"] = "moonwalk"
+	a["trot"] = -1
+	a["chance"] = 2
+	p.pets["cat"]["idle"] = "purr"
+	p.pets["cat"]["actions"][0]["follows"] = "who"
+	p.config["pets"]["offline_action_speed"] = 0
+	var errs := PackValidator.validate(p)
+	for word in ["on must", "pace must", "trot must", "chance must", "idle must", "follows must", "offline_action_speed"]:
+		assert_true(errs.any(func(e): return e.contains(word)), "%s: %s" % [word, errs])

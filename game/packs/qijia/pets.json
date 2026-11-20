@@ -1,52 +1,65 @@
 [
-	{"id": "dog", "name": "大黄狗", "price": 60, "stray": true, "color": "#C99A3E", "size": 0.62, "thanks": "汪汪",
+	{"id": "dog", "name": "大黄狗", "price": 60, "stray": true, "color": "#C99A3E", "size": 0.62, "thanks": "汪汪", "idle": "wag",
 	 "names": ["大黄", "阿黄", "黑子", "来福", "虎子"], "lifespan": [14, 18], "age": [0.5, 1], "stray_age": [2, 5],
 	 "drains": {"belly": 5, "fondness": 2.5, "coat": 1.5}, "home": ["gate", "yard"], "perks": {"guard": 1.5},
 	 "stray_text": "门口蹲着一条瘦黄狗，肋条一根根数得清，见了人就摇尾巴。",
 	 "actions": [
-		{"id": "dog_threshold", "label": "趴在门槛上眯着眼", "object": "threshold", "duration_min": 42, "base": 10, "hours": [6, 20]},
-		{"id": "dog_follow_child", "label": "颠颠地跟在孩子后头跑", "follows": "child", "duration_min": 24, "base": 12, "needs": {"fondness": 6}},
+		{"id": "dog_threshold", "label": "趴在门槛上眯着眼", "object": "threshold", "duration_min": 20, "base": 10, "hours": [6, 20], "rest": true},
+		{"id": "dog_follow_child", "label": "颠颠地跟在孩子后头跑", "follows": "child", "duration_min": 24, "base": 10, "needs": {"fondness": 6}, "pace": "trot"},
+		{"id": "dog_tag_along", "label": "跟在人脚后跟转悠", "follows": "anyone", "duration_min": 15, "base": 8, "hours": [6, 21], "needs": {"fondness": 3}, "pace": "trot"},
+		{"id": "dog_trot_yard", "label": "绕着院子颠颠地小跑", "rooms": ["yard"], "trot": 4, "pace": "trot", "duration_min": 12, "base": 8},
+		{"id": "dog_sniff", "label": "鼻子贴着墙根一路嗅过去", "rooms": ["yard", "gate", "woodshed"], "trot": 3, "pace": "slink", "duration_min": 12, "base": 7},
 		{"id": "dog_mud_roll", "label": "在泥水坑里打滚", "rooms": ["yard", "gate"], "wet": true, "above": {"coat": 60}, "every_hours": 8, "duration_min": 12, "base": 6, "needs": {"coat": -55}},
 		{"id": "dog_shake", "label": "抖搂一身的狗毛", "rooms": ["yard", "hall", "gate"], "duration_min": 6, "base": 4, "mess": {"type": "pet_hair", "chance": 0.5}},
 		{"id": "dog_lick_bowls", "label": "凑到碗边舔剩饭", "scraps": "bowls", "duration_min": 6, "base": 8, "needs": {"belly": 25}},
 		{"id": "dog_bark", "label": "冲着路口汪汪叫", "rooms": ["gate"], "duration_min": 6, "base": 5, "hours": [6, 22]},
 		{"id": "dog_chase_tail", "label": "追着自己的尾巴转圈", "rooms": ["yard"], "duration_min": 6, "base": 4},
-		{"id": "dog_sun_belly", "label": "四仰八叉晒肚皮", "rooms": ["yard"], "weather": ["clear"], "hours": [10, 15], "duration_min": 24, "base": 5},
-		{"id": "dog_sleep", "label": "蜷在柴垛边上打呼", "object": "woodpile", "duration_min": 120, "base": 12, "hours": [21, 6]},
-		{"id": "dog_sick", "label": "耷拉着耳朵趴着不动", "sick": true, "rooms": ["gate", "yard"], "duration_min": 30, "base": 10}
+		{"id": "dog_sun_belly", "label": "四仰八叉晒肚皮", "rooms": ["yard"], "weather": ["clear"], "hours": [10, 15], "duration_min": 24, "base": 5, "rest": true},
+		{"id": "dog_sleep", "label": "蜷在柴垛边上打呼", "object": "woodpile", "duration_min": 120, "base": 12, "hours": [21, 6], "rest": true},
+		{"id": "dog_night_stretch", "label": "爬起来抻个懒腰，换个地方趴下", "rooms": ["yard", "gate"], "trot": 1, "duration_min": 5, "base": 3, "hours": [21, 6]},
+		{"id": "dog_greet_gate", "label": "听见脚步声，蹿到院门口摇尾巴", "on": "back", "rooms": ["gate"], "pace": "dash", "duration_min": 10, "base": 1, "hours": [6, 22]},
+		{"id": "dog_greet", "label": "凑到人跟前，尾巴摇个不停", "on": "dragged", "follows": "who", "chance": 0.6, "pace": "dash", "duration_min": 8, "base": 1, "hours": [6, 22]},
+		{"id": "dog_sick", "label": "耷拉着耳朵趴着不动", "sick": true, "rooms": ["gate", "yard"], "duration_min": 30, "base": 10, "rest": true}
 	 ],
 	 "wishes": [
 		{"id": "dog_bone", "text": "想啃根骨头", "item": "pork_bone", "ttl_hours": 8, "joy": 25},
 		{"id": "dog_romp", "text": "想有人陪它撒欢", "actions": ["play_with_pet"], "ttl_hours": 8, "joy": 20}
 	 ]},
-	{"id": "cat", "name": "狸花猫", "price": 40, "stray": true, "color": "#8C7A5C", "size": 0.5, "thanks": "喵",
+	{"id": "cat", "name": "狸花猫", "price": 40, "stray": true, "color": "#8C7A5C", "size": 0.5, "thanks": "喵", "idle": "flick",
 	 "names": ["花花", "阿狸", "小虎", "咪咪", "团子"], "lifespan": [15, 19], "age": [0.5, 1], "stray_age": [1, 4],
 	 "drains": {"belly": 4, "fondness": 2, "coat": 1}, "home": ["kitchen", "bedroom"], "perks": {"save": {"food": 0.25}},
 	 "stray_text": "灶间的窗台上跳进来一只狸花猫，蹲在那儿舔爪子，撵也不走。",
 	 "actions": [
-		{"id": "cat_stove", "label": "蹲在灶台上眯眼打盹", "object": "stove", "duration_min": 42, "base": 12},
-		{"id": "cat_sun", "label": "摊开肚皮晒太阳", "rooms": ["yard", "well", "gate"], "weather": ["clear"], "hours": [9, 16], "duration_min": 30, "base": 12},
-		{"id": "cat_kang", "label": "团在炕头上睡觉", "object": "kang", "duration_min": 90, "base": 10},
+		{"id": "cat_stove", "label": "蹲在灶台上眯眼打盹", "object": "stove", "duration_min": 24, "base": 10, "rest": true},
+		{"id": "cat_sun", "label": "摊开肚皮晒太阳", "rooms": ["yard", "well", "gate"], "weather": ["clear"], "hours": [9, 16], "duration_min": 24, "base": 12, "rest": true},
+		{"id": "cat_kang", "label": "团在炕头上睡觉", "object": "kang", "duration_min": 60, "base": 10, "rest": true},
 		{"id": "cat_mouse", "label": "盯着墙角的老鼠洞", "rooms": ["kitchen", "woodshed"], "hours": [18, 6], "duration_min": 18, "base": 8, "needs": {"belly": 15}},
 		{"id": "cat_wash", "label": "舔着爪子洗脸", "rooms": ["hall", "bedroom", "kitchen"], "duration_min": 6, "base": 5, "needs": {"coat": 15}},
 		{"id": "cat_rub", "label": "蹭着门框直掉毛", "rooms": ["hall", "bedroom"], "duration_min": 6, "base": 4, "mess": {"type": "pet_hair", "chance": 0.5}},
-		{"id": "cat_beam", "label": "蹲在房梁上往下瞅", "rooms": ["hall", "woodshed"], "duration_min": 24, "base": 4},
-		{"id": "cat_sick", "label": "缩在炕角不吃不喝", "sick": true, "object": "kang", "duration_min": 30, "base": 10}
+		{"id": "cat_beam", "label": "蹲在房梁上往下瞅", "rooms": ["hall", "woodshed"], "duration_min": 15, "base": 4},
+		{"id": "cat_stalk_wall", "label": "压低身子，贴着墙根一步一步挪", "rooms": ["hall", "kitchen", "yard", "woodshed"], "trot": 3, "pace": "slink", "duration_min": 12, "base": 7},
+		{"id": "cat_pounce_leaf", "label": "扑院里一片打旋的落叶", "rooms": ["yard", "well"], "hours": [7, 18], "trot": 2, "pace": "dash", "duration_min": 6, "base": 5},
+		{"id": "cat_hop_kang", "label": "蹿上炕沿，转一圈又跳下来", "object": "kang", "pace": "leap", "duration_min": 5, "base": 4},
+		{"id": "cat_hop_stove", "label": "跳上灶台闻一闻，又轻轻落地", "object": "stove", "pace": "leap", "duration_min": 5, "base": 4},
+		{"id": "cat_wander", "label": "从这屋晃到那屋", "rooms": ["hall", "kitchen", "bedroom", "yard"], "trot": 3, "duration_min": 12, "base": 6},
+		{"id": "cat_sick", "label": "缩在炕角不吃不喝", "sick": true, "object": "kang", "duration_min": 30, "base": 10, "rest": true}
 	 ],
 	 "wishes": [
 		{"id": "cat_fish", "text": "想吃条小鱼", "item": "dried_fish", "actions": ["feed_cat_fish"], "ttl_hours": 8, "joy": 25},
 		{"id": "cat_sunny", "text": "想晒晒太阳", "actions": ["cat_sun", "carry_cat_to_sun"], "ttl_hours": 8, "joy": 20}
 	 ]},
-	{"id": "bird", "name": "八哥", "price": 80, "perch": "bird_cage", "color": "#2E2E33", "size": 0.36, "thanks": "好呀好呀",
+	{"id": "bird", "name": "八哥", "price": 80, "perch": "bird_cage", "color": "#2E2E33", "size": 0.36, "thanks": "好呀好呀", "idle": "bob",
 	 "names": ["了哥", "小黑", "乌豆"], "lifespan": [12, 16], "age": [0.5, 1],
 	 "drains": {"belly": 4, "fondness": 2}, "home": ["hall"],
 	 "actions": [
-		{"id": "bird_hop", "label": "在笼里跳上跳下", "duration_min": 6, "base": 8},
+		{"id": "bird_hop", "label": "在笼里跳上跳下", "pace": "hop", "duration_min": 6, "base": 8},
+		{"id": "bird_flap", "label": "扑棱着翅膀在笼里打转", "pace": "flap", "duration_min": 4, "base": 6},
+		{"id": "bird_peck", "label": "低头啄笼底的小米壳", "duration_min": 6, "base": 5},
 		{"id": "bird_talk", "label": "扯着嗓子学人说话", "duration_min": 6, "base": 8, "hours": [6, 20]},
 		{"id": "bird_preen", "label": "梳理翅膀上的羽毛", "duration_min": 12, "base": 5, "needs": {"coat": 10}},
 		{"id": "bird_shed", "label": "抖落几根黑羽毛", "duration_min": 6, "base": 3, "mess": {"type": "pet_hair", "chance": 0.3}},
-		{"id": "bird_sleep", "label": "把头埋进翅膀里睡", "duration_min": 120, "base": 12, "hours": [20, 6]},
-		{"id": "bird_sick", "label": "蓬着毛缩在笼角", "sick": true, "duration_min": 30, "base": 10}
+		{"id": "bird_sleep", "label": "把头埋进翅膀里睡", "duration_min": 120, "base": 12, "hours": [20, 6], "rest": true},
+		{"id": "bird_sick", "label": "蓬着毛缩在笼角", "sick": true, "duration_min": 30, "base": 10, "rest": true}
 	 ],
 	 "wishes": [
 		{"id": "bird_millet", "text": "想啄几粒小米", "actions": ["feed_bird"], "ttl_hours": 6, "joy": 15},

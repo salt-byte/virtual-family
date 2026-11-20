@@ -82,7 +82,9 @@ var _pkey := ""
 var _rem := -1.0
 var _since := 0.0
 var _maxp := 0.0
-## The wish text shown in a thought bubble ("" for none).
+## The thought bubble over the head (`NeedBubble.of`: an ask, else a wish; {} for none) and
+## its words ("" for none).
+var _bubble: Dictionary = {}
 var _wish := ""
 ## With the pack's art: {tex, height} of this person's picture ({}: drawn as a block), which
 ## way they face (1 right, -1 left; the pictures face right) and whether they look unwell.
@@ -190,7 +192,8 @@ func refresh() -> void:
 		_:
 			size_factor = 1.0
 	_track_progress(w)
-	_wish = session.strings.wish_text(person, w)
+	_bubble = NeedBubble.of(w, person)
+	_wish = str(_bubble.get("text", ""))
 	var skin := _skin()
 	_look = {}
 	_unwell = false
@@ -261,6 +264,8 @@ func tick(delta: float) -> void:
 	if not person.current.is_empty() or thanking():
 		_maxp = maxf(_maxp, _estimate())
 		queue_redraw()
+	elif bool(_bubble.get("waiting", false)):
+		queue_redraw()  # the waiting ask's bubble bobs
 	if _mark != null and not _mark.tick(delta):
 		remove_child(_mark)
 		_mark.queue_free()
@@ -617,20 +622,9 @@ func _draw() -> void:
 		draw_rect(Rect2(Vector2(-70, -BODY.y - 4), Vector2(140.0 * prog, 2)), Color(0.2, 0.6, 0.3))
 
 
-## A thought bubble with the wish above the name plate.
+## The thought bubble above the name plate (see `NeedBubble`).
 func _draw_bubble() -> void:
-	var font := ThemeDB.fallback_font
-	var w := font.get_string_size(_wish, HORIZONTAL_ALIGNMENT_LEFT, -1, 12).x + 16.0
-	var rect := Rect2(Vector2(-w * 0.5, -BODY.y - 66), Vector2(w, 22))
-	var box := StyleBoxFlat.new()
-	box.bg_color = Color(1, 1, 1, 0.95)
-	box.border_color = Color(0.55, 0.5, 0.45)
-	box.set_border_width_all(1)
-	box.set_corner_radius_all(10)
-	draw_style_box(box, rect)
-	draw_circle(Vector2(-6, -BODY.y - 40), 3.0, Color(1, 1, 1, 0.95))
-	draw_circle(Vector2(-10, -BODY.y - 36), 2.0, Color(1, 1, 1, 0.95))
-	draw_string(font, rect.position + Vector2(0, 16), _wish, HORIZONTAL_ALIGNMENT_CENTER, w, 12, Color(0.2, 0.15, 0.1))
+	NeedBubble.draw(self, Vector2(0, -BODY.y - 44), _bubble, _t, _skin())
 
 
 ## The ring under the feet shows only while the player presses on or carries this person.
@@ -902,8 +896,8 @@ func label_size() -> Vector2:
 		extra = 20.0
 		bw = thanks_width()
 	elif _wish != "":
-		extra = 30.0
-		bw = font.get_string_size(_wish, HORIZONTAL_ALIGNMENT_LEFT, -1, 12).x + 16.0
+		extra = NeedBubble.HEIGHT + 12.0
+		bw = NeedBubble.size_of(_bubble).x
 	return Vector2(maxf(pw, bw), ph + extra)
 
 
@@ -951,14 +945,4 @@ func draw_label(ci: CanvasItem, at: Vector2) -> void:
 
 
 func _draw_bubble_at(ci: CanvasItem, at: Vector2) -> void:
-	var font := ThemeDB.fallback_font
-	var w := font.get_string_size(_wish, HORIZONTAL_ALIGNMENT_LEFT, -1, 12).x + 16.0
-	var rect := Rect2(Vector2(at.x - w * 0.5, at.y - 22), Vector2(w, 22))
-	var box := StyleBoxFlat.new()
-	box.bg_color = Color(1, 1, 1, 0.95)
-	box.border_color = Color(0.55, 0.5, 0.45)
-	box.set_border_width_all(1)
-	box.set_corner_radius_all(10)
-	ci.draw_style_box(box, rect)
-	ci.draw_circle(at + Vector2(-6, 4), 3.0, Color(1, 1, 1, 0.95))
-	ci.draw_string(font, rect.position + Vector2(0, 16), _wish, HORIZONTAL_ALIGNMENT_CENTER, w, 12, Color(0.2, 0.15, 0.1))
+	NeedBubble.draw(ci, at + Vector2(0, -6), _bubble, _t, _skin())

@@ -22,8 +22,13 @@ var _away: Dictionary = {}
 var _proposal_id := -1
 ## True while the player has opened the card of the animal waiting at the gate.
 var _stray_open := false
-## Story fragments picked up while playing, waiting to be read: {story, fragment}.
+## Story fragments picked up while playing, waiting to be read: {story, fragment, stir}
+## (`stir`: this one made the story stir; its midpoint line shows under it).
 var _fragments: Array = []
+## Stories whose last fragment came in while playing, waiting for their ending card.
+var _endings: Array = []
+## The page of the ending card: 0 the pieces in order, 1 how it ends.
+var _end_page := 0
 ## Family news waiting to be read: the events "born" and "relative_arrived", in order.
 var _news: Array = []
 
@@ -63,14 +68,21 @@ func setup(m: Main) -> void:
 	session.event.connect(func(e: Dictionary):
 		var type := str(e.get("type", ""))
 		if type == "fragment_found":
-			_fragments.append({"story": str(e["story"]), "fragment": str(e["fragment"])})
+			_fragments.append({"story": str(e["story"]), "fragment": str(e["fragment"]), "stir": false})
+		elif type == "story_stirred":
+			for i in range(_fragments.size() - 1, -1, -1):
+				if str(_fragments[i]["story"]) == str(e["story"]):
+					_fragments[i]["stir"] = true
+					break
+		elif type == "story_finale":
+			_endings.append(str(e["story"]))
 		elif type == "born" or type == "relative_arrived":
 			_news.append({"type": type, "person": int(e["person"])}))
 	refresh()
 
 
-## One of "", "pack_error", "load_error", "adopt", "over", "away", "fragment", "born",
-## "relative", "visitor", "stray", "proposal".
+## One of "", "pack_error", "load_error", "adopt", "over", "away", "fragment", "story_end",
+## "born", "relative", "visitor", "stray", "proposal".
 func current() -> String:
 	return _current
 
@@ -144,6 +156,12 @@ func press(button_key: String) -> void:
 		"fragment":
 			if not _fragments.is_empty():
 				_fragments.pop_front()
+		"story_end":
+			if _end_page == 0 and _has_end_page(str(_endings[0])):
+				_end_page = 1
+			else:
+				_endings.pop_front()
+				_end_page = 0
 		"born", "relative":
 			if not _news.is_empty():
 				_news.pop_front()
@@ -183,6 +201,7 @@ func refresh() -> void:
 	if w != null and w.phase == "adopting":
 		_away = {}
 		_news.clear()
+		_endings.clear()
 	if w == null or w.pet_offer.is_empty():
 		_stray_open = false
 	var proposal := _find_proposal(w)
@@ -208,6 +227,9 @@ func refresh() -> void:
 	elif not _fragments.is_empty() and w != null and w.phase == "living":
 		kind = "fragment"
 		sig = str(_fragments[0])
+	elif not _endings.is_empty() and w != null and w.phase == "living":
+		kind = "story_end"
+		sig = "%s|%d" % [_endings[0], _end_page]
 	elif not _news.is_empty() and w != null and w.phase == "living":
 		kind = "born" if str(_news[0]["type"]) == "born" else "relative"
 		sig = str(_news[0])
@@ -309,9 +331,17 @@ func _rebuild(w: World, proposal: Dictionary) -> void:
 			var fr: Dictionary = _fragments[0]
 			_title(s.story_title(str(fr["story"]), w))
 			var f := StorySystem.fragment(w.pack, str(fr["story"]), str(fr["fragment"]))
+			_box.add_child(_picture(_piece_tex(str(fr["fragment"])), Vector2(PANEL_WIDTH - 48.0, 170)))
 			_box.add_child(_label(s.t("ev.fragment").replace("{name}", str(f.get("name", "")))))
 			_box.add_child(_label(str(f.get("text", ""))))
+			var mid := str(w.pack.stories[str(fr["story"])].get("midpoint", ""))
+			if fr.get("stir", false) and mid != "":
+				var l := _label(mid)
+				l.add_theme_color_override("font_color", ViewWidgets.WOOD)
+				_box.add_child(l)
 			_button("btn.close")
+		"story_end":
+			_story_end(w, str(_endings[0]))
 		"born":
 			var child := w.person(int(_news[0]["person"]))
 			_title(s.t("title.born"))
@@ -367,6 +397,70 @@ func _rebuild(w: World, proposal: Dictionary) -> void:
 			_button("btn.accept", row)
 			_button("btn.decline", row)
 			_button("btn.close", row)
+
+
+## The ending card of story `sid`: first every piece in order, each with its picture; then
+## (`_has_end_page`) how it ends: the scene and what it left, or what to do now. A visitor's
+## ending is told by the visitor card that follows.
+func _story_end(w: World, sid: String) -> void:
+	var s := session.strings
+	var story: Dictionary = w.pack.stories[sid]
+	var fin: Dictionary = story["finale"]
+	_title(s.story_title(sid, w))
+	if _end_page == 0:
+		var grid := GridContainer.new()
+		grid.columns = 3
+		grid.add_theme_constant_override("h_separation", 10)
+		grid.add_theme_constant_override("v_separation", 6)
+		_box.add_child(grid)
+		var cell := (PANEL_WIDTH - 48.0 - 20.0) / 3.0
+		for f in story["fragments"]:
+			var col := VBoxContainer.new()
+			col.add_theme_constant_override("separation", 2)
+			grid.add_child(col)
+			col.add_child(_picture(_piece_tex(str(f["id"])), Vector2(cell, 84)))
+			var name := _label(str(f["name"]), cell)
+			name.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+			name.add_theme_font_size_override("font_size", 13)
+			col.add_child(name)
+		_button("btn.read_on" if _has_end_page(sid) else "btn.close")
+		return
+	if str(fin["kind"]) == "scene":
+		_box.add_child(_label(str(fin.get("text", ""))))
+		if int(fin.get("money", 0)) > 0:
+			_box.add_child(_label(s.t("story_end.money").replace("{money}", s.t("money").replace("{n}", str(int(fin["money"]))))))
+		var keep := str(fin.get("keepsake", ""))
+		if keep != "":
+			_box.add_child(_picture(_curio_tex(keep), Vector2(PANEL_WIDTH - 48.0, 120)))
+			_box.add_child(_label(s.t("story_end.keep").replace("{name}", str(w.pack.collectibles.get(keep, {}).get("name", "")))))
+	else:
+		_box.add_child(_label(str(fin.get("hint", ""))))
+	_button("btn.close")
+
+
+## True when the ending of `sid` has a second page (every kind but the visitor's).
+func _has_end_page(sid: String) -> bool:
+	var fin: Dictionary = session.pack.stories.get(sid, {}).get("finale", {})
+	return str(fin.get("kind", "")) != "visitor_gift"
+
+
+func _skin() -> PackSkin:
+	return main.house.skin if main != null and main.house != null else null
+
+
+func _piece_tex(id: String) -> Texture2D:
+	var skin := _skin()
+	return skin.piece(id) if skin != null and skin.enabled else null
+
+
+func _curio_tex(kind: String) -> Texture2D:
+	var skin := _skin()
+	return skin.collectible_sprite(kind) if skin != null and skin.enabled else null
+
+
+## A picture of a keepsake at `size`, or the wrapped bundle while it has none.
+func _picture(tex: Texture2D, size: Vector2) -> Control:
+	return Panels.piece_picture(tex, size)
 
 
 ## The candidates on offer (`World.candidates`; the single `candidate` after a load).

@@ -414,6 +414,9 @@ func test_sliced_catch_up_shows_the_line_and_blocks_the_house():
 		m2.tick(0.016)
 		guard += 1
 	assert_true(not m2.catch_up.visible)
-	assert_true(not m2.is_house_blocked())
+	# The catch-up no longer blocks the house; what the absence brought may (five hours
+	# away can bring a visitor's card, which blocks the house as any card does).
+	assert_true(not m2.catch_up.blocks_input())
+	assert_true(not m2.is_house_blocked() or m2.overlays.current() != "", m2.overlays.current())
 	assert_eq(m2.session.world.now, int(clk.unix))
 	m2.free()

@@ -237,12 +237,14 @@ func _sort_stage() -> void:
 		keyed.append([sort_depth(kids[i]), i, kids[i]])
 	keyed.sort_custom(func(a, b): return a[0] < b[0] if a[0] != b[0] else a[1] < b[1])
 	var order: Array = []
-	var deps: Array = []
-	var boxes: Array = []
 	for k in keyed:
 		order.append(k[2])
-		deps.append(k[0])
-		boxes.append(stage_box(k[2]))
+	_order_furniture(order)
+	var deps: Array = []
+	var boxes: Array = []
+	for o in order:
+		deps.append(sort_depth(o))
+		boxes.append(stage_box(o))
 	# People and animals go in one by one, front-most last, each between whatever it must be
 	# drawn over and whatever must be drawn over it (`_slot`).
 	var mk: Array = []
@@ -271,6 +273,7 @@ func _sort_stage() -> void:
 ## then they go on regardless (a narrow door they both need). Returns true to stand still
 ## this frame. `n` is a PersonView or PetView; it keeps `waited` and `walked_round` for this.
 const KEEP_APART := 38.0
+const PET_EXTRA := 10.0
 const LOOK_AHEAD := 0.3
 const WAIT_MAX := 1.5
 ## A way round may be at most this much longer than the way it replaces (plan pixels), and
@@ -295,13 +298,16 @@ func give_way(n: Node2D, delta: float) -> bool:
 	for o in people.values() + pets.values():
 		if o == n or not o.visible or (o is PersonView and o.held) or (pet and o is PetView):
 			continue
+		# An animal's picture is wider than a person's: keep a little further from one.
+		var keep := KEEP_APART + (PET_EXTRA if pet or o is PetView else 0.0)
 		var now: float = n.position.distance_to(o.position)
-		if now > KEEP_APART + float(n.SPEED) * LOOK_AHEAD * 2.0:
+		if now > keep + float(n.SPEED) * LOOK_AHEAD * 2.0:
 			continue
 		# Arrived: standing at their spot. Otherwise on the way (walking, or waiting a moment).
 		# Someone who has stood a moment to let others by counts as standing too.
-		var arrived: bool = o.position.distance_to(o.target) <= PersonView.ARRIVED or float(o.waited) >= STOOD
-		if arrived and o.position.distance_to(n.target) < KEEP_APART:
+		var arrived: bool = o.position.distance_to(o.target) <= PersonView.ARRIVED or float(o.waited) >= STOOD \
+			or (o is PetView and float(o.waited) > 0.0)
+		if arrived and o.position.distance_to(n.target) < keep:
 			continue  # standing where this one is going: the house spreads them on arrival
 		if not arrived and o is PetView and not pet:
 			continue
@@ -312,8 +318,8 @@ func give_way(n: Node2D, delta: float) -> bool:
 		var tc := 0.0 if rv.length_squared() < 0.0001 else clampf(-rel.dot(rv) / rv.length_squared(), 0.0, LOOK_AHEAD)
 		var then := (rel + rv * tc).length()
 		# In the way: coming closer than KEEP_APART, or already that close and ahead.
-		var closing := then < KEEP_APART and then < now - 0.5
-		var ahead := now < KEEP_APART and rel.dot(dir) > 0.3 * now
+		var closing := then < keep and then < now - 0.5
+		var ahead := now < keep and rel.dot(dir) > 0.3 * now
 		if not (closing or ahead):
 			continue
 		var behind := od.dot(dir) > 0.5 and rel.dot(dir) > 0.0
@@ -444,18 +450,64 @@ static func _rank(n: Node2D) -> int:
 	return 0
 
 
+## Pieces of furniture whose pictures overlap are put in footprint order: one standing wholly
+## in front of another (east of its east edge or south of its south edge) is drawn after it,
+## whatever their middles and seat lifts say. Moves a piece just past the one it must cover;
+## a few passes settle it.
+func _order_furniture(order: Array) -> void:
+	var w := session.world if session != null else null
+	if w == null:
+		return
+	var pieces: Array = []
+	for o in order:
+		if o is PropPiece and (o as PropPiece).object_uid >= 0:
+			var obj := w.object((o as PropPiece).object_uid)
+			if not obj.is_empty():
+				pieces.append([o, layout.object_rect(obj, w.pack), stage_box(o)])
+	for pass_i in 4:
+		var moved := false
+		for a in pieces:
+			for b in pieces:
+				if a == b or not (a[2] as Rect2).intersects(b[2]):
+					continue
+				# a in front of b, but drawn first: move a just past b.
+				if _rect_side(a[1], b[1]) == 1:
+					var ia := order.find(a[0])
+					var ib := order.find(b[0])
+					if ia < ib:
+						order.remove_at(ia)
+						order.insert(ib, a[0])
+						moved = true
+		if not moved:
+			break
+
+
+## Whether footprint `a` stands in front of `b` (1), behind it (-1) or neither surely (0).
+static func _rect_side(a: Rect2, b: Rect2) -> int:
+	var front := a.position.x >= b.end.x or a.position.y >= b.end.y
+	var behind := a.end.x <= b.position.x or a.end.y <= b.position.y
+	if front and not behind:
+		return 1
+	if behind and not front:
+		return -1
+	return 0
+
+
 ## Where a person or animal `n` (sort depth `d`) goes into `order` (back to front). Only what
 ## overlaps its body on the screen matters: a piece of furniture it stands in front of (east
 ## of the footprint's east edge or south of its south edge) is drawn before it, one it stands
 ## behind after it, whatever the pieces' middles say (a long piece's middle can be nearer the
 ## camera than someone at its front end); the seat or bed it sits or lies on is under it; a
-## back wall likewise by its side; everything else by depth. Its own depth wins when the
-## overlaps disagree.
+## back wall likewise by its side; everything else by depth. When these disagree, the sides
+## of footprints and walls win over depth; when even those disagree, its own depth wins.
 func _slot(order: Array, deps: Array, boxes: Array, n: Node2D, d: float) -> int:
 	var natural := deps.bsearch(d, false)
 	var body := mover_box(n)
 	var lo := -1
 	var hi := order.size()
+	# Sides from footprints and back walls are sure; the rest (by depth) give way to them.
+	var lo_sure := -1
+	var hi_sure := order.size()
 	var w := session.world if session != null else null
 	var seat := -1
 	if n is PersonView and (n as PersonView).on_object:
@@ -472,18 +524,25 @@ func _slot(order: Array, deps: Array, boxes: Array, n: Node2D, d: float) -> int:
 			var obj := w.object((o as PropPiece).object_uid)
 			if not obj.is_empty():
 				var fr := layout.object_rect(obj, w.pack)
-				side = 1 if (o as PropPiece).object_uid == seat and fr.grow(2.0).has_point(n.position) else foot_side(n.position, fr)
+				var on := (o as PropPiece).object_uid == seat or (skin != null and skin.step_over(str(obj.type)))
+				side = 1 if on and fr.grow(2.0).has_point(n.position) else foot_side(n.position, fr)
 		elif o is IsoWall and (o as IsoWall).role == "wall" and (o as IsoWall).tall:
 			side = foot_side(n.position, (o as IsoWall).plan_rect(), 2.0)
-		if side == 0:
+		if side == 1:
+			lo_sure = maxi(lo_sure, i)
+		elif side == -1:
+			hi_sure = mini(hi_sure, i)
+		else:
 			side = 1 if float(deps[i]) <= d else -1
 		if side == 1:
 			lo = maxi(lo, i)
 		else:
 			hi = mini(hi, i)
-	if lo >= hi:
-		return natural
-	return clampi(natural, lo + 1, hi)
+	if lo < hi:
+		return clampi(natural, lo + 1, hi)
+	if lo_sure < hi_sure:
+		return clampi(natural, lo_sure + 1, hi_sure)
+	return natural
 
 
 ## Whether someone standing at plan point `p` is in front of footprint `r` (1: east of its
@@ -496,6 +555,16 @@ static func foot_side(p: Vector2, r: Rect2, reach := 8.0) -> int:
 	if behind and not front:
 		return -1
 	return 0
+
+
+## The object types people step over (`PackSkin.step_over`), as a set.
+func step_over_types(w: World) -> Dictionary:
+	var out := {}
+	if skin != null and skin.enabled:
+		for t in w.pack.object_types:
+			if skin.step_over(str(t)):
+				out[str(t)] = true
+	return out
 
 
 ## A person's or animal's body on the view (this node's unscaled coordinates).
@@ -905,7 +974,7 @@ func _update_site(w: World) -> void:
 	if ground == null:
 		return
 	layout.site.update(w.built_set())
-	layout.site.set_furniture(layout.furniture_cells(w))
+	layout.site.set_furniture(layout.furniture_cells(w, step_over_types(w)))
 	if layout.site.version == _site_version:
 		return
 	_site_version = layout.site.version

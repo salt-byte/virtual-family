@@ -6,5 +6,6 @@
 	{"id": "cicada_shell", "name": "蝉蜕", "value": 5, "weight": 3, "rooms": ["yard", "bamboo_grove", "village_tree"]},
 	{"id": "purse", "name": "别人掉的荷包", "value": 20, "weight": 1, "rooms": ["gate"]},
 	{"id": "hairpin", "name": "旧银簪", "value": 15, "weight": 1},
-	{"id": "bronze_mirror", "name": "半面旧铜镜", "value": 30, "weight": 1, "rooms": ["well", "yard"]}
+	{"id": "bronze_mirror", "name": "半面旧铜镜", "value": 30, "weight": 1, "rooms": ["well", "yard"]},
+	{"id": "old_kite", "name": "燕子风筝", "value": 0, "weight": 0, "keepsake": true}
 ]

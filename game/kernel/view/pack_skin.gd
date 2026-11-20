@@ -36,6 +36,11 @@ extends RefCounted
 ##   "poses": {"actions": {"<action id>": "<pose>"}, "objects": {"<object type>": "<pose>"},
 ##             "on": ["<object type>"]},          # see `pose_for`; on: sat / lain on, not beside
 ##   "unwell": {"sprite": "<sprite>", "need": "<need id>", "below": 50},
+##   "keepsakes": {"pieces": {"<fragment or keepsake id>": "props/story/x.png"},
+##                 "tag": "props/ui_tag.png",    # the paper tag on each shelf
+##                 "cabinet": {"file": "props/ui_cabinet.png", "left": [x, y, w, h], "cell": [...],
+##                             "right": [...], "top": [...], "bottom": [...], "edge": px}},
+##                                               # the keepsake box (`cabinet`, `CabinetView`)
 ##   "accent": "#rrggbb", "pickup": "#rrggbb",    # selection and pick-up colours
 ##   "view": "iso",                               # the 45° view (else seen from above)
 ##   "iso": {                                     # what the 45° view uses instead (each optional)
@@ -261,6 +266,38 @@ func collectible_sprite(type: String) -> Texture2D:
 	return sprite(str(_table("collectibles").get(type, "")))
 
 
+## The picture of a story fragment (or a story's keepsake) in the keepsake box; null when
+## it has none yet. art.json: "keepsakes": {"pieces": {"<id>": "props/story/<id>.png"}}.
+func piece(id: String) -> Texture2D:
+	var f = _table("keepsakes").get("pieces", {}).get(id)
+	return texture(str(f)) if f is String else null
+
+
+## The paper tag a shelf's title sits on ("keepsakes": {"tag": "<file>"}); null without one.
+func tag() -> Texture2D:
+	var f = _table("keepsakes").get("tag")
+	return texture(str(f)) if f is String else null
+
+
+## The cabinet picture the box is built from ("keepsakes": {"cabinet": {"file", "left",
+## "cell", "right", "top", "bottom": [x, y, w, h], "edge": px}}): {tex, left, cell, right,
+## top, bottom (Rect2), edge}; {} without one.
+func cabinet() -> Dictionary:
+	var c = _table("keepsakes").get("cabinet")
+	if not c is Dictionary:
+		return {}
+	var tex := texture(str(c.get("file", "")))
+	if tex == null:
+		return {}
+	var out := {"tex": tex, "edge": float(c.get("edge", 0))}
+	for k in ["left", "cell", "right", "top", "bottom"]:
+		var r = c.get(k)
+		if not (r is Array and r.size() == 4):
+			return {}
+		out[k] = Rect2(float(r[0]), float(r[1]), float(r[2]), float(r[3]))
+	return out
+
+
 ## The rigs a look may have besides its side rig (see the header).
 const FACING_RIGS := ["rig_front", "rig_back", "rig_front34", "rig_back34"]
 
@@ -392,6 +429,13 @@ func pose_for(action: String, object: String) -> String:
 	if object != "" and o is Dictionary and o.get(object) is String:
 		return o[object]
 	return ""
+
+
+## Whether people step over furniture of this type (`poses.step_over`: a door sill lying in a
+## gateway): its cells stay walkable, and whoever stands on it is drawn over it.
+func step_over(object: String) -> bool:
+	var t = _data.get("poses", {})
+	return t is Dictionary and t.get("step_over") is Array and (t["step_over"] as Array).has(object)
 
 
 ## Whether a person sits or lies on furniture of this type (else they stand beside it).

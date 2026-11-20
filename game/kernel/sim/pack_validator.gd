@@ -27,6 +27,7 @@ const REQUIRED := {
 	"festivals.json": {"name": TYPE_STRING, "season": TYPE_STRING, "from": TYPE_NIL, "to": TYPE_NIL},
 	"letters.json": {"kind": TYPE_STRING, "text": TYPE_STRING},
 	"services.json": {"name": TYPE_STRING, "kind": TYPE_STRING, "price": TYPE_NIL},
+	"asks.json": {"text": TYPE_STRING, "kind": TYPE_STRING},
 }
 ## Whole-number fields and their minimum (money, sizes and durations are never fractional or negative).
 const MIN_INT := {
@@ -77,6 +78,7 @@ func _run() -> void:
 	_check_goals()
 	_check_collectibles()
 	_check_wishes()
+	_check_asks()
 	_check_stories()
 	_check_mood_config()
 	_check_births()
@@ -648,8 +650,9 @@ func _check_pets() -> void:
 	for f in ["stray_chance_per_hour", "come_back_chance_per_hour", "wish_chance_per_hour"]:
 		if c.has(f) and not (_is_num(c[f]) and float(c[f]) >= 0.0 and float(c[f]) <= 1.0):
 			_err("pack.json", _p.id, "pets.%s must be from 0 to 1" % f)
-	if c.has("action_speed") and not (_is_num(c["action_speed"]) and float(c["action_speed"]) >= 1.0):
-		_err("pack.json", _p.id, "pets.action_speed must be a number of at least 1")
+	for f in ["action_speed", "offline_action_speed", "effect_speed"]:
+		if c.has(f) and not (_is_num(c[f]) and float(c[f]) >= 1.0):
+			_err("pack.json", _p.id, "pets.%s must be a number of at least 1" % f)
 	for g in ["cheer", "grief"]:
 		var e = c.get(g, {})
 		if not e is Dictionary:
@@ -672,6 +675,8 @@ func _check_pets() -> void:
 		var perch = k["perch"]
 		if not (perch is String and (perch == "" or _p.object_types.has(perch))):
 			_err("pets.json", id, "perch '%s' is not an object type" % [str(perch)])
+		if not (k["idle"] is String and k["idle"] in ["", "wag", "flick", "bob"]):
+			_err("pets.json", id, "idle must be one of wag, flick, bob")
 		if not _is_num(k["size"]) or float(k["size"]) <= 0.0:
 			_err("pets.json", id, "size must be a number above 0")
 		if k.has("color") and not _color_ok(k["color"]):
@@ -741,8 +746,19 @@ func _check_pet_action(kind: String, k: Dictionary, a, ids: Dictionary, seen: Di
 		if not a[f] is bool:
 			_err("pets.json", aid, "%s must be true or false" % f)
 	var st = _p.config["stages"]
-	if not (a["follows"] is String and (a["follows"] == "" or (st is Array and (st as Array).any(func(s): return s is Dictionary and s.get("id") == a["follows"])))):
-		_err("pets.json", aid, "follows must be a stage id")
+	var who_ok: bool = a["follows"] is String and (a["follows"] in ["", "anyone"] or (a["follows"] == "who" and a["on"] is String and a["on"] != ""))
+	if not (who_ok or (a["follows"] is String and st is Array and (st as Array).any(func(s): return s is Dictionary and s.get("id") == a["follows"]))):
+		_err("pets.json", aid, "follows must be a stage id, \"anyone\" or (with on) \"who\"")
+	if not (a["on"] is String and a["on"] in ["", "back", "dragged"]):
+		_err("pets.json", aid, "on must be \"back\" or \"dragged\"")
+	if not (_is_num(a["chance"]) and float(a["chance"]) >= 0.0 and float(a["chance"]) <= 1.0):
+		_err("pets.json", aid, "chance must be from 0 to 1")
+	if not (a["trot"] is int and a["trot"] >= 0):
+		_err("pets.json", aid, "trot must be a whole number of at least 0")
+	if not (a["pace"] is String and a["pace"] in ["", "trot", "slink", "dash", "leap", "hop", "flap"]):
+		_err("pets.json", aid, "pace must be one of trot, slink, dash, leap, hop, flap")
+	if not a["rest"] is bool:
+		_err("pets.json", aid, "rest must be true or false")
 	if not (a["scraps"] is String and (a["scraps"] == "" or _p.mess_types.has(a["scraps"]))):
 		_err("pets.json", aid, "scraps must be a mess type")
 	if not (a["needs"] is Dictionary and (a["needs"] as Dictionary).keys().all(func(n): return ids.has(n) and _is_num(a["needs"][n]))):
@@ -1075,6 +1091,10 @@ func _is_num(v) -> bool:
 func _check_collectibles() -> void:
 	for c in _p.collectibles.values():
 		_rooms_list("collectibles.json", c["id"], "rooms", c["rooms"])
+		if not c["keepsake"] is bool:
+			_err("collectibles.json", c["id"], "keepsake must be true or false")
+	if not _p.config.get("collect_keep") is bool:
+		_err("pack.json", _p.id, "collect_keep must be true or false")
 
 
 func _check_wishes() -> void:
@@ -1120,6 +1140,59 @@ func _check_wishes() -> void:
 					_err("wishes.json", id, "a need wish needs numbers below <= above")
 
 
+## asks.json (see `AskSystem`) and the pack's ask numbers.
+func _check_asks() -> void:
+	var c := _p.config
+	for k in ["ask_check_s", "ask_wait_s", "ask_self_s"]:
+		if not (c.get(k) is int and int(c[k]) >= 1):
+			_err("pack.json", _p.id, "%s must be a whole number of seconds of at least 1" % [k])
+	for k in ["ask_gap_s", "ask_again_s"]:
+		if not (c.get(k) is int and int(c[k]) >= 0):
+			_err("pack.json", _p.id, "%s must be a whole number of seconds of at least 0" % [k])
+	for k in ["ask_chance_per_hour", "ask_ignored", "ask_self_factor"]:
+		if not _is_num(c.get(k)) or float(c[k]) < 0.0:
+			_err("pack.json", _p.id, "%s must be a number of at least 0" % [k])
+	var stage_ids := []
+	if c["stages"] is Array:
+		for s in c["stages"]:
+			if s is Dictionary:
+				stage_ids.append(s.get("id"))
+	for e in _p.asks.values():
+		var id: String = e["id"]
+		var kind = e.get("kind")
+		if kind is String and not AskSystem.KINDS.has(kind):
+			_err("asks.json", id, "kind '%s' must be one of %s" % [kind, ", ".join(AskSystem.KINDS)])
+		if not _is_num(e["weight"]) or float(e["weight"]) <= 0.0:
+			_err("asks.json", id, "weight must be a number above 0")
+		for f in ["joy", "ignored"]:
+			if e.has(f) and not (_is_num(e[f]) and float(e[f]) >= 0.0):
+				_err("asks.json", id, "%s must be a number of at least 0" % [f])
+		if e.has("wait_s") and not (_is_num(e["wait_s"]) and float(e["wait_s"]) >= 1.0):
+			_err("asks.json", id, "wait_s must be a number of seconds of at least 1")
+		if not e["icon"] is String:
+			_err("asks.json", id, "icon must be a string")
+		if not (e["likes"] is Array and (e["likes"] as Array).all(func(t): return t is String)):
+			_err("asks.json", id, "likes must be an array of tags")
+		if e["stages"] is Array:
+			for s in e["stages"]:
+				if not stage_ids.has(s):
+					_err("asks.json", id, "stage '%s' is not defined in pack stages" % [s])
+		else:
+			_err("asks.json", id, "stages must be an array")
+		match kind:
+			"need":
+				if not _p.needs.has(e.get("need", "")):
+					_err("asks.json", id, "need '%s' is not a need" % [str(e.get("need", ""))])
+				if not _is_num(e.get("below")) or (e.has("above") and not (_is_num(e["above"]) and float(e["above"]) >= float(e["below"]))):
+					_err("asks.json", id, "a need ask needs a number below (and above, if given, at least below)")
+			"item":
+				if not (e["items"] is Array and not (e["items"] as Array).is_empty() and (e["items"] as Array).all(func(i): return _p.items.has(i))):
+					_err("asks.json", id, "an item ask needs items: a non-empty array of item ids")
+			"do":
+				if not (e["actions"] is Array and not (e["actions"] as Array).is_empty() and (e["actions"] as Array).all(func(a): return _p.actions.has(a))):
+					_err("asks.json", id, "a do ask needs actions: a non-empty array of action ids")
+
+
 func _check_stories() -> void:
 	var ids := {}
 	for c in _p.collectibles:
@@ -1135,6 +1208,8 @@ func _check_stories() -> void:
 				_err("stories.json", id, "unlock.room '%s' is not a room" % [str(u.get("room", ""))])
 			elif t == "generation_at_least" and not (u.get("generation") is int or (u.get("generation") is float and u["generation"] == floorf(u["generation"]))):
 				_err("stories.json", id, "unlock.generation must be a whole number")
+			elif t == "random" and not (_is_num(u.get("chance_per_day")) and float(u["chance_per_day"]) > 0.0):
+				_err("stories.json", id, "unlock.chance_per_day must be a number above 0")
 		if st.has("rooms"):
 			_rooms_list("stories.json", id, "rooms", st["rooms"])
 		if st.has("hours") and not _hours_ok(st["hours"]):
@@ -1154,6 +1229,8 @@ func _check_stories() -> void:
 					_rooms_list("stories.json", id, "fragment %s rooms" % f["id"], f["rooms"])
 				if f.has("hours") and not _hours_ok(f["hours"]):
 					_err("stories.json", id, "fragment %s hours must be [from, to]" % f["id"])
+		if st.has("midpoint") and not st["midpoint"] is String:
+			_err("stories.json", id, "midpoint must be a text")
 		if st.has("mark"):
 			_check_mark(id, "mark", st["mark"])
 		var fin = st.get("finale")
@@ -1208,6 +1285,10 @@ func _check_finale(id: String, fin: Dictionary) -> void:
 				_err("stories.json", id, "the dig action must not need an object")
 			if kind == "dig":
 				_check_mark(id, "finale", fin)
+		"scene":
+			var k = fin.get("keepsake", "")
+			if k != "" and not (_p.collectibles.has(k) and _p.collectibles[k].get("keepsake", false) is bool and _p.collectibles[k]["keepsake"]):
+				_err("stories.json", id, "finale.keepsake '%s' must be a collectible marked keepsake" % [str(k)])
 	var b = fin.get("blessing", {})
 	if not (b is Dictionary and (not b.has("illness_factor") or (_is_num(b["illness_factor"]) and b["illness_factor"] >= 0))):
 		_err("stories.json", id, "finale.blessing.illness_factor must be a number of at least 0")

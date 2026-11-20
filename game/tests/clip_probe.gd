@@ -130,7 +130,7 @@ func frame(delta: float) -> void:
 		_prev[n] = p
 		for f in feet:
 			var r: Rect2 = f[0]
-			if r.grow(-3.0).has_point(p) and not on_own_seat(n, int(f[1]), r):
+			if r.grow(-3.0).has_point(p) and not on_own_seat(n, int(f[1]), r) and not _stepped_over(str(f[2])):
 				_log("feet_in_furniture", n, "in %s %s" % [f[2], r], {"key": f[1]})
 				break
 		if was.distance_to(p) > 0.01 and was.distance_to(p) < 60.0:
@@ -155,6 +155,11 @@ func on_own_seat(n: Node2D, uid: int, r: Rect2) -> bool:
 		return false  # (the seat just left counts too: getting up, off its front edge)
 	depth = float(last[1]) if uid == int(last[0]) else depth
 	return n.position.y >= r.end.y - depth - 6.0 and n.position.x > r.position.x and n.position.x < r.end.x
+
+
+## Whether people walk over pieces of this type (a door sill): standing on it is no 穿模.
+func _stepped_over(type: String) -> bool:
+	return house.skin != null and house.skin.step_over(type)
 
 
 ## The object uid a walker stands on by right (a seat, a bed, an animal's perch), else -1.
@@ -220,7 +225,7 @@ func check() -> void:
 			if not x.has_area() or opaque_hits(piece, pic, x) < OPAQUE_MIN:
 				continue
 			var fr := house.layout.object_rect(o, w.pack)
-			var side := 1 if on_own_seat(n, int(uid), fr) else side_of(n.position, fr)
+			var side := 1 if on_own_seat(n, int(uid), fr) or (_stepped_over(str(o.type)) and fr.grow(2.0).has_point(n.position)) else side_of(n.position, fr)
 			var drawn_after: bool = index[n] > index[piece]
 			if side == 1 and not drawn_after:
 				_log("sort_order", n, "under %s, which stands behind" % o.type, {"with": piece})

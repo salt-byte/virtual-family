@@ -77,6 +77,11 @@ const DEFAULTS := {
 	"btn.stories": "旧事", "stories.locked": "……", "stories.none": "还没有翻出什么旧事。",
 	"ev.pickup_spotted": "{room}地上好像有东西", "error.blocks_view": "放这儿会挡住别的家具", "ev.fragment": "捡到了{name}", "ev.story_done": "「{title}」有了着落",
 	"btn.receive": "收下", "visitor.money": "留下 {money}",
+	"box.hint": "点一件看看。", "box.curios": "捡来的", "box.sell_extras": "卖掉多余的 +{money}",
+	"box.count": "匣里有 {n} 件", "box.price": "一件能卖 {money}", "box.sell_one": "卖一件 +{money}",
+	"box.sell_all": "多的{n}件都卖 +{money}", "btn.back": "放回去", "btn.read_on": "往下看", "error.nothing_to_sell": "没有多余的可卖", "error.no_box": "这里不收旧物", "error.no_such_thing": "没有这样东西",
+	"ev.collected_kept": "捡到{thing}，收起来了", "ev.collectibles_sold": "卖掉{count}件，得了{money}",
+	"story_end.money": "得了 {money}", "story_end.keep": "{name}收进了旧物匣",
 	"away.fragment": "捡到了{name}", "away.story_done": "「{title}」有了着落",
 	"status.pregnant": "有了身孕", "months": "{n} 个月",
 	"family.generation": "第{n}代", "numerals": "一,二,三,四,五,六,七,八,九,十",
@@ -113,7 +118,7 @@ const DEFAULTS := {
 	"error.no_service": "没有这一项", "error.owned": "已经有了", "error.max": "眼下买够了", "error.full": "家里住满了",
 	"error.pending": "先回眼前这一位的话", "error.no_candidate": "眼下没有人", "error.sold": "已经卖掉了",
 	"error.no_space": "家里摆不下了", "error.needs_object": "先得有{thing}", "error.not_drawn": "还没开奖", "error.no_ticket": "没有这张",
-	"bar.doing": "在做：{text}", "bar.age_job": "{age} · {job}",
+	"bar.doing": "在做：{text}", "bar.age_job": "{age} · {job}", "bar.mood": "心情",
 	"notice.head": "有事找你", "notice.more": "还有 {n} 件，点开看", "notice.fold": "收起",
 	"notice.proposal": "有人来给{name}提亲", "notice.proposal_from": "{writer}来给{name}提亲",
 	"notice.proposal_any": "有人上门提亲", "notice.stray": "门口来了一只{kind}",
@@ -485,6 +490,10 @@ func event(e: Dictionary, world: World) -> String:
 			return _f("ev.fragment", {"name": str(f.get("name", ""))})
 		"story_finale":
 			return str(world.pack.stories.get(str(e["story"]), {}).get("finale", {}).get("hint", ""))
+		"story_stirred":
+			return str(world.pack.stories.get(str(e["story"]), {}).get("midpoint", ""))
+		"collectibles_sold":
+			return _f("ev.collectibles_sold", {"count": int(e["count"]), "money": t("money").replace("{n}", str(int(e["amount"])))})
 		"story_done":
 			var done := str(world.pack.stories.get(str(e["story"]), {}).get("finale", {}).get("done_text", ""))
 			return done if done != "" else _f("ev.story_done", {"title": story_title(str(e["story"]), world)})
@@ -550,6 +559,8 @@ func event(e: Dictionary, world: World) -> String:
 		"collected":
 			var c: Dictionary = world.pack.collectibles.get(str(e["kind"]), {})
 			var thing := str(c.get("name", ""))
+			if e.get("kept", false):
+				return _f("ev.collected_kept", {"thing": thing})
 			if e.get("first", false):
 				return _f("ev.collected_first", {"thing": thing})
 			return _f("ev.collected_paid", {"thing": thing, "n": int(e["value"])})

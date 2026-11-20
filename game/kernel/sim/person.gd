@@ -42,6 +42,12 @@ var wish_last := ""
 ## `now` until which this person stops to thank the player (0: not thanking). While it lasts
 ## they do nothing else; the view shows them turned to the screen, waving.
 var thanks_until := 0
+## The ask this person is making of the player ({} for none, else {id, phase: "wait" |
+## "self", until}; see `AskSystem`), `now` when the last one ended (0: never), and ask id ->
+## `now` until which an ask that went unanswered does not come again.
+var ask: Dictionary = {}
+var ask_last_t := 0
+var ask_again: Dictionary = {}
 ## Low mood that has set in: "" (none), "sad", or "depressed" (see `MoodSystem`).
 var mood := ""
 ## Seconds the mood need has stayed below the pack's low line, and above its recovery line.
@@ -140,6 +146,13 @@ func to_dict() -> Dictionary:
 		d["earned"] = {"day": earned_day, "n": earned, "told": earned_told, "shared_at": shared_at}
 	if not share.is_empty():
 		d["share"] = share.duplicate(true)
+	# Optional, written only once this person has asked something of the player.
+	if not ask.is_empty():
+		d["ask"] = ask.duplicate(true)
+	if ask_last_t != 0:
+		d["ask_last_t"] = ask_last_t
+	if not ask_again.is_empty():
+		d["ask_again"] = ask_again.duplicate()
 	return d
 
 
@@ -215,4 +228,12 @@ static func from_dict(d: Dictionary) -> Person:
 	if not sd.is_empty():
 		p.share = {"kind": str(sd.get("kind", "")), "n": int(sd.get("n", 0)), "level": int(sd.get("level", 0))}
 	p.look = str(d.get("look", ""))
+	# Absent in saves from before asks existed.
+	var ad: Dictionary = d.get("ask", {})
+	if not ad.is_empty():
+		p.ask = {"id": str(ad.get("id", "")), "phase": str(ad.get("phase", "self")), "until": int(ad.get("until", 0))}
+	p.ask_last_t = int(d.get("ask_last_t", 0))
+	var ag: Dictionary = d.get("ask_again", {})
+	for k in ag:
+		p.ask_again[str(k)] = int(ag[k])
 	return p

@@ -28,8 +28,12 @@ func _adopted(pack := "qijia") -> Main:
 	return m
 
 
+## Reads every fragment card and story ending card that waits.
 func _read_fragments(m: Main) -> void:
-	while m.overlays.current() == "fragment":
+	var guard := 0
+	while m.overlays.current() in ["fragment", "story_end"] and guard < 40:
+		guard += 1
+		m.overlays.press("btn.read_on")
 		m.overlays.press("btn.close")
 
 
@@ -51,7 +55,7 @@ func test_bubble_bar_and_thanks():
 	var m := _adopted()
 	var w := m.session.world
 	var p := w.people[0]
-	p.wish = {"id": "want_sugar_figure", "expires_at": w.now + 3600}
+	p.wish = {"id": "want_sugar_figure", "expires_at": w.now + 8 * 3600}  # just formed (a wish shows in pulses later)
 	m.tick(0.016)
 	var pv: PersonView = m.house.people[p.uid]
 	assert_eq(pv.wish_bubble(), "想要个糖人")
@@ -134,9 +138,13 @@ func test_fragment_card_then_the_box_lists_what_was_found():
 	m.hud.press("stories")
 	assert_eq(m.panels.opened(), "stories")
 	var t := m.panels.text()
-	assert_true(t.contains("井边的绣鞋") and t.contains("半幅绣样") and t.contains("并蒂莲"), t)
-	assert_true(t.contains("……"))
+	assert_true(t.contains("井边的绣鞋 1 / 6"), t)
 	assert_true(not t.contains("书生的藏银"), "locked stories stay hidden")
+	assert_true(m.panels.has_button("frag:embroidered_shoe:half_sampler"))
+	assert_true(not m.panels.has_button("frag:embroidered_shoe:yun_hairpin"), "a missing piece cannot be opened")
+	m.panels.press("frag:embroidered_shoe:half_sampler")
+	t = m.panels.text()
+	assert_true(t.contains("半幅绣样") and t.contains("并蒂莲"), t)
 	m.free()
 
 

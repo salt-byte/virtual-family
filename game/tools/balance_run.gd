@@ -74,6 +74,7 @@ static func run(pack_id: String, families: int, days: int, seed0: int) -> Dictio
 	var top_gen := 0
 	var house_born_took_up := 0
 	var unlocked := {}  # story id -> households where it unlocked
+	var finished := {}  # story id -> households where it was played to its end
 	var babies_end := 0
 	var weather_hours := {}  # weather id -> hours it was the weather at the hourly look
 	var season_hours := {}  # season id -> hours
@@ -181,6 +182,8 @@ static func run(pack_id: String, families: int, days: int, seed0: int) -> Dictio
 					babies_end += 1
 		for sid in w.stories:
 			unlocked[sid] = int(unlocked.get(sid, 0)) + 1
+			if str(w.stories[sid]["stage"]) == "done":
+				finished[sid] = int(finished.get(sid, 0)) + 1
 		messes += w.messes.size()
 		var love := PetSystem.role(w.pack, "love_need")
 		for pet in w.pets:
@@ -205,7 +208,7 @@ static func run(pack_id: String, families: int, days: int, seed0: int) -> Dictio
 		"pregnancies": births["conceived"], "births": births["born"], "babies_at_end": babies_end,
 		"people_at_end": living, "alive_by_generation": gens, "max_generation": top_gen,
 		"house_born_took_up": house_born_took_up, "relatives_arrived": births["relative_arrived"],
-		"beds_bought": beds_bought, "stories_unlocked": unlocked,
+		"beds_bought": beds_bought, "stories_unlocked": unlocked, "stories_done": finished,
 		"deaths_by_cause": deaths,
 		"weather_hours": weather_hours, "season_hours": season_hours, "weather_changes": weather_changes,
 		"weather_only_actions": weather_only,
@@ -219,13 +222,15 @@ static func run(pack_id: String, families: int, days: int, seed0: int) -> Dictio
 	}
 
 
-## The caretaker's hourly round: accept any proposal and any visitor's gift, keep food stocked, give the right
+## The caretaker's hourly round: accept any proposal and any visitor's gift, sell the extras
+## in the keepsake box, keep food stocked, give the right
 ## medicine to the sick and a treat to the gloomy, and grant the wishes it can: a wished-for
 ## shop item when the money stays above WISH_RESERVE, a praise when there is something to
 ## praise, a wished-for piece of furniture with FURNITURE_RESERVE more in hand. Rooms are
 ## never built for a wish. A body wish it meets by dragging the person to a fix the player
-## leads (`_lead_to_fix`: a bath); otherwise it drags only to feed a baby, never scolds, and
-## furnishes only for a wish.
+## leads (`_lead_to_fix`: a bath); so too a need the pack's asks name once its meter is below
+## the ask's line (`_mind_meters`: a bath, a nap), whether or not the ask is up at that moment.
+## Otherwise it drags only to feed a baby, never scolds, and furnishes only for a wish.
 static func caretake(w: World) -> void:
 	if w.phase != "living":
 		return
@@ -233,6 +238,8 @@ static func caretake(w: World) -> void:
 		w.command({"type": "answer_proposal", "id": w.proposals[0]["id"], "accept": true})
 	for sid in StorySystem.visitors(w):
 		w.command({"type": "receive_visitor", "story": sid})
+	if CollectibleSystem.keeps(w.pack):
+		w.command({"type": "sell_collectible"})
 	var food := _first_item(w, func(it): return (it["stock"] as Dictionary).has(FOOD_STOCK))
 	if food != "" and int(w.stock.get(FOOD_STOCK, 0)) < LOW_FOOD:
 		w.command({"type": "buy", "item": food})
@@ -246,6 +253,7 @@ static func caretake(w: World) -> void:
 			_give(w, p, _first_item(w, func(it): return it["cures"] == "" and (it["stock"] as Dictionary).is_empty() \
 					and (it["needs"] as Dictionary).has(MOOD_NEED)))
 		_grant_wish(w, p)
+		_mind_meters(w, p)
 	_care_for_babies(w)
 	_buy_bed_if_needed(w)
 	care_for_pets(w)
@@ -375,6 +383,18 @@ static func _grant_wish(w: World, p: Person) -> void:
 ## player-led action (`AutonomySystem.player_led`) raises `need` (a bath for a dirty one, a
 ## rest on the bed for a tired one). Leaves alone someone already doing something that
 ## raises it (asleep, say).
+## What the bar's meters show the player once an hour: a need the pack's asks name, below the
+## ask's line, is led to a fix the player leads (packs without asks: nothing).
+static func _mind_meters(w: World, p: Person) -> void:
+	if not "asks" in w.pack or OutingSystem.away(w, p):
+		return
+	for id in w.pack.get("asks"):
+		var e: Dictionary = w.pack.get("asks")[id]
+		if str(e["kind"]) == "need" and float(p.needs.get(str(e["need"]), 100.0)) < float(e["below"]):
+			_lead_to_fix(w, p, str(e["need"]))
+			return
+
+
 static func _lead_to_fix(w: World, p: Person, need: String) -> void:
 	if not p.current.is_empty() and float((w.pack.actions[p.current["action"]]["needs"] as Dictionary).get(need, 0.0)) > 0.0:
 		return

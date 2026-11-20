@@ -631,6 +631,13 @@ static func candidates(world: World, p: Person, pool := 0) -> Array[Dictionary]:
 				if wix != null:
 					dmp[wix] *= wf
 					wish_lift = maxf(wish_lift, wf)
+	# An ask holds back what would deal with it while it waits for the player, and pulls it up
+	# once they deal with it themselves (folded in like a wish).
+	if not p.ask.is_empty():
+		var af := AskSystem.fix_factor(pack, p)
+		for aix in AskSystem.fixers(pack, str(p.ask["id"])):
+			dmp[aix] *= af
+		wish_lift = maxf(wish_lift, af)
 	var low := float(pack.cfg("mood_depressed_factor")) if p.mood == "depressed" else 1.0
 	var needs := p.needs
 	var habits := p.habits
@@ -1317,6 +1324,8 @@ static func _choose(world: World, p: Person) -> void:
 		weights.append(cand.score)
 	var pick: Dictionary = world.rng.weighted_pick(top, weights)
 	start(world, p, pick.action, pick.object_uid, int(pick.get("target_uid", -1)))
+	if not p.ask.is_empty():
+		AskSystem.on_chosen(world, p, pick.action)
 
 
 ## `hour` is the local hour (negative: read it from the world).
@@ -1354,6 +1363,10 @@ static func _score(world: World, p: Person, a: Dictionary, hour := -1.0) -> floa
 		score *= float(world.pack.cfg("mood_depressed_factor"))
 	if not p.wish.is_empty() and WishSystem.wished_actions(world, p).has(a["id"]):
 		score *= float(world.pack.cfg("wish_do_factor"))
+	if not p.ask.is_empty():
+		var ix = world.pack.autonomy_index.get(a["id"])
+		if ix != null and AskSystem.fixers(world.pack, str(p.ask["id"])).has(int(ix)):
+			score *= AskSystem.fix_factor(world.pack, p)
 	return score
 
 

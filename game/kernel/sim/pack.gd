@@ -16,7 +16,8 @@ const FILES := {
 }
 ## Files a pack may leave out; without them the feature is simply absent.
 const OPTIONAL_FILES := {"wishes": "wishes.json", "stories": "stories.json", "dishes": "dishes.json",
-	"pets": "pets.json", "festivals": "festivals.json", "letters": "letters.json", "services": "services.json"}
+	"pets": "pets.json", "festivals": "festivals.json", "letters": "letters.json", "services": "services.json",
+	"asks": "asks.json"}
 
 const DEFAULT_CONFIG := {
 	"hours_per_year": 2.0, "offline_cap_hours": 48, "offline_need_floor": 15,
@@ -54,6 +55,9 @@ const DEFAULT_CONFIG := {
 	# Story fragments (only with a stories.json): one per story_interval_min on average,
 	# lying about for story_ttl_min.
 	"story_interval_min": 240, "story_ttl_min": 600,
+	# Keep what is picked up (see `CollectibleSystem`): every find goes into the box and the
+	# player sells the extras; false sells duplicates on the spot.
+	"collect_keep": false,
 	# Births (off while empty; see `BirthSystem` for the keys).
 	"births": {},
 	# The ground plan the view draws (off while empty): map size in cells, an optional
@@ -76,6 +80,13 @@ const DEFAULT_CONFIG := {
 	# chance per hour scaled to the look, and the body wishes (a need fallen low). 60: at the
 	# turn of each hour, as before these existed.
 	"wish_check_min": 60, "need_wish_check_min": 60,
+	# Asks (only with an asks.json; see `AskSystem`): how often (seconds) people look at
+	# asking, the chance per hour of an ask that is not about a need, how long an ask waits
+	# for the player, how long someone then tries to deal with it themselves, the least time
+	# between two asks of one person and before the same unanswered ask comes again, the
+	# praise need lost when ignored, and the factor on the scores of what deals with it.
+	"ask_check_s": 30, "ask_chance_per_hour": 0.0, "ask_wait_s": 75, "ask_self_s": 90,
+	"ask_gap_s": 60, "ask_again_s": 600, "ask_ignored": 2.0, "ask_self_factor": 4.0,
 	# What a person feels right now (off while empty; see `FeelingSystem`): rules in order,
 	# the first that holds gives the words.
 	"feelings": [],
@@ -95,11 +106,13 @@ const ENTRY_DEFAULTS := {
 		"yields": {}, "seasons": [], "weather": [], "not_wet": false, "pet": {},
 		"festivals": [], "outing": {}, "mourns": false},
 	"object_types": {"outdoor": false, "capacity": 1, "fixed": false, "keepsake": false, "market": ""},
-	"collectibles": {"rooms": []},
+	"collectibles": {"rooms": [], "keepsake": false},
 	"wishes": {"likes": [], "stages": [], "weight": 1.0, "festival": "", "actions": []},
+	"asks": {"likes": [], "stages": [], "weight": 1.0, "actions": [], "items": [], "joy": 5.0, "icon": ""},
 	"dishes": {"on": [], "leaves": "", "ttl_hours": 0, "max_out": 1, "scraps": ""},
 	"pets": {"price": 0, "stray": false, "names": [], "lifespan": [10, 14], "age": [1, 2], "drains": {},
-		"home": [], "perch": "", "actions": [], "wishes": [], "perks": {}, "thanks": "", "size": 0.6, "market": ""},
+		"home": [], "perch": "", "actions": [], "wishes": [], "perks": {}, "thanks": "", "size": 0.6, "market": "",
+		"idle": ""},
 	"rooms": {"outdoor": false, "props": [], "outside": false, "market": ""},
 	"items": {"stock": {}, "cures": "", "needs": {}, "work": {}, "childhood": {}, "pet": {}, "market": "",
 		"festivals": []},
@@ -111,7 +124,8 @@ const ENTRY_DEFAULTS := {
 
 ## Field defaults of a pet's own action (an entry of a pets.json kind's `actions`).
 const PET_ACTION_DEFAULTS := {"duration_min": 10, "base": 1, "object": "", "rooms": [], "hours": [],
-	"weather": [], "wet": false, "sick": false, "follows": "", "scraps": "", "needs": {}, "mess": {}, "above": {}, "every_hours": 0}
+	"weather": [], "wet": false, "sick": false, "follows": "", "scraps": "", "needs": {}, "mess": {}, "above": {}, "every_hours": 0,
+	"on": "", "chance": 1.0, "trot": 0, "pace": "", "rest": false}
 
 ## Fields that are always whole numbers (JSON gives floats, so they are converted on load).
 const INT_FIELDS := {
@@ -141,6 +155,10 @@ var mess_types: Dictionary = {}
 var collectibles: Dictionary = {}
 var goals: Dictionary = {}
 var wishes: Dictionary = {}
+## Small requests of the player (optional asks.json; see `AskSystem`).
+var asks: Dictionary = {}
+## ask id -> `AskSystem.fixers` (built on first use).
+var ask_fixers: Dictionary = {}
 var stories: Dictionary = {}
 ## Cooked food that waits on a table to be eaten (optional dishes.json; see `DishSystem`).
 var dishes: Dictionary = {}
@@ -407,7 +425,7 @@ func _apply_defaults() -> void:
 					if not a.has(f):
 						var d = PET_ACTION_DEFAULTS[f]
 						a[f] = d.duplicate(true) if (d is Array or d is Dictionary) else d
-				for f in ["duration_min", "base"]:
+				for f in ["duration_min", "base", "trot"]:
 					a[f] = _as_int(a[f])
 				if a["hours"] is Array:
 					a["hours"] = (a["hours"] as Array).map(_as_int)

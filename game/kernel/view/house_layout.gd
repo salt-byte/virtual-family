@@ -121,11 +121,12 @@ static func cells_of(r: Rect2) -> Rect2i:
 	return Rect2i(Vector2i((r.position / CELL).round()), Vector2i((r.size / CELL).round()))
 
 
-## Every cell furniture stands on, in built rooms (Vector2i -> true), for the site plan.
-func furniture_cells(world: World) -> Dictionary:
+## Every cell furniture stands on, in built rooms (Vector2i -> true), for the site plan;
+## `step_over` (object type -> true): pieces people walk over, left out.
+func furniture_cells(world: World, step_over := {}) -> Dictionary:
 	var out := {}
 	for o in world.objects:
-		if not str(o.room) in world.rooms_built:
+		if not str(o.room) in world.rooms_built or step_over.has(str(o.type)):
 			continue
 		var r := cells_of(object_rect(o, world.pack))
 		for y in range(r.position.y, r.end.y):

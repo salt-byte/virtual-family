@@ -23,6 +23,7 @@ static var handlers: Dictionary = {
 	"answer_proposal": FamilySystem.answer_proposal,
 	"change_track": LivelihoodSystem.change_track,
 	"receive_visitor": StorySystem.receive_visitor,
+	"sell_collectible": CollectibleSystem.sell,
 	"buy_pet": PetSystem.buy,
 	"answer_stray": PetSystem.answer_stray,
 	"go_out": OutingSystem.go_out,
@@ -56,6 +57,8 @@ static func _drag(world: World, cmd: Dictionary) -> Dictionary:
 				and AutonomySystem.player_led(world.pack.actions[p.current["action"]]):
 			p.current["led"] = true
 		IllnessSystem.show_symptom(world, p)
+		if result.ok:
+			PetSystem.notice(world, "dragged", p)
 	return result
 
 

@@ -112,3 +112,120 @@ func test_a_stray_at_the_gate_shows_a_card():
 	assert_eq(PetSystem.at_home(w), 1)
 	assert_eq(m.overlays.current(), "")
 	_done(m)
+
+
+# --- liveliness ---
+
+## Puts `pet` at an action that does not end while the test watches (the clock stands still,
+## so the world never steps) and lets the view walk there.
+func _doing(m: Main, pet: Pet, action: String, extra := {}) -> PetView:
+	pet.current = {"action": action, "remaining_s": 99999}
+	pet.current.merge(extra)
+	m.tick(1.0 / 30.0)
+	var pv: PetView = m.house.pets[pet.uid]
+	for i in 900:
+		if pv.pose() != "walking":
+			break
+		m.tick(1.0 / 30.0)
+	return pv
+
+
+func test_a_trotting_dog_reaches_spot_after_spot_of_its_yard():
+	var m := _main()
+	var w := m.session.world
+	var dog := PetSystem.add(w, "dog", "bought")
+	m.tick(0.016)
+	dog.current = {"action": "dog_trot_yard", "remaining_s": 99999, "room": "yard"}
+	m.tick(1.0 / 30.0)
+	var pv: PetView = m.house.pets[dog.uid]
+	assert_true(pv.spots().size() >= 4, str(pv.spots()))
+	var reached := {}
+	var bounced := false
+	for i in 30 * 30:
+		m.tick(1.0 / 30.0)
+		for j in pv.spots().size():
+			if pv.position.distance_to(pv.spots()[j]) <= PetView.ARRIVED:
+				reached[j] = true
+		bounced = bounced or (pv.pose() == "walking" and pv.bob_offset() < -1.0)
+	assert_true(reached.size() >= 4, "reached %d of %d spots" % [reached.size(), pv.spots().size()])
+	assert_true(bounced, "it trots with a bounce")
+	for s in pv.spots():
+		assert_eq(str(m.house.layout.pos_to_cell(s).get("room", "")), "yard")
+	_done(m)
+
+
+func test_a_stalking_cat_keeps_to_the_walls():
+	var m := _main()
+	var w := m.session.world
+	var cat := PetSystem.add(w, "cat", "bought")
+	m.tick(0.016)
+	cat.current = {"action": "cat_stalk_wall", "remaining_s": 99999, "room": "hall"}
+	m.tick(1.0 / 30.0)
+	var pv: PetView = m.house.pets[cat.uid]
+	for i in 20 * 30:
+		m.tick(1.0 / 30.0)
+	assert_true(pv.spots().size() >= 3)
+	for s in pv.spots():
+		var c := m.house.layout.pos_to_cell(s)
+		var rd: Dictionary = w.pack.rooms[str(c.room)]
+		assert_true(int(c.x) == 0 or int(c.y) == 0 or int(c.x) == int(rd.w) - 1 or int(c.y) == int(rd.h) - 1, str(c))
+	_done(m)
+
+
+## Staying put it is never a still picture: the dog wags and breathes, the cat flicks its
+## tail, the bird bobs its head, now and then one shuffles; a resting dog lies flatter and
+## turns over; the cat leaps up onto the kang and back.
+func test_idle_animation_runs_while_an_action_lasts():
+	var m := _main()
+	var w := m.session.world
+	assert_true(w.add_object("bird_cage", "hall", 0, 0) >= 0)
+	var dog := PetSystem.add(w, "dog", "bought")
+	var cat := PetSystem.add(w, "cat", "bought")
+	var bird := PetSystem.add(w, "bird", "bought")
+	m.tick(0.016)
+	var dv := _doing(m, dog, "dog_bark", {"room": "gate"})
+	var cv := _doing(m, cat, "cat_wash", {"room": "hall"})
+	var cage: int = w.objects.filter(func(o): return o.type == "bird_cage")[0].uid
+	var bv := _doing(m, bird, "bird_talk", {"object_uid": cage})
+	var views := [dv, cv, bv]
+	var seen := [{}, {}, {}]
+	var tilt := [0.0, 0.0, 0.0]
+	var lift := [0.0, 0.0, 0.0]
+	var at := [dv.position, cv.position, bv.position]
+	var facing := [signf(dv.pose_xform().x.x), signf(cv.pose_xform().x.x), signf(bv.pose_xform().x.x)]
+	var moved := false
+	for i in 20 * 30:
+		m.tick(1.0 / 30.0)
+		for k in 3:
+			var v: PetView = views[k]
+			var x := v.pose_xform()
+			seen[k][str(x)] = true
+			tilt[k] = maxf(tilt[k], absf(x.get_rotation()))
+			lift[k] = minf(lift[k], x.origin.y)
+			# A step aside, or turning round where it stands.
+			moved = moved or v.position.distance_to(at[k]) > 2.0 or signf(x.x.x) != float(facing[k])
+	for k in 3:
+		assert_true((seen[k] as Dictionary).size() > 40, "%s: %d poses in 20 s" % [views[k].pet.kind, (seen[k] as Dictionary).size()])
+	assert_true(tilt[0] > 0.02, "the dog wags")
+	assert_true(tilt[1] > 0.03, "the cat flicks its tail")
+	assert_true(lift[2] < -1.0, "the bird bobs its head")
+	assert_true(moved, "one of them shuffled or turned round in 20 s")
+	# Resting: flatter, and it turns over or stretches every so often.
+	var pile: int = w.objects.filter(func(o): return o.type == "woodpile")[0].uid
+	var rv := _doing(m, dog, "dog_sleep", {"object_uid": pile})
+	assert_true(rv.resting())
+	var tallest := 0.0
+	for i in 30 * 30:
+		m.tick(1.0 / 30.0)
+		tallest = maxf(tallest, rv.pose_xform().get_scale().y)
+	assert_true(rv.turns() >= 1, "turned over in 30 s")
+	assert_true(tallest < 1.0, "lies flatter than it stands")
+	# Leaping onto the kang and down again.
+	var kang: int = w.objects.filter(func(o): return o.type == "kang")[0].uid
+	var lv := _doing(m, cat, "cat_hop_kang", {"object_uid": kang})
+	var high := 0.0
+	for i in 3 * 30:
+		m.tick(1.0 / 30.0)
+		high = minf(high, lv.bob_offset())
+	assert_true(high <= -PetView.LEAP_HIGH + 1.0, str(high))
+	_done(m)
