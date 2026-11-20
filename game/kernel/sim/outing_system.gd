@@ -93,6 +93,7 @@ static func go_out(world: World, cmd: Dictionary) -> Dictionary:
 
 ## `p` is back from the outing `action_id`: what they bring is picked and kept.
 static func come_back(world: World, p: Person, action_id: String) -> void:
+	PetSystem.notice(world, "back", p)
 	var returns: Array = world.pack.actions[action_id]["outing"].get("returns", [])
 	if returns.is_empty():
 		return
