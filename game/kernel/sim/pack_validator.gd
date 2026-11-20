@@ -27,6 +27,7 @@ const REQUIRED := {
 	"festivals.json": {"name": TYPE_STRING, "season": TYPE_STRING, "from": TYPE_NIL, "to": TYPE_NIL},
 	"letters.json": {"kind": TYPE_STRING, "text": TYPE_STRING},
 	"services.json": {"name": TYPE_STRING, "kind": TYPE_STRING, "price": TYPE_NIL},
+	"asks.json": {"text": TYPE_STRING, "kind": TYPE_STRING},
 }
 ## Whole-number fields and their minimum (money, sizes and durations are never fractional or negative).
 const MIN_INT := {
@@ -77,6 +78,7 @@ func _run() -> void:
 	_check_goals()
 	_check_collectibles()
 	_check_wishes()
+	_check_asks()
 	_check_stories()
 	_check_mood_config()
 	_check_births()
@@ -1136,6 +1138,59 @@ func _check_wishes() -> void:
 					_err("wishes.json", id, "need '%s' is not a need" % [str(w.get("need", ""))])
 				if not (_is_num(w.get("below")) and _is_num(w.get("above")) and float(w["below"]) <= float(w["above"])):
 					_err("wishes.json", id, "a need wish needs numbers below <= above")
+
+
+## asks.json (see `AskSystem`) and the pack's ask numbers.
+func _check_asks() -> void:
+	var c := _p.config
+	for k in ["ask_check_s", "ask_wait_s", "ask_self_s"]:
+		if not (c.get(k) is int and int(c[k]) >= 1):
+			_err("pack.json", _p.id, "%s must be a whole number of seconds of at least 1" % [k])
+	for k in ["ask_gap_s", "ask_again_s"]:
+		if not (c.get(k) is int and int(c[k]) >= 0):
+			_err("pack.json", _p.id, "%s must be a whole number of seconds of at least 0" % [k])
+	for k in ["ask_chance_per_hour", "ask_ignored", "ask_self_factor"]:
+		if not _is_num(c.get(k)) or float(c[k]) < 0.0:
+			_err("pack.json", _p.id, "%s must be a number of at least 0" % [k])
+	var stage_ids := []
+	if c["stages"] is Array:
+		for s in c["stages"]:
+			if s is Dictionary:
+				stage_ids.append(s.get("id"))
+	for e in _p.asks.values():
+		var id: String = e["id"]
+		var kind = e.get("kind")
+		if kind is String and not AskSystem.KINDS.has(kind):
+			_err("asks.json", id, "kind '%s' must be one of %s" % [kind, ", ".join(AskSystem.KINDS)])
+		if not _is_num(e["weight"]) or float(e["weight"]) <= 0.0:
+			_err("asks.json", id, "weight must be a number above 0")
+		for f in ["joy", "ignored"]:
+			if e.has(f) and not (_is_num(e[f]) and float(e[f]) >= 0.0):
+				_err("asks.json", id, "%s must be a number of at least 0" % [f])
+		if e.has("wait_s") and not (_is_num(e["wait_s"]) and float(e["wait_s"]) >= 1.0):
+			_err("asks.json", id, "wait_s must be a number of seconds of at least 1")
+		if not e["icon"] is String:
+			_err("asks.json", id, "icon must be a string")
+		if not (e["likes"] is Array and (e["likes"] as Array).all(func(t): return t is String)):
+			_err("asks.json", id, "likes must be an array of tags")
+		if e["stages"] is Array:
+			for s in e["stages"]:
+				if not stage_ids.has(s):
+					_err("asks.json", id, "stage '%s' is not defined in pack stages" % [s])
+		else:
+			_err("asks.json", id, "stages must be an array")
+		match kind:
+			"need":
+				if not _p.needs.has(e.get("need", "")):
+					_err("asks.json", id, "need '%s' is not a need" % [str(e.get("need", ""))])
+				if not _is_num(e.get("below")) or (e.has("above") and not (_is_num(e["above"]) and float(e["above"]) >= float(e["below"]))):
+					_err("asks.json", id, "a need ask needs a number below (and above, if given, at least below)")
+			"item":
+				if not (e["items"] is Array and not (e["items"] as Array).is_empty() and (e["items"] as Array).all(func(i): return _p.items.has(i))):
+					_err("asks.json", id, "an item ask needs items: a non-empty array of item ids")
+			"do":
+				if not (e["actions"] is Array and not (e["actions"] as Array).is_empty() and (e["actions"] as Array).all(func(a): return _p.actions.has(a))):
+					_err("asks.json", id, "a do ask needs actions: a non-empty array of action ids")
 
 
 func _check_stories() -> void:

@@ -304,7 +304,10 @@ func command(cmd: Dictionary) -> Dictionary:
 			# While living, only a candidate offered by a service can be taken in or swapped.
 			if (type == "adopt" or type == "reroll") and candidate.is_empty():
 				return Commands.fail("not_adopting")
-	return handler.call(self, cmd)
+	var result: Dictionary = handler.call(self, cmd)
+	if result.ok:
+		AskSystem.on_command(self, type, cmd)
+	return result
 
 
 func emit(type: String, data := {}) -> void:
@@ -397,6 +400,7 @@ func _run_systems(dt: float) -> void:
 	GoalSystem.step(self, dt)
 	MoodSystem.step(self, dt)
 	WishSystem.step(self, dt)
+	AskSystem.step(self, dt)
 	StorySystem.step(self, dt)
 	PetSystem.step(self, dt)  # its hourly look for a stray draws after everything but letters
 	LetterSystem.step(self, dt)  # turns this step's news into letters

@@ -2,10 +2,12 @@ class_name Hud
 extends CanvasLayer
 ## The always-on screen (design/UI_PLAN.md): the bottom bar, the "waiting for you" notices in
 ## the top-left corner, and the toasts. Shows status as words only.
-## Bottom bar, left to right: the selected one (portrait, name, age and livelihood, what they
-## are doing, their wish), praise / scold beside them, their status words as chips (only the
-## ones that are wrong are loud), the household's money, larder and sky, and the buttons:
-## the main three (family, shop, letters) big with icons, the rest small underneath.
+## Bottom bar, left to right: the selected one (their painted portrait when their look has
+## one; "在做：" what they are doing, then the name with a small face and the feeling of the
+## moment labelled as their mood, age and livelihood, their wish), praise / scold beside
+## them, their needs as short meters (`NeedMeters`: the lowest pulses) with any other status
+## (out, low mood, with child) as chips, the household's money, larder and sky, and the
+## buttons: the main three (family, shop, letters) big with icons, the rest small underneath.
 ## Reads the World; the only thing it writes is the praise/scold command through the session.
 
 signal open(what: String)
@@ -41,7 +43,15 @@ var session: GameSession
 
 var _bar: PanelContainer
 var _avatar: Portrait
+## The painted portrait of the selected one's look, in place of `_avatar` when there is one.
+var _face: PersonPortrait
+var _face_key := ""
 var _name: Label
+## The feeling of the moment beside the name, labelled as their mood, with a small face.
+var _mood_box: HBoxContainer
+var _mood_face: NeedMeters.Face
+var _mood: Label
+var _meters: NeedMeters
 var _line: Label
 var _doing: Label
 var _wish: Label
@@ -142,13 +152,17 @@ func _build() -> void:
 	_avatar.custom_minimum_size = Vector2(62, 62)
 	_avatar.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	row.add_child(_avatar)
+	_face = PersonPortrait.make(null, null, null, Vector2(62, 62))
+	_face.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	_face.visible = false
+	row.add_child(_face)
 	var who := VBoxContainer.new()
 	who.custom_minimum_size.x = WHO_WIDTH
 	who.alignment = BoxContainer.ALIGNMENT_CENTER
 	who.add_theme_constant_override("separation", 0)
 	row.add_child(who)
-	# First line, the biggest: how they are right now (follows what they are doing).
-	_doing = _one_line(19, ViewWidgets.INK)
+	# First line, the biggest: what they are doing ("在做：...").
+	_doing = _one_line(18, ViewWidgets.INK)
 	who.add_child(_doing)
 	var head := HBoxContainer.new()
 	head.add_theme_constant_override("separation", 8)
@@ -157,14 +171,30 @@ func _build() -> void:
 	_name.add_theme_font_size_override("font_size", 16)
 	ViewWidgets.use_title_font(_name)
 	head.add_child(_name)
+	# Their mood: a small face, the word "心情" quiet, then the feeling of the moment.
+	_mood_box = HBoxContainer.new()
+	_mood_box.add_theme_constant_override("separation", 3)
+	_mood_box.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	head.add_child(_mood_box)
+	_mood_face = NeedMeters.Face.new()
+	_mood_box.add_child(_mood_face)
+	var tag := Label.new()
+	tag.text = s.t("bar.mood")
+	tag.add_theme_font_size_override("font_size", 12)
+	tag.add_theme_color_override("font_color", ViewWidgets.MUTED)
+	tag.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	_mood_box.add_child(tag)
+	_mood = Label.new()
+	_mood.add_theme_font_size_override("font_size", 14)
+	_mood.add_theme_color_override("font_color", ViewWidgets.WOOD)
+	_mood.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	_mood_box.add_child(_mood)
 	_line = Label.new()
 	_line.add_theme_color_override("font_color", ViewWidgets.MUTED)
-	_line.add_theme_font_size_override("font_size", 13)
-	_line.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	_line.add_theme_font_size_override("font_size", 12)
 	_line.clip_text = true
 	_line.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
-	_line.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	head.add_child(_line)
+	who.add_child(_line)
 	_wish = _one_line(13, ViewWidgets.WOOD)
 	_wish.visible = false
 	who.add_child(_wish)
@@ -192,7 +222,9 @@ func _build() -> void:
 	_go_out.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	judge.add_child(_go_out)
 
-	# Their status words.
+	# Their needs as meters, then any other status as chips.
+	_meters = NeedMeters.new()
+	row.add_child(_meters)
 	_chips = HFlowContainer.new()
 	_chips.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_chips.size_flags_vertical = Control.SIZE_SHRINK_CENTER
@@ -381,8 +413,10 @@ func refresh() -> void:
 	var p := _selected()
 	var pet := _selected_pet()
 	var have := p != null or pet != null
-	for c in [_avatar, _name, _line, _doing, _chips]:
+	for c in [_avatar, _name, _line, _doing, _chips, _meters]:
 		c.visible = have
+	_face.visible = false
+	_mood_box.visible = false
 	for id in _buttons:
 		if id != "letters":   # the letter view decides about its own button
 			_buttons[id].visible = living or id == "settings"
@@ -408,15 +442,23 @@ func refresh() -> void:
 		_name.text = s.person_name(p)
 		_line.text = s.person_line(p, w) if s.job_line(p) == "" else s.t("bar.age_job").format(
 			{"age": s.person_line(p, w).split(" · ")[0], "job": s.job_line(p)})
-		_doing.text = feeling_now(p)
-		chips = s.status_chips(p, w)
+		_doing.text = s.t("bar.doing").replace("{text}", _doing_text(p))
+		var feel := FeelingSystem.now(w, p)
+		_mood_box.visible = feel != ""
+		_mood.text = feel
+		_mood_face.value = float(p.needs.get(str(w.pack.cfg("praise_need")), 70.0)) if p.mood == "" else 10.0
+		# Only what is not a need: the needs have their meters.
+		chips = s.status_chips(p, w).filter(func(c): return str(c["need"]) == "")
+		_meters.show_person(p, w.pack)
 		_avatar.color = PersonView.FEMALE if p.gender == "female" else (PersonView.MALE if p.gender == "male" else PersonView.OTHER)
 		_avatar.initial = p.given.left(1)
+		_show_face(p)
 	if pet != null:
 		_name.text = s.pet_name(pet, w)
 		_line.text = s.pet_line(pet, w)
 		_doing.text = s.t("bar.doing").replace("{text}", s.pet_doing(pet, w))
 		chips = s.pet_chips(pet, w)
+		_meters.visible = false
 		_avatar.color = HouseView.pack_color(PetSystem.kind_of(w.pack, pet), PetView.FALLBACK)
 		_avatar.initial = pet.given.left(1)
 	_fill_chips(chips)
@@ -438,10 +480,35 @@ func refresh() -> void:
 	_refresh_notices()
 
 
+## `p`'s painted portrait in place of the coloured round, when their look has one.
+func _show_face(p: Person) -> void:
+	var skin: PackSkin = main.house.skin if main.house != null and "skin" in main.house else null
+	var key := "%d|%s" % [p.uid, p.look]
+	if key != _face_key:
+		_face_key = key
+		_face.person = p
+		_face.skin = skin
+		_face.pack = session.world.pack
+		_face.look = p.look
+		_face._portrait = _face.portrait()
+	_face.visible = _face._portrait != null
+	_avatar.visible = not _face.visible
+
+
+## The meters on show: [{id, name, value}]; for tests.
+func meters() -> Array:
+	return _meters.entries if _meters.visible else []
+
+
+## The need whose meter pulses ("" for none); for tests.
+func pulsing_need() -> String:
+	return _meters.pulsing() if _meters.visible else ""
+
+
 ## The status words that need the player, as chips, the loudest first, at most CHIPS_MAX: a
 ## heavy word filled tomato, a worrying one ringed tomato, news (carrying a child) ringed
-## wood. Words for needs that are fine or nearly fine are left out; with none left, one
-## quiet line says all is well.
+## wood. For a person only what is not a need comes here (the needs have their meters); for
+## an animal its need words too, and with nothing wrong one quiet line says all is well.
 func _fill_chips(chips: Array[Dictionary]) -> void:
 	var shown: Array[Dictionary] = []
 	for c in chips:
@@ -454,7 +521,7 @@ func _fill_chips(chips: Array[Dictionary]) -> void:
 	for c in _chips.get_children():
 		_chips.remove_child(c)
 		c.queue_free()
-	if shown.is_empty() and not chips.is_empty():
+	if shown.is_empty() and not chips.is_empty() and not _meters.visible:
 		var fine := Label.new()
 		fine.text = session.strings.t("status.fine")
 		fine.add_theme_color_override("font_color", ViewWidgets.MUTED)

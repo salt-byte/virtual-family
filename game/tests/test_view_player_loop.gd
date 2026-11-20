@@ -76,7 +76,7 @@ func test_someone_sharing_earnings_says_it_over_their_head():
 	m.free()
 
 
-func test_the_bar_line_is_the_feeling_and_dirt_shows_as_a_chip_then_a_notice():
+func test_the_bar_shows_the_feeling_as_mood_and_dirt_as_a_pulsing_meter_then_a_notice():
 	var m := _main()
 	var w := m.session.world
 	var p := w.people[0]
@@ -87,9 +87,12 @@ func test_the_bar_line_is_the_feeling_and_dirt_shows_as_a_chip_then_a_notice():
 	m.tick(0.016)
 	assert_eq(m.hud.feeling_now(p), "干活呢")
 	assert_true(m.hud.bar_text().contains("干活呢"), m.hud.bar_text())
+	assert_eq(m.hud.pulsing_need(), "")
 	p.needs["clean"] = 40.0
 	m.tick(0.016)
-	assert_true(m.hud.bar_text().contains("身上黏糊糊"), m.hud.bar_text())
+	# Dirt shows on its meter (the lowest pulses), not as words in the bar.
+	assert_eq(m.hud.pulsing_need(), "clean")
+	assert_true(not m.hud.bar_text().contains("身上黏糊糊"), m.hud.bar_text())
 	assert_true(not m.hud.notices().any(func(n): return n["kind"] == "need" and int(n["target"]) == p.uid))
 	p.needs["clean"] = 10.0
 	m.tick(0.016)

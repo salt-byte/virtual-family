@@ -55,7 +55,7 @@ func test_bubble_bar_and_thanks():
 	var m := _adopted()
 	var w := m.session.world
 	var p := w.people[0]
-	p.wish = {"id": "want_sugar_figure", "expires_at": w.now + 3600}
+	p.wish = {"id": "want_sugar_figure", "expires_at": w.now + 8 * 3600}  # just formed (a wish shows in pulses later)
 	m.tick(0.016)
 	var pv: PersonView = m.house.people[p.uid]
 	assert_eq(pv.wish_bubble(), "想要个糖人")

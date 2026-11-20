@@ -64,19 +64,21 @@ func test_bar_shows_selected_person_in_words_not_numbers():
 	var text := m.hud.bar_text()
 	assert_true(text.contains(p.given))
 	assert_true(not text.contains("%"), text)
-	# The bar's first line is how they feel right now (FeelingSystem); the action's own words
-	# are on the plate over their head.
+	# The bar's first line says what they are doing ("在做：..."); the feeling of the moment
+	# sits beside the name as their mood.
+	assert_true(text.contains(m.session.strings.t("bar.doing").replace("{text}", m.house.people[p.uid].doing_text())), text)
 	assert_true(text.contains(m.hud.feeling_now(p)), text)
 	assert_eq(m.house.people[p.uid].doing_text(), str(w.pack.actions[p.current.action].label))
-	# The bar shows the words for what is wrong, loudest first, and leaves out the fine one
-	# (UI_PLAN: need words only when something is wrong).
-	var levels := {}
-	for c in m.session.strings.status_chips(p, w):
-		levels[c["word"]] = c["level"]
+	# The needs are short meters, not words (the user could not tell which line was the
+	# status): every need of the pack, its short name, and the lowest one pulses.
 	for word in p.status(m.session.pack).values():
-		assert_eq(text.contains(word), levels[word] in ["bad", "warn"], "%s (%s)" % [word, levels[word]])
-	# Five needs in qijia now (干净 is the fifth, at 11 like the first): three at their worst.
-	assert_eq(m.hud.chip_levels(), ["bad", "bad", "bad", "warn"] as Array[String])
+		assert_true(not text.contains(word), word)
+	var shown: Array = m.hud.meters()
+	assert_eq(shown.map(func(e): return e["id"]), w.pack.needs.keys())
+	assert_eq(shown.map(func(e): return e["name"]), ["饱", "精神", "心情", "康健", "干净"])
+	assert_eq(m.hud.pulsing_need(), "fed")
+	assert_eq(NeedMeters.color_at(89.0), NeedMeters.FULL)
+	assert_eq(NeedMeters.color_at(11.0), ViewWidgets.ACCENT)
 	var re := RegEx.create_from_string("\\d+%")
 	var stripped := re.sub(text, "", true)
 	assert_true(not stripped.contains("%"), stripped)
