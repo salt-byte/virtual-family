@@ -164,7 +164,7 @@
 		"on": ["kang", "stool", "stone_bench", "threshold"],
 		"objects": {"kang": "sit", "stool": "sit", "stone_bench": "sit", "threshold": "sit", "dining_table": "eat"},
 		"actions": {
-			"sleep": "sleep", "nap": "sleep", "sick_in_bed": "sleep", "hide_under_quilt": "sleep",
+			"sleep": "sleep", "nap": "sleep", "doze_on_kang": "sleep", "sick_in_bed": "sleep", "hide_under_quilt": "sleep",
 			"baby_sleep": "sleep", "baby_nap": "sleep", "shell_beans": "sit", "crack_seeds": "sit",
 			"whittle_top": "sit", "weave_grasshopper": "sit", "straw_chess": "sit", "sit_and_stare": "sit",
 			"twist_hemp": "sit", "trellis_shade": "sit", "rest_on_well": "sit", "watch_passersby": "sit",

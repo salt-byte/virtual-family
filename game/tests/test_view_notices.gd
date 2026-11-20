@@ -314,13 +314,16 @@ func test_passing_notices_go_after_a_while_or_once_clicked():
 	_done(m)
 
 
-func test_the_bar_says_all_is_well_when_nothing_is_wrong():
+func test_the_bar_shows_full_meters_and_no_words_when_nothing_is_wrong():
 	var m := _main()
 	var p := m.session.world.people[0]
 	for nid in p.needs:
 		p.needs[nid] = 99.0
 	m.tick(0.016)
-	assert_true(m.hud.bar_text().contains(m.session.strings.t("status.fine")), m.hud.bar_text())
+	# The meters say it now; the old "all is well" line is gone with the need words.
+	assert_true(not m.hud.bar_text().contains(m.session.strings.t("status.fine")), m.hud.bar_text())
+	assert_eq(m.hud.meters().size(), m.session.pack.needs.size())
+	assert_eq(m.hud.pulsing_need(), "")
 	for word in p.status(m.session.pack).values():
 		assert_true(not m.hud.bar_text().contains(word), word)
 	_done(m)

@@ -224,8 +224,9 @@ static func run(pack_id: String, families: int, days: int, seed0: int) -> Dictio
 ## shop item when the money stays above WISH_RESERVE, a praise when there is something to
 ## praise, a wished-for piece of furniture with FURNITURE_RESERVE more in hand. Rooms are
 ## never built for a wish. A body wish it meets by dragging the person to a fix the player
-## leads (`_lead_to_fix`: a bath); otherwise it drags only to feed a baby, never scolds, and
-## furnishes only for a wish.
+## leads (`_lead_to_fix`: a bath); so too a need the pack's asks name once its meter is below
+## the ask's line (`_mind_meters`: a bath, a nap), whether or not the ask is up at that moment.
+## Otherwise it drags only to feed a baby, never scolds, and furnishes only for a wish.
 static func caretake(w: World) -> void:
 	if w.phase != "living":
 		return
@@ -246,6 +247,7 @@ static func caretake(w: World) -> void:
 			_give(w, p, _first_item(w, func(it): return it["cures"] == "" and (it["stock"] as Dictionary).is_empty() \
 					and (it["needs"] as Dictionary).has(MOOD_NEED)))
 		_grant_wish(w, p)
+		_mind_meters(w, p)
 	_care_for_babies(w)
 	_buy_bed_if_needed(w)
 	care_for_pets(w)
@@ -375,6 +377,18 @@ static func _grant_wish(w: World, p: Person) -> void:
 ## player-led action (`AutonomySystem.player_led`) raises `need` (a bath for a dirty one, a
 ## rest on the bed for a tired one). Leaves alone someone already doing something that
 ## raises it (asleep, say).
+## What the bar's meters show the player once an hour: a need the pack's asks name, below the
+## ask's line, is led to a fix the player leads (packs without asks: nothing).
+static func _mind_meters(w: World, p: Person) -> void:
+	if not "asks" in w.pack or OutingSystem.away(w, p):
+		return
+	for id in w.pack.get("asks"):
+		var e: Dictionary = w.pack.get("asks")[id]
+		if str(e["kind"]) == "need" and float(p.needs.get(str(e["need"]), 100.0)) < float(e["below"]):
+			_lead_to_fix(w, p, str(e["need"]))
+			return
+
+
 static func _lead_to_fix(w: World, p: Person, need: String) -> void:
 	if not p.current.is_empty() and float((w.pack.actions[p.current["action"]]["needs"] as Dictionary).get(need, 0.0)) > 0.0:
 		return

@@ -1,0 +1,22 @@
+[
+	{"id": "hunger", "text": "饿了", "kind": "need", "need": "fed", "below": 70, "above": 85, "icon": "bowl",
+	 "stages": ["child", "adult", "elder"], "joy": 6},
+	{"id": "sleepy", "text": "困了", "kind": "need", "need": "energy", "below": 50, "above": 70, "icon": "quilt",
+	 "stages": ["child", "adult", "elder"], "joy": 6},
+	{"id": "grubby", "text": "想洗澡", "kind": "need", "need": "clean", "below": 55, "above": 80, "icon": "washtub",
+	 "stages": ["child", "adult", "elder"], "joy": 8},
+	{"id": "praise_me", "text": "想你夸夸我", "kind": "praise", "icon": "heart", "weight": 3, "likes": ["爱热闹"], "joy": 6},
+	{"id": "see_my_work", "text": "瞧瞧我的活计", "kind": "praise", "icon": "star", "weight": 2, "likes": ["好侍弄"],
+	 "stages": ["adult", "elder"], "joy": 6},
+	{"id": "see_my_drawing", "text": "快看我画的", "kind": "praise", "icon": "star", "weight": 2, "stages": ["child"], "joy": 6},
+	{"id": "hold_me", "text": "抱抱我", "kind": "hold", "icon": "heart", "weight": 3, "stages": ["child"], "joy": 6},
+	{"id": "bored", "text": "闷得慌", "kind": "hold", "icon": "ball", "weight": 2, "likes": ["爱热闹"], "joy": 5},
+	{"id": "snack", "text": "想吃零嘴", "kind": "item", "icon": "candy", "weight": 2, "likes": ["嘴馋"],
+	 "items": ["melon_seeds", "tanghulu", "sugar_figure", "osmanthus_cake"], "joy": 6},
+	{"id": "play_with_pet", "text": "想跟它玩", "kind": "do", "icon": "paw", "weight": 3,
+	 "actions": ["play_with_pet", "scratch_pet", "tease_bird"], "joy": 6},
+	{"id": "sit_in_yard", "text": "想去院里坐坐", "kind": "do", "icon": "bench", "weight": 2, "likes": ["喜静"],
+	 "stages": ["adult", "elder"], "actions": ["trellis_shade", "rest_on_well", "pick_ears", "pipe_on_bench", "watch_passersby"], "joy": 5},
+	{"id": "go_look_outside", "text": "想出去看看", "kind": "do", "icon": "sun", "weight": 2, "stages": ["child"],
+	 "actions": ["watch_passersby", "well_reflection", "count_grapes"], "joy": 5}
+]
