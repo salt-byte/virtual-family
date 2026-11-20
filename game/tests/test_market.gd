@@ -30,9 +30,9 @@ func test_qijia_catalogue_has_every_section_in_pack_order():
 	var w := _qijia()
 	w.advance(5)  # the first step stocks the stall
 	var ids: Array = MarketSystem.catalogue(w).map(func(s): return s.id)
-	assert_eq(ids, ["provisions", "used_goods", "trades", "house", "clothes", "animals", "upgrades"])
+	assert_eq(ids, ["provisions", "used_goods", "trades", "house", "clothes", "animals", "livestock", "upgrades"])
 	var names: Array = MarketSystem.catalogue(w).map(func(s): return s.name)
-	assert_eq(names, ["食物与药", "二手市场", "营生用具", "房屋", "衣裳", "宠物", "升级与服务"])
+	assert_eq(names, ["食物与药", "二手市场", "营生用具", "房屋", "衣裳", "宠物", "牲口", "升级与服务"])
 
 
 func test_qijia_catalogue_puts_things_in_their_sections():

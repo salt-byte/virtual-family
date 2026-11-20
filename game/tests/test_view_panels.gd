@@ -237,7 +237,7 @@ func test_layout_fits_560_and_row_labels_are_safe():
 	for t in m.panels._tabs():
 		steps.append(["shop", t])
 	m.panels.close()
-	assert_eq(steps.size(), 8)
+	assert_eq(steps.size(), 9)  # 8 market sections (livestock is new) and the household's things
 	for step in steps + [["ledger", "tab.goals"], ["ledger", "tab.collection"], ["family", ""]]:
 		m.panels.open(step[0])
 		if step[1] != "":

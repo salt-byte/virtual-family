@@ -85,21 +85,22 @@ func test_a_fed_piglet_puts_on_weight_and_grows_into_a_pig():
 	var w := _sty()
 	var p := TestKit.adult(w)
 	var pig := PetSystem.add(w, "piglet", "bought")
-	pig.weight = 20.0
+	pig.weight = 10.0
 	var name := pig.given
 	for h in 24:
 		_keep_alive(p)
 		_feed(pig)
 		w.advance(3600)
-	assert_near(pig.weight, 42.0, 1.0, "22 a day while fed")
-	pig.weight = 49.9
+	assert_near(pig.weight, 38.0, 1.0, "28 a day while fed")
+	assert_eq(pig.kind, "piglet")
+	pig.weight = 44.99
 	_feed(pig)
 	w.drain_events()
 	w.advance(600)
 	assert_eq(pig.kind, "pig")
 	assert_eq(pig.given, name)
 	assert_eq(_events(w, "pet_grew").size(), 1)
-	assert_true(pig.weight >= 49.9)
+	assert_true(pig.weight >= 44.99)
 
 
 func test_a_hungry_pig_loses_weight_and_calls_and_feeding_it_answers():

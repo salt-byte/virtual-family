@@ -18,6 +18,9 @@ func _home(chance_asks := 0.0, seed := 1) -> World:
 	for n in w.pack.needs:
 		p.needs[n] = 90.0
 	w.stock["food"] = 50
+	# The hens that come with the house leave: these tests follow the person's own choices
+	# (with hens about, the dice fall elsewhere and seed 1 picks shelling beans, which cheers).
+	w.pets.clear()
 	w.drain_events()
 	return w
 

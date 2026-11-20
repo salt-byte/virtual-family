@@ -22,7 +22,8 @@ extends RefCounted
 ##   well, with room in the pen, it may start carrying young; `hours` later `count` animals of
 ##   `kind` join the pen (as many as there is room for). Meanwhile a kind with actions marked
 ##   `brood` does only those (a hen sitting on her eggs).
-## - `sick_when_hungry`: below `hungry_below` it falls ill that many times as often.
+## - `illness_factor`: it falls ill that many times as often as a pet (`pets.illness_chance_per_day`);
+##   `sick_when_hungry`: below `hungry_below`, that many times as often again.
 ## While the player is away nothing harsh happens: no weight is lost, it does not die of old
 ## age, no buyer calls. Randomness only through `world.rng`, drawn only where an animal could
 ## do the thing.

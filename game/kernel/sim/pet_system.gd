@@ -433,6 +433,7 @@ static func _needs_step(world: World, pet: Pet, c: Dictionary, dt: float) -> voi
 		if clean != "" and float(pet.needs.get(clean, 100.0)) < _num(c, "dirty_below", 30.0):
 			chance *= _num(c, "dirty_illness_factor", 1.0)
 		var ls: Dictionary = k.get("livestock", {})
+		chance *= _num(ls, "illness_factor", 1.0)
 		if ls.has("sick_when_hungry"):
 			var wt: Dictionary = ls.get("weight", {})
 			if float(pet.needs.get(role(pack, "food_need"), 100.0)) < _num(wt, "hungry_below", 0.0):

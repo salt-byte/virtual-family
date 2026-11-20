@@ -21,7 +21,7 @@ const BED_RESERVE := 1000
 const BABY_HUNGRY := 35.0
 ## Money the caretaker keeps back before building a pen for livestock, and before buying a
 ## young animal to raise in it.
-const PEN_RESERVE := 600
+const PEN_RESERVE := 1200
 const STOCK_RESERVE := 300
 
 ## False: the caretaker leaves the animals alone (no strays taken, none bought for a wish,

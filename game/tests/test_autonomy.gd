@@ -284,6 +284,11 @@ func test_candidates_match_can_do_and_score():
 					var hours: Array = a["hours"]
 					if bool(a["slow"]) and not hours.is_empty() and not AutonomySystem._in_hours(w.local_hour(), hours):
 						continue
+					# (and, as `candidates` does, an action for the animals that none at home
+					# needs now: qijia's hens are there from the start)
+					if not (a["pet"] as Dictionary).is_empty() and not AutonomySystem._pet_fits(
+							AutonomySystem._table(w.pack)[w.pack.autonomy_index[aid]], PetSystem.home_key(w)):
+						continue
 					if s > 0.0 and AutonomySystem.can_do(w, p, aid, -1) == "":
 						expect.append({"action": aid, "object_uid": AutonomySystem._free_object(w, p, a, -1) if str(a["object"]) != "" else -1,
 							"target_uid": AutonomySystem._first_free_target(w, a, p), "score": s})

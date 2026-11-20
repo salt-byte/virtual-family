@@ -157,7 +157,13 @@ func test_a_trotting_dog_reaches_spot_after_spot_of_its_yard():
 func test_a_stalking_cat_keeps_to_the_walls():
 	var m := _main()
 	var w := m.session.world
+	w.pets.clear()
 	var cat := PetSystem.add(w, "cat", "bought")
+	# The grown-up sits out at the gate, clear of the cat's rooms (a spot a person stands on
+	# is moved off the wall; which room they pick depends on the dice, hens and all).
+	var p := w.people[0]
+	AutonomySystem.start(w, p, "watch_passersby", -1)
+	p.current["remaining_s"] = 99999
 	m.tick(0.016)
 	cat.current = {"action": "cat_stalk_wall", "remaining_s": 99999, "room": "hall"}
 	m.tick(1.0 / 30.0)
