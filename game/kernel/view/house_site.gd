@@ -364,6 +364,32 @@ func detour(from: Vector2, to: Vector2, cells: Dictionary) -> Array:
 	return [ok, pts]
 
 
+## Whether a straight step from `a` to `b` goes through a closed wall (doors are open; a
+## step through a cell corner may go either way round). Furniture does not count.
+func crosses_wall(a: Vector2, b: Vector2) -> bool:
+	if not enabled:
+		return false
+	var c := cell_of(a)
+	if c == cell_of(b):
+		return false
+	var n := int(ceil(a.distance_to(b) / 4.0)) + 1
+	for i in range(1, n + 1):
+		var q := cell_of(a.lerp(b, float(i) / float(n)))
+		if q == c:
+			continue
+		var d := q - c
+		if absi(d.x) + absi(d.y) == 1:
+			if not edge_free(c, q):
+				return true
+		else:
+			var v1 := Vector2i(q.x, c.y)
+			var v2 := Vector2i(c.x, q.y)
+			if not ((edge_free(c, v1) and edge_free(v1, q)) or (edge_free(c, v2) and edge_free(v2, q))):
+				return true
+		c = q
+	return false
+
+
 ## Where someone at `p` in blocked cell `c` steps out into open cell `n`: straight across
 ## the edge between, to the middle of `n` in line with `p`; the middle of `n` when `n` is not
 ## beside `c` (or a wall stands between).
