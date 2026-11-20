@@ -35,15 +35,15 @@ func test_smoke_has_no_stories_and_saves_no_story_key():
 	assert_eq(StorySystem.marks(w), [])
 
 
-func test_qijia_has_three_stories_with_texts():
+func test_qijia_has_three_house_stories_three_by_chance_with_texts():
 	var p := Pack.load_dir("res://packs/qijia")
-	assert_eq(p.stories.size(), 3)
+	assert_eq(p.stories.size(), 6)
 	var n := 0
 	for st in p.stories.values():
 		for f in st.fragments:
 			assert_true(str(f.text).length() >= 10 and str(f.text).length() <= 90, str(f.id))
 			n += 1
-	assert_eq(n, 17)
+	assert_eq(n, 28)
 
 
 func test_unlocks():

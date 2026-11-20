@@ -1,7 +1,7 @@
 class_name Panels
 extends CanvasLayer
 ## Pop-up panels above the HUD: the shop (goods, and what the household holds), goals and
-## collection, and the family list. One at a time, centred, closed by `btn.close` or Esc.
+## collection, the family list and the keepsake box (a curio cabinet, `CabinetView`). One at a time, centred, closed by `btn.close` or Esc.
 ## Reads the World; everything it changes goes through session commands.
 
 const LAYER := 5
@@ -10,6 +10,8 @@ const BODY_HEIGHT := 340.0
 const MARGIN := 24.0
 const DONE_MARK := "✓ "
 const UNKNOWN := "？"
+## The most of the keepsake cabinet shown at once (it scrolls beyond).
+const BOX_HEIGHT := 470.0
 ## Market tab ids are this prefix plus a market section id (see `_market_tabs`).
 const MARKET_TAB := "market:"
 
@@ -25,6 +27,9 @@ var _tab := ""
 var _signature := ""
 ## In the family panel: uid of the person whose livelihood is being changed (-1: none).
 var _changing := -1
+## In the keepsake box: the thing whose card is open ("frag:<story>:<fragment>" or
+## "curio:<kind>"); "" shows the cabinet.
+var _piece := ""
 
 
 func setup(m: Main) -> void:
@@ -80,6 +85,7 @@ func open(what: String) -> void:
 			return
 	_kind = what
 	_changing = -1
+	_piece = ""
 	_tab = _tabs()[0] if not _tabs().is_empty() else ""
 	_signature = ""
 	refresh()
@@ -91,6 +97,7 @@ func close() -> void:
 	_kind = ""
 	_tab = ""
 	_changing = -1
+	_piece = ""
 	_signature = ""
 	_rebuild()
 
@@ -126,6 +133,8 @@ func _collect(n: Node, out: Array[String]) -> void:
 	for c in n.get_children():
 		if c is Label or c is Button:
 			out.append(c.text)
+		elif c is CabinetView:
+			out.append_array(c.lines())
 		_collect(c, out)
 
 
@@ -206,6 +215,18 @@ func press(id: String) -> void:
 	elif id.begins_with("change:"):
 		_changing = int(id.substr(7))
 		refresh()
+	elif id.begins_with("frag:") or id.begins_with("curio:"):
+		_piece = id
+		refresh()
+	elif id == "btn.back":
+		_piece = ""
+		refresh()
+	elif id == "sell_extras":
+		_sold(session.command({"type": "sell_collectible"}))
+	elif id.begins_with("sell_one:"):
+		_sold(session.command({"type": "sell_collectible", "kind": id.substr(9)}))
+	elif id.begins_with("sell_all:"):
+		_sold(session.command({"type": "sell_collectible", "kind": id.substr(9), "all": true}))
 	elif id == "change.cancel":
 		_changing = -1
 		refresh()
@@ -260,7 +281,7 @@ func _data_signature(w: World) -> String:
 				parts.append("%s:%s" % [o["action"], o["why"]])
 			return "|".join(parts)
 		"stories":
-			return str(w.stories)
+			return "%s|%s|%s|%d" % [str(w.stories), str(w.box), _piece, w.money]
 		"ledger":
 			return "%s|%s" % [str(w.goals_done), str(w.collection)]
 		"family":
@@ -302,6 +323,10 @@ func _rebuild() -> void:
 		ViewWidgets.use_title_font(money)
 		head.add_child(money)
 	_button("btn.close", s.t("btn.close"), head)
+	_card.custom_minimum_size.x = PANEL_WIDTH
+	if _kind == "stories":
+		_fill_box(w)
+		return
 	var tabs := _tabs()
 	if not tabs.is_empty():
 		# Tabs wrap onto a second line rather than widen the card.
@@ -335,7 +360,7 @@ func _rebuild() -> void:
 	if _kind == "shop" and _tab.begins_with(MARKET_TAB):
 		_fill_market(list, w, _tab.substr(MARKET_TAB.length()))
 		return
-	match _tab if not _kind in ["family", "stories", "go_out"] else _kind:
+	match _tab if not _kind in ["family", "go_out"] else _kind:
 		"go_out":
 			_fill_go_out(list, w)
 		"tab.inventory":
@@ -346,8 +371,6 @@ func _rebuild() -> void:
 			_fill_collection(list, w)
 		"family":
 			_fill_family(list, w)
-		"stories":
-			_fill_stories(list, w)
 
 
 ## The goods tabs of the market, in order: {id "market:<section id>", sid, name, cats (the
@@ -575,28 +598,161 @@ func _wanted_by(w: World, item: String) -> String:
 	return "、".join(names)
 
 
-## Each story that has come to light: its title, the fragments found with their text, and
-## a placeholder for each one still missing.
-func _fill_stories(list: VBoxContainer, w: World) -> void:
+## The keepsake box: the cabinet (`_box_shelves`) under a line that offers to sell the
+## extras, or the card of the thing picked in it.
+func _fill_box(w: World) -> void:
 	var s := session.strings
-	if w.stories.is_empty():
-		list.add_child(ViewWidgets.wrapped(s.t("stories.none")))
+	if _piece != "":
+		_fill_piece(w)
 		return
+	var top := ViewWidgets.row(_box)
+	var empty := w.stories.is_empty() and w.box.is_empty()
+	var hint := ViewWidgets.wrapped(s.t("stories.none") if empty else s.t("box.hint"))
+	hint.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	hint.add_theme_color_override("font_color", ViewWidgets.MUTED)
+	top.add_child(hint)
+	var extra := CollectibleSystem.extras_value(w) if CollectibleSystem.keeps(w.pack) else 0
+	if extra > 0:
+		var b := _button("sell_extras", s.t("box.sell_extras").replace("{money}", s.t("money").replace("{n}", str(extra))), top)
+		ViewWidgets.small_button(b)
+		b.custom_minimum_size.y = 30
+	var cab := CabinetView.new()
+	cab.setup(_box_shelves(w), _skin(), func(id: String, parent: Control) -> Button:
+		var btn := Button.new()
+		btn.pressed.connect(press.bind(id))
+		parent.add_child(btn)
+		_buttons[id] = btn
+		return btn)
+	_card.custom_minimum_size.x = maxf(PANEL_WIDTH, cab.custom_minimum_size.x + 2.0 * MARGIN + 12.0)
+	var scroll := ScrollContainer.new()
+	scroll.custom_minimum_size = Vector2(cab.custom_minimum_size.x + 12.0, minf(cab.custom_minimum_size.y, BOX_HEIGHT))
+	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	_box.add_child(scroll)
+	scroll.add_child(cab)
+
+
+func _skin() -> PackSkin:
+	return main.house.skin if main != null and main.house != null else null
+
+
+## The shelves of the box: one per story that has come to light (its fragments in order),
+## then the things picked up, `CabinetView.COLUMNS` to a shelf (a story's keepsake only once
+## it is in).
+func _box_shelves(w: World) -> Array:
+	var s := session.strings
+	var skin := _skin()
+	var out: Array = []
 	for sid in w.pack.stories:
 		if not w.stories.has(sid):
 			continue
-		var title := ViewWidgets.wrapped(s.story_title(sid, w))
-		title.add_theme_font_size_override("font_size", 18)
-		list.add_child(title)
 		var found: Array = w.stories[sid]["found"]
+		var slots: Array = []
 		for f in w.pack.stories[sid]["fragments"]:
-			if found.has(str(f["id"])):
-				list.add_child(ViewWidgets.wrapped("· " + str(f["name"])))
-				var body := ViewWidgets.wrapped("　" + str(f["text"]))
-				body.modulate = Color(1, 1, 1, 0.8)
-				list.add_child(body)
-			else:
-				list.add_child(ViewWidgets.wrapped("· " + s.t("stories.locked")))
+			var fid := str(f["id"])
+			slots.append({"id": "frag:%s:%s" % [sid, fid], "found": found.has(fid),
+				"tex": skin.piece(fid) if skin != null and found.has(fid) else null})
+		var progress := "%d / %d" % [found.size(), slots.size()]
+		if str(w.stories[sid]["stage"]) == "done":
+			progress += " ✓"
+		out.append({"title": s.story_title(sid, w) if not found.is_empty() else "", "progress": progress, "slots": slots})
+	var keep := CollectibleSystem.keeps(w.pack)
+	var curios: Array = []
+	var have := 0
+	for k in w.pack.collectibles:
+		var n := int(w.box.get(k, 0)) if keep else mini(1, int(w.collection.get(k, 0)))
+		if bool(w.pack.collectibles[k]["keepsake"]) and n <= 0:
+			continue
+		if n > 0:
+			have += 1
+		curios.append({"id": "curio:" + str(k), "found": n > 0, "count": n,
+			"tex": skin.collectible_sprite(str(k)) if skin != null and n > 0 else null})
+	var total := curios.size()
+	var first := true
+	while not curios.is_empty():
+		out.append({"title": s.t("box.curios") if first else "",
+			"progress": "%d / %d" % [have, total] if first else "", "slots": curios.slice(0, CabinetView.COLUMNS)})
+		curios = curios.slice(CabinetView.COLUMNS)
+		first = false
+	return out
+
+
+## The card of one thing in the box: its picture large, its name and words; for a thing
+## picked up, how many are kept and what one fetches, with the buttons that sell extras.
+func _fill_piece(w: World) -> void:
+	var s := session.strings
+	var skin := _skin()
+	var parts := _piece.split(":")
+	var tex: Texture2D = null
+	var name := ""
+	var text := ""
+	var kind := ""
+	if parts[0] == "frag" and parts.size() == 3 and (w.stories.get(parts[1], {}).get("found", []) as Array).has(parts[2]):
+		var f := StorySystem.fragment(w.pack, parts[1], parts[2])
+		tex = skin.piece(parts[2]) if skin != null else null
+		name = str(f.get("name", ""))
+		text = str(f.get("text", ""))
+	elif parts[0] == "curio" and parts.size() == 2 and w.pack.collectibles.has(parts[1]):
+		kind = parts[1]
+		tex = skin.collectible_sprite(kind) if skin != null else null
+		name = str(w.pack.collectibles[kind]["name"])
+	else:
+		_piece = ""
+		_fill_box(w)
+		return
+	var side := HBoxContainer.new()
+	side.add_theme_constant_override("separation", 18)
+	_box.add_child(side)
+	side.add_child(piece_picture(tex, Vector2(220, 220)))
+	var col := VBoxContainer.new()
+	col.custom_minimum_size.x = 300
+	col.add_theme_constant_override("separation", 8)
+	col.alignment = BoxContainer.ALIGNMENT_CENTER
+	side.add_child(col)
+	var head := ViewWidgets.wrapped(name)
+	head.add_theme_font_size_override("font_size", 20)
+	ViewWidgets.use_title_font(head)
+	col.add_child(head)
+	if kind == "":
+		col.add_child(_note("「%s」" % s.story_title(parts[1], w)))
+		col.add_child(ViewWidgets.wrapped(text))
+	var row := ViewWidgets.row(_box)
+	row.alignment = BoxContainer.ALIGNMENT_CENTER
+	if kind != "":
+		var c: Dictionary = w.pack.collectibles[kind]
+		var keep := CollectibleSystem.keeps(w.pack)
+		var n := int(w.box.get(kind, 0)) if keep else mini(1, int(w.collection.get(kind, 0)))
+		col.add_child(ViewWidgets.wrapped(s.t("box.count").replace("{n}", str(n))))
+		if bool(c["keepsake"]):
+			col.add_child(_note(s.t("error.keepsake")))
+		elif keep:
+			var price := s.t("money").replace("{n}", str(int(c["value"])))
+			col.add_child(_note(s.t("box.price").replace("{money}", price)))
+			var extra := CollectibleSystem.extras(w, kind)
+			_button("sell_one:" + kind, s.t("box.sell_one").replace("{money}", price), row).disabled = extra < 1
+			if extra > 1:
+				_button("sell_all:" + kind, s.t("box.sell_all").replace("{n}", str(extra)).replace("{money}",
+					s.t("money").replace("{n}", str(extra * int(c["value"])))), row)
+	_button("btn.back", s.t("btn.back"), row)
+
+
+## A thing's picture at `size` (aspect kept), or the wrapped bundle while it has none.
+static func piece_picture(tex: Texture2D, size: Vector2) -> Control:
+	if tex != null:
+		var r := TextureRect.new()
+		r.texture = tex
+		r.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		r.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		r.custom_minimum_size = size
+		return r
+	var c := Control.new()
+	c.custom_minimum_size = size
+	c.draw.connect(func(): CabinetView.bundle(c, Rect2(Vector2.ZERO, c.size)))
+	return c
+
+
+## After a sale (its toast comes with the event): the panel shows what is left.
+func _sold(_r: Dictionary) -> void:
+	refresh()
 
 
 func _fill_inventory(list: VBoxContainer, w: World) -> void:

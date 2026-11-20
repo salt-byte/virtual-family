@@ -1075,6 +1075,10 @@ func _is_num(v) -> bool:
 func _check_collectibles() -> void:
 	for c in _p.collectibles.values():
 		_rooms_list("collectibles.json", c["id"], "rooms", c["rooms"])
+		if not c["keepsake"] is bool:
+			_err("collectibles.json", c["id"], "keepsake must be true or false")
+	if not _p.config.get("collect_keep") is bool:
+		_err("pack.json", _p.id, "collect_keep must be true or false")
 
 
 func _check_wishes() -> void:
@@ -1135,6 +1139,8 @@ func _check_stories() -> void:
 				_err("stories.json", id, "unlock.room '%s' is not a room" % [str(u.get("room", ""))])
 			elif t == "generation_at_least" and not (u.get("generation") is int or (u.get("generation") is float and u["generation"] == floorf(u["generation"]))):
 				_err("stories.json", id, "unlock.generation must be a whole number")
+			elif t == "random" and not (_is_num(u.get("chance_per_day")) and float(u["chance_per_day"]) > 0.0):
+				_err("stories.json", id, "unlock.chance_per_day must be a number above 0")
 		if st.has("rooms"):
 			_rooms_list("stories.json", id, "rooms", st["rooms"])
 		if st.has("hours") and not _hours_ok(st["hours"]):
@@ -1154,6 +1160,8 @@ func _check_stories() -> void:
 					_rooms_list("stories.json", id, "fragment %s rooms" % f["id"], f["rooms"])
 				if f.has("hours") and not _hours_ok(f["hours"]):
 					_err("stories.json", id, "fragment %s hours must be [from, to]" % f["id"])
+		if st.has("midpoint") and not st["midpoint"] is String:
+			_err("stories.json", id, "midpoint must be a text")
 		if st.has("mark"):
 			_check_mark(id, "mark", st["mark"])
 		var fin = st.get("finale")
@@ -1208,6 +1216,10 @@ func _check_finale(id: String, fin: Dictionary) -> void:
 				_err("stories.json", id, "the dig action must not need an object")
 			if kind == "dig":
 				_check_mark(id, "finale", fin)
+		"scene":
+			var k = fin.get("keepsake", "")
+			if k != "" and not (_p.collectibles.has(k) and _p.collectibles[k].get("keepsake", false) is bool and _p.collectibles[k]["keepsake"]):
+				_err("stories.json", id, "finale.keepsake '%s' must be a collectible marked keepsake" % [str(k)])
 	var b = fin.get("blessing", {})
 	if not (b is Dictionary and (not b.has("illness_factor") or (_is_num(b["illness_factor"]) and b["illness_factor"] >= 0))):
 		_err("stories.json", id, "finale.blessing.illness_factor must be a number of at least 0")

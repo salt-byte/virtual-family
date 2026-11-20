@@ -38,6 +38,9 @@ static func _snapshot(w: World) -> Dictionary:
 	# Optional: written only once a story has unlocked (older saves and story-less packs lack it).
 	if not w.stories.is_empty():
 		out["stories"] = w.stories.duplicate(true)
+	# Optional: written only once something is kept in the box (older saves lack it).
+	if not w.box.is_empty():
+		out["box"] = w.box.duplicate(true)
 	if w.weather_slot >= 0:  # optional: only once a pack with seasons has rolled the weather
 		out["weather"] = {"season": w.season, "now": w.weather, "slot": w.weather_slot, "wet_until": w.wet_until}
 	if w.festival != "":  # optional: only while a festival is on
@@ -147,6 +150,14 @@ static func _build(pack: Pack, d: Dictionary) -> World:
 	for c in w.collectibles:
 		_clamp_into_room(pack, c)
 	w.collection = _int_values(d["collection"])
+	# A save from before the box: of each kind found, the first was kept and the rest sold.
+	w.box = {}
+	if d.has("box"):
+		w.box = _int_values(d["box"])
+	elif CollectibleSystem.keeps(pack):
+		for k in w.collection:
+			if int(w.collection[k]) > 0:
+				w.box[k] = 1
 	w.goals_done.clear()
 	for g in d["goals_done"]:
 		w.goals_done.append(str(g))
@@ -534,6 +545,8 @@ static func _valid_save(pack: Pack, d: Dictionary) -> bool:
 			if not _has(st, {"found": "a", "stage": "s"}) or not _all_strings(st["found"]) \
 					or not (st["stage"] in ["open", "finale", "done"]):
 				return false
+	if d.has("box") and not (_count_map(d["box"]) and (d["box"] as Dictionary).values().all(func(v): return v >= 0)):
+		return false
 	if not (_count_map(d["stock"]) and _count_map(d["inventory"]) and _count_map(d["collection"])):
 		return false
 	if not _count_map(d["income_carry"], true):
@@ -721,6 +734,7 @@ static func _ids_known(pack: Pack, d: Dictionary) -> bool:
 	if not d.get("pet_offer", {}).is_empty() and not pack.pets.has(d["pet_offer"]["kind"]):
 		return false
 	return _keys_in(d["inventory"], pack.items) and _keys_in(d["collection"], pack.collectibles) \
+			and _keys_in(d.get("box", {}), pack.collectibles) \
 			and _all_in(d["rooms_built"], pack.rooms) and _all_in(d["goals_done"], pack.goals)
 
 

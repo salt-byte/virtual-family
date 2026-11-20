@@ -2,22 +2,27 @@ class_name StorySystem
 extends RefCounted
 ## Old stories of the house (a pack's optional stories.json). A story unlocks on a condition
 ## (`unlock.type`: "start" after the first adoption, "generation_at_least" with
-## `generation`, "room_built" with `room`); then its fragments turn up one at a time, in
-## order, as special collectibles (a collectible entry with a `story` key whose `type` is the
-## fragment id) in the story's places, rarer than ordinary finds. A picked fragment is kept,
-## never sold. Once all are found the finale opens (`finale.kind`):
+## `generation`, "room_built" with `room`, "random": at the turn of each local day with the
+## chance `chance_per_day`, while no other "random" story is unfinished); then its
+## fragments turn up one at a time, in order, as special collectibles (a collectible entry
+## with a `story` key whose `type` is the fragment id) in the story's places, rarer than
+## ordinary finds. A picked fragment is kept, never sold. When half of them are found (rounded up, with at least three) the story
+## "stirs" (event `story_stirred`; the pack's `midpoint` line). Once all are found the finale
+## opens (`finale.kind`):
 ## - "visitor_gift": a visitor waits at the gate; `receive_visitor` takes `money` and adds the
 ##   keepsake object type `object` to the house
 ## - "offering": the action that `completes_story` this story (on an object) becomes
 ##   possible; when someone finishes it the story is done and its `blessing` holds for good
 ## - "dig": a marked cell (`room`, `x`, `y`) appears; dragging someone onto it starts the
 ##   action that `completes_story` it, which pays `money` when finished
+## - "scene": it ends there: pays `money` and puts the `keepsake` collectible (one whose
+##   `keepsake` is set) into the box
 ## World state: `world.stories` story id -> {found: [fragment ids], stage}, stage "open",
 ## "finale" or "done"; a story missing there is still locked. A pack without stories draws
 ## no randomness here.
 
-const UNLOCKS := ["start", "generation_at_least", "room_built"]
-const FINALES := ["visitor_gift", "offering", "dig"]
+const UNLOCKS := ["start", "generation_at_least", "room_built", "random"]
+const FINALES := ["visitor_gift", "offering", "dig", "scene"]
 
 
 ## Runs once per game minute (on the step that starts one), as if a minute had passed.
@@ -29,7 +34,7 @@ static func step(world: World, dt: float) -> void:
 		return
 	dt = maxf(dt, 60.0)
 	for sid in pack.stories:
-		if not world.stories.has(sid) and _unlock_met(world, pack.stories[sid]["unlock"]):
+		if not world.stories.has(sid) and _unlock_met(world, pack.stories[sid]["unlock"], dt):
 			world.stories[sid] = {"found": [], "stage": "open"}
 			world.emit("story_unlocked", {"story": sid})
 	if _fragment_lying(world) or _waiting(world).is_empty():
@@ -38,8 +43,12 @@ static func step(world: World, dt: float) -> void:
 		spawn_fragment(world)
 
 
-static func _unlock_met(world: World, u: Dictionary) -> bool:
+static func _unlock_met(world: World, u: Dictionary, dt := 60.0) -> bool:
 	match str(u.get("type", "")):
+		"random":
+			# One roll per local day, on its first minute.
+			return world.adopted_once and posmod(world.now + world.utc_offset, 86400) < int(dt) \
+					and not _random_open(world) and world.rng.chance(float(u.get("chance_per_day", 0.0)))
 		"start":
 			return world.adopted_once
 		"generation_at_least":
@@ -47,6 +56,15 @@ static func _unlock_met(world: World, u: Dictionary) -> bool:
 			return world.people.any(func(p: Person): return p.generation >= n)
 		"room_built":
 			return world.rooms_built.has(str(u.get("room", "")))
+	return false
+
+
+## True while a story that unlocked by chance is not finished yet.
+static func _random_open(world: World) -> bool:
+	for sid in world.stories:
+		if str(world.stories[sid]["stage"]) != "done" \
+				and str(world.pack.stories[sid]["unlock"].get("type", "")) == "random":
+			return true
 	return false
 
 
@@ -128,12 +146,29 @@ static func found(world: World, p: Person, c: Dictionary) -> void:
 	if not world.stories.has(sid):
 		return
 	var st: Dictionary = world.stories[sid]
-	if not (st["found"] as Array).has(fid):
+	var fresh := not (st["found"] as Array).has(fid)
+	if fresh:
 		st["found"].append(fid)
 	world.emit("fragment_found", {"uid": int(c["uid"]), "story": sid, "fragment": fid, "person": p.uid})
+	var total: int = (world.pack.stories[sid]["fragments"] as Array).size()
+	if fresh and total >= 3 and (st["found"] as Array).size() == midpoint(total):
+		world.emit("story_stirred", {"story": sid})
 	if str(st["stage"]) == "open" and next_fragment(world, sid).is_empty():
 		st["stage"] = "finale"
-		world.emit("story_finale", {"story": sid, "kind": str(world.pack.stories[sid]["finale"]["kind"])})
+		var fin: Dictionary = world.pack.stories[sid]["finale"]
+		world.emit("story_finale", {"story": sid, "kind": str(fin["kind"])})
+		if str(fin["kind"]) == "scene":
+			EconomySystem.earn(world, int(fin.get("money", 0)), "story", p.uid)
+			var keep := str(fin.get("keepsake", ""))
+			if keep != "":
+				world.box[keep] = maxi(1, int(world.box.get(keep, 0)))
+				world.collection[keep] = maxi(1, int(world.collection.get(keep, 0)))
+			_done(world, sid)
+
+
+## How many fragments of `total` make a story stir: half, rounded up.
+static func midpoint(total: int) -> int:
+	return (total + 1) / 2
 
 
 ## True while story `sid` waits for its finale to be played out.
