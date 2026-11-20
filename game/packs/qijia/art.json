@@ -189,5 +189,10 @@
 			"read_the_sky": "idle", "doze_at_door": "idle", "lean_on_doorframe": "idle",
 			"bask_by_wall": "idle", "gaze_down_road": "idle", "stretch_at_door": "idle", "heat_kang": "work"
 		}
+	},
+	"keepsakes": {
+		"cabinet": {"file": "props/ui_cabinet.png", "left": [0, 151, 48, 114], "cell": [158, 151, 115, 114], "right": [482, 151, 49, 114], "top": [0, 0, 532, 50], "bottom": [0, 525, 532, 44], "edge": 48},
+		"tag": "props/ui_tag.png",
+		"pieces": {"ayun_hoop": "props/story/ayun_hoop.png", "birthday_slip": "props/story/birthday_slip.png", "cloth_tiger": "props/story/cloth_tiger.png", "half_sampler": "props/story/half_sampler.png", "half_sugar_monkey": "props/story/half_sugar_monkey.png", "letter_first_half": "props/story/letter_first_half.png", "letter_second_half": "props/story/letter_second_half.png", "poem_burnt": "props/story/poem_burnt.png", "poem_last": "props/story/poem_last.png", "poem_ledger": "props/story/poem_ledger.png", "poem_millstone": "props/story/poem_millstone.png", "poem_nine_steps": "props/story/poem_nine_steps.png", "poem_ten_years": "props/story/poem_ten_years.png", "pressed_flower": "props/story/pressed_flower.png", "rattle_drum": "props/story/rattle_drum.png", "red_shoe": "props/story/red_shoe.png", "tiger_shoe": "props/story/tiger_shoe.png", "yun_hairpin": "props/story/yun_hairpin.png"}
 	}
 }

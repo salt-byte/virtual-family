@@ -63,6 +63,9 @@ var stats: Dictionary = {"cured": 0, "collected": 0, "mess_cleaned": 0, "all_cle
 var collectibles: Array[Dictionary] = []
 ## Collectible type -> how many of it have ever been picked up.
 var collection: Dictionary = {}
+## Collectible type -> how many of it are kept in the box now (only with `collect_keep`, and
+## a "scene" story's keepsake; see `CollectibleSystem`).
+var box: Dictionary = {}
 ## Ids of goals already rewarded.
 var goals_done: Array[String] = []
 ## True once two living people are married.

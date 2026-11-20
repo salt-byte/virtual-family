@@ -27,6 +27,12 @@ the animals' single facing pictures chars/a_<kind>_front|_back/<file>.png -> cha
 copies only the looks (chars/looks.json): their rigs, all three facings, as
 rigs/<id>[_front|_back]/ (the id without its a_ prefix), and their portraits
 chars/portraits/a_<id>.png -> portraits/<id>.png (trimmed, the longer side at most 256).
+
+    python3 game/tools/import_art.py --cabinet-only <assets dir> <pack art dir>
+
+copies only the keepsake box (see `import_cabinet`): the story pieces props/story/<id>.png,
+the cabinet props/ui_cabinet.png and the paper tag props/ui_tag.png, and writes the
+`keepsakes` table into the pack's art.json (the art dir's parent).
 Needs Pillow.
 """
 import json
@@ -128,6 +134,51 @@ def import_looks(src: Path, dst: Path) -> None:
             fit(im, PORTRAIT_MAX).save(dst / "portraits" / f"{l['id'][2:]}.png", optimize=True)
 
 
+PIECE_MAX = 256
+CABINET_SCALE = 0.5
+# Where the parts of the cabinet picture lie, in the source picture's pixels [x, y, w, h]:
+# the left and right posts and one compartment (with the divider on its right and the board
+# under it) for a shelf row, the cornice and the base; `edge` is the width of a corner of the
+# cornice and base kept unstretched. A shelf of n slots is left + n cells + right.
+CABINET_PARTS = {"left": [0, 302, 95, 228], "cell": [315, 302, 230, 228], "right": [965, 302, 98, 228],
+                 "top": [0, 0, 1063, 100], "bottom": [0, 1050, 1063, 89], "edge": 95}
+
+
+def import_cabinet(src: Path, dst: Path, pack_dir: Path) -> None:
+    """The keepsake box: props/story/<id>.png -> props/story/<id>.png (trimmed, the longer side
+    at most PIECE_MAX), props/ui_cabinet.png at CABINET_SCALE and props/ui_tag.png as they are;
+    then art.json's `keepsakes` table lists what is there."""
+    out = dst / "props" / "story"
+    out.mkdir(parents=True, exist_ok=True)
+    pieces = {}
+    for f in sorted((src / "props" / "story").glob("*.png")):
+        im = trim(Image.open(f).convert("RGBA"))
+        fit(im, PIECE_MAX).save(out / f.name, optimize=True)
+        pieces[f.stem] = f"props/story/{f.name}"
+    table = {}
+    cab = src / "props" / "ui_cabinet.png"
+    if cab.exists():
+        im = Image.open(cab).convert("RGBA")
+        im.resize((round(im.width * CABINET_SCALE), round(im.height * CABINET_SCALE)), Image.LANCZOS).save(dst / "props" / "ui_cabinet.png", optimize=True)
+        parts = {k: ([round(v * CABINET_SCALE) for v in r] if isinstance(r, list) else round(r * CABINET_SCALE)) for k, r in CABINET_PARTS.items()}
+        table["cabinet"] = dict(file="props/ui_cabinet.png", **parts)
+    tag = src / "props" / "ui_tag.png"
+    if tag.exists():
+        Image.open(tag).convert("RGBA").save(dst / "props" / "ui_tag.png", optimize=True)
+        table["tag"] = "props/ui_tag.png"
+    table["pieces"] = pieces
+    # art.json is laid out by hand: the table goes in (or is replaced) as its last key.
+    art = pack_dir / "art.json"
+    text = art.read_text().rstrip()
+    key = ',\n\t"keepsakes": '
+    if key in text:
+        text = text[:text.index(key)] + "\n}"
+    body = ",\n\t\t".join(f"{json.dumps(k)}: {json.dumps(v, ensure_ascii=False)}" for k, v in table.items())
+    text = text[:-1].rstrip() + key + "{\n\t\t" + body + "\n\t}\n}\n"
+    json.loads(text)
+    art.write_text(text)
+
+
 def main(src: Path, dst: Path) -> None:
     import_rigs(src, dst)
     for sub in ("tiles", "props", "chars"):
@@ -151,7 +202,11 @@ if __name__ == "__main__":
     only = "--rigs-only" in args
     iso = "--iso-only" in args
     looks = "--looks-only" in args
-    args = [a for a in args if a not in ("--rigs-only", "--iso-only", "--looks-only")]
+    cabinet = "--cabinet-only" in args
+    args = [a for a in args if a not in ("--rigs-only", "--iso-only", "--looks-only", "--cabinet-only")]
     if len(args) != 2:
         sys.exit(__doc__)
+    if cabinet:
+        import_cabinet(Path(args[0]), Path(args[1]), Path(args[1]).parent)
+        sys.exit(0)
     (import_looks if looks else import_iso if iso else import_rigs if only else main)(Path(args[0]), Path(args[1]))

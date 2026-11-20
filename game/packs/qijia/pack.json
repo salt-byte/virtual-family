@@ -34,6 +34,7 @@
 	"mood_neglect_floor": 10,
 	"story_interval_min": 45,
 	"story_ttl_min": 120,
+	"collect_keep": true,
 	"clean_reward": {"amount": 15},
 	"share": {"every": 30, "gap_min": 30, "level": true, "money_text": "今天挣了 {n} 文！", "level_text": "当上{level}了！"},
 	"feelings": [

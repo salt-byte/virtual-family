@@ -74,6 +74,7 @@ static func run(pack_id: String, families: int, days: int, seed0: int) -> Dictio
 	var top_gen := 0
 	var house_born_took_up := 0
 	var unlocked := {}  # story id -> households where it unlocked
+	var finished := {}  # story id -> households where it was played to its end
 	var babies_end := 0
 	var weather_hours := {}  # weather id -> hours it was the weather at the hourly look
 	var season_hours := {}  # season id -> hours
@@ -181,6 +182,8 @@ static func run(pack_id: String, families: int, days: int, seed0: int) -> Dictio
 					babies_end += 1
 		for sid in w.stories:
 			unlocked[sid] = int(unlocked.get(sid, 0)) + 1
+			if str(w.stories[sid]["stage"]) == "done":
+				finished[sid] = int(finished.get(sid, 0)) + 1
 		messes += w.messes.size()
 		var love := PetSystem.role(w.pack, "love_need")
 		for pet in w.pets:
@@ -205,7 +208,7 @@ static func run(pack_id: String, families: int, days: int, seed0: int) -> Dictio
 		"pregnancies": births["conceived"], "births": births["born"], "babies_at_end": babies_end,
 		"people_at_end": living, "alive_by_generation": gens, "max_generation": top_gen,
 		"house_born_took_up": house_born_took_up, "relatives_arrived": births["relative_arrived"],
-		"beds_bought": beds_bought, "stories_unlocked": unlocked,
+		"beds_bought": beds_bought, "stories_unlocked": unlocked, "stories_done": finished,
 		"deaths_by_cause": deaths,
 		"weather_hours": weather_hours, "season_hours": season_hours, "weather_changes": weather_changes,
 		"weather_only_actions": weather_only,
@@ -219,7 +222,8 @@ static func run(pack_id: String, families: int, days: int, seed0: int) -> Dictio
 	}
 
 
-## The caretaker's hourly round: accept any proposal and any visitor's gift, keep food stocked, give the right
+## The caretaker's hourly round: accept any proposal and any visitor's gift, sell the extras
+## in the keepsake box, keep food stocked, give the right
 ## medicine to the sick and a treat to the gloomy, and grant the wishes it can: a wished-for
 ## shop item when the money stays above WISH_RESERVE, a praise when there is something to
 ## praise, a wished-for piece of furniture with FURNITURE_RESERVE more in hand. Rooms are
@@ -233,6 +237,8 @@ static func caretake(w: World) -> void:
 		w.command({"type": "answer_proposal", "id": w.proposals[0]["id"], "accept": true})
 	for sid in StorySystem.visitors(w):
 		w.command({"type": "receive_visitor", "story": sid})
+	if CollectibleSystem.keeps(w.pack):
+		w.command({"type": "sell_collectible"})
 	var food := _first_item(w, func(it): return (it["stock"] as Dictionary).has(FOOD_STOCK))
 	if food != "" and int(w.stock.get(FOOD_STOCK, 0)) < LOW_FOOD:
 		w.command({"type": "buy", "item": food})

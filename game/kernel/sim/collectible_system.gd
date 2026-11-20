@@ -2,6 +2,9 @@ class_name CollectibleSystem
 extends RefCounted
 ## Things that drop outdoors: random spawns, expiry, and pick-up settlement.
 ## A collectible is "claimed" while a living person's picking action targets it.
+## With `collect_keep` (pack.json) every find goes into the box (`World.box`, kind -> count)
+## and the player sells the extras with the command `sell_collectible`, keeping one of each;
+## a collectible with `keepsake` never sells (and with weight 0 never drops: a story gives it).
 
 
 ## Expires old drops, then maybe spawns one while below the cap.
@@ -80,8 +83,9 @@ static func first_free(world: World, p: Person) -> int:
 	return -1
 
 
-## Settles a finished pick-up. The first of each type goes into the collection for free;
-## duplicates pay their value. A collectible that has already gone is ignored.
+## Settles a finished pick-up. Kept (`keeps`): it goes into the box. Otherwise the first of
+## each type goes into the collection for free and duplicates pay their value. A collectible
+## that has already gone is ignored.
 static func collect(world: World, p: Person, uid: int) -> void:
 	var c := find(world, uid)
 	if c.is_empty():
@@ -95,11 +99,69 @@ static func collect(world: World, p: Person, uid: int) -> void:
 	var first := int(world.collection.get(type, 0)) == 0
 	world.stats["collected"] = int(world.stats["collected"]) + 1
 	world.collection[type] = int(world.collection.get(type, 0)) + 1
+	if keeps(world.pack):
+		world.box[type] = int(world.box.get(type, 0)) + 1
+		world.emit("collected", {"uid": uid, "kind": type, "value": 0, "first": first, "person": p.uid, "kept": true})
+		return
 	if first:
 		value = 0
 	else:
 		EconomySystem.earn(world, value, "collect", p.uid)
 	world.emit("collected", {"uid": uid, "kind": type, "value": value, "first": first, "person": p.uid})
+
+
+## True when the pack keeps what is picked up (`collect_keep`).
+static func keeps(pack: Pack) -> bool:
+	return bool(pack.cfg("collect_keep"))
+
+
+## How many of `kind` in the box could be sold: all but one (none of a keepsake).
+static func extras(world: World, kind: String) -> int:
+	if bool(world.pack.collectibles.get(kind, {}).get("keepsake", true)):
+		return 0
+	return maxi(0, int(world.box.get(kind, 0)) - 1)
+
+
+## What all the extras in the box would fetch now.
+static func extras_value(world: World) -> int:
+	var total := 0
+	for kind in world.box:
+		total += extras(world, str(kind)) * int(world.pack.collectibles.get(kind, {}).get("value", 0))
+	return total
+
+
+## Player command {kind, all}: sells extras from the box at their `value`, always keeping one
+## of each kind. With `kind`: one of that kind, or every extra of it with `all`; without
+## `kind`, every extra in the box.
+static func sell(world: World, cmd: Dictionary) -> Dictionary:
+	if not keeps(world.pack):
+		return Commands.fail("no_box")
+	var kinds: Array = world.box.keys()
+	var all := true
+	if cmd.has("kind"):
+		var kind := str(cmd["kind"])
+		if not world.pack.collectibles.has(kind):
+			return Commands.fail("no_such_thing")
+		if bool(world.pack.collectibles[kind]["keepsake"]):
+			return Commands.fail("keepsake")
+		kinds = [kind]
+		all = bool(cmd.get("all", false))
+	var count := 0
+	var amount := 0
+	for kind in kinds:
+		var n := extras(world, str(kind))
+		if not all:
+			n = mini(n, 1)
+		if n <= 0:
+			continue
+		world.box[kind] = int(world.box[kind]) - n
+		count += n
+		amount += n * int(world.pack.collectibles[kind]["value"])
+	if count == 0:
+		return Commands.fail("nothing_to_sell")
+	EconomySystem.earn(world, amount, "collect")
+	world.emit("collectibles_sold", {"kind": str(cmd.get("kind", "")), "count": count, "amount": amount})
+	return Commands.success({"count": count, "amount": amount})
 
 
 static func _expire(world: World) -> void:

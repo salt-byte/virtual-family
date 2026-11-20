@@ -54,6 +54,9 @@ const DEFAULT_CONFIG := {
 	# Story fragments (only with a stories.json): one per story_interval_min on average,
 	# lying about for story_ttl_min.
 	"story_interval_min": 240, "story_ttl_min": 600,
+	# Keep what is picked up (see `CollectibleSystem`): every find goes into the box and the
+	# player sells the extras; false sells duplicates on the spot.
+	"collect_keep": false,
 	# Births (off while empty; see `BirthSystem` for the keys).
 	"births": {},
 	# The ground plan the view draws (off while empty): map size in cells, an optional
@@ -95,7 +98,7 @@ const ENTRY_DEFAULTS := {
 		"yields": {}, "seasons": [], "weather": [], "not_wet": false, "pet": {},
 		"festivals": [], "outing": {}, "mourns": false},
 	"object_types": {"outdoor": false, "capacity": 1, "fixed": false, "keepsake": false, "market": ""},
-	"collectibles": {"rooms": []},
+	"collectibles": {"rooms": [], "keepsake": false},
 	"wishes": {"likes": [], "stages": [], "weight": 1.0, "festival": "", "actions": []},
 	"dishes": {"on": [], "leaves": "", "ttl_hours": 0, "max_out": 1, "scraps": ""},
 	"pets": {"price": 0, "stray": false, "names": [], "lifespan": [10, 14], "age": [1, 2], "drains": {},

@@ -242,7 +242,9 @@ func test_death_while_away_goes_to_game_over_with_no_stale_card():
 	assert_eq(m2.overlays.current(), "adopt")
 	m2.overlays.press("btn.adopt")
 	m2.tick(0.016)
-	assert_eq(m2.overlays.current(), "")
+	# The house's old story may have been found in full while away: its visitor still waits
+	# at the gate for the new household. Nothing else is left over.
+	assert_true(m2.overlays.current() in ["", "visitor"], m2.overlays.current())
 	m2.free()
 
 
