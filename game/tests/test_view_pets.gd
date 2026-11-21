@@ -155,6 +155,16 @@ func test_a_trotting_dog_reaches_spot_after_spot_of_its_yard():
 
 
 func test_a_stalking_cat_keeps_to_the_walls():
+	# Several fixed days: furniture stands along the walls, and a wall spot under a piece
+	# must give way to another wall spot, never to the cell just inside (seeded, so a miss
+	# fails every run, not one in three).
+	for dice in 6:
+		PetView.test_seed = dice
+		_stalk_once()
+	PetView.test_seed = -1
+
+
+func _stalk_once() -> void:
 	var m := _main()
 	var w := m.session.world
 	w.pets.clear()
@@ -174,7 +184,7 @@ func test_a_stalking_cat_keeps_to_the_walls():
 	for s in pv.spots():
 		var c := m.house.layout.pos_to_cell(s)
 		var rd: Dictionary = w.pack.rooms[str(c.room)]
-		assert_true(int(c.x) == 0 or int(c.y) == 0 or int(c.x) == int(rd.w) - 1 or int(c.y) == int(rd.h) - 1, str(c))
+		assert_true(int(c.x) == 0 or int(c.y) == 0 or int(c.x) == int(rd.w) - 1 or int(c.y) == int(rd.h) - 1, "seed %d: %s" % [PetView.test_seed, c])
 	_done(m)
 
 

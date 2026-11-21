@@ -550,12 +550,13 @@ func test_the_walk_cycle_follows_the_ground():
 ## nobody sitting off their seat; people walking into one another, hardly ever.
 func test_a_lived_in_house_has_no_clipping():
 	var tool = load("res://tools/clip_detect.gd")
+	# The same day every run: the views pick their spots with their own dice, the first ones
+	# (where each animal starts, its first trot) as they are made, so they are seeded before.
+	PersonView.test_seed = 1
+	PetView.test_seed = 1
 	var m: Main = tool.start(Engine.get_main_loop(), "full", clk, _clock)
-	# The same day every run: the views pick their idle spots with their own dice.
-	var dice := 0
-	for v in m.house.people.values() + m.house.pets.values():
-		dice += 1
-		v._rng.seed = 1000 + dice
+	PersonView.test_seed = -1
+	PetView.test_seed = -1
 	var probe := ClipProbe.new(m.house)
 	var dt := 1.0 / 30.0
 	var opening := 0

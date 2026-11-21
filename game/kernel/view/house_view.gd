@@ -450,6 +450,10 @@ static func _rank(n: Node2D) -> int:
 	return 0
 
 
+## How near (screen pixels) two pieces' pictures come for `_order_furniture` to order them.
+const ORDER_REACH := 64.0
+
+
 ## Pieces of furniture whose pictures overlap are put in footprint order: one standing wholly
 ## in front of another (east of its east edge or south of its south edge) is drawn after it,
 ## whatever their middles and seat lifts say. Moves a piece just past the one it must cover;
@@ -468,7 +472,9 @@ func _order_furniture(order: Array) -> void:
 		var moved := false
 		for a in pieces:
 			for b in pieces:
-				if a == b or not (a[2] as Rect2).intersects(b[2]):
+				# Pieces close enough that one body can overlap both are put in order too
+				# (someone standing between them is drawn after the one and before the other).
+				if a == b or not (a[2] as Rect2).grow(ORDER_REACH).intersects(b[2]):
 					continue
 				# a in front of b, but drawn first: move a just past b.
 				if _rect_side(a[1], b[1]) == 1:
@@ -482,7 +488,10 @@ func _order_furniture(order: Array) -> void:
 			break
 
 
-## Whether footprint `a` stands in front of `b` (1), behind it (-1) or neither surely (0).
+## Whether footprint `a` stands in front of `b` (1), behind it (-1) or neither surely (0:
+## they overlap). Off a corner (north-east or south-west of it), both: as for someone standing
+## there (`foot_side`), the side it stands further off wins, so a mover between the two
+## (south of one, north of the other) can be drawn between them.
 static func _rect_side(a: Rect2, b: Rect2) -> int:
 	var front := a.position.x >= b.end.x or a.position.y >= b.end.y
 	var behind := a.end.x <= b.position.x or a.end.y <= b.position.y
@@ -490,6 +499,11 @@ static func _rect_side(a: Rect2, b: Rect2) -> int:
 		return 1
 	if behind and not front:
 		return -1
+	if front and behind:
+		var ahead := maxf(a.position.x - b.end.x, a.position.y - b.end.y)
+		var back := maxf(b.position.x - a.end.x, b.position.y - a.end.y)
+		if ahead != back:
+			return 1 if ahead > back else -1
 	return 0
 
 

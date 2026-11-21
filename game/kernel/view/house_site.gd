@@ -49,6 +49,8 @@ var _room_at: Dictionary = {}     # Vector2i -> room id
 var _built: Dictionary = {}       # room id -> true, as last updated
 var _key := "\n"
 var _astar := AStar2D.new()
+## The cells a `detour` keeps off for the moment (someone stands there): Vector2i -> true.
+var _avoiding: Dictionary = {}
 
 
 func _init(pack: Pack) -> void:
@@ -294,8 +296,8 @@ func route(from: Vector2, to: Vector2) -> PackedVector2Array:
 	if not walkable(a) and not walkable(b) and from.distance_to(to) < CELL.x * 1.5:
 		return out  # along the same seat or bed: shuffle over
 	# Seats and beds are got on and off from the front (the south side), when it is open.
-	var a2 := a if walkable(a) else nearest_open(a, {}, from + Vector2(0, CELL.y * 0.6))
-	var b2 := b if walkable(b) else nearest_open(b, {}, to + Vector2(0, CELL.y * 0.6))
+	var a2 := a if walkable(a) else _way_onto(a, from)
+	var b2 := b if walkable(b) else _way_onto(b, to)
 	if a2 != a and a2.x >= 0:
 		var exit := _edge_point(from, a, a2)
 		out.append(exit)
@@ -336,6 +338,20 @@ func route(from: Vector2, to: Vector2) -> PackedVector2Array:
 	return out
 
 
+## The open cell a seat or bed on cell `c` is got onto from, for someone sitting at `p`: the
+## front when it is open, else the nearest side. Someone a `detour` keeps off only stands
+## there for now: the seat's own way on stays where it is (the detour then finds it goes
+## through them and is no way round), rather than going round behind the piece and
+## stepping across it.
+func _way_onto(c: Vector2i, p: Vector2) -> Vector2i:
+	for k in _avoiding:
+		blocked.erase(k)
+	var n := nearest_open(c, {}, p + Vector2(0, CELL.y * 0.6))
+	for k in _avoiding:
+		blocked[k] = true
+	return n
+
+
 ## A way from `from` to `to` that keeps off `cells` (Vector2i -> true: where someone stands
 ## in the way) as well, the start and end cells aside: [found, points] (`route`'s points);
 ## found is false when there is no way round.
@@ -349,7 +365,9 @@ func detour(from: Vector2, to: Vector2, cells: Dictionary) -> Array:
 			blocked[c] = true
 			_astar.set_point_disabled(_id(c), true)
 			added.append(c)
+			_avoiding[c] = true
 	var pts := route(from, to)
+	_avoiding = {}
 	# The way found must keep off the cells all along (route falls back to walking straight
 	# when there is no way: that is no way round).
 	var ok := not pts.is_empty() or clear_line(from, to)
@@ -360,6 +378,11 @@ func detour(from: Vector2, to: Vector2, cells: Dictionary) -> Array:
 		for k in range(1, n + 1):
 			if added.has(cell_of(at.lerp(nxt, float(k) / float(n)))):
 				ok = false
+		# Every leg between open cells must be clear too: off a seat or onto one, `route`
+		# hands back the way to the seat's side even when it found none from there (and
+		# would walk straight, across the furniture in between).
+		if walkable(cell_of(at)) and walkable(cell_of(nxt)) and not clear_line(at, nxt):
+			ok = false
 		at = nxt
 	for c in added:
 		blocked.erase(c)

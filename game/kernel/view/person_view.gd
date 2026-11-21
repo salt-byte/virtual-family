@@ -72,6 +72,9 @@ var _last_doing := ""
 var _idle_from := -1
 var _key := ""
 var _rng := RandomNumberGenerator.new()
+## Tests set this (>= 0) to make every view's dice repeatable from the first frame: each view
+## seeds from it and its person's uid. -1 (the game): fresh dice per view.
+static var test_seed := -1
 var _box := StyleBoxFlat.new()
 var _body := Color.WHITE
 ## Height of the block relative to a grown-up's: babies and children are drawn smaller.
@@ -134,7 +137,10 @@ const CHILD_SIZE := 0.75
 func setup(p: Person, s: GameSession) -> void:
 	person = p
 	session = s
-	_rng.randomize()
+	if test_seed >= 0:
+		_rng.seed = hash([test_seed, p.uid])
+	else:
+		_rng.randomize()
 	_box.set_corner_radius_all(8)
 	var l := layout()
 	if l != null and session.world != null and session.world.phase != "invalid":

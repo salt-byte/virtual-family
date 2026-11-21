@@ -70,6 +70,9 @@ var _leg_checked := Vector2(INF, INF)
 var round_age := 99.0
 var _path_from := Vector2(INF, INF)
 var _rng := RandomNumberGenerator.new()
+## Tests set this (>= 0) to make every view's dice repeatable: each view seeds from it and its
+## pet's uid. -1 (the game): fresh dice per view.
+static var test_seed := -1
 var _key := ""
 var _name := ""
 var _doing := ""
@@ -114,7 +117,10 @@ var _scale := Vector2.ONE
 func setup(p: Pet, s: GameSession) -> void:
 	pet = p
 	session = s
-	_rng.randomize()
+	if test_seed >= 0:
+		_rng.seed = hash([test_seed, p.uid])
+	else:
+		_rng.randomize()
 	_phase = _rng.randf() * 10.0
 	_shuffle_in = _rng.randf_range(SHUFFLE_EVERY.x, SHUFFLE_EVERY.y)
 	_turn_in = _rng.randf_range(TURN_EVERY.x, TURN_EVERY.y)
@@ -563,6 +569,11 @@ func _compute_target(w: World, l: HouseLayout) -> Vector2:
 		var r: Dictionary = w.pack.rooms[room]
 		return _free_spot(l, l.cell_center(room, _rng.randi_range(0, int(r.w) - 1), _rng.randi_range(0, int(r.h) - 1)))
 	if cur.is_empty() and base_target != Vector2.ZERO:
+		# Done with what it did up on a piece (the kang, the stove): it gets down beside it
+		# rather than staying up there with nothing to do (a perch is its home, though).
+		if l.site.enabled and not l.site.walkable(l.site.cell_of(base_target)) \
+				and str(PetSystem.kind_of(w.pack, pet).get("perch", "")) == "":
+			return _free_spot(l, base_target)
 		return base_target
 	return _home_cell(w, l)
 
@@ -584,16 +595,32 @@ func _spot_cells(w: World, l: HouseLayout, n: int, edges: bool, first := "") -> 
 		var rd: Dictionary = w.pack.rooms[room]
 		var cw := int(rd.w)
 		var ch := int(rd.h)
-		var x := _rng.randi_range(0, cw - 1)
-		var y := _rng.randi_range(0, ch - 1)
 		if edges:
-			if _rng.randf() < 0.5:
-				x = 0 if _rng.randf() < 0.5 else cw - 1
-			else:
-				y = 0 if _rng.randf() < 0.5 else ch - 1
+			out.append(_edge_spot(l, room, cw, ch))
+			continue
 		# Off furniture and wall lines, and off where people stand.
-		out.append(_free_spot(l, l.cell_center(room, x, y)))
+		out.append(_free_spot(l, l.cell_center(room, _rng.randi_range(0, cw - 1), _rng.randi_range(0, ch - 1))))
 	return out
+
+
+## A spot on a wall or in a corner of `room` (`cw` x `ch` cells) that is open: not under
+## furniture, not on a wall line, not where people stand. Picked among the open edge cells,
+## so a piece against the wall never pushes it in towards the middle (`_free_spot` would
+## step to the nearest open cell, often the one just inside). Only when no edge cell is open
+## does it fall back to the nearest open cell to one.
+func _edge_spot(l: HouseLayout, room: String, cw: int, ch: int) -> Vector2:
+	var edge: Array[Vector2i] = []
+	for y in ch:
+		for x in cw:
+			if x == 0 or y == 0 or x == cw - 1 or y == ch - 1:
+				edge.append(Vector2i(x, y))
+	var taken := _people_cells(l)
+	var open: Array[Vector2i] = edge.filter(func(c: Vector2i):
+		var p := l.cell_center(room, c.x, c.y)
+		return not l.site.enabled or (l.site.can_stop(p) and not taken.has(l.site.cell_of(p))))
+	var from := open if not open.is_empty() else edge
+	var pick: Vector2i = from[_rng.randi_range(0, from.size() - 1)]
+	return _free_spot(l, l.cell_center(room, pick.x, pick.y))
 
 
 ## A cell of one of its kind's `home` rooms that is built (the perch for a caged bird).
