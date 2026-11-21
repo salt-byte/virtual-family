@@ -24,8 +24,8 @@ static func make(p: Person, sk: PackSkin, pk: Pack, side := Vector2(150, 160), l
 	pp.skin = sk
 	pp.pack = pk
 	pp.look = look_id
-	if pp.look == "" and p != null and p.get("look") is String:
-		pp.look = str(p.get("look"))
+	if pp.look == "" and p != null:
+		pp.look = ViewLooks.of(p, pk)   # an old save's "" gets the view's stand-in
 	pp._portrait = pp.portrait()
 	pp.custom_minimum_size = side
 	pp.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -55,7 +55,7 @@ func portrait() -> Texture2D:
 func look_for() -> Dictionary:
 	if skin == null or not skin.enabled or person == null or pack == null:
 		return {}
-	return skin.person_look(person.stage(pack), person.gender, str(person.get("look") if person.get("look") != null else ""))
+	return skin.person_look(person.stage(pack), person.gender, look if look != "" else ViewLooks.of(person, pack))
 
 
 func _process(delta: float) -> void:

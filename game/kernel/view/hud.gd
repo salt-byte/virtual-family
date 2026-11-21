@@ -8,7 +8,15 @@ extends CanvasLayer
 ## them, their needs as short meters (`NeedMeters`: the lowest pulses) with any other status
 ## (out, low mood, with child) as chips, the household's money, larder and sky, and the
 ## buttons: the main three (family, shop, letters) big with icons, the rest small underneath.
-## Reads the World; the only thing it writes is the praise/scold command through the session.
+## Switching between people: small ◀ ▶ either side of the portrait, the family strip
+## (`FamilyStrip`) just above the bar's left end, and Tab / Shift+Tab or ← / → while nothing
+## else has the keyboard. Picking someone at home selects them and the view follows them
+## (`Main.select`); someone away on an outing is only shown in the bar, the view stays put.
+## What is in store for the one in the bar (food for an animal, snacks or clothes for a
+## person) sits as quick buttons in a tray above the bar's right end (`CareTray`); an
+## animal's needs show as meters like a person's.
+## Reads the World; it writes the praise/scold command, and the tray's use_item / drag (send
+## someone to look after an animal) commands, through the session.
 
 signal open(what: String)
 
@@ -36,7 +44,12 @@ const FYI_SECONDS := 10.0
 const NOTICE_WIDTH := 280.0
 ## Where the toasts start while the festival board shows above them.
 const FEST_TOAST_TOP := 82.0
-const WHO_WIDTH := 250.0
+const WHO_WIDTH := 236.0
+## The family strip: its gap above the bar, its left edge, and the share of the screen's
+## width it may take before its faces shrink (then scroll).
+const STRIP_GAP := 6.0
+const STRIP_LEFT := 12.0
+const STRIP_SHARE := 0.5
 
 var main: Main
 var session: GameSession
@@ -46,6 +59,12 @@ var _avatar: Portrait
 ## The painted portrait of the selected one's look, in place of `_avatar` when there is one.
 var _face: PersonPortrait
 var _face_key := ""
+## Who is in the house, faces above the bar's left end; and ◀ ▶ beside the portrait.
+var _strip: FamilyStrip
+var _prev: Arrow
+var _next: Arrow
+## Quick buttons for what is in store for the one in the bar.
+var _tray: CareTray
 var _name: Label
 ## The feeling of the moment beside the name, labelled as their mood, with a small face.
 var _mood_box: HBoxContainer
@@ -116,6 +135,48 @@ class Portrait:
 			draw_string(font, at, initial, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, ViewWidgets.CREAM)
 
 
+## A small ◀ / ▶ beside the portrait: a wood triangle on a cream pill; a click steps
+## through the family (`cycle`).
+class Arrow:
+	extends Control
+	var step := 1
+	var hud: Hud
+	var _hover := false
+
+	func _init() -> void:
+		custom_minimum_size = Vector2(16, 34)
+		size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		mouse_filter = Control.MOUSE_FILTER_STOP
+		mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
+		focus_mode = Control.FOCUS_NONE
+		mouse_entered.connect(_set_hover.bind(true))
+		mouse_exited.connect(_set_hover.bind(false))
+
+	func _set_hover(on: bool) -> void:
+		_hover = on
+		queue_redraw()
+
+	func _gui_input(ev: InputEvent) -> void:
+		if ev is InputEventMouseButton and ev.button_index == MOUSE_BUTTON_LEFT and ev.pressed:
+			accept_event()
+			if hud != null:
+				hud.cycle(step)
+
+	func _draw() -> void:
+		var r := Rect2(Vector2.ZERO, size)
+		var bg := StyleBoxFlat.new()
+		bg.bg_color = ViewWidgets.BUTTON.lightened(0.25) if _hover else ViewWidgets.CREAM
+		bg.border_color = ViewWidgets.WOOD
+		bg.set_border_width_all(1)
+		bg.set_corner_radius_all(int(size.x * 0.5))
+		draw_style_box(bg, r)
+		var c := size * 0.5
+		var h := 6.0
+		var tip := 3.5 * float(step)
+		draw_colored_polygon(PackedVector2Array([c + Vector2(-tip, -h), c + Vector2(-tip, h), c + Vector2(tip, 0)]),
+			ViewWidgets.ACCENT if _hover else ViewWidgets.WOOD)
+
+
 func setup(m: Main) -> void:
 	main = m
 	session = m.session
@@ -147,15 +208,28 @@ func _build() -> void:
 	row.add_theme_constant_override("separation", 12)
 	_bar.add_child(row)
 
-	# The selected one.
+	# The selected one, with ◀ ▶ either side to step through the family.
+	var face_box := HBoxContainer.new()
+	face_box.add_theme_constant_override("separation", 2)
+	row.add_child(face_box)
+	_prev = Arrow.new()
+	_prev.step = -1
+	_prev.hud = self
+	_prev.tooltip_text = s.t("bar.prev") if s.has("bar.prev") else "上一位"
+	face_box.add_child(_prev)
 	_avatar = Portrait.new()
 	_avatar.custom_minimum_size = Vector2(62, 62)
 	_avatar.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	row.add_child(_avatar)
+	face_box.add_child(_avatar)
 	_face = PersonPortrait.make(null, null, null, Vector2(62, 62))
 	_face.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	_face.visible = false
-	row.add_child(_face)
+	face_box.add_child(_face)
+	_next = Arrow.new()
+	_next.step = 1
+	_next.hud = self
+	_next.tooltip_text = s.t("bar.next") if s.has("bar.next") else "下一位"
+	face_box.add_child(_next)
 	var who := VBoxContainer.new()
 	who.custom_minimum_size.x = WHO_WIDTH
 	who.alignment = BoxContainer.ALIGNMENT_CENTER
@@ -263,6 +337,34 @@ func _build() -> void:
 		(top_row if big else low_row).add_child(b)
 		_buttons[id] = b
 	_buttons["letters"].visible = false
+
+	# The family strip, just above the bar's left end.
+	_strip = FamilyStrip.new()
+	_strip.anchor_left = 0.0
+	_strip.anchor_right = 0.0
+	_strip.anchor_top = 1.0
+	_strip.anchor_bottom = 1.0
+	_strip.offset_left = STRIP_LEFT
+	_strip.offset_bottom = -(BAR_HEIGHT + STRIP_GAP)
+	_strip.grow_vertical = Control.GROW_DIRECTION_BEGIN
+	_strip.visible = false
+	_strip.picked.connect(switch_to)
+	root.add_child(_strip)
+
+	# What is in store for them, above the bar's right end.
+	_tray = CareTray.new()
+	_tray.anchor_left = 1.0
+	_tray.anchor_right = 1.0
+	_tray.anchor_top = 1.0
+	_tray.anchor_bottom = 1.0
+	_tray.offset_right = -STRIP_LEFT
+	_tray.offset_bottom = -(BAR_HEIGHT + STRIP_GAP)
+	_tray.grow_horizontal = Control.GROW_DIRECTION_BEGIN
+	_tray.grow_vertical = Control.GROW_DIRECTION_BEGIN
+	_tray.visible = false
+	_tray.chosen.connect(use_care)
+	_tray.dropped.connect(drop_care)
+	root.add_child(_tray)
 
 	# Waiting for you: the top-left corner.
 	_notice_box = VBoxContainer.new()
@@ -457,8 +559,9 @@ func refresh() -> void:
 		_name.text = s.pet_name(pet, w)
 		_line.text = s.pet_line(pet, w)
 		_doing.text = s.t("bar.doing").replace("{text}", s.pet_doing(pet, w))
-		chips = s.pet_chips(pet, w)
-		_meters.visible = false
+		# Its needs as meters, like a person's; the chips keep what is not a need (ill).
+		chips = s.pet_chips(pet, w).filter(func(c): return str(c["need"]) == "")
+		_meters.set_entries(pet_meters(pet))
 		_avatar.color = HouseView.pack_color(PetSystem.kind_of(w.pack, pet), PetView.FALLBACK)
 		_avatar.initial = pet.given.left(1)
 	_fill_chips(chips)
@@ -478,21 +581,254 @@ func refresh() -> void:
 	_fest_left.text = fest["left"]
 	_toast_box.offset_top = FEST_TOAST_TOP if _fest_box.visible else 12.0
 	_refresh_notices()
+	_refresh_switcher()
+	_refresh_tray(p, pet)
 
 
-## `p`'s painted portrait in place of the coloured round, when their look has one.
+## `p`'s painted portrait in place of the coloured round, when their look has one (an old
+## save's "" look gets the view's stand-in, `ViewLooks`).
 func _show_face(p: Person) -> void:
-	var skin: PackSkin = main.house.skin if main.house != null and "skin" in main.house else null
-	var key := "%d|%s" % [p.uid, p.look]
+	var skin := _skin()
+	var look := ViewLooks.of(p, session.world.pack)
+	var key := "%d|%s" % [p.uid, look]
 	if key != _face_key:
 		_face_key = key
 		_face.person = p
 		_face.skin = skin
 		_face.pack = session.world.pack
-		_face.look = p.look
+		_face.look = look
 		_face._portrait = _face.portrait()
 	_face.visible = _face._portrait != null
 	_avatar.visible = not _face.visible
+
+
+func _skin() -> PackSkin:
+	return main.house.skin if main.house != null and "skin" in main.house else null
+
+
+# --- Switching between people ------------------------------------------------------------
+
+## The living people of the house, in the world's order (whoever is away included).
+func family() -> Array[Person]:
+	var out: Array[Person] = []
+	if not _living():
+		return out
+	for p in session.world.people:
+		if p.alive:
+			out.append(p)
+	return out
+
+
+## Shows `uid` in the bar. Someone at home is selected and the view follows them (a smooth
+## pan, `HouseView.follow`); someone away on an outing is shown without moving the view.
+func switch_to(uid: int) -> void:
+	var p := session.world.person(uid) if _living() else null
+	if p == null or not p.alive:
+		return
+	if OutingSystem.away(session.world, p):
+		main.select(uid, false)
+		if main.house != null:
+			main.house.unfollow()
+	else:
+		main.select(uid)
+
+
+## Steps `step` (+1 next, -1 back) through the family from the one in the bar, round the
+## ends. With an animal in the bar it starts from the person last shown.
+func cycle(step: int) -> void:
+	var fam := family()
+	if fam.size() < 2 and not (fam.size() == 1 and main.selected_pet >= 0):
+		return
+	var at := -1
+	for i in fam.size():
+		if fam[i].uid == main.selected:
+			at = i
+	var to := 0 if at < 0 else posmod(at + (0 if main.selected_pet >= 0 else step), fam.size())
+	switch_to(fam[to].uid)
+
+
+## Tab / Shift+Tab and ← / → step through the family while nothing else has the keyboard
+## (no focused control, no panel or overlay over the house).
+func _unhandled_input(event: InputEvent) -> void:
+	if not (event is InputEventKey and event.pressed and not event.echo):
+		return
+	var k := (event as InputEventKey).keycode
+	var step := 0
+	if k == KEY_TAB:
+		step = -1 if (event as InputEventKey).shift_pressed else 1
+	elif k == KEY_LEFT:
+		step = -1
+	elif k == KEY_RIGHT:
+		step = 1
+	if step == 0 or not _living() or main.is_house_blocked():
+		return
+	var vp := get_viewport()
+	if vp != null and vp.gui_get_focus_owner() != null:
+		return
+	cycle(step)
+	if vp != null:
+		vp.set_input_as_handled()
+
+
+## For the strip: {away, dot} for person `uid`. The dot is tomato while they are ill or a
+## need has gone bad (their notice), wood while an ask or a wish waits (their bubble, or
+## the wish's notice); transparent for nothing.
+func switcher_info(uid: int) -> Dictionary:
+	var w := session.world
+	var p := w.person(uid)
+	var away := p != null and OutingSystem.away(w, p)
+	var dot := Color(0, 0, 0, 0)
+	var kinds := {}
+	for n in _notices:
+		if int(n.get("target", -1)) == uid:
+			kinds[str(n["kind"])] = true
+	if kinds.has("ill") or kinds.has("need"):
+		dot = ViewWidgets.ACCENT
+	elif kinds.has("wish") or (p != null and not NeedBubble.of(w, p).is_empty()):
+		dot = ViewWidgets.WOOD
+	return {"away": away, "dot": dot}
+
+
+func _refresh_switcher() -> void:
+	var fam := family()
+	var many := fam.size() >= 2
+	_prev.visible = many
+	_next.visible = many
+	_strip.visible = many
+	if not many:
+		return
+	var vw := _strip.get_viewport_rect().size.x if _strip.is_inside_tree() else 1280.0
+	_strip.show_people(fam, main.selected if main.selected_pet < 0 else -1, switcher_info, _skin(),
+		session.world.pack, session.strings, vw * STRIP_SHARE - STRIP_LEFT)
+	var ms := _strip.get_combined_minimum_size()
+	_strip.offset_top = -(BAR_HEIGHT + STRIP_GAP) - ms.y
+	_strip.offset_right = STRIP_LEFT + ms.x
+
+
+## An animal's needs for the meters: [{id, name, value}] in the pack's order.
+func pet_meters(pet: Pet) -> Array:
+	var out: Array = []
+	for n in PetSystem.need_list(session.world.pack):
+		var nid := str(n.get("id", ""))
+		if pet.needs.has(nid):
+			out.append({"id": nid, "name": str(n.get("short", n.get("name", nid))), "value": float(pet.needs[nid])})
+	return out
+
+
+func _refresh_tray(p: Person, pet: Pet) -> void:
+	var entries := CareTray.options(session.world, p, pet, session.strings, p != null and _sick.has(p.uid)) if _living() else ([] as Array[Dictionary])
+	var arranging: bool = main.arrange != null and main.arrange.active
+	_tray.visible = not entries.is_empty() and not arranging
+	if not _tray.visible:
+		return
+	var vw := _tray.get_viewport_rect().size.x if _tray.is_inside_tree() else 1280.0
+	_tray.show_entries(entries, session.strings, vw * (1.0 - STRIP_SHARE) - STRIP_LEFT * 2.0)
+	var ms := _tray.get_combined_minimum_size()
+	_tray.offset_top = -(BAR_HEIGHT + STRIP_GAP) - ms.y
+	_tray.offset_left = -STRIP_LEFT - ms.x
+
+
+## The tray; for tests.
+func tray() -> CareTray:
+	return _tray
+
+
+## Carries out a tray choice (`CareTray.options`): uses the item, sends someone to look after
+## the animal, or opens the market where its food is sold.
+func use_care(e: Dictionary) -> void:
+	match str(e.get("kind", "")):
+		"use":
+			var cmd := {"type": "use_item", "item": str(e["item"])}
+			if e.has("pet"):
+				cmd["pet"] = int(e["pet"])
+			else:
+				cmd["person"] = int(e["person"])
+			var r := session.command(cmd)
+			if r.get("ok", false):
+				var view = main.house.pets.get(int(e["pet"])) if e.has("pet") else main.house.people.get(int(e["person"]))
+				if view != null:
+					view.float_text_up(str(e["name"]))
+		"call":
+			call_carer(int(e["pet"]))
+		"shop":
+			open.emit("shop")
+			var tab := Panels.MARKET_TAB + str(e.get("tab", ""))
+			main.panels.press(tab if main.panels.has_button(tab) else "tab.pets")
+	refresh()
+
+
+## An item dragged out of the tray and let go over the house: used on the person or animal
+## under the pointer (whoever it suits; the kernel says no otherwise). False when nobody is
+## there.
+func drop_care(e: Dictionary, screen: Vector2) -> bool:
+	if main.house == null or str(e.get("kind", "")) != "use" or main.is_house_blocked():
+		return false
+	var at := main.house.world_pos(screen)
+	var cmd := {"type": "use_item", "item": str(e["item"])}
+	var pet := main.house.pet_at(at)
+	var who := main.house.person_at(at) if pet < 0 else -1
+	if pet >= 0:
+		cmd["pet"] = pet
+	elif who >= 0:
+		cmd["person"] = who
+	else:
+		return false
+	var r := session.command(cmd)
+	if r.get("ok", false):
+		var view = main.house.pets.get(pet) if pet >= 0 else main.house.people.get(who)
+		if view != null:
+			view.float_text_up(str(e["name"]))
+	refresh()
+	return true
+
+
+## "叫人来喂": the nearest family member at home who can look after the animal now (the idle
+## ones first) is sent to it, as if the player had dropped them on it. Uid of who went, or -1
+## (then a toast says nobody is free).
+func call_carer(pet_uid: int) -> int:
+	var w := session.world
+	var pet := PetSystem.find(w, pet_uid)
+	if pet == null or not pet.home():
+		return -1
+	var where: Vector2 = main.house.pets[pet_uid].position if main.house != null and main.house.pets.has(pet_uid) else Vector2.ZERO
+	var ranked: Array = []
+	for p in family():
+		if OutingSystem.away(w, p) or PetSystem.held(w, pet, p) or not _can_care(w, p, pet):
+			continue
+		var pv = main.house.people.get(p.uid) if main.house != null else null
+		var d: float = (pv.position as Vector2).distance_to(where) if pv != null else 0.0
+		ranked.append([p.uid, (0.0 if p.current.is_empty() else 100000.0) + d])
+	ranked.sort_custom(func(a, b): return float(a[1]) < float(b[1]))
+	for r in ranked:
+		var res := session.command({"type": "drag", "person": int(r[0]), "pet": pet_uid})
+		if res.get("ok", false):
+			return int(r[0])
+	if ranked.is_empty():
+		toast(CareTray.word(session.strings, "care.nobody"))
+	return -1
+
+
+## Whether `p` could start some care action for `pet` now (`Commands._drag_to_pet`'s test,
+## asked first so a refusal does not toast for everyone tried).
+func _can_care(w: World, p: Person, pet: Pet) -> bool:
+	for id in w.pack.actions:
+		var a: Dictionary = w.pack.actions[id]
+		if AutonomySystem.target_kind(a) != AutonomySystem.TARGET_PET or not PetSystem.suits(a, pet):
+			continue
+		var why := AutonomySystem.can_do(w, p, str(id), -1)
+		if why == "" or why == "no_target":
+			return true
+	return false
+
+
+## The family strip; for tests.
+func strip() -> FamilyStrip:
+	return _strip
+
+
+## The ◀ (-1) or ▶ (+1) beside the portrait; for tests.
+func arrow(step: int) -> Control:
+	return _prev if step < 0 else _next
 
 
 ## The meters on show: [{id, name, value}]; for tests.

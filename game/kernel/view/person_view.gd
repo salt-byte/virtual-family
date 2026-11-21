@@ -200,7 +200,7 @@ func refresh() -> void:
 	_look = {}
 	_unwell = false
 	if skin != null and skin.enabled:
-		_look = skin.person_look(person.stage(w.pack), person.gender, person.look)
+		_look = skin.person_look(person.stage(w.pack), person.gender, ViewLooks.of(person, w.pack))
 		var u := skin.unwell()
 		if not u.is_empty() and person.needs.has(u.need):
 			_unwell = float(person.needs[u.need]) < float(u.below)
