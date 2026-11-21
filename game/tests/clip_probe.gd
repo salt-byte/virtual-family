@@ -252,6 +252,8 @@ func check() -> void:
 			var b: Node2D = walkers[j]
 			if a is PetView and b is PetView:
 				continue
+			if a is PersonView and b is PersonView and (a as PersonView).bed_uid >= 0 and (a as PersonView).bed_uid == (b as PersonView).bed_uid:
+				continue  # side by side under the quilts of one bed
 			var ma := _moving(a)
 			if ma != _moving(b):
 				continue
@@ -278,7 +280,7 @@ func check() -> void:
 		var detail := ""
 		if not pv.on_object and (not site.can_stop(pv.position) or on_wall_line(site, pv.position)):
 			bad = "stop_wall_line"
-		if bp in ["sit", "sleep"] and not bool(pv._look.get("lying", false)):
+		if bp in ["sit", "doze", "sleep"] and not bool(pv._look.get("lying", false)):
 			if not pv.on_object or pv.use_object.is_empty():
 				bad = "seat_missing"
 			else:
@@ -287,7 +289,7 @@ func check() -> void:
 					bad = "seat_missing"
 				elif bp == "sleep" and lies_across_wall(pv, r):
 					bad = "lie_wall"
-				elif bp == "sit":
+				elif bp in ["sit", "doze"]:
 					var off := sit_offset(pv)
 					if absf(off) > SIT_SLACK:
 						bad = "sit_height"
@@ -308,6 +310,9 @@ func body_rect(n: Node2D) -> Rect2:
 	var foot := house.proj * n.position
 	if n is PersonView:
 		var pv := n as PersonView
+		if pv.body_pose() == "sleep" and house.iso and pv.pictured():
+			var lr := pv.lie_rect()
+			return Rect2(foot + lr.position, lr.size).grow_individual(-lr.size.x * 0.05, -lr.size.y * 0.1, -lr.size.x * 0.05, -2.0)
 		if pv.body_pose() == "sleep":
 			var c := foot + pv.lie_point()
 			var len := pv.body_size().y
@@ -392,6 +397,13 @@ static func on_wall_line(site: HouseSite, p: Vector2) -> bool:
 ## two ends (across the screen) land in another room or behind a wall from its middle.
 func lies_across_wall(pv: PersonView, r: Rect2) -> bool:
 	var site := house.layout.site
+	if house.iso and pv.pictured():
+		# The 45° view: the two ends of their place on the bed (`lie_geo`, plan points).
+		var g := pv.lie_geo()
+		for end in [g.head - g.axis * g.head_len, g.head + g.axis * g.length]:
+			if site.room_at(site.cell_of(end)) != site.room_at(site.cell_of(r.get_center())) or not r.grow(2.0).has_point(end):
+				return true
+		return false
 	var mid := house.proj * pv.position + pv.lie_point()
 	var half := pv.body_size().y * 0.5
 	for dx in [-half, half]:

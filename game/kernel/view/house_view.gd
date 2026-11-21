@@ -524,10 +524,18 @@ func _slot(order: Array, deps: Array, boxes: Array, n: Node2D, d: float) -> int:
 	var hi_sure := order.size()
 	var w := session.world if session != null else null
 	var seat := -1
-	if n is PersonView and (n as PersonView).on_object:
-		seat = int((n as PersonView).use_object.get("uid", -1))
+	if n is PersonView:
+		seat = (n as PersonView).seat_uid()
 	elif n is PetView and (n as PetView).pet != null:
 		seat = int((n as PetView).pet.current.get("object_uid", -1))
+	# Whatever the seat or bed itself is drawn over, so is whoever sits or lies on it (a body
+	# lying along a bed reaches over towards the wall the bed stands against).
+	var seat_i := -1
+	if seat >= 0:
+		for i in order.size():
+			if order[i] is PropPiece and (order[i] as PropPiece).object_uid == seat:
+				seat_i = i
+				break
 	for i in order.size():
 		var box: Rect2 = boxes[i]
 		if box.size == Vector2.ZERO or not box.intersects(body):
@@ -542,6 +550,8 @@ func _slot(order: Array, deps: Array, boxes: Array, n: Node2D, d: float) -> int:
 				side = 1 if on and fr.grow(2.0).has_point(n.position) else foot_side(n.position, fr, 2.0)
 		elif o is IsoWall and (o as IsoWall).role == "wall" and (o as IsoWall).tall:
 			side = foot_side(n.position, (o as IsoWall).plan_rect(), 2.0)
+		if side == -1 and i < seat_i:
+			continue
 		if side == 1:
 			lo_sure = maxi(lo_sure, i)
 		elif side == -1:
@@ -593,6 +603,8 @@ func mover_box(n: Node2D) -> Rect2:
 	if n is PersonView:
 		var pv := n as PersonView
 		if pv.body_pose() == "sleep":
+			if iso and pv.pictured():
+				return Rect2(foot + pv.lie_rect().position, pv.lie_rect().size)
 			var len := pv.body_size().y
 			return Rect2(foot + pv.lie_point() - Vector2(len * 0.5, 16), Vector2(len, 32))
 		var b := pv.body_size()
@@ -749,9 +761,16 @@ func _spread(w: World) -> void:
 			if a.position.distance_to(a.target) <= PersonView.ARRIVED and not layout.site.blocked.has(layout.site.cell_of(a.position)):
 				cells[layout.site.cell_of(a.position)] = true
 		var seated := {}  # object uid -> how many sit or lie on it already
+		var beds := _bed_slots(order, w)
 		for uid in order:
 			var pv: PersonView = people[uid]
 			var t := pv.base_target
+			if pv.on_object and w != null and beds.has(uid):
+				# Lying: each in their place across the bed, got onto from its edge in turn.
+				var br := layout.object_rect(pv.use_object, w.pack)
+				t.x = minf(br.position.x + 14.0 + float(beds[uid]) * BED_STEP, br.end.x - 14.0)
+				pv.target = t
+				continue
 			if pv.on_object and w != null:
 				# Side by side along the piece, within its width.
 				var r := layout.object_rect(pv.use_object, w.pack)
@@ -783,6 +802,61 @@ func _spread(w: World) -> void:
 			t = pv.base_target + Vector2(SPREAD * n, 0)
 		taken.append(t)
 		pv.target = t
+
+
+## Getting onto a bed one after another: this far apart along its edge (plan pixels; more
+## than ClipProbe.NEAR, so two getting in are not one in the other's room).
+const BED_STEP := 36.0
+
+
+## Who lies on which bed (`PackSkin.bed`, the 45° view) in which place: {person uid: slot}.
+## A sleeper keeps the place they have; a newcomer takes the lowest one free. Each view is
+## told its bed, place, rank among those on the bed (by place) and how many there are.
+func _bed_slots(order: Array, w: World) -> Dictionary:
+	var out := {}
+	if w == null or skin == null or not iso:
+		return out
+	var by_bed := {}  # bed uid -> [person uid]
+	for uid in order:
+		var pv: PersonView = people[uid]
+		var lies := pv.on_object and pv.action_pose == "sleep" and not pv.use_object.is_empty() \
+			and not skin.bed(str(pv.use_object.get("type", ""))).is_empty()
+		if not lies:
+			pv.bed_uid = -1
+			pv.bed_slot = -1
+			continue
+		var b := int(pv.use_object.uid)
+		if pv.bed_uid != b:
+			pv.bed_uid = b
+			pv.bed_slot = -1
+		if not by_bed.has(b):
+			by_bed[b] = []
+		by_bed[b].append(uid)
+	for b in by_bed:
+		var list: Array = by_bed[b]
+		var taken := {}
+		for uid in list:
+			var pv: PersonView = people[uid]
+			if pv.bed_slot >= 0 and not taken.has(pv.bed_slot):
+				taken[pv.bed_slot] = true
+			else:
+				pv.bed_slot = -1
+		for uid in list:
+			var pv: PersonView = people[uid]
+			if pv.bed_slot < 0:
+				var k := 0
+				while taken.has(k):
+					k += 1
+				pv.bed_slot = k
+				taken[k] = true
+		var slots: Array = list.map(func(u): return people[u].bed_slot)
+		slots.sort()
+		for uid in list:
+			var pv: PersonView = people[uid]
+			pv.bed_rank = slots.find(pv.bed_slot)
+			pv.bed_n = list.size()
+			out[uid] = pv.bed_slot
+	return out
 
 
 ## Pictures standing on the map that the sim knows nothing of: decor shapes the skin turns

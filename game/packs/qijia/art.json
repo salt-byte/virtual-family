@@ -17,6 +17,9 @@
 		"scale": {"iso_woodpile": 0.75, "iso_millstone": 0.85, "iso_coop": 0.4},
 		"walls": {"gate": "iso_gatehouse", "fence_x": "iso_fence", "fence_y": "iso_fence_ns"},
 		"asleep": "iso_sleeper",
+		"quilt": {"sprite": "iso_sleeper", "corners": [[12, 165], [255, 60], [180, 300]],
+			"cut": [[0, 175], [15, 163], [50, 131], [100, 96], [150, 76], [190, 61], [215, 55], [250, 61], [400, 160], [400, 305], [0, 305]],
+			"pillow": "#7395C2", "line": "#4A3424", "mat": "#E2BE6E", "mat_line": "#9A7338"},
 		"decals": [
 			{"sprite": "iso_wall_window", "room": "hall", "side": "north", "at": 3.0, "w": 56, "y": 0.24},
 			{"sprite": "iso_wall_window", "room": "hall", "side": "north", "at": 7.0, "w": 56, "y": 0.24},
@@ -173,11 +176,12 @@
 	"poses": {
 		"on": ["kang", "stool", "stone_bench", "threshold"],
 		"step_over": ["threshold"],
+		"beds": {"kang": {"h": 31, "along": "long", "head": 0.95, "margin": 6}},
 		"seats": {"kang": {"h": 34, "in": 0.12}, "stool": {"h": 34, "in": 0.5}, "stone_bench": {"h": 26, "in": 0.5},
 			"threshold": {"h": 20, "in": 0.5}},
 		"objects": {"kang": "sit", "stool": "sit", "stone_bench": "sit", "threshold": "sit", "dining_table": "eat"},
 		"actions": {
-			"sleep": "sleep", "nap": "sleep", "doze_on_kang": "sleep", "sick_in_bed": "sleep", "hide_under_quilt": "sleep",
+			"sleep": "sleep", "nap": "sleep", "doze_on_kang": "doze", "sick_in_bed": "sleep", "hide_under_quilt": "sleep",
 			"baby_sleep": "sleep", "baby_nap": "sleep", "shell_beans": "sit", "crack_seeds": "sit",
 			"whittle_top": "sit", "weave_grasshopper": "sit", "straw_chess": "sit", "sit_and_stare": "sit",
 			"twist_hemp": "sit", "trellis_shade": "sit", "rest_on_well": "sit", "watch_passersby": "sit",

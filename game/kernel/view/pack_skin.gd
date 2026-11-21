@@ -35,7 +35,8 @@ extends RefCounted
 ##             "front34": "<sprite>", "back34": "<sprite>",   # three-quarter views, facing right
 ##             "rest": "<sprite>", "rest_height": 30}},       # lying down / sitting, while it rests
 ##   "poses": {"actions": {"<action id>": "<pose>"}, "objects": {"<object type>": "<pose>"},
-##             "on": ["<object type>"]},          # see `pose_for`; on: sat / lain on, not beside
+##             "on": ["<object type>"],           # see `pose_for`; on: sat / lain on, not beside
+##             "beds": {"<object type>": {"h": 34, "along": "long", "head": 0.5}}},  # see `bed`
 ##   "unwell": {"sprite": "<sprite>", "need": "<need id>", "below": 50},
 ##   "keepsakes": {"pieces": {"<fragment or keepsake id>": "props/story/x.png"},
 ##                 "tag": "props/ui_tag.png",    # the paper tag on each shelf
@@ -50,6 +51,9 @@ extends RefCounted
 ##     "scale": {"<sprite>": 0.8},                # drawn this much of the footprint's width
 ##     "walls": {"gate": "<sprite>", "fence_x": "<sprite>", "fence_y": "<sprite>"},
 ##     "asleep": "<sprite>",                      # someone asleep on furniture, along plan x
+##     "quilt": {"sprite": "<sprite>", "cut": [[x, y], ...], "corners": [[x, y] x 3],
+##               "pillow": "#rrggbb", "line": "#rrggbb", "mat": "#rrggbb", "mat_line": "#rrggbb"},
+##                                               # the quilt over whoever lies down (`quilt`)
 ##     "decals": [{"sprite": "<sprite>", "room": "<room id>", "side": "north" | "west",
 ##                 "at": cells along the wall, "w": pixels, "y": 0..1 down the wall}],
 ##     "scenery_scale": 1.0}                      # scenery pictures this much larger
@@ -464,6 +468,55 @@ func seat(object: String) -> Dictionary:
 
 func seat_height(object: String) -> float:
 	return float(seat(object).h)
+
+
+## How people lie on furniture of this type (`poses.beds` in art.json): {h: the lying
+## surface above the floor, view pixels (default: the seat's height); along: the plan axis
+## the bodies run along ("x", "y", or "long": the footprint's longer side, the default);
+## head: how far in from the head end (the west or north end) the head's edge of the quilt
+## is, in cells; margin: plan pixels kept clear along the sides}. {} when it is no bed.
+func bed(object: String) -> Dictionary:
+	var t = _data.get("poses", {})
+	var b = t.get("beds", {}).get(object) if t is Dictionary and t.get("beds") is Dictionary else null
+	if not b is Dictionary:
+		return {}
+	var along := str(b.get("along", "long"))
+	return {"h": clampf(float(b.get("h", seat_height(object))), 0.0, 80.0),
+		"along": along if along in ["x", "y"] else "long",
+		"head": clampf(float(b.get("head", 0.5)), 0.0, 2.0),
+		"margin": clampf(float(b.get("margin", 4.0)), 0.0, 20.0)}
+
+
+## The object types people lie on (`poses.beds`).
+func bed_types() -> Array:
+	var t = _data.get("poses", {})
+	return (t["beds"] as Dictionary).keys() if t is Dictionary and t.get("beds") is Dictionary else []
+
+
+## The 45° view's quilt, drawn over whoever lies down (`iso.quilt`): {tex: the picture of
+## someone under a quilt, along plan x; cut: the picture's quilt outline (pixels; the rest,
+## its face and pillow, is left out: everyone keeps their own head); corners: three corners
+## of the quilt in the picture: the head end's near and far side, and the foot end's near
+## side; pillow / line: the pillow's fill and the outline colour; mat / mat_line: the mat
+## put down for someone sleeping on the floor}. {} when the skin has none.
+func quilt() -> Dictionary:
+	var q = _table("iso").get("quilt") if iso() else null
+	if not q is Dictionary:
+		return {}
+	var tex := sprite(str(q.get("sprite", "")))
+	var cut = q.get("cut")
+	var corners = q.get("corners")
+	if tex == null or not cut is Array or cut.size() < 3 or not corners is Array or corners.size() != 3:
+		return {}
+	var poly := PackedVector2Array()
+	for c in cut:
+		poly.append(Vector2(float(c[0]), float(c[1])))
+	var cs: Array[Vector2] = []
+	for c in corners:
+		cs.append(Vector2(float(c[0]), float(c[1])))
+	return {"tex": tex, "cut": poly, "corners": cs,
+		"pillow": Color(str(q.get("pillow", "#8FA9D6"))), "line": Color(str(q.get("line", "#4A3424"))),
+		"mat": Color(str(q.get("mat", "#D8BC84"))), "mat_line": Color(str(q.get("mat_line", "#8C6B3F")))}
 
 
 ## The "looks unwell" mark: {tex, need, below}; {} when the skin has none.

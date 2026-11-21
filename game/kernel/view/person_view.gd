@@ -29,6 +29,32 @@ var use_object: Dictionary = {}
 var on_object := false
 ## The pose the current action asks for ("": none; see `_pick_pose`).
 var action_pose := ""
+## Lying on a bed (the house's `_spread`): the bed's uid, this sleeper's place on it (a slot,
+## kept while they lie there), their rank among those lying on it and how many there are.
+var bed_uid := -1
+var bed_slot := -1
+var bed_rank := 0
+var bed_n := 1
+## Lying down (0: up .. 1: lying): goes up over LIE_TIME once they reach the bed (sitting on
+## its edge first, then lying back), down again as they get up (they wait for it).
+var _lie := 0.0
+## Where they lay (`lie_geo`), kept for getting up after the bed spot is gone.
+var _lie_geo: Dictionary = {}
+## The place across the bed (0..1 of its width) and the share of it, eased so a sleeper
+## moves over instead of jumping when someone joins or leaves.
+var _slot_f := -1.0
+var _slot_n := 1.0
+## Turning over in their sleep now and then: when the next turn comes, when the last one
+## began, which way the head lies (1 / -1) and whether this turn has flipped it yet.
+var _turn_next := -1.0
+var _turn_from := -100.0
+var _head_flip := 1.0
+var _turn_flipped := true
+var _dream := RandomNumberGenerator.new()
+const LIE_TIME := 0.55
+const SLEEP_BREATH := 3.8
+const TURN_TIME := 1.2
+const Z_PERIOD := 3.0
 var _path_goal := Vector2(INF, INF)
 ## Giving way (`HouseView.give_way`): how long they have waited for someone in the way, and
 ## the cell of the one they last went round.
@@ -141,6 +167,7 @@ func setup(p: Person, s: GameSession) -> void:
 		_rng.seed = hash([test_seed, p.uid])
 	else:
 		_rng.randomize()
+	_dream.seed = hash(["dream", p.uid])
 	_box.set_corner_radius_all(8)
 	var l := layout()
 	if l != null and session.world != null and session.world.phase != "invalid":
@@ -180,7 +207,7 @@ func refresh() -> void:
 		use_object = {}
 		on_object = false
 		var want := _compute_target(w, l)
-		if action_pose == "sit" and not on_object:
+		if action_pose in ["sit", "doze"] and not on_object:
 			# No seat under them: sitting on air reads as broken legs; they stand to do it.
 			action_pose = "idle"
 		# On a seat or a bed the spot is on the piece itself (see `on_spot`).
@@ -278,11 +305,14 @@ func tick(delta: float) -> void:
 		remove_child(_mark)
 		_mark.queue_free()
 		_mark = null
+	_tick_lying(delta)
 	if held:
 		return
 	var was := position
 	var hv := _house()
-	if hv == null or not hv.iso or not hv.give_way(self, delta):
+	if _lie > 0.0 and not lying_down():
+		pass  # getting up off the bed first
+	elif hv == null or not hv.iso or not hv.give_way(self, delta):
 		walk(SPEED * delta * pace())
 	visible = not out_of_sight()
 	var moved := position - was
@@ -294,6 +324,62 @@ func tick(delta: float) -> void:
 	_turn(position - was, delta)
 	if pictured() and position != was or _fade < 1.0:
 		queue_redraw()
+
+
+## The seat or bed they are on (its uid; -1 for none): while getting up, the bed they lay on.
+func seat_uid() -> int:
+	if on_object and not use_object.is_empty():
+		return int(use_object.get("uid", -1))
+	if _lie > 0.0 and not _lie_geo.is_empty():
+		return int(_lie_geo.get("uid", -1))
+	return -1
+
+
+## Whether they lie (or are lying down) where they are now: lying in the 45° view, at their
+## spot, not held. A swaddled baby's picture already lies, so it is not counted.
+func lying_down() -> bool:
+	return not held and _iso() and body_pose() == "sleep" and not bool(_look.get("lying", false)) \
+		and pictured() and position.distance_to(target) <= ARRIVED
+
+
+func _iso() -> bool:
+	return _house() != null and _house().iso
+
+
+## Lying down and getting up (`_lie`), easing the place across the bed, and turning over now
+## and then in their sleep.
+func _tick_lying(delta: float) -> void:
+	if held:
+		_lie = 0.0
+		return
+	var down := lying_down()
+	if down or (_iso() and bool(_look.get("lying", false)) and body_pose() == "sleep"):
+		var want := (float(bed_rank) + 0.5) / float(maxi(bed_n, 1))
+		if _slot_f < 0.0 or (_lie <= 0.0 and down):
+			_slot_f = want
+			_slot_n = float(maxi(bed_n, 1))
+		else:
+			_slot_f = move_toward(_slot_f, want, delta * 0.8)
+			_slot_n = move_toward(_slot_n, float(maxi(bed_n, 1)), delta * 2.0)
+	if down:
+		_lie = minf(1.0, _lie + delta / LIE_TIME)
+		_lie_geo = lie_geo()
+		queue_redraw()
+		if _turn_next < 0.0:
+			_turn_next = _t + _dream.randf_range(8.0, 20.0)
+		elif _t >= _turn_next and _lie >= 1.0:
+			_turn_from = _t
+			_turn_flipped = false
+			_turn_next = _t + _dream.randf_range(12.0, 26.0)
+		if not _turn_flipped and _t - _turn_from >= TURN_TIME * 0.5:
+			_head_flip = -_head_flip
+			_turn_flipped = true
+	elif _lie > 0.0:
+		_lie = maxf(0.0, _lie - delta / LIE_TIME)
+		queue_redraw()
+		if _lie <= 0.0:
+			_slot_f = -1.0
+			_turn_next = -1.0
 
 
 ## How fast they walk, against a grown-up: old people slower.
@@ -506,6 +592,8 @@ func hit(world_pos: Vector2) -> bool:
 	var local := world_pos - position
 	if _house() != null and _house().iso:
 		local = IsoMath.basis().basis_xform(local)
+	if _iso() and pictured() and (lying_down() or body_pose() == "sleep"):
+		return lie_rect().grow(4.0).has_point(local)
 	var body := body_size()
 	return Rect2(Vector2(-body.x * 0.5, -body.y), body).grow(4.0).has_point(local)
 
@@ -536,7 +624,7 @@ func _compute_target(w: World, l: HouseLayout) -> Vector2:
 				_key = ""
 				use_object = o
 				var skin := _skin()
-				if action_pose in ["sit", "sleep"] and skin != null and skin.sat_on(str(o.type)):
+				if action_pose in ["sit", "doze", "sleep"] and skin != null and skin.sat_on(str(o.type)):
 					on_object = true
 					return on_spot(l, o, w.pack, float(skin.seat(str(o.type)).in))
 				return l.stand_pos(o, w.pack)
@@ -576,6 +664,14 @@ func _compute_target(w: World, l: HouseLayout) -> Vector2:
 				return l.cell_center(str(m.room), int(m.x), int(m.y))
 	# An action that names where it happens: a random cell of that room.
 	var room := str(cur.get("room", ""))
+	if action_pose == "sleep" and room != "":
+		# Asleep in a room with a bed (a baby in its swaddle): on the bed, beside whoever is.
+		var bed := _bed_in(w, room)
+		if not bed.is_empty():
+			_key = ""
+			use_object = bed
+			on_object = true
+			return on_spot(l, bed, w.pack, float(_skin().seat(str(bed.type)).in))
 	if room == "" or not w.pack.rooms.has(room) or l.room_rect(room).size == Vector2.ZERO:
 		# Somewhere at home: the places outside the house are only for what is done there.
 		var home := w.rooms_built.filter(func(r): return not bool(w.pack.rooms[r].get("outside", false)))
@@ -594,6 +690,17 @@ func _compute_target(w: World, l: HouseLayout) -> Vector2:
 			cell = Vector2i(_rng.randi_range(0, int(r.w) - 1), _rng.randi_range(0, int(r.h) - 1))
 		return l.cell_center(room, cell.x, cell.y)
 	return base_target
+
+
+## A bed (`PackSkin.bed`) standing in `room`, in the 45° view; {} for none.
+func _bed_in(w: World, room: String) -> Dictionary:
+	var skin := _skin()
+	if skin == null or not skin.iso():
+		return {}
+	for o in w.objects:
+		if str(o.get("room", "")) == room and not skin.bed(str(o.type)).is_empty() and skin.sat_on(str(o.type)):
+			return o
+	return {}
 
 
 func _entrance(w: World, l: HouseLayout) -> Vector2:
@@ -687,7 +794,16 @@ func _draw_pictured() -> void:
 		lift = bob_offset()
 	var line := Color("#4A3424")
 	var lying := bp == "sleep" and not bool(_look.get("lying", false))
-	if not lying:
+	# The 45° view: lying down, lying under the quilt, or getting up (see `_draw_bed`).
+	var in_bed := iso and not bool(_look.get("lying", false)) and (lying_down() or _lie > 0.0)
+	var swaddled := iso and bool(_look.get("lying", false)) and bp == "sleep" and position.distance_to(target) <= ARRIVED
+	if iso and lying and not in_bed:
+		# Held up off the bed: drawn standing.
+		lying = false
+		bp = "idle"
+		picked = _rig_for(bp)
+		rig = picked[0]
+	if not lying and not in_bed and not swaddled:
 		draw_colored_polygon(HouseGround._ellipse(Rect2(Vector2(-w * 0.45, -5), Vector2(w * 0.9, 10))), Color(HouseGround.SHADOW, 0.25))
 	if ring_shown():
 		# Only while the player has them in hand: a soft white ellipse on the floor.
@@ -699,7 +815,11 @@ func _draw_pictured() -> void:
 	if _unwell:
 		tint = tint.lerp(Color(0.72, 0.8, 0.7), 0.45)
 	var flip := Vector2(_facing, 1.0)
-	if lying:
+	if in_bed:
+		_draw_bed(tint)
+	elif swaddled:
+		_draw_swaddle(tint)
+	elif lying:
 		# On the back, along the ground (or on what they lie on), head to one side.
 		var at := lie_point()
 		draw_colored_polygon(HouseGround._ellipse(Rect2(at + Vector2(-h * 0.5, 2), Vector2(h, 14))), Color(HouseGround.SHADOW, 0.2))
@@ -756,7 +876,7 @@ func _draw_pictured() -> void:
 			"work":
 				var q := 0.5 + 0.5 * sin(TAU * _t / CutoutRig.WORK_PERIOD)
 				sq = Vector2(1.0 + 0.03 * q, 1.0 - 0.06 * q)
-			"sit":
+			"sit", "doze":
 				sq = Vector2(1.04, SIT_SQUASH)
 			"eat":
 				sway = 0.05 * sin(TAU * _t / CutoutRig.EAT_PERIOD)
@@ -769,10 +889,16 @@ func _draw_pictured() -> void:
 		draw_set_transform(Vector2.ZERO)
 	h = drawn_height()
 	var top := -h + lift - sit_up
-	if lying:
+	if in_bed or swaddled:
+		top = lie_rect().position.y + 6.0
+	elif lying:
 		top = lie_point().y - 14.0
 	var font := ThemeDB.fallback_font
-	if lying:
+	if (in_bed and _lie >= 1.0) or swaddled:
+		_draw_zs(1.0 if not swaddled else 0.7)
+	elif bp == "doze" and iso:
+		_draw_doze_z()
+	elif lying and not in_bed:
 		for i in 3:
 			draw_string_outline(font, Vector2(10 + i * 7, top + 4 - i * 9), "z", HORIZONTAL_ALIGNMENT_LEFT, -1, 11 + i * 3, 3, Color.WHITE)
 			draw_string(font, Vector2(10 + i * 7, top + 4 - i * 9), "z", HORIZONTAL_ALIGNMENT_LEFT, -1, 11 + i * 3, line)
@@ -851,7 +977,7 @@ func drawn_height() -> float:
 	match body_pose():
 		"sleep":
 			return h if bool(_look.get("lying", false)) else 26.0
-		"sit":
+		"sit", "doze":
 			var rig: CutoutRig = _rig_for("sit")[0]
 			return h * (1.0 - rig.thigh * 0.97 / rig.height) if rig != null and rig.thigh > 0.0 else h * SIT_SQUASH
 	return h
@@ -861,7 +987,7 @@ func drawn_height() -> float:
 ## shins sits on its surface, legs hanging (the seat's height, `PackSkin.seat`, less the hips'
 ## own height when sitting); 0 standing, or on a seat the pack gives no height.
 func seat_lift() -> float:
-	if not on_object or use_object.is_empty() or body_pose() != "sit" or position.distance_to(target) > ARRIVED:
+	if not on_object or use_object.is_empty() or not body_pose() in ["sit", "doze"] or position.distance_to(target) > ARRIVED:
 		return 0.0
 	var skin := _skin()
 	if skin == null or not (_house() != null and _house().iso):
@@ -886,8 +1012,12 @@ func _hips() -> float:
 
 
 ## Where the middle of a lying body goes, relative to the feet: on the furniture they lie on
-## (its middle), else just above the ground.
+## (its middle), else just above the ground. In the 45° view, the middle of their place on
+## the bed (`lie_geo`).
 func lie_point() -> Vector2:
+	if _iso() and pictured():
+		var g := _geo()
+		return _lie_screen(g.head + g.axis * (g.length - g.head_len) * 0.5, g)
 	if on_object and not use_object.is_empty() and layout() != null and session.world != null:
 		var r := layout().object_rect(use_object, session.world.pack)
 		var d := Vector2(0, r.get_center().y - 4.0 - position.y)
@@ -927,7 +1057,9 @@ func label_size() -> Vector2:
 ## Where the label block's bottom middle sits by default, relative to the feet.
 func label_anchor() -> Vector2:
 	var top := -drawn_height() + step_lift() - seat_lift()
-	if body_pose() == "sleep":
+	if _iso() and pictured() and (lying_down() or _lie > 0.0 or body_pose() == "sleep"):
+		top = lie_rect().position.y + 2.0
+	elif body_pose() == "sleep":
 		top += lie_point().y + 6.0
 	return Vector2(0, top - (14.0 if selected else 3.0))
 
@@ -969,3 +1101,294 @@ func draw_label(ci: CanvasItem, at: Vector2) -> void:
 
 func _draw_bubble_at(ci: CanvasItem, at: Vector2) -> void:
 	NeedBubble.draw(ci, at + Vector2(0, -6), _bubble, _t, _skin())
+
+
+# --- lying down (the 45° view) ---------------------------------------------------------
+
+## Where and how they lie (plan pixels): {head: the middle of the quilt's head edge; axis:
+## plan direction from the head to the feet, along the bed (`PackSkin.bed`: its `along`);
+## across: the direction to its near side; length, width: the quilt's; head_len: room for
+## the head past the quilt's edge; lift: the surface's height (view pixels); bed: whether on
+## a bed (else on the floor, on a mat, round where they stand)}. Sleepers sharing a bed lie
+## side by side across it (`bed_rank` of `bed_n`), each in their share of its width.
+func lie_geo() -> Dictionary:
+	var tall: float = float(_look.get("height", 90.0)) if pictured() else 90.0
+	var swaddled := bool(_look.get("lying", false))
+	var b := IsoMath.basis()
+	var skin := _skin()
+	var bed := {}
+	var r := Rect2()
+	if on_object and not use_object.is_empty() and skin != null and layout() != null and session.world != null:
+		bed = skin.bed(str(use_object.get("type", "")))
+		r = layout().object_rect(use_object, session.world.pack)
+	var axis := Vector2(1, 0)
+	if not bed.is_empty():
+		var along := str(bed.along)
+		if along == "long":
+			along = "y" if r.size.y > r.size.x else "x"
+		axis = Vector2(0, 1) if along == "y" else Vector2(1, 0)
+	var across := Vector2(axis.y, axis.x)
+	var sp_a := b.basis_xform(axis).length()
+	var sp_c := b.basis_xform(across).length()
+	var head_len := 0.0 if swaddled else tall * 0.22 / sp_a
+	var length := tall * (SWADDLE_LEN if swaddled else 0.74) / sp_a
+	var width := tall * 0.46 / sp_c
+	var head := Vector2.ZERO
+	var lift := 2.0
+	if not bed.is_empty():
+		lift = float(bed.h)
+		var lo := r.position.dot(across) + float(bed.margin)
+		var hi := r.end.dot(across) - float(bed.margin)
+		var n := maxf(_slot_n, 1.0)
+		var f := _slot_f if _slot_f >= 0.0 else (float(bed_rank) + 0.5) / float(maxi(bed_n, 1))
+		width = minf(width, (hi - lo) / n * 1.35)
+		var a0 := r.position.dot(axis) + float(bed.head) * HouseSite.CELL.dot(axis)
+		if swaddled:
+			a0 = maxf(r.position.dot(axis) + 4.0, a0 - tall * 0.3 / sp_a)
+		length = minf(length, r.end.dot(axis) - BED_END - a0)
+		head = axis * a0 + across * lerpf(lo, hi, f)
+	else:
+		head = position - axis * (length - head_len) * 0.5
+		# On the floor: the mat kept inside the room they lie in.
+		var l := layout()
+		var room := l.site.room_at(l.site.cell_of(position)) if l != null and l.site.enabled else ""
+		var rr := l.room_rect(room) if room != "" else Rect2()
+		if rr.has_area():
+			var m := MAT_EDGE
+			var lo_a := rr.position.dot(axis) + m + head_len * 1.2
+			var hi_a := rr.end.dot(axis) - m - length - 4.0
+			var a := head.dot(axis)
+			a = clampf(a, lo_a, maxf(lo_a, hi_a))
+			var c := clampf(head.dot(across), rr.position.dot(across) + m + width * 0.66, rr.end.dot(across) - m - width * 0.66)
+			head = axis * a + across * c
+	return {"uid": int(use_object.get("uid", -1)) if not bed.is_empty() else -1, "head": head, "axis": axis, "across": across, "length": length, "width": width,
+		"head_len": head_len, "lift": lift, "bed": not bed.is_empty()}
+
+
+## A mat on the floor keeps this far (plan pixels) inside the room's walls.
+const MAT_EDGE := 8.0
+## How far short of a bed's foot end the quilt stops (plan pixels: the bed's rim).
+const BED_END := 12.0
+## A swaddled baby's picture is this many times its height long, lying.
+const SWADDLE_LEN := 1.45
+
+
+## `lie_geo` while lying; while getting up, where they lay.
+func _geo() -> Dictionary:
+	if not lying_down() and _lie > 0.0 and not _lie_geo.is_empty():
+		return _lie_geo
+	return lie_geo()
+
+
+## A plan point of `g` on the view, relative to the feet (raised to the surface).
+func _lie_screen(p: Vector2, g: Dictionary) -> Vector2:
+	return IsoMath.basis().basis_xform(p - position) + Vector2(0, -float(g.lift))
+
+
+## The lying body on the view, relative to the feet: the quilt, the pillow and the head.
+func lie_rect() -> Rect2:
+	var g := _geo()
+	var tall: float = float(_look.get("height", 90.0)) if pictured() else 90.0
+	var hw: float = g.width * 0.5
+	var pts: Array[Vector2] = []
+	for p in [g.head + g.across * hw, g.head - g.across * hw, g.head + g.axis * g.length + g.across * hw,
+			g.head + g.axis * g.length - g.across * hw, g.head - g.axis * g.head_len]:
+		pts.append(_lie_screen(p, g))
+	var r := Rect2(pts[0], Vector2.ZERO)
+	for p in pts:
+		r = r.expand(p)
+	return r.grow_individual(2.0, tall * 0.16, 2.0, 2.0)
+
+
+## Lying down or getting up: sitting on the bed's edge (on the floor: standing), then lying
+## back under the quilt; the two cross over in the second part of LIE_TIME.
+func _draw_bed(tint: Color) -> void:
+	var g := _geo()
+	var f := smoothstep(0.35, 1.0, _lie)
+	if f < 1.0:
+		_draw_on_edge(g, 1.0 - f, tint)
+	if f > 0.0:
+		_draw_under_quilt(g, f, tint)
+
+
+## Sitting on the bed's edge where they got onto it (standing, on the floor), faded to `a`.
+func _draw_on_edge(g: Dictionary, a: float, tint: Color) -> void:
+	var bp := "sit" if bool(g.bed) else "idle"
+	var picked := _rig_for(bp)
+	var rig: CutoutRig = picked[0]
+	var h: float = _look.height
+	var col := Color(tint, tint.a * a)
+	if rig == null:
+		var tex: Texture2D = _look.tex
+		var w := h * tex.get_width() / tex.get_height()
+		draw_texture_rect(tex, Rect2(-w * 0.5, -h, w, h), false, col)
+		return
+	var k := h / rig.height * float(picked[1])
+	var up := maxf(0.0, float(g.lift) - _hips()) if bool(g.bed) else 0.0
+	rig.draw(self, _rig_pose(rig, bp), Transform2D(0.0, Vector2(_facing * k, k), 0.0, Vector2(0, 2.0 - up)), col)
+
+
+## Under the quilt: a mat on the floor (no bed), the pillow, their own head on it, and the
+## quilt over the rest, rising as they breathe and heaving when they turn over.
+func _draw_under_quilt(g: Dictionary, a: float, tint: Color) -> void:
+	var skin := _skin()
+	var q := skin.quilt() if skin != null else {}
+	var breath := 0.5 + 0.5 * sin(TAU * _t / SLEEP_BREATH)
+	var u := (_t - _turn_from) / TURN_TIME
+	var roll := sin(PI * u) if u >= 0.0 and u <= 1.0 else 0.0
+	var col := Color(tint, tint.a * a)
+	var head: Vector2 = g.head
+	var axis: Vector2 = g.axis
+	var across: Vector2 = g.across
+	var w: float = g.width
+	if q.is_empty():
+		# No quilt in the skin: the whole sleeping picture, along the bed.
+		if _look.has("asleep"):
+			var pic: Texture2D = _look.asleep
+			var at := lie_point()
+			var len := float(_look.height) * 1.15
+			draw_texture_rect(pic, PackSkin.fit_rect(pic, at + Vector2(0, len * 0.3), Vector2(len, len)), false, col)
+		return
+	var line := Color(q.line, a)
+	if not bool(g.bed):
+		var m0: Vector2 = head - axis * (g.head_len * 1.2)
+		var m1: Vector2 = head + axis * (g.length + 4.0)
+		var mw := w * 0.66
+		_quad(g, [m0 - across * mw, m1 - across * mw, m1 + across * mw, m0 + across * mw], Color(q.mat, a), line)
+	var p0: Vector2 = head - axis * (g.head_len * 0.95)
+	var p1: Vector2 = head + axis * (g.head_len * 0.2)
+	var pw := w * 0.42
+	var pillow := [p0 - across * pw, p1 - across * pw, p1 + across * pw, p0 + across * pw]
+	_quad(g, pillow, Color((q.pillow as Color).darkened(0.28), a), Color(0, 0, 0, 0), Vector2(0, 3))
+	_quad(g, pillow, Color(q.pillow, a), line)
+	_draw_sleeping_head(g, col, breath, roll)
+	_draw_quilt(g, q, col, breath, roll)
+
+
+## A four-cornered patch of plan points on the view, filled and outlined.
+func _quad(g: Dictionary, corners: Array, fill: Color, line: Color, shift := Vector2.ZERO) -> void:
+	var pts := PackedVector2Array()
+	for c in corners:
+		pts.append(_lie_screen(c, g) + shift)
+	draw_colored_polygon(pts, fill)
+	if line.a > 0.0:
+		pts.append(pts[0])
+		draw_polyline(pts, line, 1.5)
+
+
+## The rig whose head they sleep with: their own look's, turned away (else its side one);
+## null without one.
+func sleeping_head_rig() -> CutoutRig:
+	var r: CutoutRig = _look.get("rig_back34", _look.get("rig"))
+	return r if r != null and r.has_part("head") else null
+
+
+## A sleeping head is drawn this much bigger than a standing one (it lies nearer the eye).
+const HEAD_K := 1.12
+
+
+## Their own head (the look's rig: turned away, else the side one) on the pillow, its top
+## towards the head end, the face turned up the screen; turning over turns it the other way.
+func _draw_sleeping_head(g: Dictionary, col: Color, breath: float, roll: float) -> void:
+	var r: CutoutRig = sleeping_head_rig()
+	if r == null:
+		return
+	var side: CutoutRig = _look.get("rig")
+	var h: float = _look.height
+	var part := r.part("head")
+	var size: Vector2 = part.size
+	var want := h * 0.25 * HEAD_K
+	if side != null and side.head_height > 0.0:
+		want = side.head_height / side.height * h * HEAD_K
+	var k := want / maxf(1.0, size.y)
+	var up := -IsoMath.basis().basis_xform(g.axis).normalized()
+	var th := atan2(up.x, -up.y)
+	var mx := -1.0 if sin(th) > 0.0 else 1.0
+	mx *= _head_flip
+	var neck := _lie_screen(g.head - g.axis * (float(g.head_len) * 0.06), g) + Vector2(0, -2.0 - 1.2 * breath - 2.0 * roll)
+	draw_set_transform_matrix(Transform2D(th, Vector2(mx * k, k), 0.0, neck) * Transform2D(0.0, -(part.pivot as Vector2)))
+	draw_texture(part.tex, Vector2.ZERO, col)
+	draw_set_transform_matrix(Transform2D.IDENTITY)
+
+
+## The quilt: the skin's picture cut to its outline (`PackSkin.quilt`), its three corners laid
+## on this sleeper's place (so it lies along the bed, as wide as their share), breathing.
+func _draw_quilt(g: Dictionary, q: Dictionary, col: Color, breath: float, roll: float) -> void:
+	var tex: Texture2D = q.tex
+	var c: Array = q.corners
+	var q0: Vector2 = g.head + g.across * (float(g.width) * 0.5)
+	var q1: Vector2 = g.head - g.across * (float(g.width) * 0.5)
+	var q2: Vector2 = q0 + g.axis * float(g.length)
+	var pic := Transform2D(c[1] - c[0], c[2] - c[0], Vector2.ZERO)
+	var lin := Transform2D(q1 - q0, q2 - q0, Vector2.ZERO) * pic.affine_inverse()
+	var to_plan := Transform2D(lin.x, lin.y, q0 - lin.basis_xform(c[0]))
+	var b := IsoMath.basis()
+	var to_view := Transform2D(b.x, b.y, -b.basis_xform(position) + Vector2(0, -float(g.lift)))
+	# Breathing: the quilt rises a little from its lower edge; turning over, it heaves.
+	var hgt := float(tex.get_height())
+	var lump := Transform2D(0.0, Vector2(1.0, 1.0 + 0.035 * breath + 0.07 * roll), 0.0, Vector2(roll * 8.0, hgt)) * Transform2D(0.0, Vector2(0, -hgt))
+	draw_set_transform_matrix(to_view * to_plan * lump)
+	var cut: PackedVector2Array = q.cut
+	var uvs := PackedVector2Array()
+	var ts := Vector2(tex.get_size())
+	for p in cut:
+		uvs.append(p / ts)
+	draw_polygon(cut, PackedColorArray([col]), uvs, tex)
+	draw_set_transform_matrix(Transform2D.IDENTITY)
+
+
+## A swaddled baby asleep: its own lying picture along the bed (or a mat on the floor),
+## breathing.
+func _draw_swaddle(tint: Color) -> void:
+	var g := lie_geo()
+	var skin := _skin()
+	var q := skin.quilt() if skin != null else {}
+	var tex: Texture2D = _look.tex
+	var h: float = _look.height
+	if not bool(g.bed) and not q.is_empty():
+		var m0: Vector2 = g.head - g.axis * 4.0
+		var m1: Vector2 = g.head + g.axis * (float(g.length) + 4.0)
+		var mw: float = h * 0.5
+		_quad(g, [m0 - g.across * mw, m1 - g.across * mw, m1 + g.across * mw, m0 + g.across * mw], q.mat, q.mat_line)
+	var len := h * SWADDLE_LEN
+	var size := Vector2(len, len * tex.get_height() / tex.get_width())
+	var d := IsoMath.basis().basis_xform(g.axis).normalized()
+	var start := _lie_screen(g.head, g)
+	var mid := start + d * len * 0.5 + Vector2(0, -size.y * 0.3)
+	var sx := 1.0
+	if d.x < 0.0:
+		d = -d
+		sx = -1.0
+	var breath := 0.5 + 0.5 * sin(TAU * _t / SLEEP_BREATH)
+	draw_set_transform(mid, atan2(d.y, d.x), Vector2(sx, 1.0 + 0.03 * breath))
+	draw_texture_rect(tex, Rect2(-size * 0.5, size), false, tint)
+	draw_set_transform(Vector2.ZERO)
+
+
+## Soft z's drifting up from the head and fading, one after another.
+func _draw_zs(k := 1.0) -> void:
+	var g := _geo()
+	var font := ThemeDB.fallback_font
+	var line := Color("#4A3424")
+	var tall: float = float(_look.get("height", 90.0))
+	var at := _lie_screen(g.head - g.axis * float(g.head_len) * 0.5, g) + Vector2(4, -tall * 0.14)
+	for i in 3:
+		var ph := fmod(_t / Z_PERIOD + float(i) / 3.0, 1.0)
+		var a := sin(PI * ph) * 0.85
+		var size := int(round((8.0 + 6.0 * ph) * k))
+		var p := at + Vector2(3.0 + 10.0 * ph + 2.0 * sin(TAU * ph), -24.0 * ph) * k
+		draw_string_outline(font, p, "z", HORIZONTAL_ALIGNMENT_LEFT, -1, size, 3, Color(1, 1, 1, a * 0.7))
+		draw_string(font, p, "z", HORIZONTAL_ALIGNMENT_LEFT, -1, size, Color(line, a))
+
+
+## Dozing: one small z as the head sinks.
+func _draw_doze_z() -> void:
+	var u := fmod(_t, CutoutRig.DOZE_PERIOD) / CutoutRig.DOZE_PERIOD
+	if u > 0.82:
+		return
+	var a := sin(PI * u / 0.82) * 0.8
+	var h := drawn_height() + seat_lift()
+	var p := Vector2(_facing * 14.0 + 6.0 * u, -h + 14.0 - 16.0 * u)
+	var font := ThemeDB.fallback_font
+	draw_string_outline(font, p, "z", HORIZONTAL_ALIGNMENT_LEFT, -1, 11, 3, Color(1, 1, 1, a * 0.7))
+	draw_string(font, p, "z", HORIZONTAL_ALIGNMENT_LEFT, -1, 11, Color(Color("#4A3424"), a))

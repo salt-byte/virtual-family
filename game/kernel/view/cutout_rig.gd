@@ -8,14 +8,18 @@ extends RefCounted
 ## "torso is 100 high" units. The rig faces right.
 ##
 ## Poses: "idle" (breathing), "walk", "work" (arms busy in front), "sit", "eat" (hand to
-## mouth), "sleep" (lying, drawn turned on its back by the caller) and "wave".
+## mouth), "sleep" (lying, drawn turned on its back by the caller), "doze" (sitting, the
+## head nodding off and jerking up) and "wave".
 
-const POSES := ["idle", "walk", "work", "sit", "eat", "sleep", "wave"]
+const POSES := ["idle", "walk", "work", "sit", "eat", "sleep", "doze", "wave"]
 const WALK_PERIOD := 0.72
 const WORK_PERIOD := 0.7
 const EAT_PERIOD := 1.6
 const BREATH_PERIOD := 2.6
 const WAVE_PERIOD := 0.45
+## One nod while dozing: the head sinks slowly, then jerks up.
+const DOZE_PERIOD := 3.2
+const DOZE_NOD := 26.0
 
 ## [{id, parent, z, tex, pivot, attach, tint}] with parents before their children.
 var parts: Array = []
@@ -115,6 +119,20 @@ func has_part(id: String) -> bool:
 	return _by_id.has(id)
 
 
+## A part: {tex, pivot (its joint, picture pixels), size, ...}; {} when the rig has none.
+func part(id: String) -> Dictionary:
+	return _by_id.get(id, {})
+
+
+## How far the head is bowed while dozing at time `t` (degrees, forward): it sinks over most
+## of a DOZE_PERIOD, then comes up with a jerk.
+static func doze_nod(t: float) -> float:
+	var u := fmod(t, DOZE_PERIOD) / DOZE_PERIOD
+	if u < 0.82:
+		return DOZE_NOD * smoothstep(0.0, 0.82, u)
+	return DOZE_NOD * (1.0 - (u - 0.82) / 0.18)
+
+
 ## Every part's transform (part joint space -> rig space, feet at the origin) for `pose`:
 ## {part id: Vector3(rot degrees, dx, dy)}; a part not named stays at rest.
 func world(pose: Dictionary) -> Dictionary:
@@ -147,6 +165,13 @@ func draw(ci: CanvasItem, pose: Dictionary, xform: Transform2D, modulate := Colo
 ## An unknown name is "idle".
 func pose(name: String, t: float) -> Dictionary:
 	var breath := sin(TAU * t / BREATH_PERIOD)
+	if name == "doze":
+		# Sitting, slumped a little, the head nodding (forward is clockwise: the rig faces right).
+		var p := pose("sit", t * 0.5)
+		var nod := doze_nod(t)
+		p["head"] = (p.get("head", Vector3.ZERO) as Vector3) + Vector3(nod, 0.0, nod * 0.04)
+		p["torso"] = (p.get("torso", Vector3.ZERO) as Vector3) + Vector3(3.0 + nod * 0.15, 0.0, 0.0)
+		return p
 	if not _anims.is_empty() and name != "sleep":
 		return _pose_34(name, t)
 	if facing != "side":
