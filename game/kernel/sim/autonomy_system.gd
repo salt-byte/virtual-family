@@ -1255,6 +1255,21 @@ static func self_factor(a: Dictionary, n: String) -> float:
 	return float(sf)
 
 
+## True while `p`'s running action raises need `n` (with the share they get of it: the full
+## gain when the player led them there, else `self_factor`); with `led_only`, only an
+## action the player brought them to (`Person.current.led`).
+static func raising(world: World, p: Person, n: String, led_only := false) -> bool:
+	if p.current.is_empty():
+		return false
+	var led := bool(p.current.get("led", false))
+	if led_only and not led:
+		return false
+	var a: Dictionary = world.pack.actions[p.current["action"]]
+	if float((a["needs"] as Dictionary).get(n, 0.0)) <= 0.0:
+		return false
+	return led or self_factor(a, n) > 0.0
+
+
 ## True for an action whose fix the player leads (`self_factor` or `player_only`): a drag to
 ## it is remembered on the running action (`led`), and dropping someone on its object
 ## prefers it (see `Commands`).
@@ -1299,6 +1314,7 @@ static func _finish(world: World, p: Person) -> void:
 	var outing = action.get("outing")
 	if outing != null and not (outing as Dictionary).is_empty():
 		OutingSystem.come_back(world, p, id)
+	var led := bool(p.current.get("led", false))
 	p.current = {}
 	p.last_action = id
 	p.last_action_t = world.now
@@ -1307,7 +1323,9 @@ static func _finish(world: World, p: Person) -> void:
 	LivelihoodSystem.on_finished(world, p, id)
 	world.emit("action_finished", {"person": p.uid, "action": id})
 	if not p.wish.is_empty():
-		WishSystem.on_action_finished(world, p, id)
+		WishSystem.on_action_finished(world, p, id, led)
+	if not p.ask.is_empty():
+		AskSystem.on_action_finished(world, p, id, led)
 
 
 ## First unclaimed target for the action's kind (-1 when it has none or none is free).

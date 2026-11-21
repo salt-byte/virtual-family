@@ -2,8 +2,8 @@ class_name NeedBubble
 extends RefCounted
 ## The one thought bubble over a person's head: an ask (`AskSystem`) comes first, then a
 ## wish. An ask that waits for the player bobs gently so it catches the eye; once the person
-## deals with it themselves it sits still and fades a little. A wish for a need is always
-## shown; any other wish shows when it forms and then in short pulses (`wish_shown`), so the
+## deals with it themselves it sits still and fades a little. A wish for a need is shown
+## except while they are doing something that raises it; any other wish shows when it forms and then in short pulses (`wish_shown`), so the
 ## asks stand out and the house does not wear a bubble on every head all day. Each bubble is
 ## a small icon and a few words. The icon is the pack's picture of an object type or a pet
 ## kind when the name is one, else one of the shapes drawn here; nothing here knows the
@@ -45,7 +45,7 @@ static func of(world: World, p: Person) -> Dictionary:
 ## Whether `p`'s wish `w` shows over their head now (see the class notes).
 static func wish_shown(world: World, p: Person, w: Dictionary) -> bool:
 	if str(w.get("kind", "")) == "need":
-		return true
+		return not WishSystem.being_met(world, p)  # not from inside the bath they wished for
 	var formed := int(p.wish.get("expires_at", 0)) - int(float(w.get("ttl_hours", 0.0)) * 3600.0)
 	var age := world.now - formed
 	if age < WISH_FIRST_S:

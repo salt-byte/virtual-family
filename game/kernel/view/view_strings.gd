@@ -273,6 +273,8 @@ func thanks_text(p: Person, world: World) -> String:
 ## The pack's icon name for the wish `p` holds (`icon` in wishes.json; "" for none): the art
 ## key of what would fix it, for the thought bubble to draw beside the words.
 func wish_icon(p: Person, world: World) -> String:
+	if WishSystem.being_met(world, p):
+		return ""
 	return str(WishSystem.current(world, p).get("icon", ""))
 
 
@@ -443,8 +445,11 @@ func sky_line(world: World) -> String:
 	return _f("sky", {"season": season, "weather": wx})
 
 
-## The text of the wish `p` holds now; "" for none.
+## The text of the wish `p` holds now; "" for none, and for a body wish while it is being
+## met (`WishSystem.being_met`).
 func wish_text(p: Person, world: World) -> String:
+	if WishSystem.being_met(world, p):
+		return ""
 	return str(WishSystem.current(world, p).get("text", ""))
 
 

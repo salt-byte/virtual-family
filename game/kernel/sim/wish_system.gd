@@ -11,7 +11,9 @@ extends RefCounted
 ## - "baby": a child is born to them (only a married grown-up who could have one now)
 ## - "pet": an animal of that kind (`pet`) lives in the house
 ## - "need": a body wish, formed when that need falls below `below` and granted once it is
-##   back above `above`; it takes the place of any other wish
+##   back above `above` (at once when an action that raises it ends, see
+##   `on_action_finished`); it takes the place of any other wish, and is not formed while
+##   the player has them at something that raises that need
 ## - "do": they finish one of the wished `actions` themselves (going to the market, setting
 ##   off firecrackers); while they hold it those actions score `wish_do_factor` times higher
 ##   for them, and it does not run out while they are doing one
@@ -43,7 +45,7 @@ static func step(world: World, dt: float) -> void:
 			var w: Dictionary = pack.wishes.get(str(p.wish["id"]), {})
 			if w.is_empty():
 				p.wish = {}
-			elif _met(world, p, w):
+			elif _met(world, p, w) and not _led_to_it(world, p, w):
 				grant(world, p)
 				continue
 			elif str(w["festival"]) != "" and str(w["festival"]) != world.festival:
@@ -72,6 +74,12 @@ static func _met(world: World, p: Person, w: Dictionary) -> bool:
 		"pet":
 			return PetSystem.has_kind(world, str(w["pet"]))
 	return false
+
+
+## True while the player has `p` at something that raises the need their body wish `w`
+## names: that grants it when it ends (`on_action_finished`), thank-you and all, not midway.
+static func _led_to_it(world: World, p: Person, w: Dictionary) -> bool:
+	return str(w["kind"]) == "need" and AutonomySystem.raising(world, p, str(w["need"]), true)
 
 
 ## True while `p` is doing one of the actions their "do" wish `w` asks for.
@@ -116,9 +124,12 @@ static func thanks_seconds(world: World) -> int:
 	return maxi(ceili(full / world.step_s - 1e-9), 1) * world.step_s
 
 
-## The player used `item` on `p` (successfully): grants an item wish for it.
+## The player used `item` on `p` (successfully): grants an item wish for it, or a body
+## wish the item has just met (at once, not at the next minute's look).
 static func on_item_used(world: World, p: Person, item: String) -> void:
 	if _wants(world, p, "item", "item", item):
+		grant(world, p)
+	elif _wants(world, p, "need", "", "") and _met(world, p, current(world, p)):
 		grant(world, p)
 
 
@@ -134,11 +145,27 @@ static func on_birth(world: World, p: Person) -> void:
 		grant(world, p)
 
 
-## `p` finished action `action_id`: grants a "do" wish that asks for it.
-static func on_action_finished(world: World, p: Person, action_id: String) -> void:
+## `p` finished action `action_id` (`led`: the player brought them to it): grants a "do"
+## wish that asks for it, and a body wish for a need the action raises, at once: always when
+## the player led them there (a bath the player gave meets the wish for one, wherever it
+## left the need), else once the need is back above the wish's `above`.
+static func on_action_finished(world: World, p: Person, action_id: String, led := false) -> void:
 	var w := current(world, p)
-	if str(w.get("kind", "")) == "do" and (w["actions"] as Array).has(action_id):
-		grant(world, p)
+	match str(w.get("kind", "")):
+		"do":
+			if (w["actions"] as Array).has(action_id):
+				grant(world, p)
+		"need":
+			var gain := float((world.pack.actions[action_id]["needs"] as Dictionary).get(str(w["need"]), 0.0))
+			if gain > 0.0 and (led or _met(world, p, w)):
+				grant(world, p)
+
+
+## True while `p` is doing something that raises the need their body wish names (sitting in
+## the bath they wished for): the wish is being met, so the view does not show it.
+static func being_met(world: World, p: Person) -> bool:
+	var w := current(world, p)
+	return str(w.get("kind", "")) == "need" and AutonomySystem.raising(world, p, str(w["need"]))
 
 
 ## The actions `p`'s wish asks them to do ([] unless it is a "do" wish).
@@ -248,7 +275,8 @@ static func _eligible(world: World, p: Person, body: bool, only_festival := "") 
 			continue
 		match kind:
 			"need":
-				if float(p.needs.get(str(w["need"]), 100.0)) >= float(w["below"]):
+				if float(p.needs.get(str(w["need"]), 100.0)) >= float(w["below"]) \
+						or AutonomySystem.raising(world, p, str(w["need"]), true):
 					continue
 			"object", "room", "pet":
 				if _met(world, p, w):

@@ -11,7 +11,8 @@ extends RefCounted
 ##   drag to anything that raises it, or an item that does; while waiting, the person does
 ##   not choose such actions on their own; afterwards they score `ask_self_factor` times
 ##   higher until one is started (their own choice: the weaker `self_factor` gains). It ends
-##   quietly once the need is back above `above`.
+##   quietly once the need is back above `above`. It is not formed while the player has
+##   them at something that raises the need, and such a fix meets it when it ends.
 ## - "praise": met by a praise.
 ## - "hold": met by any drag (being picked up and set down by the player).
 ## - "item": met by using one of `items` on them.
@@ -136,8 +137,8 @@ static func _maybe_form(world: World, p: Person, check: int) -> void:
 		if str(e["kind"]) != "need" or not _stage_ok(e, stage) or world.now < int(p.ask_again.get(id, 0)):
 			continue
 		var v = p.needs.get(str(e["need"]))
-		if v == null:
-			continue
+		if v == null or AutonomySystem.raising(world, p, str(e["need"]), true):
+			continue  # (no asking for a bath from inside one)
 		var d := float(e["below"]) - float(v)
 		if d > best_d:
 			best = str(id)
@@ -226,6 +227,16 @@ static func on_command(world: World, type: String, cmd: Dictionary) -> void:
 			met = (type == "drag" or type == "go_out") and not p.current.is_empty() \
 					and (e["actions"] as Array).has(str(p.current["action"]))
 	if met:
+		helped(world, p)
+
+
+## `p` finished action `action_id` (`led`: the player brought them to it): a need ask that
+## the action raised is met by the player there and then, with the thank-you. (An ask the
+## drag itself met ended already; this is one that came up while they were at it.)
+static func on_action_finished(world: World, p: Person, action_id: String, led: bool) -> void:
+	var e := current(world, p)
+	if led and str(e.get("kind", "")) == "need" \
+			and float((world.pack.actions[action_id]["needs"] as Dictionary).get(str(e["need"]), 0.0)) > 0.0:
 		helped(world, p)
 
 
