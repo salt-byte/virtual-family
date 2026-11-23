@@ -52,7 +52,11 @@ static func collect(w: World, s: ViewStrings, sick: Dictionary) -> Array[Diction
 		if not p.alive:
 			continue
 		if sick.has(p.uid):
-			_add(out, "ill", p.uid, s.t("ev.fell_ill").replace("{name}", s.person_name(p)))
+			var ill_text := s.t("ev.fell_ill").replace("{name}", s.person_name(p))
+			if int(w.doctor.get("person", -1)) == p.uid:
+				ill_text = s.t("notice.doctor_wait").replace("{name}", s.person_name(p)) \
+					.replace("{visitor}", s.visitor_name(w, str(w.doctor.get("service", ""))))
+			_add(out, "ill", p.uid, ill_text)
 		var worst := _worst(s.status_chips(p, w))
 		if worst != "":
 			_add(out, "need", p.uid, s.t("notice.need").format({"name": s.person_name(p), "word": worst}))

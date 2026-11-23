@@ -10,6 +10,11 @@
 	{"id": "lottery_ticket", "name": "一张彩票", "kind": "lottery", "price": 10, "draw_hours": 2, "max_tickets": 3,
 	 "prizes": [{"chance": 0.01, "amount": 500}, {"chance": 0.04, "amount": 40}, {"chance": 0.12, "amount": 10}],
 	 "desc": "两个钟头后开奖。头奖五百，十张里有一两张能把本钱捞回来。"},
+	{"id": "call_langzhong", "name": "请郎中上门", "kind": "doctor", "price": 50, "night_price": 80, "night_hours": [20, 6],
+	 "arrive_seconds": 30, "exam_seconds": 10, "enters_from": "gate", "visitor": "老郎中", "look": "elder_1",
+	 "patient_action": "sick_in_bed", "restores": {"health": 20},
+	 "well_line": "脉稳当，早没事了。夜里多睡两个时辰就成。",
+	 "desc": "托人去镇上请老郎中，一盏茶的工夫就到。搭了脉，说清是什么病，当场给治。天黑以后出诊，要八十文。"},
 	{"id": "hire_help", "name": "雇个帮佣（一天）", "kind": "helper", "price": 45, "days": 1, "max_days": 7, "hours": [7, 17],
 	 "cleans": true, "cooks": "porridge", "consumes": {"food": 1},
 	 "desc": "早上七点、傍晚五点各来一趟，把屋里院里扫干净，拿家里的米熬一锅粥。"}

@@ -111,6 +111,9 @@ var ticket_next := 1
 var helper_until := 0
 var helper_service := ""
 var adopt_service := ""
+## A doctor's visit on its way or under way ({} for none): {person, service, phase
+## ("coming" | "examining"), at (`now` the phase ends), fee}; see `ServiceSystem` "doctor".
+var doctor: Dictionary = {}
 ## A faster clock (see `ServiceSystem` "speed"): the real unix time until which game time
 ## runs `speed_factor` times as fast, and how many seconds the sim clock has run ahead of
 ## the real one because of it (0 for a world that never sped up: the clocks then agree).

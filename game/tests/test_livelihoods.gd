@@ -256,8 +256,9 @@ func test_qijia_work_actions_name_real_tracks_and_suit_grown_ups():
 		assert_true(pk.livelihoods.has(t), id)
 		assert_eq(a["stages"], ["adult", "elder"], id)
 		# The 4-6 count is the line's everyday work; dosing a sick pet (a work action of the
-		# doctor's line, done only when an animal is ill) is not counted among it.
-		if not (a["pet"] as Dictionary).is_empty():
+		# doctor's line, done only when an animal is ill) is not counted among it, nor is
+		# treating a sick member of the family (only when someone is ill).
+		if not (a["pet"] as Dictionary).is_empty() or bool(a.get("treats", false)):
 			continue
 		per[t] = int(per.get(t, 0)) + 1
 	for t in pk.livelihoods:

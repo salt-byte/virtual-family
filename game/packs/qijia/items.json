@@ -2,6 +2,7 @@
 	{"id": "rice", "name": "一袋米面", "category": "粮食", "price": 24, "stock": {"food": 8}},
 	{"id": "ginger_pill", "name": "老姜红枣丸", "category": "药铺", "price": 30, "cures": "chill", "needs": {"health": 15}},
 	{"id": "indigo_salve", "name": "青黛药膏", "category": "药铺", "price": 36, "cures": "itch", "needs": {"health": 15}},
+	{"id": "herb_bundle", "name": "一包草药", "category": "药铺", "price": 12, "stock": {"herbs": 3}},
 	{"id": "sugar_figure", "name": "糖人", "category": "零嘴", "price": 12, "needs": {"happy": 30}},
 	{"id": "osmanthus_cake", "name": "桂花糕", "category": "零嘴", "price": 18, "needs": {"happy": 20, "fed": 15}},
 	{"id": "melon_seeds", "name": "一包炒瓜子", "category": "零嘴", "price": 6, "needs": {"happy": 10}},

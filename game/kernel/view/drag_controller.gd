@@ -1,7 +1,8 @@
 class_name DragController
 extends Node
 ## Picking a person up and dropping them on furniture, a mess, something lying about, a
-## baby (to care for it) or an animal of the house (to feed, pet, wash or dose it).
+## baby (to care for it), someone the view saw fall ill (to treat them: for one who knows
+## medicine) or an animal of the house (to feed, pet, wash or dose it).
 ## The drop becomes one `drag` command; the result decides nothing here except where the
 ## person is left standing. Reads the World, writes only through the session.
 
@@ -37,6 +38,8 @@ func move(world_pos: Vector2) -> void:
 		return
 	pv.position = world_pos
 	var baby := _baby_at(world_pos, dragging)
+	if baby < 0:
+		baby = _patient_at(world_pos, dragging)
 	var pet := main.house.pet_at(world_pos) if baby < 0 else -1
 	if baby >= 0:
 		_hover({"kind": "person", "uid": baby})
@@ -64,6 +67,10 @@ func drop(world_pos: Vector2) -> Dictionary:
 	if baby >= 0:
 		_leave_at(pv, world_pos)
 		return main.session.command({"type": "drag", "person": uid, "tend": baby})
+	var patient := _patient_at(world_pos, uid)
+	if patient >= 0:
+		_leave_at(pv, world_pos)
+		return main.session.command({"type": "drag", "person": uid, "treat": patient})
 	var pet := main.house.pet_at(world_pos)
 	if pet >= 0:
 		_leave_at(pv, world_pos)
@@ -127,6 +134,16 @@ func _baby_at(world_pos: Vector2, held_uid: int) -> int:
 			continue
 		var p := w.person(uid)
 		if p != null and p.alive and p.stage(w.pack) == "baby" and (main.house.people[uid] as PersonView).hit(world_pos):
+			return uid
+	return -1
+
+
+## The person under `world_pos` the view saw fall ill (not `held_uid`); -1 for none.
+func _patient_at(world_pos: Vector2, held_uid: int) -> int:
+	if main.hud == null:
+		return -1
+	for uid in main.house.people:
+		if uid != held_uid and main.hud.seen_sick(uid) and (main.house.people[uid] as PersonView).hit(world_pos):
 			return uid
 	return -1
 

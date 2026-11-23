@@ -728,6 +728,11 @@ func _refresh_tray(p: Person, pet: Pet) -> void:
 	_tray.offset_left = -STRIP_LEFT - ms.x
 
 
+## Whether the view saw `uid` fall ill and not yet get better.
+func seen_sick(uid: int) -> bool:
+	return _sick.has(uid)
+
+
 ## The tray; for tests.
 func tray() -> CareTray:
 	return _tray
@@ -750,6 +755,10 @@ func use_care(e: Dictionary) -> void:
 					view.float_text_up(str(e["name"]))
 		"call":
 			call_carer(int(e["pet"]))
+		"treat":
+			session.command({"type": "drag", "person": int(e["healer"]), "treat": int(e["person"])})
+		"doctor":
+			call_doctor(int(e["person"]))
 		"shop":
 			open.emit("shop")
 			var tab := Panels.MARKET_TAB + str(e.get("tab", ""))
@@ -780,6 +789,17 @@ func drop_care(e: Dictionary, screen: Vector2) -> bool:
 			view.float_text_up(str(e["name"]))
 	refresh()
 	return true
+
+
+## "请郎中" (the pack's doctor service, `ServiceSystem` "doctor") for the sick person `uid`:
+## the command's result.
+func call_doctor(uid: int) -> Dictionary:
+	var sid := ServiceSystem.first_of(session.world.pack, "doctor")
+	if sid == "":
+		return {}
+	var r := session.command({"type": "buy_service", "service": sid, "person": uid})
+	refresh()
+	return r
 
 
 ## "叫人来喂": the nearest family member at home who can look after the animal now (the idle
@@ -1044,7 +1064,7 @@ func _refresh_notices() -> void:
 			_dismissed.erase(id)
 	if _notices.size() <= NOTICES_MAX:
 		_expanded = false
-	var sig := str(_expanded)
+	var sig := "%s|%s" % [_expanded, session.world == null or session.world.doctor.is_empty()]
 	for n in _notices:
 		sig += "%s=%s|" % [n["id"], n["text"]]
 	if sig == _notice_sig:
@@ -1076,6 +1096,51 @@ func _refresh_notices() -> void:
 		more.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
 		more.pressed.connect(toggle_notices)
 		_notice_box.add_child(more)
+
+
+## The small "请郎中" button on a sick person's notice (null without a doctor service or while
+## a visit is on: the notice's words then say the visitor is on the way).
+func _doctor_chip(uid: int) -> Button:
+	var w := session.world
+	var sid := ServiceSystem.first_of(w.pack, "doctor")
+	if sid == "" or not w.doctor.is_empty():
+		return null
+	var b := Button.new()
+	b.text = session.strings.t("notice.doctor").replace("{visitor}", session.strings.visitor_name(w, sid))
+	b.focus_mode = Control.FOCUS_NONE
+	b.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
+	b.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	b.add_theme_font_size_override("font_size", 13)
+	ViewWidgets.round_button(b, ViewWidgets.ACCENT, ViewWidgets.CREAM)
+	for state in ["normal", "hover", "pressed"]:
+		var st := b.get_theme_stylebox(state) as StyleBoxFlat
+		if st != null:
+			st.set_content_margin_all(3)
+			st.content_margin_left = 9
+			st.content_margin_right = 9
+			st.border_width_bottom = 2
+	b.pressed.connect(func(): call_doctor(uid))
+	b.set_meta("doctor_for", uid)
+	return b
+
+
+## The "请郎中" button on the notice for `uid`; null when none shows. For tests.
+func doctor_chip(uid: int) -> Button:
+	for c in _notice_box.get_children():
+		var found := _find_meta(c, uid)
+		if found != null:
+			return found
+	return null
+
+
+func _find_meta(n: Node, uid: int) -> Button:
+	if n is Button and n.has_meta("doctor_for") and int(n.get_meta("doctor_for")) == uid:
+		return n
+	for c in n.get_children():
+		var f := _find_meta(c, uid)
+		if f != null:
+			return f
+	return null
 
 
 ## One notice: an icon on a coloured disc, the words, a little arrow; the whole card clicks.
@@ -1119,6 +1184,10 @@ func _notice_card(n: Dictionary) -> Button:
 	l.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	l.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	line.add_child(l)
+	if str(n["kind"]) == "ill":
+		var call := _doctor_chip(int(n["target"]))
+		if call != null:
+			line.add_child(call)
 	var arrow := Label.new()
 	arrow.text = "›"
 	arrow.add_theme_font_size_override("font_size", 20)
@@ -1131,6 +1200,8 @@ func _notice_card(n: Dictionary) -> Button:
 
 func _on_event(e: Dictionary) -> void:
 	var type := str(e.get("type", ""))
+	if type == "doctor_diagnosed" and main.house != null:
+		main.house.visitor_say(str(e.get("line", "")))
 	if type == "fell_ill":
 		_sick[int(e["person"])] = true
 	elif type == "cured" or type == "person_died":

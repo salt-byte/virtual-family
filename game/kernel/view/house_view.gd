@@ -741,8 +741,77 @@ func refresh() -> void:
 		people[uid].refresh()
 	_spread(w)
 	_refresh_pets(w)
+	_sync_visitor(w)
 	_sync_props()
 	queue_redraw()
+
+
+## The visitor of a doctor service (`ServiceSystem` "doctor") while one comes, works or
+## leaves; null otherwise.
+var visitor: VisitorView = null
+var _visitor_service := ""
+## Seconds before the kernel's arrival that the visitor turns up at the gate and starts
+## walking in (about the walk across the yard).
+const VISITOR_LEAD := 15
+
+
+## Brings the visitor in at the gate as the visit draws near, keeps it beside the patient
+## while the visit lasts, and sends it back out to the gate once the visit is over.
+func _sync_visitor(w: World) -> void:
+	if w == null or w.phase == "invalid":
+		return
+	var d := w.doctor
+	if not d.is_empty():
+		var sid := str(d.get("service", ""))
+		var examining := str(d.get("phase", "")) == "examining"
+		if visitor == null and (examining or int(d.get("at", 0)) - w.now <= VISITOR_LEAD):
+			visitor = VisitorView.new()
+			visitor.house = self
+			_place(visitor)
+			_visitor_service = sid
+			visitor.goal = _gate_pos(w, sid)
+			visitor.setup(VisitorView.stand_in(w, sid), session)
+			visitor.position = visitor.goal
+		if visitor != null:
+			visitor.leaving = false
+			visitor.goal = _bedside(w, int(d.get("person", -1)))
+			visitor.busy_text = session.strings.t("visitor.examining" if examining else "visitor.coming")
+			visitor.refresh()
+	elif visitor != null:
+		if not visitor.leaving:
+			visitor.leaving = true
+			visitor.busy_text = ""
+			visitor.goal = _gate_pos(w, _visitor_service)
+		visitor.refresh()
+
+
+## Where a doctor service's visitor comes in: the middle of its `enters_from` room, else the
+## way people come into the house.
+func _gate_pos(w: World, sid: String) -> Vector2:
+	var room := str(w.pack.services.get(sid, {}).get("enters_from", ""))
+	if room != "" and layout.room_rect(room).size != Vector2.ZERO:
+		return layout.room_rect(room).get_center()
+	for id in w.pack.rooms:
+		if id in w.rooms_built and not bool(w.pack.rooms[id].get("outdoor", false)):
+			return layout.room_rect(id).get_center()
+	return Vector2.ZERO
+
+
+## Beside the person `uid` (a cell over from where they are headed, as someone looking after
+## them stands); the gate when they are not in the house.
+func _bedside(w: World, uid: int) -> Vector2:
+	if not people.has(uid):
+		return _gate_pos(w, _visitor_service)
+	var them: Vector2 = (people[uid] as PersonView).base_target
+	if layout.site.enabled:
+		return layout.stop_point(them + Vector2(HouseSite.CELL.x, 0), {layout.site.cell_of(them): true})
+	return them + Vector2(PersonView.BODY.x, 0)
+
+
+## The visitor says `text` over its head (the diagnosis).
+func visitor_say(text: String) -> void:
+	if visitor != null and text != "":
+		visitor.speak(text)
 
 
 ## People heading for the same spot: with a site plan the first one there keeps it and the
@@ -1111,6 +1180,12 @@ func tick(delta: float) -> void:
 		people[uid].tick(delta)
 	for uid in pets:
 		pets[uid].tick(delta)
+	if visitor != null:
+		visitor.tick(delta)
+		if visitor.leaving and visitor.arrived() and visitor.say == "":
+			stage.remove_child(visitor)
+			visitor.queue_free()
+			visitor = null
 	_fade_walls()
 	_sort_stage()
 	_follow_step(delta)
@@ -1491,6 +1566,9 @@ func label_spots() -> Dictionary:
 		if pv.pictured() and pv.visible:
 			var foot := proj * pv.position
 			entries.append({"uid": uid, "size": pv.label_size(), "at": foot + pv.label_anchor(), "sel": pv.selected, "y": foot.y})
+	if visitor != null and visitor.pictured():
+		var vf := proj * visitor.position
+		entries.append({"uid": VisitorView.UID, "size": visitor.label_size(), "at": vf + visitor.label_anchor(), "sel": false, "y": vf.y})
 	for uid in pets:
 		var av: PetView = pets[uid]
 		if av.pictured() and av.visible and av.shows_label():
@@ -1523,6 +1601,8 @@ func label_spots() -> Dictionary:
 ## The person or animal a `label_spots` uid belongs to (people and animals share one uid
 ## count), or null.
 func label_owner(uid: int) -> Node2D:
+	if uid == VisitorView.UID and visitor != null:
+		return visitor
 	if people.has(uid):
 		return people[uid]
 	return pets.get(uid)

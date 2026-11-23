@@ -1042,8 +1042,9 @@ static func can_do(world: World, p: Person, action_id: String, object_uid: int) 
 
 
 ## What an action aims at: "mess" (`cleans`), "collectible" (`picks`), "person" (`tends`: a
-## baby), "dish" (`eats`: cooked food), "pet" (`pet`: an animal of the house) or ""
-## (nothing). An action has at most one target kind.
+## baby), "dish" (`eats`: cooked food), "pet" (`pet`: an animal of the house), "patient"
+## (`treats`: someone of the family who is ill) or "" (nothing). An action has at most one
+## target kind.
 static func target_kind(a: Dictionary) -> String:
 	if str(a["cleans"]) != "":
 		return "mess"
@@ -1058,6 +1059,8 @@ static func target_kind(a: Dictionary) -> String:
 	var pet = a.get("pet")
 	if pet != null and not (pet as Dictionary).is_empty() and not bool(pet.get("watch", false)):
 		return TARGET_PET
+	if bool(a.get("treats", false)):
+		return TARGET_PATIENT
 	return ""
 
 
@@ -1067,6 +1070,8 @@ const TARGET_PERSON := "person"
 const TARGET_DISH := "dish"
 ## The target kind of an action that looks after a pet.
 const TARGET_PET := "pet"
+## The target kind of an action that treats a sick member of the family (`treats`).
+const TARGET_PATIENT := "patient"
 
 
 ## The gain `_tend_target` found for its pick (read right after the call).
@@ -1293,6 +1298,8 @@ static func _finish(world: World, p: Person) -> void:
 	var pet = action.get("pet")
 	if pet != null and not (pet as Dictionary).is_empty() and not bool(pet.get("watch", false)):
 		PetSystem.cared(world, p, int(p.current.get("target_uid", -1)), id)
+	if bool(action.get("treats", false)):
+		IllnessSystem.treated(world, p, int(p.current.get("target_uid", -1)))
 	var yields = action.get("yields")
 	if yields != null and not (yields as Dictionary).is_empty():
 		for k in yields:
@@ -1341,6 +1348,8 @@ static func _first_free_target(world: World, a: Dictionary, p: Person) -> int:
 			return DishSystem.first_free(world, a["eats"], p)
 		"pet":
 			return PetSystem.target_for(world, a, p)
+		"patient":
+			return IllnessSystem.patient_for(world, p)
 	return -1
 
 

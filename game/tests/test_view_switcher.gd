@@ -309,7 +309,7 @@ func test_a_selected_person_gets_the_snacks_and_clothes_in_store():
 	me.needs["happy"] = 20.0
 	m.select(me.uid)
 	m.tick(0.016)
-	var items: Array = m.hud.tray().entries().map(func(e): return e["item"])
+	var items: Array = m.hud.tray().entries().map(func(e): return e.get("item", ""))
 	assert_true(items.has("sugar_figure") and items.has("new_clothes"), str(items))
 	assert_true(not items.has("pork_bone") and not items.has("ginger_pill"), str(items))
 	assert_true(m.hud.tray().press("use", "sugar_figure"))
@@ -318,7 +318,7 @@ func test_a_selected_person_gets_the_snacks_and_clothes_in_store():
 	# Seen to be ill: the medicines in store are offered (which one fits is the player's guess).
 	m.hud._on_event({"type": "fell_ill", "person": me.uid})
 	m.tick(0.016)
-	items = m.hud.tray().entries().map(func(e): return e["item"])
+	items = m.hud.tray().entries().map(func(e): return e.get("item", ""))
 	assert_true(items.has("ginger_pill"), str(items))
 	m.free()
 

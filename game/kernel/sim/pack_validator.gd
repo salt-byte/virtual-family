@@ -341,7 +341,7 @@ func _check_actions() -> void:
 			if not _p.livelihoods.has(a["work"].get("track", "")):
 				_err("actions.json", id, "work.track '%s' is not a livelihood" % [a["work"].get("track", "")])
 			if a["object"] == "" and (not a["rooms"] is Array or a["rooms"].is_empty()) \
-					and not (a.get("pet") is Dictionary and not a["pet"].is_empty()):
+					and not (a.get("pet") is Dictionary and not a["pet"].is_empty()) and a.get("treats", false) != true:
 				_err("actions.json", id, "a work action needs an object, rooms or a pet to look after")
 		elif not a["work"] is Dictionary:
 			_err("actions.json", id, "work must be an object")
@@ -376,6 +376,7 @@ func _check_actions() -> void:
 		if not a.get("player_only", false) is bool:
 			_err("actions.json", id, "player_only must be true or false")
 		_check_tends(id, a)
+		_check_treats(id, a)
 		_check_pet_target("actions.json", id, a.get("pet", {}))
 		if a.get("pet") is Dictionary and not a["pet"].is_empty():
 			if (a["cleans"] is String and a["cleans"] != "") or a["picks"] == true \
@@ -1058,9 +1059,30 @@ func _check_items() -> void:
 		_check_pet_target("items.json", it["id"], it.get("pet", {}))
 
 
+## `treats` (see `IllnessSystem`): true for an action done at the bedside of a sick member
+## of the family, who is cured when it ends; it aims at nothing else and happens where the
+## patient is.
+func _check_treats(id: String, a: Dictionary) -> void:
+	var t = a.get("treats", false)
+	if not t is bool:
+		_err("actions.json", id, "treats must be true or false")
+		return
+	if not t:
+		return
+	if (a["cleans"] is String and a["cleans"] != "") or a["picks"] == true \
+			or (a.get("tends") is Dictionary and not a["tends"].is_empty()) \
+			or (a.get("eats") is Array and not a["eats"].is_empty()) \
+			or (a.get("pet") is Dictionary and not a["pet"].is_empty()):
+		_err("actions.json", id, "an action that treats may not also clean, pick up, tend, eat or look after a pet")
+	if (a["object"] is String and a["object"] != "") or (a["rooms"] is Array and not a["rooms"].is_empty()):
+		_err("actions.json", id, "an action that treats happens where the patient is: no object or rooms")
+
+
 func _check_illnesses() -> void:
 	for i in _p.illnesses.values():
 		var id: String = i["id"]
+		if not i.get("diagnosis", "") is String:
+			_err("illnesses.json", id, "diagnosis must be a string")
 		if i.get("drain") is Dictionary:
 			for k in i["drain"]:
 				if not _p.needs.has(k):
@@ -1666,6 +1688,27 @@ func _check_services() -> void:
 					_err("services.json", id, "draw_hours must be a number of at least 0")
 				if sv.has("max_tickets") and not (sv["max_tickets"] is int and sv["max_tickets"] >= 1):
 					_err("services.json", id, "max_tickets must be a whole number of at least 1")
+			"doctor":
+				if sv.has("night_price") and not (sv["night_price"] is int and sv["night_price"] >= 0):
+					_err("services.json", id, "night_price must be a whole number of at least 0")
+				var nh = sv.get("night_hours", [])
+				if not (nh is Array and (nh.is_empty() or (nh.size() == 2 and nh.all(func(h): return h is int and h >= 0 and h < 24)))):
+					_err("services.json", id, "night_hours must be [] or [from, to] in whole hours 0-23")
+				for f in ["arrive_seconds", "exam_seconds"]:
+					if not _num_at_least(sv.get(f, 0), 0.0):
+						_err("services.json", id, "%s must be a number of at least 0" % f)
+				var ef = sv.get("enters_from", "")
+				if not (ef is String and (ef == "" or _p.rooms.has(ef))):
+					_err("services.json", id, "enters_from must be a room")
+				var pa = sv.get("patient_action", "")
+				if not (pa is String and (pa == "" or _p.actions.has(pa))):
+					_err("services.json", id, "patient_action must be an action id")
+				var rs = sv.get("restores", {})
+				if not (rs is Dictionary and rs.keys().all(func(k): return _p.needs.has(k) and _is_num(rs[k]))):
+					_err("services.json", id, "restores must map needs to numbers")
+				for f in ["visitor", "look", "well_line"]:
+					if not sv.get(f, "") is String:
+						_err("services.json", id, "%s must be a string" % f)
 			"helper":
 				if not (_num_at_least(sv.get("days"), 0.0) and float(sv["days"]) > 0.0):
 					_err("services.json", id, "days must be above 0")

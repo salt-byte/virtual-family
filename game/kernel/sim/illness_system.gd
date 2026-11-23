@@ -62,3 +62,58 @@ static func show_symptom(world: World, p: Person) -> void:
 	if not p.alive or p.illness == "" or not p.current.is_empty():
 		return
 	AutonomySystem.start(world, p, str(world.pack.illnesses[p.illness]["symptom_action"]), -1)
+
+
+## The items that cure `p`'s illness, in pack order ([] for the healthy, the dead and anyone
+## away). The view asks this to mark the fitting medicine: it never reads the illness itself.
+static func remedies(world: World, p: Person) -> Array[String]:
+	var out: Array[String] = []
+	if p == null or not p.alive or p.illness == "" or OutingSystem.away(world, p):
+		return out
+	for id in world.pack.items:
+		if str(world.pack.items[id].get("cures", "")) == p.illness:
+			out.append(str(id))
+	return out
+
+
+## What someone who knows medicine says about illness `id` (its `diagnosis`; "" for none).
+static func diagnosis(pack: Pack, id: String) -> String:
+	return str(pack.illnesses.get(id, {}).get("diagnosis", ""))
+
+
+## True for an action that treats a sick member of the family (`treats`).
+static func treats(a: Dictionary) -> bool:
+	return bool(a.get("treats", false))
+
+
+## Whether `q` can be treated now by `healer`: alive, ill, at home, not the healer, and not
+## already being treated by someone else.
+static func treatable(world: World, q: Person, healer: Person) -> bool:
+	return q != null and q != healer and q.alive and q.illness != "" and not OutingSystem.away(world, q) \
+		and not AutonomySystem.target_claimed(world, q.uid, AutonomySystem.TARGET_PATIENT, healer)
+
+
+## The sick person `healer` would treat: of those `treatable`, the one with the lowest vital
+## need (the first such on a tie); -1 for none.
+static func patient_for(world: World, healer: Person) -> int:
+	var vital := str(world.pack.cfg("vital_need"))
+	var best := -1
+	var low := INF
+	for q in world.people:
+		if q.illness == "" or not treatable(world, q, healer):
+			continue
+		var v := float(q.needs.get(vital, 100.0))
+		if v < low:
+			low = v
+			best = q.uid
+	return best
+
+
+## A treating action finished: the patient is told what ails them (`diagnosed`) and is cured.
+static func treated(world: World, healer: Person, uid: int) -> void:
+	var q := world.person(uid)
+	if q == null or not q.alive or q.illness == "":
+		return
+	world.emit("diagnosed", {"person": q.uid, "by": healer.uid, "line": diagnosis(world.pack, q.illness)})
+	cure(world, q)
+	world.emit("treated", {"person": q.uid, "by": healer.uid})

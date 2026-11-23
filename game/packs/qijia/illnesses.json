@@ -1,4 +1,6 @@
 [
-	{"id": "chill", "name": "伤风", "weight": 3, "drain": {"health": 3, "happy": 1}, "symptom_action": "cough"},
-	{"id": "itch", "name": "癣疮", "weight": 2, "drain": {"health": 2, "happy": 2}, "symptom_action": "scratch"}
+	{"id": "chill", "name": "伤风", "weight": 3, "drain": {"health": 3, "happy": 1}, "symptom_action": "cough",
+	 "diagnosis": "是受了风寒。回去熬两天姜汤，捂出一身汗就好。"},
+	{"id": "itch", "name": "癣疮", "weight": 2, "drain": {"health": 2, "happy": 2}, "symptom_action": "scratch",
+	 "diagnosis": "湿气闷在皮肉里，起了癣。药膏早晚各抹一回，再痒也别拿指甲挠。"}
 ]

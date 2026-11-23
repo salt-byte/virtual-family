@@ -25,10 +25,23 @@ extends RefCounted
 ##   ahead). At each local hour in `hours` while hired, every mess in the house is cleared
 ##   and, when `cooks` names a dish that may be served and the stock holds what `consumes`
 ##   asks, that dish is put out.
+## - "doctor": someone who knows medicine comes to a sick member of the family. Bought with
+##   `buy_service {service, person}` (without a person, or for one who is not ill, the first
+##   sick person at home): `price` is paid at once, `night_price` instead while the local
+##   hour is in `night_hours` ([from, to), wrapping past midnight). The visit
+##   (`world.doctor` {person, service, phase, at, fee}) is "coming" for `arrive_seconds`,
+##   then "examining" for `exam_seconds`; then the illness is named (`doctor_diagnosed` with
+##   the illness's `diagnosis` as `line`, or `well_line` when they got better meanwhile),
+##   cured, `restores` ({need: amount}) is added, and the visitor leaves (`doctor_left`).
+##   When called, the patient starts `patient_action` if they can (lying down to wait).
+##   One visit at a time. Nobody visits while the player is away: a visit still on when an
+##   absence is replayed is called off and the fee given back (`doctor_cancelled`); so is
+##   one whose patient died or went out before the visitor came. `visitor`, `look` and
+##   `enters_from` (a room: where the visitor comes in) are for the view.
 ##
 ## world.services_bought: service id -> times bought (adoptions: people taken in).
 
-const KINDS := ["adopt", "speed", "yield", "drops", "lottery", "helper"]
+const KINDS := ["adopt", "speed", "yield", "drops", "lottery", "helper", "doctor"]
 const ONCE := ["yield", "drops"]
 
 
@@ -48,7 +61,35 @@ static func price(world: World, id: String) -> int:
 	var p := int(sv["price"])
 	if str(sv["kind"]) == "adopt":
 		p += int(sv["price_step"]) * times(world, id)
+	elif str(sv["kind"]) == "doctor" and sv.has("night_price") and night(world, sv):
+		p = int(sv["night_price"])
 	return p
+
+
+## Whether the local hour is in a doctor service's `night_hours`.
+static func night(world: World, sv: Dictionary) -> bool:
+	var nh: Array = sv.get("night_hours", [])
+	return nh.size() == 2 and AutonomySystem._in_hours(world.local_hour(), nh)
+
+
+## The first service of `kind` in pack order ("" for none).
+static func first_of(pack: Pack, kind: String) -> String:
+	for id in pack.services:
+		if str(pack.services[id]["kind"]) == kind:
+			return str(id)
+	return ""
+
+
+## Who a doctor would see if called for `uid` now: that person when they are alive, ill and
+## at home, else the first such person of the family; -1 for nobody.
+static func patient(world: World, uid := -1) -> int:
+	var p := world.person(uid)
+	if p != null and p.alive and p.illness != "" and not OutingSystem.away(world, p):
+		return uid
+	for q in world.people:
+		if q.alive and q.illness != "" and not OutingSystem.away(world, q):
+			return q.uid
+	return -1
 
 
 ## The sim clock as the real clock would show it.
@@ -56,8 +97,9 @@ static func real_now(world: World) -> float:
 	return float(world.now) + world._acc - float(world.clock_lead)
 
 
-## "" when service `id` can be bought now, else why not (see `MarketSystem.catalogue`).
-static func why_not(world: World, id: String) -> String:
+## "" when service `id` can be bought now, else why not (see `MarketSystem.catalogue`). For a
+## doctor `person` is who it would be for (-1: anyone ill).
+static func why_not(world: World, id: String, person := -1) -> String:
 	var sv: Dictionary = world.pack.services.get(id, {})
 	if sv.is_empty():
 		return "no_service"
@@ -81,6 +123,11 @@ static func why_not(world: World, id: String) -> String:
 		"lottery":
 			if world.tickets.filter(func(t): return int(t.amount) < 0).size() >= int(sv.get("max_tickets", 1)):
 				return "max"
+		"doctor":
+			if not world.doctor.is_empty():
+				return "doctor_coming"
+			if patient(world, person) < 0:
+				return "nobody_ill"
 		"helper":
 			var ahead := float(world.helper_until - world.now) / 86400.0
 			if maxf(ahead, 0.0) + float(sv["days"]) > float(sv.get("max_days", sv["days"])) + 0.0001:
@@ -93,7 +140,7 @@ static func why_not(world: World, id: String) -> String:
 ## Command {type: "buy_service", service}.
 static func buy(world: World, cmd: Dictionary) -> Dictionary:
 	var id := str(cmd.get("service", ""))
-	var why := why_not(world, id)
+	var why := why_not(world, id, int(cmd.get("person", -1)))
 	if why != "":
 		return Commands.fail(why)
 	var sv: Dictionary = world.pack.services[id]
@@ -102,7 +149,8 @@ static func buy(world: World, cmd: Dictionary) -> Dictionary:
 		world.adopt_service = id
 		_new_candidate(world)
 		return Commands.success()
-	if not EconomySystem.spend(world, price(world, id)):
+	var fee := price(world, id)
+	if not EconomySystem.spend(world, fee):
 		return Commands.fail("no_money")
 	world.services_bought[id] = times(world, id) + 1
 	var out := {}
@@ -121,6 +169,13 @@ static func buy(world: World, cmd: Dictionary) -> Dictionary:
 			world.helper_until = maxi(world.helper_until, world.now) + int(float(sv["days"]) * 86400.0)
 			world.helper_service = id
 			out["until"] = world.helper_until
+		"doctor":
+			var uid := patient(world, int(cmd.get("person", -1)))
+			world.doctor = {"person": uid, "service": id, "phase": "coming",
+				"at": world.now + int(float(sv.get("arrive_seconds", 0))), "fee": fee}
+			_wait_in_bed(world, sv, world.person(uid))
+			world.emit("doctor_called", {"person": uid, "service": id, "at": int(world.doctor["at"]), "fee": fee})
+			out["person"] = uid
 	world.emit("service_bought", {"service": id})
 	return Commands.success(out)
 
@@ -218,8 +273,61 @@ static func drop_factor(world: World) -> float:
 	return f
 
 
-## Draws tickets that are due and sends the hired hand round at its hours.
+## The patient lies down to wait (`patient_action`) when they can.
+static func _wait_in_bed(world: World, sv: Dictionary, p: Person) -> void:
+	var pa := str(sv.get("patient_action", ""))
+	if p == null or pa == "" or (not p.current.is_empty() and str(p.current["action"]) == pa):
+		return
+	if AutonomySystem.can_do(world, p, pa, -1) == "":
+		AutonomySystem.start(world, p, pa, -1)
+
+
+## Moves a doctor's visit on (see the "doctor" kind).
+static func _doctor_step(world: World) -> void:
+	var d := world.doctor
+	var sv: Dictionary = world.pack.services.get(str(d["service"]), {})
+	var p := world.person(int(d["person"]))
+	if world.offline or sv.is_empty():
+		_doctor_off(world, "doctor_cancelled")
+		return
+	if world.now < int(d["at"]):
+		return
+	if p == null or not p.alive or OutingSystem.away(world, p):
+		_doctor_off(world, "doctor_cancelled")
+		return
+	if str(d["phase"]) == "coming":
+		d["phase"] = "examining"
+		d["at"] = world.now + int(float(sv.get("exam_seconds", 0)))
+		_wait_in_bed(world, sv, p)
+		world.emit("doctor_arrived", {"person": p.uid, "service": str(d["service"])})
+		if world.now < int(d["at"]):
+			return
+	var line := IllnessSystem.diagnosis(world.pack, p.illness) if p.illness != "" else str(sv.get("well_line", ""))
+	world.emit("doctor_diagnosed", {"person": p.uid, "service": str(d["service"]), "line": line, "was_ill": p.illness != ""})
+	IllnessSystem.cure(world, p)
+	var rs: Dictionary = sv.get("restores", {})
+	for n in rs:
+		if p.needs.has(n):
+			p.needs[n] = clampf(float(p.needs[n]) + float(rs[n]), 0.0, 100.0)
+	MoodSystem.cared(world, p)
+	world.doctor = {}
+	world.emit("doctor_left", {"person": p.uid, "service": str(d["service"])})
+
+
+## Calls the visit off and gives the fee back.
+static func _doctor_off(world: World, why: String) -> void:
+	var d := world.doctor
+	world.doctor = {}
+	if int(d.get("fee", 0)) > 0:
+		world.money += int(d["fee"])
+	world.emit(why, {"person": int(d.get("person", -1)), "service": str(d.get("service", "")), "refund": int(d.get("fee", 0))})
+
+
+## Draws tickets that are due, sends the hired hand round at its hours and moves a doctor's
+## visit on.
 static func step(world: World, dt: float) -> void:
+	if not world.doctor.is_empty():
+		_doctor_step(world)
 	if not world.tickets.is_empty():
 		for t in world.tickets:
 			if int(t.amount) < 0 and world.now >= int(t.draw_at):

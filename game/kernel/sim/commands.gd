@@ -78,6 +78,8 @@ static func _try_drag(world: World, cmd: Dictionary) -> Dictionary:
 		return _drag_to_story(world, p, str(cmd["story"]))
 	if cmd.has("tend"):
 		return _drag_to_baby(world, p, int(cmd["tend"]))
+	if cmd.has("treat"):
+		return _drag_to_patient(world, p, int(cmd["treat"]))
 	if cmd.has("pet"):
 		return _drag_to_pet(world, p, int(cmd["pet"]))
 	var object_uid := int(cmd.get("object", -1))
@@ -241,6 +243,30 @@ static func _drag_to_baby(world: World, p: Person, uid: int) -> Dictionary:
 		if why == "":
 			AutonomySystem.start(world, p, str(r[0]), -1, uid)
 			return success({"action": str(r[0])})
+		if first_reason == "no_action":
+			first_reason = why
+	return fail(first_reason)
+
+
+## Dropping someone who knows medicine on a sick member of the family: the first action that
+## treats (pack order) that `p` can do now, aimed at them. "not_ill" when they are well
+## (or away), "busy" when someone else is already treating them.
+static func _drag_to_patient(world: World, p: Person, uid: int) -> Dictionary:
+	var q := world.person(uid)
+	if q == null or q == p or not q.alive or OutingSystem.away(world, q):
+		return fail("no_target")
+	if q.illness == "":
+		return fail("not_ill")
+	if not IllnessSystem.treatable(world, q, p):
+		return fail("busy")
+	var first_reason := "no_action"
+	for id in world.pack.actions:
+		if not IllnessSystem.treats(world.pack.actions[id]):
+			continue
+		var why := AutonomySystem.can_do(world, p, str(id), -1)
+		if why == "":
+			AutonomySystem.start(world, p, str(id), -1, uid)
+			return success({"action": str(id)})
 		if first_reason == "no_action":
 			first_reason = why
 	return fail(first_reason)

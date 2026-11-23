@@ -10,8 +10,11 @@ extends PanelContainer
 ##   nearest free family member to look after it (as if dropped on it); and "去<market>买",
 ##   which opens the market on the tab where its food is sold, when nothing for it is in store;
 ## - a person: each item in store that does them good (snacks, clothes, books; the medicines
-##   only while they are seen to be ill, and which one fits is still the player's guess),
-##   "给他用" / "给她用".
+##   only while they are seen to be ill, each marked "对症" or "不对症" as the kernel's
+##   `IllnessSystem.remedies` says: the view never reads the illness), "给他用" / "给她用";
+##   while they are seen to be ill also "叫<name>来瞧" (a family member in the livelihood
+##   that treats, as if dropped on them), the stock that treating uses, and "请<visitor>"
+##   (the market's doctor service, with its price now), or how far the visitor has got.
 ## An item button can also be dragged onto a person or an animal in the house.
 ## The choice is made here (`options`, plain data, also for tests); the bar carries it out.
 
@@ -21,7 +24,8 @@ signal dropped(entry: Dictionary, screen: Vector2)
 
 const WORDS := {"care.feed": "喂它", "care.use_pet": "给它用", "care.use_m": "给他用", "care.use_f": "给她用",
 	"care.call": "叫人来喂", "care.shop": "去{shop}买", "care.stock": "存 {n}", "care.nobody": "一时没人腾得出手",
-	"care.head": "家里有的"}
+	"care.head": "家里有的", "care.doctor": "请{visitor} · {money}", "care.doctor_wait": "{visitor}在路上了",
+	"care.doctor_here": "{visitor}正在瞧", "care.treat": "叫{name}来瞧", "care.fits": "对症", "care.unfit": "不对症"}
 ## Pixels the pointer must move with an item held before it counts as a drag.
 const DRAG_FROM := 8.0
 
@@ -50,8 +54,12 @@ static func short_name(name: String) -> String:
 
 ## The quick choices for `person` or `pet` (one of them null), in order: items to use, larder
 ## stock (shown, not pressed), "call", "shop". `ill`: the person is seen to be ill (the view's
-## own knowledge, from the "fell ill" event), so the medicines in store are offered. Each is {kind: "use" | "stock" | "call" | "shop",
-## text, name, count, item, stock, tab, person, pet}.
+## own knowledge, from the "fell ill" event), so the medicines in store are offered (with
+## `fits`) and the stock treating uses; put first, "doctor" (`service`; "doctor_wait"
+## while one is on the way: shown, not pressed) and "treat" (a healer of the family:
+## `healer`). Each is
+## {kind: "use" | "stock" | "call" | "shop" | "treat" | "doctor" | "doctor_wait", text, name,
+## count, item, stock, tab, person, pet, fits, healer, service}.
 static func options(world: World, person: Person, pet: Pet, strings: ViewStrings, ill := false) -> Array[Dictionary]:
 	var out: Array[Dictionary] = []
 	if world == null:
@@ -114,6 +122,7 @@ static func options(world: World, person: Person, pet: Pet, strings: ViewStrings
 		return out
 	if person == null or not person.alive or OutingSystem.away(world, person):
 		return out
+	var fitting: Array[String] = IllnessSystem.remedies(world, person) if ill else ([] as Array[String])
 	for id in pack.items:
 		var it2: Dictionary = pack.items[id]
 		var count3 := int(world.inventory.get(id, 0))
@@ -127,9 +136,85 @@ static func options(world: World, person: Person, pet: Pet, strings: ViewStrings
 			continue
 		if cures == "" and (it2.get("needs", {}) as Dictionary).is_empty():
 			continue
-		out.append({"kind": "use", "item": str(id), "name": short_name(str(it2.get("name", id))), "count": count3,
-			"text": word(strings, "care.use_f" if person.gender == "female" else "care.use_m"), "person": person.uid})
+		var use := word(strings, "care.use_f" if person.gender == "female" else "care.use_m")
+		var e := {"kind": "use", "item": str(id), "name": short_name(str(it2.get("name", id))), "count": count3,
+			"text": use, "person": person.uid}
+		if cures != "":
+			e["fits"] = fitting.has(str(id))
+			e["text"] = "%s · %s" % [word(strings, "care.fits" if e["fits"] else "care.unfit"), use]
+		out.append(e)
+	if ill:
+		_sick_options(out, world, person, strings)
+		# The family's healer, then the doctor, first: the tray scrolls, and these are the sure
+		# ways to have them seen to.
+		for kind in [["treat"], ["doctor", "doctor_wait"]]:
+			for k in out.size():
+				if str(out[k]["kind"]) in kind:
+					out.push_front(out.pop_at(k))
+					break
 	return out
+
+
+## The ways to have a sick person seen to: a healer of the family, the stock that takes, and
+## the doctor service (see `options`).
+static func _sick_options(out: Array[Dictionary], world: World, person: Person, strings: ViewStrings) -> void:
+	var pack := world.pack
+	var healer := healer_for(world, person)
+	if healer != null:
+		out.append({"kind": "treat", "healer": healer.uid, "person": person.uid,
+			"text": word(strings, "care.treat").replace("{name}", strings.person_name(healer) if strings != null else healer.given)})
+	var stocks: Array = []
+	for aid in (pack.actions if healer != null else {}):
+		var a: Dictionary = pack.actions[aid]
+		if IllnessSystem.treats(a) and _in_family_track(world, str(a.get("work", {}).get("track", ""))):
+			for k in a.get("consumes", {}):
+				if not stocks.has(str(k)):
+					stocks.append(str(k))
+	for k in stocks:
+		var src := _stock_item(pack, k)
+		if src == "":
+			continue
+		var n := int(world.stock.get(k, 0))
+		out.append({"kind": "stock", "stock": k, "item": src, "count": n,
+			"name": short_name(str(pack.items.get(src, {}).get("name", k))),
+			"text": word(strings, "care.stock").replace("{n}", str(n))})
+	var sid := ServiceSystem.first_of(pack, "doctor")
+	if sid == "":
+		return
+	var visitor := strings.visitor_name(world, sid) if strings != null else ""
+	if not world.doctor.is_empty():
+		if int(world.doctor.get("person", -1)) == person.uid:
+			var key := "care.doctor_here" if str(world.doctor.get("phase", "")) == "examining" else "care.doctor_wait"
+			out.append({"kind": "doctor_wait", "service": sid, "person": person.uid, "count": 1,
+				"name": visitor, "text": word(strings, key).replace("{visitor}", visitor)})
+		return
+	var money := strings.t("money").replace("{n}", str(ServiceSystem.price(world, sid))) if strings != null \
+		else str(ServiceSystem.price(world, sid))
+	out.append({"kind": "doctor", "service": sid, "person": person.uid,
+		"text": word(strings, "care.doctor").replace("{visitor}", visitor).replace("{money}", money)})
+
+
+## A member of the family at home who could treat `person` now (an action that `treats`
+## they can start, short of the stock it uses), the idle first; null for nobody.
+static func healer_for(world: World, person: Person) -> Person:
+	var best: Person = null
+	for q in world.people:
+		if q == person or not q.alive or OutingSystem.away(world, q):
+			continue
+		for aid in world.pack.actions:
+			if not IllnessSystem.treats(world.pack.actions[aid]):
+				continue
+			var why := AutonomySystem.can_do(world, q, str(aid), -1)
+			if why in ["", "no_stock", "no_target"]:
+				if best == null or (not best.current.is_empty() and q.current.is_empty()):
+					best = q
+				break
+	return best
+
+
+## Whether someone of the family alive and at home follows livelihood `track`.
+static func _in_family_track(world: World, track: String) -> bool:
+	return track != "" and world.people.any(func(q: Person): return q.alive and q.track == track)
 
 
 ## The item whose purchase fills larder stock `k` ("" for none).
@@ -174,21 +259,29 @@ func show_entries(entries: Array[Dictionary], strings: ViewStrings, max_width: f
 		head.add_theme_color_override("font_color", ViewWidgets.MUTED)
 		head.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 		head.visible = entries.any(func(e): return e["kind"] in ["use", "stock"])
-		_row.add_child(head)
-		for e in entries:
-			_row.add_child(_entry_node(e))
+		var at := entries.size()  # the heading goes before what is in store
+		for k in entries.size():
+			if str(entries[k]["kind"]) in ["use", "stock"]:
+				at = k
+				break
+		for k in entries.size():
+			if k == at:
+				_row.add_child(head)
+			_row.add_child(_entry_node(entries[k]))
+		if head.get_parent() == null:
+			_row.add_child(head)
 	var content := _row.get_combined_minimum_size()
 	_scroll.custom_minimum_size = Vector2(minf(content.x, maxf(max_width - 20.0, 80.0)), content.y)
 
 
 func _entry_node(e: Dictionary) -> Control:
 	var kind := str(e["kind"])
-	if kind == "stock":
+	if kind == "stock" or kind == "doctor_wait":
 		var chip := PanelContainer.new()
 		chip.add_theme_stylebox_override("panel", ViewWidgets.chip_style(ViewWidgets.PALE, Color(0, 0, 0, 0)))
 		chip.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 		var l := Label.new()
-		l.text = "%s %s" % [e["name"], e["text"]]
+		l.text = "%s %s" % [e["name"], e["text"]] if kind == "stock" else str(e["text"])
 		l.add_theme_font_size_override("font_size", 13)
 		l.add_theme_color_override("font_color", ViewWidgets.INK if int(e["count"]) > 0 else ViewWidgets.ACCENT)
 		chip.add_child(l)
@@ -202,10 +295,17 @@ func _entry_node(e: Dictionary) -> Control:
 		ViewWidgets.small_button(b)
 		b.mouse_default_cursor_shape = Control.CURSOR_DRAG
 		b.gui_input.connect(_item_input.bind(e, b))
+		if e.has("fits"):
+			if bool(e["fits"]):
+				b.add_theme_color_override("font_color", ViewWidgets.ACCENT)
+			else:
+				b.modulate = Color(1, 1, 1, 0.5)  # greyed: it will not help, though it can still be given
 	else:
 		b.text = str(e["text"])
-		if kind == "call":
+		if kind == "call" or kind == "treat":
 			ViewWidgets.round_button(b, ViewWidgets.CREAM, ViewWidgets.WOOD)
+		elif kind == "doctor":
+			ViewWidgets.round_button(b, ViewWidgets.ACCENT, ViewWidgets.CREAM)
 		else:
 			ViewWidgets.round_button(b, ViewWidgets.CREAM, ViewWidgets.ACCENT)
 	b.set_meta("entry", e)

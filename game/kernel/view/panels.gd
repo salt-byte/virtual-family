@@ -193,7 +193,10 @@ func press(id: String) -> void:
 		session.command({"type": "build_room", "room": id.substr(6)})
 		refresh()
 	elif id.begins_with("service:"):
-		session.command({"type": "buy_service", "service": id.substr(8)})
+		var cmd := {"type": "buy_service", "service": id.substr(8)}
+		if main.selected >= 0:
+			cmd["person"] = main.selected  # a doctor sees them if they are ill (else whoever is)
+		session.command(cmd)
 		refresh()
 	elif id.begins_with("used:"):
 		session.command({"type": "buy_secondhand", "listing": int(id.substr(5))})
@@ -270,7 +273,7 @@ func _data_signature(w: World) -> String:
 			for pet in w.pets:
 				pets += "%d%s%s%s%d" % [pet.uid, pet.state, str(pet.alive), str(pet.wish), int(pet.weight)]
 			var market := "%s|%s|%s|%s|%d|%d|%d" % [str(w.secondhand), str(w.services_bought), str(w.tickets), str(w.candidate),
-				w.helper_until, w.speed_until, w.rooms_built.size()]
+				w.helper_until, w.speed_until, w.rooms_built.size()] + "|" + str(w.doctor) + str(int(w.local_hour()))
 			if _tab != "tab.inventory":
 				market += "|%d" % (w.now / 60)  # the countdowns on the stall and the services
 			return "%d|%d|%s|%s|%s|%d|%s|%d|%s" % [w.money, total, str(w.inventory), s.person_name(sel) if sel != null and sel.alive else "", wishes,
@@ -552,6 +555,13 @@ func _fill_service_news(list: VBoxContainer, w: World) -> void:
 			_button("ticket:%d" % int(t.id), s.t("btn.open_ticket"), row)
 	if w.helper_until > w.now:
 		list.add_child(_note(s.t("shop.helper").replace("{t}", _span(w.helper_until - w.now))))
+	if not w.doctor.is_empty():
+		var vis := s.visitor_name(w, str(w.doctor.get("service", "")))
+		var who := w.person(int(w.doctor.get("person", -1)))
+		if str(w.doctor.get("phase", "")) == "examining":
+			list.add_child(_note(s.t("shop.doctor_here").replace("{visitor}", vis).replace("{name}", s.person_name(who) if who != null else "")))
+		else:
+			list.add_child(_note(s.t("shop.doctor").replace("{visitor}", vis).replace("{t}", _span(maxi(int(w.doctor.get("at", 0)) - w.now, 1)))))
 	var fast := w.speed_until - int(ServiceSystem.real_now(w))
 	if fast > 0:
 		list.add_child(_note(s.t("shop.speed").replace("{t}", _span(fast))))

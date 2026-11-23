@@ -127,6 +127,16 @@ const DEFAULTS := {
 	"time.minutes": "{n} 分钟", "time.hours": "{n} 小时", "time.days": "{n} 天",
 	"ev.lottery_won": "开奖了，中了 {n}", "ev.lottery_lost": "开奖了，没中", "ev.adopted": "{name}进了家门",
 	"ev.helper_came": "帮手来过了", "ev.secondhand_restocked": "旧货换了一批",
+	"visitor.doctor": "大夫", "visitor.coming": "赶过来", "visitor.examining": "搭脉瞧病",
+	"ev.doctor_called": "{visitor}应下了，这就过来", "ev.doctor_arrived": "{visitor}进了门，直奔{name}",
+	"ev.doctor_said": "{visitor}：“{line}”", "ev.doctor_cancelled": "{visitor}没来成，{money}退回来了",
+	"ev.diagnosed": "{by}：“{line}”",
+	"care.doctor": "请{visitor} · {money}", "care.doctor_wait": "{visitor}在路上了", "care.doctor_here": "{visitor}正在瞧",
+	"care.treat": "叫{name}来瞧", "care.fits": "对症", "care.unfit": "不对症",
+	"notice.doctor": "请{visitor}", "notice.doctor_wait": "{name}看着不大对劲 · {visitor}在路上",
+	"shop.why.nobody_ill": "家里没人病着", "shop.why.doctor_coming": "已经请了",
+	"shop.doctor": "{visitor}在路上了，{t}后到", "shop.doctor_here": "{visitor}正给{name}瞧病",
+	"error.nobody_ill": "家里没人病着", "error.doctor_coming": "已经请过了，人在路上", "error.not_ill": "他身上好好的",
 	"error.no_service": "没有这一项", "error.owned": "已经有了", "error.max": "眼下买够了", "error.full": "家里住满了",
 	"error.pending": "先回眼前这一位的话", "error.no_candidate": "眼下没有人", "error.sold": "已经卖掉了",
 	"error.no_space": "家里摆不下了", "error.needs_object": "先得有{thing}", "error.not_drawn": "还没开奖", "error.no_ticket": "没有这张",
@@ -203,6 +213,12 @@ func error(code: String, vars := {}) -> String:
 	if _over.has(key) or DEFAULTS.has(key):
 		return t(key).format(vars)
 	return "%s（%s）" % [t("error.unknown"), code]
+
+
+## What a doctor service calls its visitor (`visitor`), else the generic word.
+func visitor_name(world: World, service: String) -> String:
+	var v := str(world.pack.services.get(service, {}).get("visitor", "")) if world != null else ""
+	return v if v != "" else t("visitor.doctor")
 
 
 func person_name(p: Person) -> String:
@@ -576,6 +592,22 @@ func event(e: Dictionary, world: World) -> String:
 			return _f("ev.adopted", {"name": _name_of(int(e["person"]), world)})
 		"helper_came", "secondhand_restocked":
 			return t("ev." + str(e["type"]))
+		"doctor_called":
+			return _f("ev.doctor_called", {"visitor": visitor_name(world, str(e.get("service", "")))})
+		"doctor_arrived":
+			return _f("ev.doctor_arrived", {"visitor": visitor_name(world, str(e.get("service", ""))),
+				"name": _name_of(int(e["person"]), world)})
+		"doctor_diagnosed":
+			if str(e.get("line", "")) == "":
+				return ""
+			return _f("ev.doctor_said", {"visitor": visitor_name(world, str(e.get("service", ""))), "line": str(e["line"])})
+		"doctor_cancelled":
+			return _f("ev.doctor_cancelled", {"visitor": visitor_name(world, str(e.get("service", ""))),
+				"money": t("money").replace("{n}", str(int(e.get("refund", 0))))})
+		"diagnosed":
+			if str(e.get("line", "")) == "":
+				return ""
+			return _f("ev.diagnosed", {"by": _name_of(int(e["by"]), world), "line": str(e["line"])})
 		"pet_arrived", "pet_ran_away", "pet_came_back", "pet_fell_ill", "pet_cured", "pet_saved":
 			if str(e.get("how", "")) in ["born", "start"]:
 				return ""  # the young are told of together (`pet_young`); the first ones came with the house

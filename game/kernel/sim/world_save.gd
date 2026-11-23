@@ -81,6 +81,8 @@ static func _snapshot(w: World) -> Dictionary:
 		market["helper"] = {"until": w.helper_until, "service": w.helper_service}
 	if w.adopt_service != "":
 		market["adopt_service"] = w.adopt_service
+	if not w.doctor.is_empty():
+		market["doctor"] = w.doctor.duplicate(true)
 	if w.speed_until > 0 or w.clock_lead != 0:
 		market["speed"] = {"until": w.speed_until, "factor": w.speed_factor, "lead": w.clock_lead}
 	if not market.is_empty():
@@ -259,6 +261,10 @@ static func _restore_market(w: World, md: Dictionary) -> void:
 		w.adopt_service = ""
 		if w.phase == "living":
 			w.candidate = {}  # an offer from a service the pack lost
+	var dd: Dictionary = md.get("doctor", {})
+	if not dd.is_empty() and w.pack.services.has(str(dd["service"])):
+		w.doctor = {"person": int(dd["person"]), "service": str(dd["service"]), "phase": str(dd["phase"]),
+			"at": int(dd["at"]), "fee": int(dd["fee"])}
 	var sp: Dictionary = md.get("speed", {})
 	if not sp.is_empty():
 		w.speed_until = int(sp["until"])
@@ -288,6 +294,9 @@ static func _valid_market(m) -> bool:
 	if m.has("helper") and not _has(m["helper"], {"until": "i", "service": "s"}):
 		return false
 	if m.has("adopt_service") and not _is_str(m["adopt_service"]):
+		return false
+	if m.has("doctor") and not (_has(m["doctor"], {"person": "i", "service": "s", "phase": "s", "at": "i", "fee": "i"})
+			and str(m["doctor"]["phase"]) in ["coming", "examining"]):
 		return false
 	if m.has("speed") and not _has(m["speed"], {"until": "i", "factor": "n", "lead": "i"}):
 		return false
