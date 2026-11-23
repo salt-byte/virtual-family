@@ -90,3 +90,223 @@ a_path,地块,tile,192x144,A 石板路,a_path,0,已处理,ark doubao-seedream-5-
 a_wall_compound,地块,tile,160x160,A 院墙墙面,a_wall_compound,0,已处理,ark doubao-seedream-5-0-flash-260915 2026-11-18,
 a_water,地块,tile,192x144,A 河水,a_water,0,已处理,ark doubao-seedream-5-0-flash-260915 2026-11-18,
 a_field,地块,tile,192x144,A 田地,a_field,0,已处理,ark doubao-seedream-5-0-flash-260915 2026-11-18,
+a_dog,宠物,character,,A 大黄狗 侧身朝右,a_chars2,0,已处理,ark doubao-seedream-5-0-flash-260915 2026-11-19,婴儿和睡姿没按格子排：按 3x3 格重切；绿幕先抠再去掉脚下绿影和暗绿描边
+a_cat,宠物,character,,A 狸花猫 侧身朝右,a_chars2,1,已处理,ark doubao-seedream-5-0-flash-260915 2026-11-19,婴儿和睡姿没按格子排：按 3x3 格重切；绿幕先抠再去掉脚下绿影和暗绿描边
+a_bird,宠物,character,,A 八哥 站在横木上,a_chars2,2,已处理,ark doubao-seedream-5-0-flash-260915 2026-11-19,婴儿和睡姿没按格子排：按 3x3 格重切；绿幕先抠再去掉脚下绿影和暗绿描边
+a_grandpa,小人,character,,A 爷爷侧身站立 拄拐,a_chars2,3,已处理,ark doubao-seedream-5-0-flash-260915 2026-11-19,婴儿和睡姿没按格子排：按 3x3 格重切；绿幕先抠再去掉脚下绿影和暗绿描边
+a_baby,小人,character,,A 襁褓里的婴儿 平躺,a_chars2,4,已处理,ark doubao-seedream-5-0-flash-260915 2026-11-19,婴儿和睡姿没按格子排：按 3x3 格重切；绿幕先抠再去掉脚下绿影和暗绿描边
+a_sleeper,小人,character,,A 盖被平躺睡觉的大人（不带炕，叠在 a_kang 上）,a_chars2,5,已处理,ark doubao-seedream-5-0-flash-260915 2026-11-19,婴儿和睡姿没按格子排：按 3x3 格重切；绿幕先抠再去掉脚下绿影和暗绿描边
+a_carpenter_bench,营生,prop,,A 刨木凳,a_trade,0,已处理,ark doubao-seedream-5-0-flash-260915 2026-11-19,绣绷白绢、豆腐被浅灰底抠穿：只在这两格把封闭的洞补回
+a_herb_grinder,营生,prop,,A 药碾,a_trade,1,已处理,ark doubao-seedream-5-0-flash-260915 2026-11-19,绣绷白绢、豆腐被浅灰底抠穿：只在这两格把封闭的洞补回
+a_embroidery_frame,营生,prop,,A 绣绷,a_trade,2,已处理,ark doubao-seedream-5-0-flash-260915 2026-11-19,绣绷白绢、豆腐被浅灰底抠穿：只在这两格把封闭的洞补回
+a_tofu_box,营生,prop,,A 豆腐箱,a_trade,3,已处理,ark doubao-seedream-5-0-flash-260915 2026-11-19,绣绷白绢、豆腐被浅灰底抠穿：只在这两格把封闭的洞补回
+a_peddler_pole,营生,prop,,A 货担,a_trade,4,已处理,ark doubao-seedream-5-0-flash-260915 2026-11-19,绣绷白绢、豆腐被浅灰底抠穿：只在这两格把封闭的洞补回
+a_bookshelf,营生,prop,,A 书架,a_trade,5,已处理,ark doubao-seedream-5-0-flash-260915 2026-11-19,绣绷白绢、豆腐被浅灰底抠穿：只在这两格把封闭的洞补回
+a_trough,营生,prop,,A 食槽,a_trade,6,已处理,ark doubao-seedream-5-0-flash-260915 2026-11-19,绣绷白绢、豆腐被浅灰底抠穿：只在这两格把封闭的洞补回
+a_grain_heap,营生,prop,,A 谷堆,a_trade,7,已处理,ark doubao-seedream-5-0-flash-260915 2026-11-19,绣绷白绢、豆腐被浅灰底抠穿：只在这两格把封闭的洞补回
+a_bird_cage,宠物,prop,,A 鸟笼,a_small2,0,已处理,ark doubao-seedream-5-0-flash-260915 2026-11-19,
+a_mess_bowls,脏乱,prop,,A 没收的碗筷,a_small2,1,已处理,ark doubao-seedream-5-0-flash-260915 2026-11-19,
+a_mess_mud,脏乱,prop,,A 一路泥脚印,a_small2,2,已处理,ark doubao-seedream-5-0-flash-260915 2026-11-19,
+a_fence_ns_old,院里,prop,,A 竹篱笆 南北向一段（第一版画成横的，作废）,a_small2,3,已处理,ark doubao-seedream-5-0-flash-260915 2026-11-19,
+a_col_greens,掉落物,prop,,A 野菜,a_small2,4,已处理,ark doubao-seedream-5-0-flash-260915 2026-11-19,
+a_col_herbs,掉落物,prop,,A 草药,a_small2,5,已处理,ark doubao-seedream-5-0-flash-260915 2026-11-19,
+a_col_cicada_shell,掉落物,prop,,A 蝉蜕,a_small2,6,已处理,ark doubao-seedream-5-0-flash-260915 2026-11-19,
+a_col_purse,掉落物,prop,,A 荷包,a_small2,7,已处理,ark doubao-seedream-5-0-flash-260915 2026-11-19,
+a_col_bronze_mirror,掉落物,prop,,A 铜镜,a_small2,8,已处理,ark doubao-seedream-5-0-flash-260915 2026-11-19,
+a_fence_ns,院里,prop,,A 竹篱笆 南北向一段（5 根桩）,a_fence_ns,0,已处理,ark doubao-seedream-5-0-flash-260915 2026-11-19,第一版（a_small2 里）画成横的，第二版又画成拐角，第三版对了
+a_fence_ns_b,院里,prop,,A 竹篱笆 南北向一段（4 根桩）,a_fence_ns,1,已处理,ark doubao-seedream-5-0-flash-260915 2026-11-19,第一版（a_small2 里）画成横的，第二版又画成拐角，第三版对了
+a_grandma_parts,小人拆件,parts,,A 祖母 6 块拆件,a_grandma_parts,0,已拆件,ark doubao-seedream-5-0-flash-260915 2026-11-19,
+a_child_parts,小人拆件,parts,,A 孩子 6 块拆件,a_child_parts,0,已拆件,ark doubao-seedream-5-0-flash-260915 2026-11-19,第一版躯干上带了袖子、关节圆头换色，重生一次
+a_grandpa_parts,小人拆件,parts,,A 爷爷 6 块拆件,a_grandpa_parts,0,已拆件,ark doubao-seedream-5-0-flash-260915 2026-11-19,没画拐杖；关节两头偏平切口
+iso/stove,斜45°物件,prop,429x428,黄泥土灶，铁锅、灶门在左前面、烟囱在后角,iso_furn,0,已处理,ark doubao-seedream-5-0-flash-260915 2026-11-19,占地 2×1 格（w 沿 i，h 沿 j）；灶门朝左下（+j）；靠西墙放时翻转，灶门朝右下
+iso/dining_table,斜45°物件,prop,450x360,八仙桌配两条长凳,iso_furn,1,已处理,ark doubao-seedream-5-0-flash-260915 2026-11-19,占地 3×2 格（w 沿 i，h 沿 j）；两条长凳在左前、右前两边；方形占地，两个朝向通用；需要换朝向时左右翻转
+iso/kang_sleeper,斜45°物件,prop,471x375,土炕上有人睡着（只用于目标图）,iso_furn,2,已处理,ark doubao-seedream-5-0-flash-260915 2026-11-19,长边沿 i；靠西墙时左右翻转。进游戏用 kang + sleeper 两张叠
+iso/vat,斜45°物件,prop,333x383,粗陶水缸带木盖木瓢,iso_furn,4,已处理,ark doubao-seedream-5-0-flash-260915 2026-11-19,占地 1×1 格（w 沿 i，h 沿 j）；圆的或对称，不分朝向，不用翻转
+iso/stool,斜45°物件,prop,335x337,矮木凳,iso_furn,5,已处理,ark doubao-seedream-5-0-flash-260915 2026-11-19,占地 1×1 格（w 沿 i，h 沿 j）；方形占地，两个朝向通用；需要换朝向时左右翻转
+iso/well_head,斜45°物件,prop,437x514,青石井台带辘轳,iso_yard,0,已处理,ark doubao-seedream-5-0-flash-260915 2026-11-19,占地 2×2 格（w 沿 i，h 沿 j）；辘轳横梁沿 i；方形占地，两个朝向通用；需要换朝向时左右翻转
+iso/grape_trellis,斜45°物件,prop,449x539,葡萄架,iso_yard,1,已处理,ark doubao-seedream-5-0-flash-260915 2026-11-19,占地 4×2 格（w 沿 i，h 沿 j）；方形占地，两个朝向通用；需要换朝向时左右翻转
+iso/millstone,斜45°物件,prop,436x497,石磨，推杆朝右下,iso_yard,2,已处理,ark doubao-seedream-5-0-flash-260915 2026-11-19,占地 2×2 格（w 沿 i，h 沿 j）；推杆朝右下；翻转后朝左下
+iso/woodpile,斜45°物件,prop,422x426,柴垛,iso_yard,4,已处理,ark doubao-seedream-5-0-flash-260915 2026-11-19,占地 3×2 格（w 沿 i，h 沿 j）；截面朝左下；靠西墙时左右翻转
+iso/stone_bench,斜45°物件,prop,441x339,青石长凳,iso_yard,5,已处理,ark doubao-seedream-5-0-flash-260915 2026-11-19,占地 2×1 格（w 沿 i，h 沿 j）；长边沿 i（画面右下方向），靠北墙摆；靠西墙时左右翻转
+iso/gatehouse_green,斜45°物件,prop,658x641,门楼（绿瓦旧版，目标图用，代码换色）,iso_gate,0,已处理,ark doubao-seedream-5-0-flash-260915 2026-11-19,门脸朝左下，在南墙上（墙沿 i）；东墙上的门左右翻转
+iso/wall_window,斜45°物件,prop,538x458,木格窗，正面平视,iso_gate,1,已处理,ark doubao-seedream-5-0-flash-260915 2026-11-19,墙面贴花：代码斜切贴到墙上，北墙往右下切、西墙往左下切
+iso/wall_door_curtain,斜45°物件,prop,493x588,门洞挂蓝布帘，正面平视,iso_gate,2,已处理,ark doubao-seedream-5-0-flash-260915 2026-11-19,墙面贴花，同上
+iso/wall_chili,斜45°物件,prop,530x633,墙上挂的辣椒和玉米，正面平视,iso_gate,3,已处理,ark doubao-seedream-5-0-flash-260915 2026-11-19,墙面贴花，同上
+iso/altar,斜45°物件,prop,493x433,供桌，香炉和一对红烛,iso_furn2,0,已处理,ark doubao-seedream-5-0-flash-260915 2026-11-19,占地 2×1 格（w 沿 i，h 沿 j）；长边沿 i（画面右下方向），靠北墙摆；靠西墙时左右翻转（原图长边沿 j，导出时已翻转）
+iso/clothesline,斜45°物件,prop,414x493,晾衣架，蓝布衫和格子被单,iso_furn2,1,已处理,ark doubao-seedream-5-0-flash-260915 2026-11-19,占地 4×1 格（w 沿 i，h 沿 j）；绳子沿 i；东西向翻转成沿 j
+iso/desk,斜45°物件,prop,432x387,书案，砚台、毛笔、书卷,iso_furn2,2,已处理,ark doubao-seedream-5-0-flash-260915 2026-11-19,占地 2×1 格（w 沿 i，h 沿 j）；长边沿 i（画面右下方向），靠北墙摆；靠西墙时左右翻转（原图长边沿 j，导出时已翻转）
+iso/coop,斜45°物件,prop,442x427,竹编鸡笼和一只母鸡,iso_furn2,3,已处理,ark doubao-seedream-5-0-flash-260915 2026-11-19,占地 2×2 格（w 沿 i，h 沿 j）；母鸡在右前；翻转后在左前
+iso/washtub,斜45°物件,prop,411x392,洗衣木盆和搓衣板（游戏里还没有这个物件）,iso_furn2,4,已处理,ark doubao-seedream-5-0-flash-260915 2026-11-19,圆的或对称，不分朝向，不用翻转
+iso/cupboard,斜45°物件,prop,378x478,木碗柜（游戏里还没有这个物件）,iso_furn2,5,已处理,ark doubao-seedream-5-0-flash-260915 2026-11-19,正面朝左下，背靠北墙；靠西墙时左右翻转
+iso/bookshelf,斜45°物件,prop,403x560,书架，线装书和卷轴,iso_furn3,0,已处理,ark doubao-seedream-5-0-flash-260915 2026-11-19,占地 3×1 格（w 沿 i，h 沿 j）；正面朝左下，背靠北墙，长边沿 i；靠西墙时左右翻转
+iso/loom,斜45°物件,prop,446x562,木织布机，白经线,iso_furn3,1,已处理,ark doubao-seedream-5-0-flash-260915 2026-11-19,占地 2×2 格（w 沿 i，h 沿 j）；长边大致沿 i，坐板在左前；靠西墙时左右翻转
+iso/embroidery_frame,斜45°物件,prop,372x515,立式圆绣绷，绣一朵红花（ayun_hoop 也可以用它）,iso_furn3,2,已处理,ark doubao-seedream-5-0-flash-260915 2026-11-19,占地 1×1 格（w 沿 i，h 沿 j）；绷面正对镜头，不分朝向
+iso/carpenter_bench,斜45°物件,prop,459x431,刨木凳，木刨和刨花,iso_furn3,3,已处理,ark doubao-seedream-5-0-flash-260915 2026-11-19,占地 2×1 格（w 沿 i，h 沿 j）；长边沿 i（画面右下方向），靠北墙摆；靠西墙时左右翻转
+iso/tofu_box,斜45°物件,prop,476x404,豆腐箱，压着豆腐盖湿纱布,iso_furn3,4,已处理,ark doubao-seedream-5-0-flash-260915 2026-11-19,占地 1×1 格（w 沿 i，h 沿 j）；方形占地，两个朝向通用；需要换朝向时左右翻转
+iso/herb_grinder,斜45°物件,prop,437x369,铁药碾槽和碾轮,iso_furn3,5,已处理,ark doubao-seedream-5-0-flash-260915 2026-11-19,占地 1×1 格（w 沿 i，h 沿 j）；长边沿 i（画面右下方向），靠北墙摆；靠西墙时左右翻转（原图长边沿 j，导出时已翻转）
+iso/kang,斜45°物件,prop,483x374,空土炕，草席，靠里叠蓝花被,iso_yard2,0,已处理,ark doubao-seedream-5-0-flash-260915 2026-11-19,占地 3×2 格（w 沿 i，h 沿 j）；长边沿 i（画面右下方向），靠北墙摆；靠西墙时左右翻转
+iso/trough,斜45°物件,prop,355x278,青石猪食槽，有糠水,iso_yard2,1,已处理,ark doubao-seedream-5-0-flash-260915 2026-11-19,占地 3×1 格（w 沿 i，h 沿 j）；长边沿 i（画面右下方向），靠北墙摆；靠西墙时左右翻转
+iso/garden,斜45°物件,prop,461x339,菜畦，三垄青菜，围竹篱,iso_yard2,2,已处理,ark doubao-seedream-5-0-flash-260915 2026-11-19,占地 3×2 格（w 沿 i，h 沿 j）；垄沟沿 i；方形占地，两个朝向通用；需要换朝向时左右翻转
+iso/bridge,斜45°物件,prop,458x361,小木平桥带矮栏杆,iso_yard2,3,已处理,ark doubao-seedream-5-0-flash-260915 2026-11-19,桥身沿 i（东西过河）；南北向的河用翻转
+iso/peddler_pole,斜45°物件,prop,393x347,货郎担子，扁担挑两只竹筐,iso_yard2,4,已处理,ark doubao-seedream-5-0-flash-260915 2026-11-19,占地 2×1 格（w 沿 i，h 沿 j）；扁担大致沿 i；翻转得另一个方向
+iso/fence,斜45°物件,prop,362x298,一段竹篱笆，两头木桩,iso_yard2,5,已处理,ark doubao-seedream-5-0-flash-260915 2026-11-19,沿 i（画面右下）走向
+iso/fence_ns,斜45°物件,prop,362x298,一段竹篱笆（fence 的镜像）,iso_yard2,5,已处理,ark doubao-seedream-5-0-flash-260915 2026-11-19,沿 j（画面左下）走向；就是 fence 左右翻转
+iso/gatehouse,斜45°物件,prop,549x624,门楼，灰蓝瓦,iso_gate2,0,已处理,ark doubao-seedream-5-0-flash-260915 2026-11-19,门脸朝左下，在南墙上（墙沿 i）；东墙上的门左右翻转
+iso/sleeper,斜45°物件,prop,654x499,盖蓝花被睡着的大人，不带炕,iso_gate2,1,已处理,ark doubao-seedream-5-0-flash-260915 2026-11-19,头在左上、脚在右下，沿 i 躺；叠在 kang 上，kang 翻转时一起翻转
+iso/door_sill,斜45°物件,prop,629x385,青石门槛,iso_gate2,2,已处理,ark doubao-seedream-5-0-flash-260915 2026-11-19,占地 3×1 格（w 沿 i，h 沿 j）；长边沿 i（南北墙上的门）；东西墙上的门用翻转（threshold 也用它）
+iso/bird_cage,斜45°物件,prop,424x653,竹编鸟笼和一只小黄鸟,iso_gate2,3,已处理,ark doubao-seedream-5-0-flash-260915 2026-11-19,占地 1×1 格（w 沿 i，h 沿 j）；圆的或对称，不分朝向，不用翻转
+a_father_front_parts,小人拆件,parts,,father 正面 6 块拆件（头、躯干、上臂、前臂、裤子、小腿）,a_father_front_parts,0,已拆件,ark doubao-seedream-5-0-flash-260915 2026-11-19,骨架 assets/chars/a_father_front/a_father_front.rig.json，模板 assets/chars/rig.humanoid_front.json，动作 anims.humanoid_front.json；部件 id 和侧面骨架相同，另一侧胳膊腿用镜像图
+a_father_back_parts,小人拆件,parts,,father 背面 6 块拆件（头、躯干、上臂、前臂、裤子、小腿）,a_father_back_parts,0,已拆件,ark doubao-seedream-5-0-flash-260915 2026-11-19,骨架 assets/chars/a_father_back/a_father_back.rig.json，模板 assets/chars/rig.humanoid_front.json，动作 anims.humanoid_front.json；部件 id 和侧面骨架相同，另一侧胳膊腿用镜像图；小腿画成了一双，脚本切成一条
+a_mother_front_parts,小人拆件,parts,,mother 正面 6 块拆件（头、躯干、上臂、前臂、裤子、小腿）,a_mother_front_parts,0,已拆件,ark doubao-seedream-5-0-flash-260915 2026-11-19,骨架 assets/chars/a_mother_front/a_mother_front.rig.json，模板 assets/chars/rig.humanoid_front.json，动作 anims.humanoid_front.json；部件 id 和侧面骨架相同，另一侧胳膊腿用镜像图
+a_mother_back_parts,小人拆件,parts,,mother 背面 6 块拆件（头、躯干、上臂、前臂、裤子、小腿）,a_mother_back_parts,0,已拆件,ark doubao-seedream-5-0-flash-260915 2026-11-19,骨架 assets/chars/a_mother_back/a_mother_back.rig.json，模板 assets/chars/rig.humanoid_front.json，动作 anims.humanoid_front.json；部件 id 和侧面骨架相同，另一侧胳膊腿用镜像图
+a_grandma_front_parts,小人拆件,parts,,grandma 正面 6 块拆件（头、躯干、上臂、前臂、裤子、小腿）,a_grandma_front_parts,0,已拆件,ark doubao-seedream-5-0-flash-260915 2026-11-19,骨架 assets/chars/a_grandma_front/a_grandma_front.rig.json，模板 assets/chars/rig.humanoid_front.json，动作 anims.humanoid_front.json；部件 id 和侧面骨架相同，另一侧胳膊腿用镜像图
+a_grandma_back_parts,小人拆件,parts,,grandma 背面 6 块拆件（头、躯干、上臂、前臂、裤子、小腿）,a_grandma_back_parts,0,已拆件,ark doubao-seedream-5-0-flash-260915 2026-11-19,骨架 assets/chars/a_grandma_back/a_grandma_back.rig.json，模板 assets/chars/rig.humanoid_front.json，动作 anims.humanoid_front.json；部件 id 和侧面骨架相同，另一侧胳膊腿用镜像图
+a_grandpa_front_parts,小人拆件,parts,,grandpa 正面 6 块拆件（头、躯干、上臂、前臂、裤子、小腿）,a_grandpa_front_parts,0,已拆件,ark doubao-seedream-5-0-flash-260915 2026-11-19,骨架 assets/chars/a_grandpa_front/a_grandpa_front.rig.json，模板 assets/chars/rig.humanoid_front.json，动作 anims.humanoid_front.json；部件 id 和侧面骨架相同，另一侧胳膊腿用镜像图
+a_grandpa_back_parts,小人拆件,parts,,grandpa 背面 6 块拆件（头、躯干、上臂、前臂、裤子、小腿）,a_grandpa_back_parts,0,已拆件,ark doubao-seedream-5-0-flash-260915 2026-11-19,骨架 assets/chars/a_grandpa_back/a_grandpa_back.rig.json，模板 assets/chars/rig.humanoid_front.json，动作 anims.humanoid_front.json；部件 id 和侧面骨架相同，另一侧胳膊腿用镜像图
+a_child_front_parts,小人拆件,parts,,child 正面 6 块拆件（头、躯干、上臂、前臂、裤子、小腿）,a_child_front_parts,0,已拆件,ark doubao-seedream-5-0-flash-260915 2026-11-19,骨架 assets/chars/a_child_front/a_child_front.rig.json，模板 assets/chars/rig.humanoid_front.json，动作 anims.humanoid_front.json；部件 id 和侧面骨架相同，另一侧胳膊腿用镜像图
+a_child_back_parts,小人拆件,parts,,child 背面 6 块拆件（头、躯干、上臂、前臂、裤子、小腿）,a_child_back_parts,0,已拆件,ark doubao-seedream-5-0-flash-260915 2026-11-19,骨架 assets/chars/a_child_back/a_child_back.rig.json，模板 assets/chars/rig.humanoid_front.json，动作 anims.humanoid_front.json；部件 id 和侧面骨架相同，另一侧胳膊腿用镜像图；背面拆件图少了上臂、多了一块躯干：上臂和小腿借用正面图的
+a_dog_front,宠物,character,408x732,大黄狗正面,a_pets_facing,0,已处理,ark doubao-seedream-5-0-flash-260915 2026-11-19,单张图，不是拆件；脚下原图带一点草影，抠掉了大半，近看还剩几丝
+a_dog_back,宠物,character,312x730,大黄狗背面,a_pets_facing,1,已处理,ark doubao-seedream-5-0-flash-260915 2026-11-19,单张图，不是拆件；脚下原图带一点草影，抠掉了大半，近看还剩几丝
+a_cat_front,宠物,character,457x694,狸花猫正面,a_pets_facing,2,已处理,ark doubao-seedream-5-0-flash-260915 2026-11-19,单张图，不是拆件；脚下原图带一点草影，抠掉了大半，近看还剩几丝
+a_cat_back,宠物,character,340x718,狸花猫背面,a_pets_facing,3,已处理,ark doubao-seedream-5-0-flash-260915 2026-11-19,单张图，不是拆件；脚下原图带一点草影，抠掉了大半，近看还剩几丝
+a_looks_lineup,领养候选立绘,character,,8 个成年人 + 2 个老人侧身站立，做拆件图的参考,a_looks_lineup,0,已处理,ark doubao-seedream-5-0-flash-260915 2026-11-19,只当参考图：切成 assets/gen/ref/a_adult_<n>_ref.png、a_elder_<n>_ref.png
+a_adult_1_parts,领养候选拆件,parts,,斗笠农夫 侧面 6 块拆件,a_adult_1_parts,0,已拆件,ark doubao-seedream-5-0-flash-260915 2026-11-19,骨架 assets/chars/a_adult_1/a_adult_1.rig.json，脚本 assets/gen/build_looks.py；
+a_adult_1_front_parts,领养候选拆件,parts,,斗笠农夫 正面 6 块拆件,a_adult_1_front_parts,0,已拆件,ark doubao-seedream-5-0-flash-260915 2026-11-19,骨架 assets/chars/a_adult_1_front/a_adult_1_front.rig.json，脚本 assets/gen/build_looks.py；
+a_adult_1_back_parts,领养候选拆件,parts,,斗笠农夫 背面 6 块拆件,a_adult_1_back_parts,0,已拆件,ark doubao-seedream-5-0-flash-260915 2026-11-19,骨架 assets/chars/a_adult_1_back/a_adult_1_back.rig.json，脚本 assets/gen/build_looks.py；背面小腿的草鞋画成侧面：借正面的小腿
+a_adult_2_parts,领养候选拆件,parts,,清瘦书生 侧面 6 块拆件,a_adult_2_parts,0,已拆件,ark doubao-seedream-5-0-flash-260915 2026-11-19,骨架 assets/chars/a_adult_2/a_adult_2.rig.json，脚本 assets/gen/build_looks.py；侧面胳膊腿两头的圆头画成肉色：build_looks.py 涂成长衫的月白
+a_adult_2_front_parts,领养候选拆件,parts,,清瘦书生 正面 6 块拆件,a_adult_2_front_parts,0,已拆件,ark doubao-seedream-5-0-flash-260915 2026-11-19,骨架 assets/chars/a_adult_2_front/a_adult_2_front.rig.json，脚本 assets/gen/build_looks.py；袖子偏宽：胳膊收窄到 0.7
+a_adult_2_back_parts,领养候选拆件,parts,,清瘦书生 背面 6 块拆件,a_adult_2_back_parts,0,已拆件,ark doubao-seedream-5-0-flash-260915 2026-11-19,骨架 assets/chars/a_adult_2_back/a_adult_2_back.rig.json，脚本 assets/gen/build_looks.py；上臂、前臂画成黄色：借正面的胳膊和小腿，收窄到 0.7
+a_adult_3_parts,领养候选拆件,parts,,胖货郎 侧面 6 块拆件,a_adult_3_parts,0,已拆件,ark doubao-seedream-5-0-flash-260915 2026-11-19,骨架 assets/chars/a_adult_3/a_adult_3.rig.json，脚本 assets/gen/build_looks.py；
+a_adult_3_front_parts,领养候选拆件,parts,,胖货郎 正面 6 块拆件,a_adult_3_front_parts,0,已拆件,ark doubao-seedream-5-0-flash-260915 2026-11-19,骨架 assets/chars/a_adult_3_front/a_adult_3_front.rig.json，脚本 assets/gen/build_looks.py；
+a_adult_3_back_parts,领养候选拆件,parts,,胖货郎 背面 6 块拆件,a_adult_3_back_parts,0,已拆件,ark doubao-seedream-5-0-flash-260915 2026-11-19,骨架 assets/chars/a_adult_3_back/a_adult_3_back.rig.json，脚本 assets/gen/build_looks.py；躯干带着两只袖子：只留坎肩那几列；小腿借正面的
+a_adult_4_parts,领养候选拆件,parts,,木匠 侧面 6 块拆件,a_adult_4_parts,0,已拆件,ark doubao-seedream-5-0-flash-260915 2026-11-19,骨架 assets/chars/a_adult_4/a_adult_4.rig.json，脚本 assets/gen/build_looks.py；
+a_adult_4_front_parts,领养候选拆件,parts,,木匠 正面 6 块拆件,a_adult_4_front_parts,0,已拆件,ark doubao-seedream-5-0-flash-260915 2026-11-19,骨架 assets/chars/a_adult_4_front/a_adult_4_front.rig.json，脚本 assets/gen/build_looks.py；
+a_adult_4_back_parts,领养候选拆件,parts,,木匠 背面 6 块拆件,a_adult_4_back_parts,0,已拆件,ark doubao-seedream-5-0-flash-260915 2026-11-19,骨架 assets/chars/a_adult_4_back/a_adult_4_back.rig.json，脚本 assets/gen/build_looks.py；
+a_adult_5_parts,领养候选拆件,parts,,绣娘 侧面 6 块拆件,a_adult_5_parts,0,已拆件,ark doubao-seedream-5-0-flash-260915 2026-11-19,骨架 assets/chars/a_adult_5/a_adult_5.rig.json，脚本 assets/gen/build_looks.py；
+a_adult_5_front_parts,领养候选拆件,parts,,绣娘 正面 6 块拆件,a_adult_5_front_parts,0,已拆件,ark doubao-seedream-5-0-flash-260915 2026-11-19,骨架 assets/chars/a_adult_5_front/a_adult_5_front.rig.json，脚本 assets/gen/build_looks.py；
+a_adult_5_back_parts,领养候选拆件,parts,,绣娘 背面 6 块拆件,a_adult_5_back_parts,0,已拆件,ark doubao-seedream-5-0-flash-260915 2026-11-19,骨架 assets/chars/a_adult_5_back/a_adult_5_back.rig.json，脚本 assets/gen/build_looks.py；部件没落在格子里：--map 指定；躯干带长袖只留中间；前臂、小腿借正面的
+a_adult_6_parts,领养候选拆件,parts,,豆腐娘 侧面 6 块拆件,a_adult_6_parts,0,已拆件,ark doubao-seedream-5-0-flash-260915 2026-11-19,骨架 assets/chars/a_adult_6/a_adult_6.rig.json，脚本 assets/gen/build_looks.py；套袖鼓：胳膊收窄到 0.8
+a_adult_6_front_parts,领养候选拆件,parts,,豆腐娘 正面 6 块拆件,a_adult_6_front_parts,0,已拆件,ark doubao-seedream-5-0-flash-260915 2026-11-19,骨架 assets/chars/a_adult_6_front/a_adult_6_front.rig.json，脚本 assets/gen/build_looks.py；小腿画成光腿：借背面的黑裤腿；胳膊收窄到 0.72
+a_adult_6_back_parts,领养候选拆件,parts,,豆腐娘 背面 6 块拆件,a_adult_6_back_parts,0,已拆件,ark doubao-seedream-5-0-flash-260915 2026-11-19,骨架 assets/chars/a_adult_6_back/a_adult_6_back.rig.json，脚本 assets/gen/build_looks.py；胳膊收窄到 0.72
+a_adult_7_parts,领养候选拆件,parts,,采药姑娘 侧面 6 块拆件,a_adult_7_parts,0,已拆件,ark doubao-seedream-5-0-flash-260915 2026-11-19,骨架 assets/chars/a_adult_7/a_adult_7.rig.json，脚本 assets/gen/build_looks.py；
+a_adult_7_front_parts,领养候选拆件,parts,,采药姑娘 正面 6 块拆件,a_adult_7_front_parts,0,已拆件,ark doubao-seedream-5-0-flash-260915 2026-11-19,骨架 assets/chars/a_adult_7_front/a_adult_7_front.rig.json，脚本 assets/gen/build_looks.py；
+a_adult_7_back_parts,领养候选拆件,parts,,采药姑娘 背面 6 块拆件,a_adult_7_back_parts,0,已拆件,ark doubao-seedream-5-0-flash-260915 2026-11-19,骨架 assets/chars/a_adult_7_back/a_adult_7_back.rig.json，脚本 assets/gen/build_looks.py；小腿的鞋画成侧面：借正面的
+a_adult_8_parts,领养候选拆件,parts,,瘦高农妇 侧面 6 块拆件,a_adult_8_parts,0,已拆件,ark doubao-seedream-5-0-flash-260915 2026-11-19,骨架 assets/chars/a_adult_8/a_adult_8.rig.json，脚本 assets/gen/build_looks.py；
+a_adult_8_front_parts,领养候选拆件,parts,,瘦高农妇 正面 6 块拆件,a_adult_8_front_parts,0,已拆件,ark doubao-seedream-5-0-flash-260915 2026-11-19,骨架 assets/chars/a_adult_8_front/a_adult_8_front.rig.json，脚本 assets/gen/build_looks.py；
+a_adult_8_back_parts,领养候选拆件,parts,,瘦高农妇 背面 6 块拆件,a_adult_8_back_parts,0,已拆件,ark doubao-seedream-5-0-flash-260915 2026-11-19,骨架 assets/chars/a_adult_8_back/a_adult_8_back.rig.json，脚本 assets/gen/build_looks.py；躯干带宽袖：只留中间；上臂收窄到 0.7；小腿借正面的
+a_elder_1_parts,领养候选拆件,parts,,老郎中 侧面 6 块拆件,a_elder_1_parts,0,已拆件,ark doubao-seedream-5-0-flash-260915 2026-11-19,骨架 assets/chars/a_elder_1/a_elder_1.rig.json，脚本 assets/gen/build_looks.py；
+a_elder_1_front_parts,领养候选拆件,parts,,老郎中 正面 6 块拆件,a_elder_1_front_parts,0,已拆件,ark doubao-seedream-5-0-flash-260915 2026-11-19,骨架 assets/chars/a_elder_1_front/a_elder_1_front.rig.json，脚本 assets/gen/build_looks.py；小腿画成光腿：涂成黑裤
+a_elder_1_back_parts,领养候选拆件,parts,,老郎中 背面 6 块拆件,a_elder_1_back_parts,0,已拆件,ark doubao-seedream-5-0-flash-260915 2026-11-19,骨架 assets/chars/a_elder_1_back/a_elder_1_back.rig.json，脚本 assets/gen/build_looks.py；躯干带袖子和手：只留中间；小腿借正面的涂黑；上臂、大腿末端肉色圆头涂成衣服色
+a_elder_2_parts,领养候选拆件,parts,,老婆婆 侧面 6 块拆件,a_elder_2_parts,0,已拆件,ark doubao-seedream-5-0-flash-260915 2026-11-19,骨架 assets/chars/a_elder_2/a_elder_2.rig.json，脚本 assets/gen/build_looks.py；
+a_elder_2_front_parts,领养候选拆件,parts,,老婆婆 正面 6 块拆件,a_elder_2_front_parts,0,已拆件,ark doubao-seedream-5-0-flash-260915 2026-11-19,骨架 assets/chars/a_elder_2_front/a_elder_2_front.rig.json，脚本 assets/gen/build_looks.py；小腿画成光腿：涂成黑裤
+a_elder_2_back_parts,领养候选拆件,parts,,老婆婆 背面 6 块拆件,a_elder_2_back_parts,0,已拆件,ark doubao-seedream-5-0-flash-260915 2026-11-19,骨架 assets/chars/a_elder_2_back/a_elder_2_back.rig.json，脚本 assets/gen/build_looks.py；整张颜色乱（肉色、黄绿圆头）：躯干只留中间、切掉下摆的黄绿块，胳膊腿全部借正面的
+a34_lineup_fam_front,人物,character,,四分之三前视角的一排五人定角度参考（组 fam）,a34_lineup_fam_front,,已处理,ark doubao-seedream-5-0-flash-260915 2026-11-20,裁成 ref/a_<id>_front34_ref.png / _back34_ref.png，给拆件图当参考
+a34_lineup_fam_back,人物,character,,四分之三后视角的一排五人定角度参考（组 fam）,a34_lineup_fam_back,,已处理,ark doubao-seedream-5-0-flash-260915 2026-11-20,裁成 ref/a_<id>_front34_ref.png / _back34_ref.png，给拆件图当参考
+a34_lineup_a_front,人物,character,,四分之三前视角的一排五人定角度参考（组 a）,a34_lineup_a_front,,已处理,ark doubao-seedream-5-0-flash-260915 2026-11-20,裁成 ref/a_<id>_front34_ref.png / _back34_ref.png，给拆件图当参考
+a34_lineup_a_back,人物,character,,四分之三后视角的一排五人定角度参考（组 a）,a34_lineup_a_back,,已处理,ark doubao-seedream-5-0-flash-260915 2026-11-20,裁成 ref/a_<id>_front34_ref.png / _back34_ref.png，给拆件图当参考
+a34_lineup_b_front,人物,character,,四分之三前视角的一排五人定角度参考（组 b）,a34_lineup_b_front,,已处理,ark doubao-seedream-5-0-flash-260915 2026-11-20,裁成 ref/a_<id>_front34_ref.png / _back34_ref.png，给拆件图当参考
+a34_lineup_b_back,人物,character,,四分之三后视角的一排五人定角度参考（组 b）,a34_lineup_b_back,,已处理,ark doubao-seedream-5-0-flash-260915 2026-11-20,裁成 ref/a_<id>_front34_ref.png / _back34_ref.png，给拆件图当参考
+a34_lineup_fam,人物,character,,四分之三两行定角度参考（第一版）,a34_lineup_fam,,作废,ark doubao-seedream-5-0-flash-260915 2026-11-20,第 2 行该是背面，画回了正面；只用第 1 行
+a_father_front34_parts,人物,parts,,a_father 四分之三前拆件,a_father_front34_parts,,已拆件,ark doubao-seedream-5-0-flash-260915 2026-11-20,assets/gen/build_34_rigs.py 切件、修补、按侧面头身比缩放
+a_father_back34_parts,人物,parts,,a_father 四分之三后拆件,a_father_back34_parts,,已拆件,ark doubao-seedream-5-0-flash-260915 2026-11-20,assets/gen/build_34_rigs.py 切件、修补、按侧面头身比缩放
+a_mother_front34_parts,人物,parts,,a_mother 四分之三前拆件,a_mother_front34_parts,,已拆件,ark doubao-seedream-5-0-flash-260915 2026-11-20,assets/gen/build_34_rigs.py 切件、修补、按侧面头身比缩放
+a_mother_back34_parts,人物,parts,,a_mother 四分之三后拆件,a_mother_back34_parts,,已拆件,ark doubao-seedream-5-0-flash-260915 2026-11-20,assets/gen/build_34_rigs.py 切件、修补、按侧面头身比缩放
+a_grandma_front34_parts,人物,parts,,a_grandma 四分之三前拆件,a_grandma_front34_parts,,已拆件,ark doubao-seedream-5-0-flash-260915 2026-11-20,assets/gen/build_34_rigs.py 切件、修补、按侧面头身比缩放
+a_grandma_back34_parts,人物,parts,,a_grandma 四分之三后拆件,a_grandma_back34_parts,,已拆件,ark doubao-seedream-5-0-flash-260915 2026-11-20,assets/gen/build_34_rigs.py 切件、修补、按侧面头身比缩放
+a_grandpa_front34_parts,人物,parts,,a_grandpa 四分之三前拆件,a_grandpa_front34_parts,,已拆件,ark doubao-seedream-5-0-flash-260915 2026-11-20,assets/gen/build_34_rigs.py 切件、修补、按侧面头身比缩放
+a_grandpa_back34_parts,人物,parts,,a_grandpa 四分之三后拆件,a_grandpa_back34_parts,,已拆件,ark doubao-seedream-5-0-flash-260915 2026-11-20,assets/gen/build_34_rigs.py 切件、修补、按侧面头身比缩放
+a_child_front34_parts,人物,parts,,a_child 四分之三前拆件,a_child_front34_parts,,已拆件,ark doubao-seedream-5-0-flash-260915 2026-11-20,assets/gen/build_34_rigs.py 切件、修补、按侧面头身比缩放
+a_child_back34_parts,人物,parts,,a_child 四分之三后拆件,a_child_back34_parts,,已拆件,ark doubao-seedream-5-0-flash-260915 2026-11-20,assets/gen/build_34_rigs.py 切件、修补、按侧面头身比缩放
+a_adult_1_front34_parts,人物,parts,,a_adult_1 四分之三前拆件,a_adult_1_front34_parts,,已拆件,ark doubao-seedream-5-0-flash-260915 2026-11-20,assets/gen/build_34_rigs.py 切件、修补、按侧面头身比缩放
+a_adult_1_back34_parts,人物,parts,,a_adult_1 四分之三后拆件,a_adult_1_back34_parts,,已拆件,ark doubao-seedream-5-0-flash-260915 2026-11-20,assets/gen/build_34_rigs.py 切件、修补、按侧面头身比缩放
+a_adult_2_front34_parts,人物,parts,,a_adult_2 四分之三前拆件,a_adult_2_front34_parts,,已拆件,ark doubao-seedream-5-0-flash-260915 2026-11-20,assets/gen/build_34_rigs.py 切件、修补、按侧面头身比缩放
+a_adult_2_back34_parts,人物,parts,,a_adult_2 四分之三后拆件,a_adult_2_back34_parts,,已拆件,ark doubao-seedream-5-0-flash-260915 2026-11-20,assets/gen/build_34_rigs.py 切件、修补、按侧面头身比缩放
+a_adult_3_front34_parts,人物,parts,,a_adult_3 四分之三前拆件,a_adult_3_front34_parts,,已拆件,ark doubao-seedream-5-0-flash-260915 2026-11-20,assets/gen/build_34_rigs.py 切件、修补、按侧面头身比缩放
+a_adult_3_back34_parts,人物,parts,,a_adult_3 四分之三后拆件,a_adult_3_back34_parts,,已拆件,ark doubao-seedream-5-0-flash-260915 2026-11-20,assets/gen/build_34_rigs.py 切件、修补、按侧面头身比缩放
+a_adult_4_front34_parts,人物,parts,,a_adult_4 四分之三前拆件,a_adult_4_front34_parts,,已拆件,ark doubao-seedream-5-0-flash-260915 2026-11-20,assets/gen/build_34_rigs.py 切件、修补、按侧面头身比缩放
+a_adult_4_back34_parts,人物,parts,,a_adult_4 四分之三后拆件,a_adult_4_back34_parts,,已拆件,ark doubao-seedream-5-0-flash-260915 2026-11-20,assets/gen/build_34_rigs.py 切件、修补、按侧面头身比缩放
+a_adult_5_front34_parts,人物,parts,,a_adult_5 四分之三前拆件,a_adult_5_front34_parts,,已拆件,ark doubao-seedream-5-0-flash-260915 2026-11-20,assets/gen/build_34_rigs.py 切件、修补、按侧面头身比缩放
+a_adult_5_back34_parts,人物,parts,,a_adult_5 四分之三后拆件,a_adult_5_back34_parts,,已拆件,ark doubao-seedream-5-0-flash-260915 2026-11-20,assets/gen/build_34_rigs.py 切件、修补、按侧面头身比缩放
+a_adult_6_front34_parts,人物,parts,,a_adult_6 四分之三前拆件,a_adult_6_front34_parts,,已拆件,ark doubao-seedream-5-0-flash-260915 2026-11-20,assets/gen/build_34_rigs.py 切件、修补、按侧面头身比缩放
+a_adult_6_back34_parts,人物,parts,,a_adult_6 四分之三后拆件,a_adult_6_back34_parts,,已拆件,ark doubao-seedream-5-0-flash-260915 2026-11-20,assets/gen/build_34_rigs.py 切件、修补、按侧面头身比缩放
+a_adult_7_front34_parts,人物,parts,,a_adult_7 四分之三前拆件,a_adult_7_front34_parts,,已拆件,ark doubao-seedream-5-0-flash-260915 2026-11-20,assets/gen/build_34_rigs.py 切件、修补、按侧面头身比缩放
+a_adult_7_back34_parts,人物,parts,,a_adult_7 四分之三后拆件,a_adult_7_back34_parts,,已拆件,ark doubao-seedream-5-0-flash-260915 2026-11-20,assets/gen/build_34_rigs.py 切件、修补、按侧面头身比缩放
+a_adult_8_front34_parts,人物,parts,,a_adult_8 四分之三前拆件,a_adult_8_front34_parts,,已拆件,ark doubao-seedream-5-0-flash-260915 2026-11-20,assets/gen/build_34_rigs.py 切件、修补、按侧面头身比缩放
+a_adult_8_back34_parts,人物,parts,,a_adult_8 四分之三后拆件,a_adult_8_back34_parts,,已拆件,ark doubao-seedream-5-0-flash-260915 2026-11-20,assets/gen/build_34_rigs.py 切件、修补、按侧面头身比缩放
+a_elder_1_front34_parts,人物,parts,,a_elder_1 四分之三前拆件,a_elder_1_front34_parts,,已拆件,ark doubao-seedream-5-0-flash-260915 2026-11-20,assets/gen/build_34_rigs.py 切件、修补、按侧面头身比缩放
+a_elder_1_back34_parts,人物,parts,,a_elder_1 四分之三后拆件,a_elder_1_back34_parts,,已拆件,ark doubao-seedream-5-0-flash-260915 2026-11-20,assets/gen/build_34_rigs.py 切件、修补、按侧面头身比缩放
+a_elder_2_front34_parts,人物,parts,,a_elder_2 四分之三前拆件,a_elder_2_front34_parts,,已拆件,ark doubao-seedream-5-0-flash-260915 2026-11-20,assets/gen/build_34_rigs.py 切件、修补、按侧面头身比缩放
+a_elder_2_back34_parts,人物,parts,,a_elder_2 四分之三后拆件,a_elder_2_back34_parts,,已拆件,ark doubao-seedream-5-0-flash-260915 2026-11-20,assets/gen/build_34_rigs.py 切件、修补、按侧面头身比缩放
+a_mess_wrapper,脏乱,prop,,揉皱的油纸，斜 45° 贴地,a_mess_litter,0,已处理,ark doubao-seedream-5-0-flash-260915 2026-11-20,绿幕，assets/gen/key_green_grid.py 抠图
+a_mess_fruit_core,脏乱,prop,,果核,a_mess_litter,1,已处理,ark doubao-seedream-5-0-flash-260915 2026-11-20,绿幕，assets/gen/key_green_grid.py 抠图
+a_mess_cloth_scraps,脏乱,prop,,碎布头,a_mess_litter,2,已处理,ark doubao-seedream-5-0-flash-260915 2026-11-20,绿幕，assets/gen/key_green_grid.py 抠图
+a_mess_feathers,脏乱,prop,,鸡毛（棕红黄褐，不用白色）,a_mess_litter,3,已处理,ark doubao-seedream-5-0-flash-260915 2026-11-20,绿幕，assets/gen/key_green_grid.py 抠图
+a_dog_front34,宠物,character,,大黄狗四分之三前（朝右下）,a_pets34,0,已处理,ark doubao-seedream-5-0-flash-260915 2026-11-20,单张图，不是拆件；往左时翻转
+a_dog_back34,宠物,character,,大黄狗四分之三后（朝右上）,a_pets34,1,已处理,ark doubao-seedream-5-0-flash-260915 2026-11-20,单张图，不是拆件；往左时翻转
+a_cat_front34,宠物,character,,狸花猫四分之三前,a_pets34,2,已处理,ark doubao-seedream-5-0-flash-260915 2026-11-20,单张图，不是拆件；往左时翻转
+a_cat_back34,宠物,character,,狸花猫四分之三后,a_pets34,3,已处理,ark doubao-seedream-5-0-flash-260915 2026-11-20,单张图，不是拆件；往左时翻转
+story/half_sampler,旧物,prop,,半幅绣样,a_story_1,0,已处理,ark doubao-seedream-5-0-flash-260915 2026-11-20,旧物匣碎片图，绿幕，key_green_grid.py 抠图
+story/yun_hairpin,旧物,prop,,刻着芸字的银簪,a_story_1,1,已处理,ark doubao-seedream-5-0-flash-260915 2026-11-20,旧物匣碎片图，绿幕，key_green_grid.py 抠图
+story/red_shoe,旧物,prop,,井边的一只绣鞋,a_story_1,2,已处理,ark doubao-seedream-5-0-flash-260915 2026-11-20,旧物匣碎片图，绿幕，key_green_grid.py 抠图
+story/pressed_flower,旧物,prop,,纸里夹着的干花,a_story_1,3,已处理,ark doubao-seedream-5-0-flash-260915 2026-11-20,旧物匣碎片图，绿幕，key_green_grid.py 抠图
+story/letter_first_half,旧物,prop,,半封信,a_story_1,4,已处理,ark doubao-seedream-5-0-flash-260915 2026-11-20,旧物匣碎片图，绿幕，key_green_grid.py 抠图
+story/letter_second_half,旧物,prop,,另外半封信,a_story_1,5,已处理,ark doubao-seedream-5-0-flash-260915 2026-11-20,旧物匣碎片图，绿幕，key_green_grid.py 抠图
+story/cloth_tiger,旧物,prop,,布老虎,a_story_1,6,已处理,ark doubao-seedream-5-0-flash-260915 2026-11-20,旧物匣碎片图，绿幕，key_green_grid.py 抠图
+story/rattle_drum,旧物,prop,,拨浪鼓,a_story_1,7,已处理,ark doubao-seedream-5-0-flash-260915 2026-11-20,旧物匣碎片图，绿幕，key_green_grid.py 抠图
+story/half_sugar_monkey,旧物,prop,,油纸包着的半个糖人,a_story_1,8,已处理,ark doubao-seedream-5-0-flash-260915 2026-11-20,旧物匣碎片图，绿幕，key_green_grid.py 抠图
+story/tiger_shoe,旧物,prop,,一只小虎头鞋,a_story_2,0,已处理,ark doubao-seedream-5-0-flash-260915 2026-11-20,旧物匣碎片图，绿幕，key_green_grid.py 抠图
+story/birthday_slip,旧物,prop,,歪歪扭扭的红纸条,a_story_2,1,已处理,ark doubao-seedream-5-0-flash-260915 2026-11-20,旧物匣碎片图，绿幕，key_green_grid.py 抠图
+story/poem_ten_years,旧物,prop,,写着十年的诗笺,a_story_2,2,已处理,ark doubao-seedream-5-0-flash-260915 2026-11-20,旧物匣碎片图，绿幕，key_green_grid.py 抠图
+story/poem_millstone,旧物,prop,,卷在竹筒里的诗笺,a_story_2,3,已处理,ark doubao-seedream-5-0-flash-260915 2026-11-20,旧物匣碎片图，绿幕，key_green_grid.py 抠图
+story/poem_nine_steps,旧物,prop,,沾着泥的诗笺,a_story_2,4,已处理,ark doubao-seedream-5-0-flash-260915 2026-11-20,旧物匣碎片图，绿幕，key_green_grid.py 抠图
+story/poem_ledger,旧物,prop,,夹在旧账里的诗笺,a_story_2,5,已处理,ark doubao-seedream-5-0-flash-260915 2026-11-20,旧物匣碎片图，绿幕，key_green_grid.py 抠图
+story/poem_burnt,旧物,prop,,烧掉一角的诗笺,a_story_2,6,已处理,ark doubao-seedream-5-0-flash-260915 2026-11-20,旧物匣碎片图，绿幕，key_green_grid.py 抠图
+story/poem_last,旧物,prop,,最后一张诗笺,a_story_2,7,已处理,ark doubao-seedream-5-0-flash-260915 2026-11-20,旧物匣碎片图，绿幕，key_green_grid.py 抠图
+story/ayun_hoop,旧物,prop,,阿芸的旧绣绷,a_story_2,8,已处理,ark doubao-seedream-5-0-flash-260915 2026-11-20,旧物匣碎片图，绿幕，key_green_grid.py 抠图
+ui_cabinet,界面,ui,,博古架 4×4 空格子，正面,a_ui_cabinet,0,已处理,ark doubao-seedream-5-0-flash-260915 2026-11-20,旧物匣面板底图
+ui_tag,界面,ui,240x96,纸签,,,已处理,代码画（PIL），2026-11-20,
+story/bell_clapper,旧物,prop,,一只铜铃舌,a_story_5,0,已处理,ark doubao-seedream-5-0-flash-260915 2026-11-20,旧物匣碎片图，绿幕，make_story2_prompts.py --key 抠图；a_story_3 第 0 格铃舌头没磨扁，换用重做格
+story/sugar_wrapper,旧物,prop,,一块包糖的油纸,a_story_3,1,已处理,ark doubao-seedream-5-0-flash-260915 2026-11-20,旧物匣碎片图，绿幕，make_story2_prompts.py --key 抠图；炭条只画出五道加一道划线，不是七道划六；重做格（a_story_5/1）更差，留第一版
+story/tally_stick,旧物,prop,,刻着口子的竹签,a_story_3,2,已处理,ark doubao-seedream-5-0-flash-260915 2026-11-20,旧物匣碎片图，绿幕，make_story2_prompts.py --key 抠图
+story/kite_ribs,旧物,prop,,扎成十字的竹篾,a_story_3,3,已处理,ark doubao-seedream-5-0-flash-260915 2026-11-20,旧物匣碎片图，绿幕，make_story2_prompts.py --key 抠图
+story/almanac_page,旧物,prop,,糊过风筝的黄历,a_story_3,4,已处理,ark doubao-seedream-5-0-flash-260915 2026-11-20,旧物匣碎片图，绿幕，make_story2_prompts.py --key 抠图；指甲印不明显
+story/swallow_tail,旧物,prop,,两条纸燕尾,a_story_3,5,已处理,ark doubao-seedream-5-0-flash-260915 2026-11-20,旧物匣碎片图，绿幕，make_story2_prompts.py --key 抠图
+story/tangled_line,旧物,prop,,竹梢上的一团线,a_story_3,6,已处理,ark doubao-seedream-5-0-flash-260915 2026-11-20,旧物匣碎片图，绿幕，make_story2_prompts.py --key 抠图
+story/ferry_tag,旧物,prop,,刻着欠字的木牌,a_story_3,7,已处理,ark doubao-seedream-5-0-flash-260915 2026-11-20,旧物匣碎片图，绿幕，make_story2_prompts.py --key 抠图
+story/pipe_bowl,旧物,prop,,一只旧烟袋,a_story_3,8,已处理,ark doubao-seedream-5-0-flash-260915 2026-11-20,旧物匣碎片图，绿幕，make_story2_prompts.py --key 抠图
+story/pole_tip,旧物,prop,,包铁的篙头,a_story_5,3,已处理,ark doubao-seedream-5-0-flash-260915 2026-11-20,旧物匣碎片图，绿幕，make_story2_prompts.py --key 抠图；a_story_4 第 0 格没有水痕刻线，换用重做格
+story/tag_bundle,旧物,prop,,一串木牌,a_story_4,1,已处理,ark doubao-seedream-5-0-flash-260915 2026-11-20,旧物匣碎片图，绿幕，make_story2_prompts.py --key 抠图
+a_col_old_kite,收藏,prop,,燕子风筝（paper_kite 结局收进旧物匣）,a_story_4,2,已处理,ark doubao-seedream-5-0-flash-260915 2026-11-20,第 3 格同款备选在 assets/gen/out/a_story_4/old_kite_alt.png
+a_pig,牲口,character,,黑白花大猪 侧身朝右,a_livestock_1,0,已处理,ark doubao-seedream-5-0-flash-260915 2026-11-20,略带一点四分之三，读得出是侧面；assets/gen/key_livestock.py 按物体抠（鼻子耳朵会跨格线）；往左时翻转
+a_pig_front34,牲口,character,,黑白花大猪 四分之三前（朝右下）,a_livestock_4,0,已处理,ark doubao-seedream-5-0-flash-260915 2026-11-20,第 4 张图重生出的：底色比别的猪偏米黄、多几点褐斑；assets/gen/key_livestock.py 按物体抠（鼻子耳朵会跨格线）；往左时翻转
+a_pig_back34,牲口,character,,黑白花大猪 四分之三后（朝右上）,a_livestock_1,2,已处理,ark doubao-seedream-5-0-flash-260915 2026-11-20,assets/gen/key_livestock.py 按物体抠（鼻子耳朵会跨格线）；往左时翻转
+a_piglet,牲口,character,,小猪崽 侧身朝右,a_livestock_1,3,已处理,ark doubao-seedream-5-0-flash-260915 2026-11-20,assets/gen/key_livestock.py 按物体抠（鼻子耳朵会跨格线）；往左时翻转
+a_piglet_front34,牲口,character,,小猪崽 四分之三前,a_livestock_4,1,已处理,ark doubao-seedream-5-0-flash-260915 2026-11-20,assets/gen/key_livestock.py 按物体抠（鼻子耳朵会跨格线）；往左时翻转
+a_piglet_back34,牲口,character,,小猪崽 四分之三后,a_livestock_3,3,已处理,ark doubao-seedream-5-0-flash-260915 2026-11-20,第 3 张图重生出的；assets/gen/key_livestock.py 按物体抠（鼻子耳朵会跨格线）；往左时翻转
+a_pig_sleep,牲口,character,,大猪趴地睡觉（四分之三前）,a_livestock_1,6,已处理,ark doubao-seedream-5-0-flash-260915 2026-11-20,assets/gen/key_livestock.py 按物体抠（鼻子耳朵会跨格线）；往左时翻转
+a_chick_front34,牲口,character,,黄小鸡 四分之三前,a_livestock_1,7,已处理,ark doubao-seedream-5-0-flash-260915 2026-11-20,assets/gen/key_livestock.py 按物体抠（鼻子耳朵会跨格线）；往左时翻转
+a_hen_sit,牲口,character,,母鸡孵蛋（四分之三前，身下露三个蛋）,a_livestock_1,8,已处理,ark doubao-seedream-5-0-flash-260915 2026-11-20,assets/gen/key_livestock.py 按物体抠（鼻子耳朵会跨格线）；往左时翻转
+a_hen,牲口,character,,橙棕母鸡 侧身朝右,a_livestock_2,0,已处理,ark doubao-seedream-5-0-flash-260915 2026-11-20,assets/gen/key_livestock.py 按物体抠（鼻子耳朵会跨格线）；往左时翻转
+a_hen_front34,牲口,character,,橙棕母鸡 四分之三前,a_livestock_3,4,已处理,ark doubao-seedream-5-0-flash-260915 2026-11-20,重生两次仍偏侧身（胸口略朝前），先用；不满意再单独重生；assets/gen/key_livestock.py 按物体抠（鼻子耳朵会跨格线）；往左时翻转
+a_hen_back34,牲口,character,,橙棕母鸡 四分之三后,a_livestock_2,2,已处理,ark doubao-seedream-5-0-flash-260915 2026-11-20,assets/gen/key_livestock.py 按物体抠（鼻子耳朵会跨格线）；往左时翻转
+hand_rice_bowl_full,手持物,prop,,一碗饭（带筷子）,a_hand_1,0,已处理,ark doubao-seedream-5-0-flash-260915 2026-11-23,assets/gen/hand_props.py 按物体抠、缩到人物 2x 尺寸；grip 见 assets/props/hand/index.json
+hand_bowl_empty,手持物,prop,,空碗,a_hand_1,1,已处理,ark doubao-seedream-5-0-flash-260915 2026-11-23,assets/gen/hand_props.py 按物体抠、缩到人物 2x 尺寸；grip 见 assets/props/hand/index.json
+hand_teacup,手持物,prop,,茶杯,a_hand_1,2,已处理,ark doubao-seedream-5-0-flash-260915 2026-11-23,assets/gen/hand_props.py 按物体抠、缩到人物 2x 尺寸；grip 见 assets/props/hand/index.json
+hand_medicine_bowl,手持物,prop,,药碗,a_hand_1,3,已处理,ark doubao-seedream-5-0-flash-260915 2026-11-23,assets/gen/hand_props.py 按物体抠、缩到人物 2x 尺寸；grip 见 assets/props/hand/index.json
+hand_medicine_bottle,手持物,prop,,药瓶,a_hand_1,4,已处理,ark doubao-seedream-5-0-flash-260915 2026-11-23,assets/gen/hand_props.py 按物体抠、缩到人物 2x 尺寸；grip 见 assets/props/hand/index.json
+hand_osmanthus_cake,手持物,prop,,桂花糕,a_hand_1,5,已处理,ark doubao-seedream-5-0-flash-260915 2026-11-23,assets/gen/hand_props.py 按物体抠、缩到人物 2x 尺寸；grip 见 assets/props/hand/index.json
+hand_tofu_tray,手持物,prop,,豆腐盘,a_hand_1,6,已处理,ark doubao-seedream-5-0-flash-260915 2026-11-23,assets/gen/hand_props.py 按物体抠、缩到人物 2x 尺寸；grip 见 assets/props/hand/index.json
+hand_ladle,手持物,prop,,勺（木汤勺）,a_hand_1,7,已处理,ark doubao-seedream-5-0-flash-260915 2026-11-23,assets/gen/hand_props.py 按物体抠、缩到人物 2x 尺寸；grip 见 assets/props/hand/index.json
+hand_wok_spatula,手持物,prop,,锅铲,a_hand_1,8,已处理,ark doubao-seedream-5-0-flash-260915 2026-11-23,assets/gen/hand_props.py 按物体抠、缩到人物 2x 尺寸；grip 见 assets/props/hand/index.json
+hand_book_open,手持物,prop,,翻开的线装书,a_hand_2,0,已处理,ark doubao-seedream-5-0-flash-260915 2026-11-23,assets/gen/hand_props.py 按物体抠、缩到人物 2x 尺寸；grip 见 assets/props/hand/index.json
+hand_book_closed,手持物,prop,,合上的书,a_hand_2,1,已处理,ark doubao-seedream-5-0-flash-260915 2026-11-23,assets/gen/hand_props.py 按物体抠、缩到人物 2x 尺寸；grip 见 assets/props/hand/index.json
+hand_writing_brush,手持物,prop,,毛笔,a_hand_2,2,已处理,ark doubao-seedream-5-0-flash-260915 2026-11-23,assets/gen/hand_props.py 按物体抠、缩到人物 2x 尺寸；grip 见 assets/props/hand/index.json
+hand_embroidery_hoop,手持物,prop,,绣绷（带针线）,a_hand_4,1,已处理,ark doubao-seedream-5-0-flash-260915 2026-11-23,第一版重做：锄头画成了斧头 / 绣绷带绿叶子（会被绿幕抠穿）；用 a_hand_4
+hand_sugar_figure,手持物,prop,,糖人,a_hand_2,4,已处理,ark doubao-seedream-5-0-flash-260915 2026-11-23,assets/gen/hand_props.py 按物体抠、缩到人物 2x 尺寸；grip 见 assets/props/hand/index.json
+hand_rattle_drum,手持物,prop,,拨浪鼓,a_hand_2,5,已处理,ark doubao-seedream-5-0-flash-260915 2026-11-23,assets/gen/hand_props.py 按物体抠、缩到人物 2x 尺寸；grip 见 assets/props/hand/index.json
+hand_herb_bundle,手持物,prop,,一捆草药,a_hand_2,6,已处理,ark doubao-seedream-5-0-flash-260915 2026-11-23,assets/gen/hand_props.py 按物体抠、缩到人物 2x 尺寸；grip 见 assets/props/hand/index.json
+hand_carpenter_plane,手持物,prop,,刨子,a_hand_2,7,已处理,ark doubao-seedream-5-0-flash-260915 2026-11-23,assets/gen/hand_props.py 按物体抠、缩到人物 2x 尺寸；grip 见 assets/props/hand/index.json
+hand_water_bucket,手持物,prop,,水桶,a_hand_2,8,已处理,ark doubao-seedream-5-0-flash-260915 2026-11-23,assets/gen/hand_props.py 按物体抠、缩到人物 2x 尺寸；grip 见 assets/props/hand/index.json
+hand_broom,手持物,prop,,竹扫帚,a_hand_3,0,已处理,ark doubao-seedream-5-0-flash-260915 2026-11-23,assets/gen/hand_props.py 按物体抠、缩到人物 2x 尺寸；grip 见 assets/props/hand/index.json
+hand_hoe,手持物,prop,,锄头,a_hand_4,0,已处理,ark doubao-seedream-5-0-flash-260915 2026-11-23,第一版重做：锄头画成了斧头 / 绣绷带绿叶子（会被绿幕抠穿）；用 a_hand_4
+hand_axe,手持物,prop,,斧头,a_hand_3,2,已处理,ark doubao-seedream-5-0-flash-260915 2026-11-23,assets/gen/hand_props.py 按物体抠、缩到人物 2x 尺寸；grip 见 assets/props/hand/index.json

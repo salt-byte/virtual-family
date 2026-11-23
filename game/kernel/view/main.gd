@@ -132,20 +132,17 @@ func open_notice(n: Dictionary) -> void:
 			letters.open_letter(t)
 		"letters":
 			letters.open_box()
-		"ill", "need", "thanks":
+		"ill", "need", "thanks", "wish", "ask":
 			select(t)
-		"wish":
-			select(t)
-			var p := session.world.person(t)
-			var wish := WishSystem.current(session.world, p) if p != null else {}
-			if str(wish.get("kind", "")) in ["item", "pet"]:
-				panels.open("shop")
 		"pet_ill", "pet_hungry":
 			select_pet(t)
 		"pet_away":
 			panels.open("family")
 		"pickup", "pickups":
 			house.look_at_collectible(t)
+	# Then point at what answers it: the button to press, where to take them, the market.
+	if hud != null:
+		hud.guide(n.get("guide", {}))
 
 
 ## True while an overlay, a panel or the build confirmation covers the house; the house then

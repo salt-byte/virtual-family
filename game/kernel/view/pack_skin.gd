@@ -271,6 +271,12 @@ func collectible_sprite(type: String) -> Texture2D:
 	return sprite(str(_table("collectibles").get(type, "")))
 
 
+## The picture of a shop item in the goods panel (art.json "items": {"<item id>": "<sprite
+## name>"}); null when it has none (the panel draws an icon for its group).
+func item_sprite(id: String) -> Texture2D:
+	return sprite(str(_table("items").get(id, "")))
+
+
 ## The picture of a story fragment (or a story's keepsake) in the keepsake box; null when
 ## it has none yet. art.json: "keepsakes": {"pieces": {"<id>": "props/story/<id>.png"}}.
 func piece(id: String) -> Texture2D:

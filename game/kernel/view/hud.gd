@@ -29,9 +29,9 @@ const TOAST_MAX := 4
 ## Events that already show as a notice (Notices): they make no toast as well.
 const NOTICE_EVENTS := ["collectible_spawned", "fell_ill", "pet_fell_ill", "pet_ran_away",
 	"stray_arrived", "proposal_arrived", "wish_granted", "buyer_arrived"]
-const BAR_BUTTONS := ["family", "shop", "letters", "ledger", "stories", "arrange", "settings"]
+const BAR_BUTTONS := ["family", "shop", "goods", "letters", "ledger", "stories", "arrange", "settings"]
 ## Big buttons with icons on the top row; the rest sit small underneath.
-const PRIMARY := ["family", "shop", "letters"]
+const PRIMARY := ["family", "shop", "goods", "letters"]
 const CHIPS_MAX := 4
 ## Status levels (ViewStrings.LEVELS) that show in the bar.
 const LOUD := ["bad", "warn", "info"]
@@ -41,7 +41,9 @@ const NOTICES_MAX := 3
 ## or once clicked.
 const FYI := ["pickup", "pickups", "thanks"]
 const FYI_SECONDS := 10.0
-const NOTICE_WIDTH := 280.0
+const NOTICE_WIDTH := 330.0
+## A notice card's height: its words on top, how to answer it underneath.
+const NOTICE_HEIGHT := 50.0
 ## Where the toasts start while the festival board shows above them.
 const FEST_TOAST_TOP := 82.0
 const WHO_WIDTH := 236.0
@@ -105,6 +107,17 @@ var _dismissed := {}
 ## Uids of the people the view saw fall ill and not yet get better (the kernel's illness
 ## itself is never read here).
 var _sick := {}
+## Items that came into store since the goods panel last showed them (item id -> true): their
+## cards wear a "新" badge. `_known` is the store as last seen.
+var new_goods := {}
+var _known := {}
+var _known_set := false
+## The control blinking to draw the eye after a notice was clicked (`pulse_control`).
+var _pulse_tween: Tween
+var _pulse_node: Control
+var _pulsing := ""
+const PULSE_TIMES := 4
+const PULSE_COLOR := Color(1.5, 1.15, 0.7)
 
 
 ## The round portrait of the selected one: their colour, the first character of their name,
@@ -580,9 +593,24 @@ func refresh() -> void:
 	_fest_title.text = fest["banner"]
 	_fest_left.text = fest["left"]
 	_toast_box.offset_top = FEST_TOAST_TOP if _fest_box.visible else 12.0
+	_track_new_goods(w)
 	_refresh_notices()
 	_refresh_switcher()
 	_refresh_tray(p, pet)
+
+
+## Marks what came into store since the last look as new (not what a loaded save holds).
+func _track_new_goods(w: World) -> void:
+	if w == null or w.phase != "living":
+		return
+	for id in w.inventory:
+		var n := int(w.inventory[id])
+		if _known_set and n > int(_known.get(id, 0)):
+			new_goods[str(id)] = true
+		elif n <= 0:
+			new_goods.erase(str(id))
+	_known = w.inventory.duplicate()
+	_known_set = true
 
 
 ## `p`'s painted portrait in place of the coloured round, when their look has one (an old
@@ -759,6 +787,11 @@ func use_care(e: Dictionary) -> void:
 			session.command({"type": "drag", "person": int(e["healer"]), "treat": int(e["person"])})
 		"doctor":
 			call_doctor(int(e["person"]))
+		"all":
+			main.arrange.exit()
+			main.letters.close()
+			main.settings.close()
+			main.panels.open("goods")
 		"shop":
 			open.emit("shop")
 			var tab := Panels.MARKET_TAB + str(e.get("tab", ""))
@@ -962,7 +995,7 @@ func top_rects() -> Array[Rect2]:
 				out.append(r.grow(8.0))
 	# The notices may unfold: keep clear of where three of them sit even while fewer show.
 	if _notice_box.visible:
-		out.append(Rect2(_notice_box.position, Vector2(NOTICE_WIDTH, 44.0 * (NOTICES_MAX + 1) + 30.0)).grow(8.0))
+		out.append(Rect2(_notice_box.position, Vector2(NOTICE_WIDTH, (NOTICE_HEIGHT + 6.0) * (NOTICES_MAX + 1) + 30.0)).grow(8.0))
 	return out
 
 
@@ -1066,7 +1099,7 @@ func _refresh_notices() -> void:
 		_expanded = false
 	var sig := "%s|%s" % [_expanded, session.world == null or session.world.doctor.is_empty()]
 	for n in _notices:
-		sig += "%s=%s|" % [n["id"], n["text"]]
+		sig += "%s=%s/%s/%s|" % [n["id"], n["text"], n.get("hint", ""), (n.get("act", {}) as Dictionary).get("text", "")]
 	if sig == _notice_sig:
 		return
 	_notice_sig = sig
@@ -1124,6 +1157,142 @@ func _doctor_chip(uid: int) -> Button:
 	return b
 
 
+## The small button on a notice that answers it at once (`Notices` `act`).
+func _act_chip(notice_id: String, act: Dictionary) -> Button:
+	var b := Button.new()
+	b.text = str(act["text"])
+	b.focus_mode = Control.FOCUS_NONE
+	b.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
+	b.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	b.add_theme_font_size_override("font_size", 13)
+	ViewWidgets.round_button(b, ViewWidgets.CREAM, ViewWidgets.ACCENT)
+	for state in ["normal", "hover", "pressed"]:
+		var st := b.get_theme_stylebox(state) as StyleBoxFlat
+		if st != null:
+			st.set_content_margin_all(3)
+			st.content_margin_left = 9
+			st.content_margin_right = 9
+			st.border_width_bottom = 2
+	b.pressed.connect(func(): notice_act(notice_id))
+	b.set_meta("act_for", notice_id)
+	return b
+
+
+## Presses the answer button of the notice with this id (also the test entry point); false
+## when that notice has none. "praise:<uid>" praises them, "use:<uid>:<item>" and
+## "feed:<pet>:<item>" give what is in store, "call:<pet>" sends someone to the animal,
+## "go_out:<uid>" opens where they could go, "shop:<section>" opens the market there.
+func notice_act(notice_id: String) -> bool:
+	var n := {}
+	for x in _notices:
+		if x["id"] == notice_id:
+			n = x
+	var act: Dictionary = n.get("act", {})
+	if act.is_empty():
+		return false
+	var parts := str(act["id"]).split(":")
+	var who := int(parts[1]) if parts.size() > 1 and parts[1].is_valid_int() else -1
+	match parts[0]:
+		"praise":
+			main.select(who)
+			press("praise")
+		"use":
+			main.select(who)
+			use_care({"kind": "use", "item": parts[2], "person": who, "name": Notices._item_name(session.world, parts[2])})
+		"feed":
+			main.select_pet(who)
+			use_care({"kind": "use", "item": parts[2], "pet": who, "name": Notices._item_name(session.world, parts[2])})
+		"call":
+			main.select_pet(who)
+			call_carer(who)
+		"go_out":
+			main.select(who)
+			press("go_out")
+		"shop":
+			if n.get("kind", "") in ["wish", "ask", "need"]:
+				main.select(int(n["target"]))
+			elif n.get("kind", "") in ["pet_ill", "pet_hungry"]:
+				main.select_pet(int(n["target"]))
+			open_market(parts[1])
+		_:
+			return false
+	refresh()
+	return true
+
+
+## Opens the market on section `section` (its first tab when the pack has no such tab).
+func open_market(section: String) -> void:
+	main.panels.open("shop")
+	var tab := Panels.MARKET_TAB + section
+	if main.panels.has_button(tab):
+		main.panels.press(tab)
+
+
+## What a click on a notice points at (`Notices` `guide`): pulses a control of the bar, marks
+## things in the house, or opens the market.
+func guide(g: Dictionary) -> void:
+	var pulse := str(g.get("pulse", ""))
+	if pulse != "":
+		pulse_control(pulse)
+	if g.has("objects") or g.has("pets"):
+		main.house.show_guide(g.get("objects", []), g.get("pets", []))
+	if g.has("shop"):
+		open_market(str(g["shop"]))
+
+
+## Makes control `id` blink a few times to draw the eye: "praise", "go_out", or a tray
+## button "tray:<kind>:<item>" (the item may be left out). False when it is not on show.
+func pulse_control(id: String) -> bool:
+	var c: Control = null
+	if id == "praise":
+		c = _praise
+	elif id == "go_out":
+		c = _go_out
+	elif id.begins_with("tray:"):
+		var parts := id.split(":")
+		c = _tray.button_for(parts[1], parts[2] if parts.size() > 2 else "")
+	if c == null or not c.visible:
+		return false
+	if _pulse_tween != null and _pulse_tween.is_valid():
+		_pulse_tween.kill()
+		if is_instance_valid(_pulse_node):
+			_pulse_node.modulate = Color.WHITE
+	_pulsing = id
+	_pulse_node = c
+	if c.is_inside_tree():
+		_pulse_tween = c.create_tween().set_loops(PULSE_TIMES)
+		_pulse_tween.tween_property(c, "modulate", PULSE_COLOR, 0.3)
+		_pulse_tween.tween_property(c, "modulate", Color.WHITE, 0.3)
+		_pulse_tween.finished.connect(func(): _pulsing = "")
+	return true
+
+
+## The control blinking now ("" for none); for tests.
+func pulsing() -> String:
+	return _pulsing if _pulse_tween != null and _pulse_tween.is_valid() else ""
+
+
+## The answer button on the notice with this id; null when none shows. For tests.
+func act_chip(notice_id: String) -> Button:
+	return _find_by_meta(_notice_box, "act_for", notice_id) as Button
+
+
+## The how-to line under the notice with this id ("" when none shows); for tests.
+func notice_hint(notice_id: String) -> String:
+	var l := _find_by_meta(_notice_box, "hint_for", notice_id) as Label
+	return l.text if l != null else ""
+
+
+func _find_by_meta(n: Node, key: String, value: String) -> Node:
+	if n.has_meta(key) and str(n.get_meta(key)) == value:
+		return n
+	for c in n.get_children():
+		var f := _find_by_meta(c, key, value)
+		if f != null:
+			return f
+	return null
+
+
 ## The "请郎中" button on the notice for `uid`; null when none shows. For tests.
 func doctor_chip(uid: int) -> Button:
 	for c in _notice_box.get_children():
@@ -1150,7 +1319,7 @@ func _notice_card(n: Dictionary) -> Button:
 	var edge: Color = {"decide": ViewWidgets.ACCENT, "trouble": ViewWidgets.ACCENT,
 		"pickup": ViewWidgets.SKY, "soft": ViewWidgets.WOOD}[tone]
 	var b := Button.new()
-	b.custom_minimum_size = Vector2(NOTICE_WIDTH, 38)
+	b.custom_minimum_size = Vector2(NOTICE_WIDTH, NOTICE_HEIGHT if str(n.get("hint", "")) != "" else 38.0)
 	b.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
 	b.focus_mode = Control.FOCUS_NONE
 	for state in ["normal", "hover", "pressed"]:
@@ -1174,20 +1343,39 @@ func _notice_card(n: Dictionary) -> Button:
 	line.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	b.add_child(line)
 	line.add_child(HudIcon.make(str(n["icon"]), 22.0))
+	var words := VBoxContainer.new()
+	words.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	words.alignment = BoxContainer.ALIGNMENT_CENTER
+	words.add_theme_constant_override("separation", -2)
+	words.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	line.add_child(words)
 	var l := Label.new()
 	l.text = str(n["text"])
 	l.add_theme_font_size_override("font_size", 15)
 	l.add_theme_color_override("font_color", ViewWidgets.INK)
-	l.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	l.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	l.clip_text = true
 	l.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	l.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	line.add_child(l)
+	words.add_child(l)
+	if str(n.get("hint", "")) != "":
+		# How to answer it, small and quiet under the words.
+		var h := Label.new()
+		h.text = str(n["hint"])
+		h.add_theme_font_size_override("font_size", 12)
+		h.add_theme_color_override("font_color", ViewWidgets.MUTED)
+		h.clip_text = true
+		h.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+		h.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		h.set_meta("hint_for", str(n["id"]))
+		words.add_child(h)
 	if str(n["kind"]) == "ill":
 		var call := _doctor_chip(int(n["target"]))
 		if call != null:
 			line.add_child(call)
+	var act: Dictionary = n.get("act", {})
+	if not act.is_empty():
+		line.add_child(_act_chip(str(n["id"]), act))
 	var arrow := Label.new()
 	arrow.text = "›"
 	arrow.add_theme_font_size_override("font_size", 20)

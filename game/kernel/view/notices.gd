@@ -6,19 +6,28 @@ extends RefCounted
 ## - `tone` "decide" (an answer is wanted), "trouble" (someone is in a bad way), "soft" (a
 ##   wish, a thank-you, an animal gone off) or "pickup" (something on the ground)
 ## - `target` the uid the click acts on (proposal id, letter id, person, animal, collectible)
+## - `hint` one short line saying how to answer it ("" for none), `act` the button on the
+##   notice that answers it at once ({id, text}, {} for none) and `guide` what the click
+##   points at ({pulse, objects, pets, shop}), see `how`
 ## Most urgent first (ORDER). Reads the World only; what a click does is Main's business.
 ## Never reads a person's illness: the sick are the ones the view saw fall ill (`sick`).
 
 ## Kind -> rank (lower comes first) and tone.
 const ORDER := {"proposal": 0, "stray": 1, "buyer": 2, "reply": 3, "letter": 4, "letters": 5, "ill": 6,
-	"need": 7, "pet_ill": 8, "pet_hungry": 9, "pet_away": 10, "thanks": 11, "pickup": 12, "pickups": 13, "wish": 14}
+	"need": 7, "ask": 8, "pet_ill": 9, "pet_hungry": 10, "pet_away": 11, "thanks": 12, "pickup": 13, "pickups": 14,
+	"wish": 15}
 const TONE := {"proposal": "decide", "stray": "decide", "buyer": "decide", "reply": "decide", "letter": "decide",
-	"letters": "decide", "ill": "trouble", "need": "trouble", "pet_ill": "trouble", "pet_hungry": "trouble",
-	"pet_away": "soft", "thanks": "soft", "pickup": "pickup", "pickups": "pickup", "wish": "soft"}
+	"letters": "decide", "ill": "trouble", "need": "trouble", "ask": "soft", "pet_ill": "trouble",
+	"pet_hungry": "trouble", "pet_away": "soft", "thanks": "soft", "pickup": "pickup", "pickups": "pickup", "wish": "soft"}
 ## Icon per kind (HudIcon).
 const ICON := {"proposal": "proposal", "stray": "stray", "buyer": "stray", "reply": "reply", "letter": "letter",
-	"letters": "letters", "ill": "ill", "need": "need", "pet_ill": "ill", "pet_hungry": "need", "pet_away": "pet_away",
-	"thanks": "thanks", "pickup": "pickup", "pickups": "pickup", "wish": "wish"}
+	"letters": "letters", "ill": "ill", "need": "need", "ask": "wish", "pet_ill": "ill", "pet_hungry": "need",
+	"pet_away": "pet_away", "thanks": "thanks", "pickup": "pickup", "pickups": "pickup", "wish": "wish"}
+## The one line under a notice that says how to answer it, for the kinds whose answer is
+## the card the click opens (the rest work it out in `how`).
+const CARD_HOW := {"proposal": "how.proposal_card", "stray": "how.stray_card", "buyer": "how.buyer_card",
+	"letter": "how.letter_card", "reply": "how.reply_card", "letters": "how.letters_card",
+	"pet_away": "how.pet_away", "pickup": "how.pickup", "pickups": "how.pickup"}
 ## Letters and pickups listed one by one up to this many; more fold into one notice.
 const FOLD := 2
 ## Wish kinds the player can do something about.
@@ -56,31 +65,44 @@ static func collect(w: World, s: ViewStrings, sick: Dictionary) -> Array[Diction
 			if int(w.doctor.get("person", -1)) == p.uid:
 				ill_text = s.t("notice.doctor_wait").replace("{name}", s.person_name(p)) \
 					.replace("{visitor}", s.visitor_name(w, str(w.doctor.get("service", ""))))
-			_add(out, "ill", p.uid, ill_text)
+			_add(out, "ill", p.uid, ill_text, _how_ill(w, s, p))
 		var worst := _worst(s.status_chips(p, w))
-		if worst != "":
-			_add(out, "need", p.uid, s.t("notice.need").format({"name": s.person_name(p), "word": worst}))
+		if not worst.is_empty():
+			_add(out, "need", p.uid, s.t("notice.need").format({"name": s.person_name(p), "word": worst["word"]}),
+				how_need(w, s, p, str(worst["need"])))
+		var bubble := NeedBubble.of(w, p)
+		if str(bubble.get("kind", "")) == "ask" and bool(bubble["waiting"]):
+			var ask := AskSystem.current(w, p)
+			# A need's ask while that need already has its notice: the notice says it.
+			if not (str(ask.get("kind", "")) == "need" and not worst.is_empty()):
+				_add(out, "ask", p.uid, s.t("notice.ask").format({"name": s.person_name(p), "text": str(bubble["text"])}),
+					how_entry(w, s, p, ask))
 		if p.thanking(w.now) and ShareSystem.text(w, p) == "":  # telling what they earned: a toast says it
 			_add(out, "thanks", p.uid, s.t("notice.thanks").replace("{name}", s.person_name(p)))
 		var wish := WishSystem.current(w, p)
 		if not wish.is_empty() and ACTIONABLE_WISH.has(str(wish.get("kind", ""))) and not p.thanking(w.now):
-			_add(out, "wish", p.uid, s.t("notice.wish").format({"name": s.person_name(p), "text": str(wish.get("text", ""))}))
+			_add(out, "wish", p.uid, s.t("notice.wish").format({"name": s.person_name(p), "text": str(wish.get("text", ""))}),
+				how_entry(w, s, p, wish))
 	for pet in w.pets:
 		if pet.home() and pet.sick:
-			_add(out, "pet_ill", pet.uid, s.t("ev.pet_fell_ill").replace("{name}", pet.given))
+			_add(out, "pet_ill", pet.uid, s.t("ev.pet_fell_ill").replace("{name}", pet.given), _how_pet(w, s, pet, true))
 		elif pet.home() and not (PetSystem.wish_of(w, pet).get("below", {}) as Dictionary).is_empty():
 			# Calling for food: the player answers by dragging someone to it (or its trough).
 			_add(out, "pet_hungry", pet.uid, s.t("notice.pet_hungry").replace("{name}", pet.given)
-				.replace("{text}", s.pet_wish_text(pet, w)))
+				.replace("{text}", s.pet_wish_text(pet, w)), _how_pet(w, s, pet, false))
 		elif pet.alive and pet.state == "away":
 			_add(out, "pet_away", pet.uid, s.t("notice.pet_away").replace("{name}", pet.given))
 	_pickups(out, w, s)
+	for n in out:
+		if str(n["hint"]) == "" and CARD_HOW.has(n["kind"]):
+			n["hint"] = s.t(CARD_HOW[n["kind"]])
 	return _sorted(out)
 
 
-static func _add(out: Array[Dictionary], kind: String, target: int, text: String) -> void:
+static func _add(out: Array[Dictionary], kind: String, target: int, text: String, how := {}) -> void:
 	out.append({"id": "%s:%d" % [kind, target], "kind": kind, "text": text, "tone": TONE[kind],
-		"icon": ICON[kind], "target": target})
+		"icon": ICON[kind], "target": target, "hint": str(how.get("hint", "")),
+		"act": how.get("act", {}), "guide": how.get("guide", {})})
 
 
 static func _sorted(list: Array[Dictionary]) -> Array[Dictionary]:
@@ -94,12 +116,12 @@ static func _sorted(list: Array[Dictionary]) -> Array[Dictionary]:
 	return out
 
 
-## The loudest status word that is at a need's worst ("bad"); "" when none is.
-static func _worst(chips: Array[Dictionary]) -> String:
+## The loudest status chip that is at a need's worst ("bad"): {need, word}; {} when none is.
+static func _worst(chips: Array[Dictionary]) -> Dictionary:
 	for c in chips:
 		if c["level"] == "bad" and str(c["need"]) != "":
-			return str(c["word"])
-	return ""
+			return {"need": str(c["need"]), "word": str(c["word"])}
+	return {}
 
 
 ## Proposal id -> the writer of the letter that brought it.
@@ -183,3 +205,143 @@ static func _pickups(out: Array[Dictionary], w: World, s: ViewStrings) -> void:
 		var room = w.pack.rooms.get(str(c.get("room", "")), {})
 		var name := str(room.get("name", "")) if room is Dictionary else ""
 		_add(out, "pickup", int(c["uid"]), s.t("notice.pickup").replace("{room}", name))
+
+
+# --- How to answer ----------------------------------------------------------------------
+
+## How the player meets ask or wish `e` of `p` (`MeetWay`), told in the pack's words:
+## {hint, act, guide}. `act` is the notice's own button ({id, text}; ids "praise:<uid>",
+## "use:<uid>:<item>", "shop:<section>", "go_out:<uid>"), `guide` what a click on the notice
+## points at: `pulse` a control of the bar ("praise", "go_out", "tray:<kind>:<item>"),
+## `objects` / `pets` uids to mark in the house, `shop` a market section to open.
+static func how_entry(w: World, s: ViewStrings, p: Person, e: Dictionary) -> Dictionary:
+	var m := MeetWay.of(w, e, p)
+	var ta := _ta(s, p)
+	var shop := s.t("btn.shop")
+	match str(m["way"]):
+		"praise":
+			return _praise_how(s, p)
+		"item":
+			var have: Array = m["have"]
+			if not have.is_empty():
+				var item := str(have[0])
+				return {"hint": s.t("how.item_have").format({"item": _item_name(w, item), "ta": ta}),
+					"act": {"id": "use:%d:%s" % [p.uid, item], "text": s.t("how.act_use").replace("{ta}", ta)},
+					"guide": {"pulse": "tray:use:" + item}}
+			var items: Array = m["items"]
+			return {"hint": s.t("how.item_buy").format({"item": _item_name(w, str(items[0]) if not items.is_empty() else ""),
+					"ta": ta, "shop": shop}),
+				"act": {"id": "shop:" + str(m["section"]), "text": s.t("how.act_shop").replace("{shop}", shop)},
+				"guide": {"shop": str(m["section"])}}
+		"drag_to":
+			return _drag_how(w, s, p, m)
+		"drag":
+			return {"hint": s.t("how.hold").replace("{ta}", ta)}
+		"go_out":
+			return {"hint": s.t("how.go_out").format({"ta": ta, "btn": s.t("btn.go_out")}),
+				"act": {"id": "go_out:%d" % p.uid, "text": s.t("how.act_go_out").replace("{ta}", ta)},
+				"guide": {"pulse": "go_out"}}
+		"pet":
+			var pet := PetSystem.find(w, int(m["pets"][0]))
+			return {"hint": s.t("how.to_pet").format({"ta": ta, "pet": pet.given if pet != null else ""}),
+				"guide": {"pets": m["pets"]}}
+		"self":
+			return {"hint": s.t("how.self").replace("{ta}", ta)}
+		"buy":
+			var thing := _thing_name(w, str(m["what"]), str(m["id"]))
+			return {"hint": s.t("how.buy").format({"thing": thing, "shop": shop}),
+				"act": {"id": "shop:" + str(m["section"]), "text": s.t("how.act_look").replace("{shop}", shop)},
+				"guide": {"shop": str(m["section"])}}
+		"proposal":
+			return {"hint": s.t("how.proposal")}
+		"wait":
+			return {"hint": s.t("how.wait")}
+	return {}
+
+
+## How to help `p` out of need `need` at its worst: a praise for the praise need, else a drag
+## to what raises it (`MeetWay.for_need`).
+static func how_need(w: World, s: ViewStrings, p: Person, need: String) -> Dictionary:
+	if need != "" and need == str(w.pack.cfg("praise_need")):
+		return _praise_how(s, p)
+	return _drag_how(w, s, p, MeetWay.for_need(w, need, p))
+
+
+static func _praise_how(s: ViewStrings, p: Person) -> Dictionary:
+	var ta := _ta(s, p)
+	return {"hint": s.t("how.praise").format({"ta": ta, "btn": s.t("btn.praise")}),
+		"act": {"id": "praise:%d" % p.uid, "text": s.t("how.act_praise").replace("{ta}", ta)},
+		"guide": {"pulse": "praise"}}
+
+
+static func _drag_how(w: World, s: ViewStrings, p: Person, m: Dictionary) -> Dictionary:
+	var ta := _ta(s, p)
+	var types: Array = m.get("objects", [])
+	if types.is_empty():
+		return {"hint": s.t("how.self").replace("{ta}", ta)}
+	var names: Array[String] = []
+	for t in types:
+		names.append(str(w.pack.object_types.get(str(t), {}).get("name", t)))
+	var place := s.t("how.or").join(names)
+	var uids: Array = m.get("uids", [])
+	if not uids.is_empty():
+		return {"hint": s.t("how.drag_to").format({"ta": ta, "place": place}), "guide": {"objects": uids}}
+	var shop := s.t("btn.shop")
+	var section := MarketSystem.section_of(w.pack, "object", w.pack.object_types.get(str(types[0]), {}))
+	return {"hint": s.t("how.drag_none").format({"place": place, "shop": shop}),
+		"act": {"id": "shop:" + section, "text": s.t("how.act_look").replace("{shop}", shop)},
+		"guide": {"shop": section}}
+
+
+## A person seen to be ill: the doctor (the notice's own button) or the right medicine.
+static func _how_ill(w: World, s: ViewStrings, p: Person) -> Dictionary:
+	var sid := ServiceSystem.first_of(w.pack, "doctor")
+	var ta := _ta(s, p)
+	if sid == "":
+		return {"hint": s.t("how.ill_plain").replace("{ta}", ta), "guide": {"pulse": "tray:use:"}}
+	return {"hint": s.t("how.ill").format({"ta": ta, "visitor": s.visitor_name(w, sid)}),
+		"guide": {"pulse": "tray:doctor:"}}
+
+
+## An animal calling for food (`ill` false) or ill: what is in store for it, else someone
+## sent to it (food) or the market (medicine).
+static func _how_pet(w: World, s: ViewStrings, pet: Pet, ill: bool) -> Dictionary:
+	var opts := CareTray.options(w, null, pet, s)
+	var feed := CareTray.word(s, "care.feed")
+	var hint := s.t("how.pet_ill" if ill else "how.pet_hungry").format(
+		{"feed": feed, "call": CareTray.word(s, "care.call"), "shop": s.t("btn.shop")})
+	for e in opts:
+		var item := str(e.get("item", ""))
+		var cure := bool(w.pack.items.get(item, {}).get("pet", {}).get("cures", false))
+		if str(e["kind"]) == "use" and cure == ill:
+			return {"hint": hint, "act": {"id": "feed:%d:%s" % [pet.uid, item], "text": str(e["text"])},
+				"guide": {"pulse": "tray:use:" + item}}
+	if not ill:
+		for e in opts:
+			if str(e["kind"]) == "call":
+				return {"hint": hint, "act": {"id": "call:%d" % pet.uid, "text": str(e["text"])},
+					"guide": {"pulse": "tray:call:"}}
+		return {"hint": hint}
+	for id in w.pack.items:
+		var t = w.pack.items[id].get("pet", {})
+		if t is Dictionary and bool(t.get("cures", false)):
+			var kinds: Array = t.get("kinds", [])
+			if kinds.is_empty() or kinds.has(pet.kind):
+				var section := MarketSystem.section_of(w.pack, "item", w.pack.items[id])
+				return {"hint": hint, "act": {"id": "shop:" + section,
+					"text": CareTray.word(s, "care.shop").replace("{shop}", s.t("btn.shop"))}, "guide": {"shop": section}}
+	return {"hint": hint}
+
+
+static func _ta(s: ViewStrings, p: Person) -> String:
+	return s.t("how.ta_f") if p != null and p.gender == "female" else s.t("how.ta_m")
+
+
+static func _item_name(w: World, id: String) -> String:
+	return CareTray.short_name(str(w.pack.items.get(id, {}).get("name", id)))
+
+
+static func _thing_name(w: World, what: String, id: String) -> String:
+	var table: Dictionary = {"object": w.pack.object_types, "room": w.pack.rooms, "pet": w.pack.pets}.get(what, {})
+	var e = table.get(id, {})
+	return str(e.get("name", id)) if e is Dictionary else id

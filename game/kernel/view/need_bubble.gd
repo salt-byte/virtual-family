@@ -25,7 +25,8 @@ const WISH_FIRST_S := 60
 const PULSE_ON := 30
 const PULSE_EVERY := 90
 ## Every shape it draws itself.
-const SHAPES := ["bowl", "quilt", "washtub", "heart", "star", "ball", "candy", "paw", "bench", "sun", "wish"]
+const SHAPES := ["bowl", "quilt", "washtub", "heart", "star", "ball", "candy", "paw", "bench", "sun", "wish",
+	"pill", "book", "cloth", "box"]
 
 
 ## The bubble over `p` now: {} for none, else {text, icon, kind: "ask" | "wish", waiting}.
@@ -40,6 +41,16 @@ static func of(world: World, p: Person) -> Dictionary:
 	if not w.is_empty() and wish_shown(world, p, w):
 		return {"text": str(w.get("text", "")), "icon": str(w.get("icon", "")), "kind": "wish", "waiting": false}
 	return {}
+
+
+## How to answer the bubble over `p` now, in one short line (the same words as its notice,
+## `Notices.how_entry`); "" while no bubble shows.
+static func hint(world: World, strings: ViewStrings, p: Person) -> String:
+	var b := of(world, p)
+	if b.is_empty() or strings == null:
+		return ""
+	var e := AskSystem.current(world, p) if str(b["kind"]) == "ask" else WishSystem.current(world, p)
+	return str(Notices.how_entry(world, strings, p, e).get("hint", ""))
 
 
 ## Whether `p`'s wish `w` shows over their head now (see the class notes).
@@ -181,6 +192,24 @@ static func _shape_icon(ci: CanvasItem, name: String, fade: float) -> void:
 				ci.draw_line(Vector2(12, 12) + Vector2(cos(ang), sin(ang)) * 7.5, Vector2(12, 12) + Vector2(cos(ang), sin(ang)) * 10.5, gold, 2.0)
 			ci.draw_circle(Vector2(12, 12), 5.5, gold)
 			ci.draw_arc(Vector2(12, 12), 5.5, 0.0, TAU, 16, ink, LINE, true)
+		"pill":
+			# A paper packet of medicine, tied with a red string.
+			_poly(ci, [Vector2(4, 7), Vector2(20, 7), Vector2(18, 21), Vector2(6, 21)], Color("#F3E3BE", fade), ink)
+			_poly(ci, [Vector2(4, 7), Vector2(12, 3), Vector2(20, 7)], Color("#E6D2A2", fade), ink)
+			ci.draw_line(Vector2(5, 13), Vector2(19, 13), Color("#C8573E", fade), 2.0)
+		"book":
+			_poly(ci, [Vector2(4, 4), Vector2(19, 4), Vector2(19, 21), Vector2(4, 21)], Color("#4F7FA8", fade), ink)
+			_poly(ci, [Vector2(13, 6), Vector2(17, 6), Vector2(17, 15), Vector2(13, 15)], Color("#FFF4DF", fade), ink)
+			for y in [8.0, 12.0, 16.0]:
+				ci.draw_line(Vector2(4, y), Vector2(6.5, y), ink, 1.2)
+		"cloth":
+			_poly(ci, [Vector2(8, 3), Vector2(16, 3), Vector2(22, 8), Vector2(19, 11), Vector2(17, 9), Vector2(17, 21),
+				Vector2(7, 21), Vector2(7, 9), Vector2(5, 11), Vector2(2, 8)], Color("#6F9BC9", fade), ink)
+			ci.draw_line(Vector2(12, 4), Vector2(12, 21), Color(ink, 0.6), 1.2)
+		"box":
+			_poly(ci, [Vector2(3, 9), Vector2(21, 9), Vector2(21, 21), Vector2(3, 21)], Color("#C99A5B", fade), ink)
+			_poly(ci, [Vector2(2, 5), Vector2(22, 5), Vector2(22, 9), Vector2(2, 9)], Color("#B5763E", fade), ink)
+			ci.draw_line(Vector2(10, 13), Vector2(14, 13), ink, 1.6)
 		_:
 			for c in [[Vector2(9, 11), 5.0], [Vector2(15, 10), 6.0], [Vector2(6, 20), 1.8]]:
 				ci.draw_circle(c[0], c[1], Color("#FFF4DF", fade))

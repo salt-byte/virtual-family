@@ -7,3 +7,5 @@ build/
 .env
 assets/gen/inbox/
 assets/gen/review/
+__pycache__/
+.claude/

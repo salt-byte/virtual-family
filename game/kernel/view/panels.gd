@@ -14,6 +14,10 @@ const UNKNOWN := "？"
 const BOX_HEIGHT := 470.0
 ## Market tab ids are this prefix plus a market section id (see `_market_tabs`).
 const MARKET_TAB := "market:"
+## Goods panel tab ids: this prefix plus a group of `Goods` ("all" for everything).
+const GOODS_TAB := "goods:"
+## Item cards per row in the goods panel.
+const GOODS_COLUMNS := 4
 
 var main: Main
 var session: GameSession
@@ -30,6 +34,8 @@ var _changing := -1
 ## In the keepsake box: the thing whose card is open ("frag:<story>:<fragment>" or
 ## "curio:<kind>"); "" shows the cabinet.
 var _piece := ""
+## In the goods panel: the item to bring forward (its card is ringed), "" for none.
+var _goods_focus := ""
 
 
 func setup(m: Main) -> void:
@@ -74,7 +80,7 @@ func blocks_input() -> bool:
 
 ## Opens a panel; ignored for an unknown name, while an overlay shows or outside a running game.
 func open(what: String) -> void:
-	if not what in ["shop", "ledger", "family", "stories", "go_out"]:
+	if not what in ["shop", "ledger", "family", "stories", "go_out", "goods"]:
 		return
 	var w := session.world
 	if w == null or w.phase != "living" or main.overlays.current() != "":
@@ -86,7 +92,20 @@ func open(what: String) -> void:
 	_kind = what
 	_changing = -1
 	_piece = ""
+	_goods_focus = ""
 	_tab = _tabs()[0] if not _tabs().is_empty() else ""
+	_signature = ""
+	refresh()
+
+
+## Opens the goods panel ("家当"); with `item`, on that item's group with its card ringed.
+func open_goods(item := "") -> void:
+	open("goods")
+	if _kind != "goods" or item == "":
+		return
+	_goods_focus = item
+	var tab := GOODS_TAB + Goods.group_of(session.world.pack, session.strings, item)
+	_tab = tab if tab in _tabs() else _tab
 	_signature = ""
 	refresh()
 
@@ -112,6 +131,11 @@ func _tabs() -> Array:
 			return ids
 		"ledger":
 			return ["tab.goals", "tab.collection"]
+		"goods":
+			var ids := [GOODS_TAB + "all"]
+			for g in Goods.groups(_goods_cards(session.world)):
+				ids.append(GOODS_TAB + g)
+			return ids
 	return []
 
 
@@ -170,7 +194,19 @@ func press(id: String) -> void:
 		else:
 			refresh()
 	elif id.begins_with("buy:"):
-		session.command({"type": "buy", "item": id.substr(4)})
+		var item := id.substr(4)
+		var r := session.command({"type": "buy", "item": item})
+		if r.get("ok", false):
+			_bought(item)
+		refresh()
+	elif id.begins_with("give:"):
+		var item := id.substr(5)
+		var r := session.command({"type": "use_item", "item": item, "pet": main.selected_pet} if main.selected_pet >= 0
+			else {"type": "use_item", "item": item, "person": main.selected})
+		if r.get("ok", false):
+			var view = main.house.pets.get(main.selected_pet) if main.selected_pet >= 0 else main.house.people.get(main.selected)
+			if view != null:
+				view.float_text_up(CareTray.short_name(str(session.world.pack.items[item]["name"])))
 		refresh()
 	elif id.begins_with("use:"):
 		if main.selected_pet >= 0:
@@ -278,6 +314,15 @@ func _data_signature(w: World) -> String:
 				market += "|%d" % (w.now / 60)  # the countdowns on the stall and the services
 			return "%d|%d|%s|%s|%s|%d|%s|%d|%s" % [w.money, total, str(w.inventory), s.person_name(sel) if sel != null and sel.alive else "", wishes,
 				main.selected_pet, pets, w.objects.size(), market + "|" + w.festival]
+		"goods":
+			var sel := "%d|%d|%s" % [main.selected, main.selected_pet, str(main.hud.seen_sick(main.selected))]
+			var wishes := ""
+			for p in w.people:
+				if p.alive:
+					wishes += str(p.wish) + str(p.ask) + str(OutingSystem.away(w, p))
+			for pet in w.pets:
+				wishes += "%d%s%s" % [pet.uid, pet.state, str(pet.sick)]
+			return "%s|%s|%s|%s|%s|%s" % [str(w.inventory), str(w.stock), sel, wishes, _goods_focus, str(main.hud.new_goods)]
 		"go_out":
 			var who := w.person(main.selected)
 			if who == null:
@@ -366,13 +411,15 @@ func _rebuild() -> void:
 	if _kind == "shop" and _tab.begins_with(MARKET_TAB):
 		_fill_market(list, w, _tab.substr(MARKET_TAB.length()))
 		return
-	match _tab if not _kind in ["family", "go_out"] else _kind:
+	match _tab if not _kind in ["family", "go_out", "goods"] else _kind:
 		"go_out":
 			_fill_go_out(list, w)
 		"tab.inventory":
 			_fill_inventory(list, w)
 		"tab.goals":
 			_fill_goals(list, w)
+		"goods":
+			_fill_goods(list, w)
 		"tab.collection":
 			_fill_collection(list, w)
 		"family":
@@ -419,6 +466,9 @@ func _market_tab_for(alias: String) -> String:
 
 
 func _tab_name(id: String) -> String:
+	if id.begins_with(GOODS_TAB):
+		var g := id.substr(GOODS_TAB.length())
+		return Goods.word(session.strings, "goods.all" if g == "all" else "goods.group." + g)
 	if id.begins_with(MARKET_TAB):
 		for t in _market_tabs(session.world):
 			if t["id"] == id:
@@ -772,6 +822,16 @@ static func piece_picture(tex: Texture2D, size: Vector2) -> Control:
 
 
 ## After a sale (its toast comes with the event): the panel shows what is left.
+## After buying `item`: a toast that it went into the goods, which opens them on it (larder
+## stock is not given by hand: no toast).
+func _bought(item: String) -> void:
+	var it: Dictionary = session.world.pack.items.get(item, {})
+	if not (it.get("stock", {}) as Dictionary).is_empty():
+		return
+	var text := Goods.word(session.strings, "goods.bought").replace("{item}", CareTray.short_name(str(it.get("name", item))))
+	main.hud.toast(text, func(): open_goods(item))
+
+
 func _sold(_r: Dictionary) -> void:
 	refresh()
 
@@ -978,3 +1038,161 @@ func _fill_go_out(list: VBoxContainer, w: World) -> void:
 		if str(o["why"]) != "":
 			go.disabled = true
 			go.text = s.error(str(o["why"]))
+
+
+# --- Goods ("家当") ------------------------------------------------------------------------
+
+## The cards of everything in store, for the one in the bar (`Goods.cards`).
+func _goods_cards(w: World) -> Array[Dictionary]:
+	var p := w.person(main.selected) if main.selected_pet < 0 else null
+	var pet := PetSystem.find(w, main.selected_pet) if main.selected_pet >= 0 else null
+	return Goods.cards(w, session.strings, p, pet, p != null and main.hud.seen_sick(p.uid))
+
+
+## The goods panel: a grid of cards for the open group, each with its picture (the pack's,
+## else a drawn icon for its group), name and count, a "新" badge on what was just bought,
+## "对症" on the medicine that fits, and a button that gives it to the one in the bar
+## (greyed, with the reason, when it cannot).
+func _fill_goods(list: VBoxContainer, w: World) -> void:
+	var s := session.strings
+	var cards := _goods_cards(w)
+	if cards.is_empty():
+		list.add_child(ViewWidgets.wrapped(Goods.word(s, "goods.none")))
+		return
+	var group := _tab.substr(GOODS_TAB.length()) if _tab.begins_with(GOODS_TAB) else "all"
+	var grid := GridContainer.new()
+	grid.columns = GOODS_COLUMNS
+	grid.add_theme_constant_override("h_separation", 8)
+	grid.add_theme_constant_override("v_separation", 8)
+	list.add_child(grid)
+	var who := ""
+	if main.selected_pet >= 0:
+		var pet := PetSystem.find(w, main.selected_pet)
+		who = pet.given if pet != null else ""
+	elif w.person(main.selected) != null:
+		who = s.person_name(w.person(main.selected))
+	var skin := main.house.skin if main.house != null and "skin" in main.house else null
+	var news: Dictionary = main.hud.new_goods
+	for c in cards:
+		if group != "all" and str(c["group"]) != group:
+			continue
+		grid.add_child(_goods_card(c, who, skin, news.has(str(c["item"]))))
+	# Seen now: the badge goes the next time the panel is drawn.
+	for c in cards:
+		if group == "all" or str(c["group"]) == group:
+			news.erase(str(c["item"]))
+
+
+func _goods_card(c: Dictionary, who: String, skin: PackSkin, fresh: bool) -> Control:
+	var s := session.strings
+	var item := str(c["item"])
+	var card := PanelContainer.new()
+	card.custom_minimum_size = Vector2((PANEL_WIDTH - 2.0 * MARGIN - 8.0 * (GOODS_COLUMNS - 1) - 14.0) / GOODS_COLUMNS, 0)
+	var focus := item == _goods_focus
+	var st := ViewWidgets.chip_style(ViewWidgets.CREAM.lightened(0.3), ViewWidgets.ACCENT if focus or c.get("wanted", false) else ViewWidgets.WOOD)
+	st.set_corner_radius_all(10)
+	st.set_border_width_all(3 if focus else 1)
+	st.set_content_margin_all(6)
+	card.add_theme_stylebox_override("panel", st)
+	card.set_meta("goods_item", item)
+	var col := VBoxContainer.new()
+	col.add_theme_constant_override("separation", 2)
+	card.add_child(col)
+	var top := HBoxContainer.new()
+	col.add_child(top)
+	var pic: Control
+	var tex := skin.item_sprite(item) if skin != null and skin.enabled else null
+	if tex != null:
+		var tr := TextureRect.new()
+		tr.texture = tex
+		tr.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		tr.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		pic = tr
+	else:
+		var ic := GoodsIcon.new()
+		ic.shape = Goods.icon_of(str(c["group"]))
+		pic = ic
+	pic.custom_minimum_size = Vector2(44, 44)
+	pic.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	top.add_child(pic)
+	if fresh:
+		var badge := ViewWidgets.label(Goods.word(s, "goods.new"))
+		badge.add_theme_font_size_override("font_size", 12)
+		badge.add_theme_color_override("font_color", ViewWidgets.CREAM)
+		var bg := ViewWidgets.chip_style(ViewWidgets.ACCENT, ViewWidgets.ACCENT)
+		bg.set_corner_radius_all(8)
+		badge.add_theme_stylebox_override("normal", bg)
+		badge.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
+		badge.set_meta("goods_new", item)
+		top.add_child(badge)
+	var name := ViewWidgets.label("%s ×%d" % [c["name"], int(c["count"])])
+	name.add_theme_font_size_override("font_size", 14)
+	name.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	name.clip_text = true
+	name.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+	col.add_child(name)
+	if c.has("fits"):
+		var mark := ViewWidgets.label(CareTray.word(s, "care.fits" if bool(c["fits"]) else "care.unfit"))
+		mark.add_theme_font_size_override("font_size", 12)
+		mark.add_theme_color_override("font_color", ViewWidgets.ACCENT if bool(c["fits"]) else ViewWidgets.MUTED)
+		mark.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		col.add_child(mark)
+	if bool(c["usable"]):
+		var b := _button("give:" + item, Goods.word(s, "goods.use").replace("{name}", who), col)
+		ViewWidgets.small_button(b)
+		b.clip_text = true
+		b.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+		b.tooltip_text = b.text
+	else:
+		var why := ViewWidgets.label(str(c["why"]))
+		why.add_theme_font_size_override("font_size", 12)
+		why.add_theme_color_override("font_color", ViewWidgets.MUTED)
+		why.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		why.autowrap_mode = TextServer.AUTOWRAP_ARBITRARY
+		col.add_child(why)
+		card.modulate = Color(1, 1, 1, 0.7)
+	return card
+
+
+## The item cards on show in the goods panel: [{item, text (all its words), usable, new}].
+## For tests.
+func goods_shown() -> Array[Dictionary]:
+	var out: Array[Dictionary] = []
+	if _kind != "goods":
+		return out
+	_goods_walk(_box, out)
+	return out
+
+
+func _goods_walk(n: Node, out: Array[Dictionary]) -> void:
+	for c in n.get_children():
+		if c.has_meta("goods_item"):
+			var parts: Array[String] = []
+			_collect(c, parts)
+			var item := str(c.get_meta("goods_item"))
+			out.append({"item": item, "text": " ".join(parts), "usable": _buttons.has("give:" + item),
+				"new": _has_meta_below(c, "goods_new"), "focus": item == _goods_focus})
+		else:
+			_goods_walk(c, out)
+
+
+func _has_meta_below(n: Node, key: String) -> bool:
+	for c in n.get_children():
+		if c.has_meta(key) or _has_meta_below(c, key):
+			return true
+	return false
+
+
+## The open tab; for tests.
+func tab() -> String:
+	return _tab
+
+
+## A drawn icon for an item without a picture (`NeedBubble.draw_icon`).
+class GoodsIcon:
+	extends Control
+	var shape := "box"
+
+	func _draw() -> void:
+		var side := minf(size.x, size.y)
+		NeedBubble.draw_icon(self, Rect2(Vector2((size.x - side) * 0.5, (size.y - side) * 0.5), Vector2(side, side)), shape, null)

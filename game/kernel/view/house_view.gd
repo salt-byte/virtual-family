@@ -61,6 +61,16 @@ var drag: DragController
 var arrange: ArrangeMode
 ## The last `layout.pick` result under a dragged person; {} when nothing is dragged.
 var hover: Dictionary = {}
+## What a notice points at (`show_guide`): object and animal uids marked with a pulsing
+## outline and a small arrow above, for `guide_left` more seconds.
+var guide_objects: Array = []
+## The person under the pointer while nothing is carried (-1: none): their bubble's hint
+## shows under them (`hover_hint`).
+var pointed_person := -1
+var guide_pets: Array = []
+var guide_left := 0.0
+var _guide_t := 0.0
+const GUIDE_SECONDS := 8.0
 ## Whether the left button is physically down; replaceable so tests can drive it.
 var button_down: Callable = func() -> bool: return Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT)
 
@@ -1191,6 +1201,36 @@ func tick(delta: float) -> void:
 	_follow_step(delta)
 	if _labels != null:
 		_labels.queue_redraw()
+	if guide_left > 0.0:
+		guide_left -= delta
+		_guide_t += delta
+		if guide_left <= 0.0:
+			clear_guide()
+		else:
+			_redraw_marks()
+
+
+## Marks objects `objects` and animals `pets` (uids) as where to take someone, for
+## GUIDE_SECONDS; the view pans to the first object when it is off the house area.
+func show_guide(objects: Array, pet_uids := []) -> void:
+	guide_objects = objects.duplicate()
+	guide_pets = pet_uids.duplicate()
+	guide_left = GUIDE_SECONDS if not (guide_objects.is_empty() and guide_pets.is_empty()) else 0.0
+	_guide_t = 0.0
+	_redraw_marks()
+
+
+func clear_guide() -> void:
+	guide_objects = []
+	guide_pets = []
+	guide_left = 0.0
+	_redraw_marks()
+
+
+func _redraw_marks() -> void:
+	queue_redraw()
+	if _overlay != null:
+		_overlay.queue_redraw()
 
 
 ## Starts following `uid` (again: re-centres on them).
@@ -1632,6 +1672,10 @@ func point_at(screen: Vector2) -> void:
 		pointed_room = room
 		if _labels != null:
 			_labels.queue_redraw()
+	var who := person_at(world_pos(screen)) if session != null and session.world != null else -1
+	if who != pointed_person:
+		pointed_person = who
+		_redraw_marks()
 
 
 ## The hover words for `room`: "<name> · <price>" unbuilt, the name for a place out on the map,
@@ -1858,6 +1902,11 @@ func _draw_hover(w: World, ci: CanvasItem) -> void:
 			for m in list:
 				if int(m.uid) == int(hover.uid):
 					rect = Rect2(layout.cell_center(str(m.room), int(m.x), int(m.y)) - HouseLayout.CELL * 0.5, HouseLayout.CELL)
+	_draw_guide(w, ci)
+	if hover.is_empty() and people.has(pointed_person):
+		var ppv: PersonView = people[pointed_person]
+		var pbody := ppv.body_size()
+		_draw_hover_hint(w, ci, Rect2(proj * ppv.position - Vector2(pbody.x * 0.5, pbody.y), pbody), pointed_person)
 	if upright.size != Vector2.ZERO:
 		ci.draw_rect(upright.grow(2), Color(1.0, 0.85, 0.2), false, 3.0)
 	elif rect.size != Vector2.ZERO and iso:
@@ -1866,6 +1915,76 @@ func _draw_hover(w: World, ci: CanvasItem) -> void:
 		ci.draw_polyline(d, Color(1.0, 0.85, 0.2), 3.0)
 	elif rect.size != Vector2.ZERO:
 		ci.draw_rect(rect.grow(2), Color(1.0, 0.85, 0.2), false, 3.0)
+
+
+## The marks of `show_guide`: a pulsing tomato outline round each object (its footprint) or
+## animal, and a small arrow bobbing above it.
+func _draw_guide(w: World, ci: CanvasItem) -> void:
+	if guide_left <= 0.0:
+		return
+	var pulse := 0.55 + 0.45 * sin(_guide_t * TAU / 0.9)
+	var col := Color(ViewWidgets.ACCENT, pulse)
+	for uid in guide_objects:
+		var o := w.object(int(uid))
+		if o.is_empty():
+			continue
+		var rect := layout.object_rect(o, w.pack)
+		var top := Vector2(rect.get_center().x, rect.position.y)
+		if iso:
+			var d := IsoMath.diamond(rect.grow(3))
+			d.append(d[0])
+			ci.draw_polyline(d, col, 4.0, true)
+			top = Vector2((d[1].x + d[3].x) * 0.5, d[0].y)
+			var piece: PropPiece = props.get(int(uid))
+			if piece != null and piece.tex != null:
+				var r := Rect2(proj * piece.position + piece.rect.position, piece.rect.size)
+				top = Vector2(r.get_center().x, r.position.y)
+		else:
+			ci.draw_rect(rect.grow(3), col, false, 4.0)
+		_guide_arrow(ci, top)
+	for uid in guide_pets:
+		if pets.has(int(uid)):
+			var pv: PetView = pets[int(uid)]
+			var pr := pv.rect()
+			var r2 := Rect2(proj * pv.position + (pr.position - pv.position), pr.size)
+			ci.draw_rect(r2.grow(3), col, false, 3.0)
+			_guide_arrow(ci, Vector2(r2.get_center().x, r2.position.y))
+
+
+## A small arrow pointing down at `tip` (just above it), bobbing.
+func _guide_arrow(ci: CanvasItem, tip: Vector2) -> void:
+	var y := tip.y - 6.0 - 4.0 * (0.5 + 0.5 * sin(_guide_t * TAU / 0.9))
+	var pts := PackedVector2Array([Vector2(tip.x - 9, y - 14), Vector2(tip.x + 9, y - 14), Vector2(tip.x, y)])
+	ci.draw_colored_polygon(pts, ViewWidgets.ACCENT)
+	pts.append(pts[0])
+	ci.draw_polyline(pts, ViewWidgets.INK, 2.0, true)
+
+
+## Under the pointed-at person with a thought bubble: how to answer it (`NeedBubble.hint`).
+func _draw_hover_hint(w: World, ci: CanvasItem, body: Rect2, uid: int) -> void:
+	var text := hover_hint(uid)
+	if text == "":
+		return
+	var font := ThemeDB.fallback_font
+	var fs := 13
+	var tw := font.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x
+	var plate := Rect2(Vector2(body.get_center().x - tw * 0.5 - 8.0, body.end.y + 6.0), Vector2(tw + 16.0, 22.0))
+	var box := StyleBoxFlat.new()
+	box.bg_color = Color(NeedBubble.CREAM, 0.96)
+	box.border_color = Color(ViewWidgets.ACCENT, 0.9)
+	box.set_border_width_all(2)
+	box.set_corner_radius_all(8)
+	ci.draw_style_box(box, plate)
+	ci.draw_string(font, Vector2(plate.position.x + 8.0, plate.position.y + 16.0), text, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, ViewWidgets.INK)
+
+
+## The words shown under person `uid` while hovered ("" for none).
+func hover_hint(uid: int) -> String:
+	var w := session.world if session != null else null
+	if w == null:
+		return ""
+	var p := w.person(uid)
+	return NeedBubble.hint(w, session.strings, p) if p != null else ""
 
 
 func _dashed(rect: Rect2, color: Color) -> void:

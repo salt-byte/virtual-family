@@ -69,5 +69,15 @@
 	"family.pet_gone.sold": "{name} · 养肥卖了",
 	"shop.why.no_pen": "先盖{thing}",
 	"shop.why.pen_full": "圈里挤不下了",
-	"error.not_for_sale": "还没养到出栏的分量"
+	"error.not_for_sale": "还没养到出栏的分量",
+	"how.proposal": "等媒人上门说亲",
+	"how.stray_card": "点开，收留或撵走",
+	"how.buyer_card": "点开，卖给他或留着再喂",
+	"how.pet_away": "点开家谱看看它",
+	"goods.cat.书铺": "book",
+	"goods.cat.布庄": "clothes",
+	"goods.cat.杂货": "toys",
+	"goods.item.realgar_wine": "food",
+	"goods.item.rice_wine": "food",
+	"goods.none": "家里还什么都没有，去集市看看。"
 }

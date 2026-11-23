@@ -5,7 +5,7 @@ extends RefCounted
 ## must never read the illness field of a person.
 
 const DEFAULTS := {
-	"btn.praise": "赏", "btn.scold": "罚", "btn.family": "家人", "btn.shop": "商店", "btn.ledger": "目标",
+	"btn.praise": "赏", "btn.scold": "罚", "btn.family": "家人", "btn.shop": "商店", "btn.goods": "家当", "btn.ledger": "目标",
 	"btn.arrange": "摆设", "btn.adopt": "领养", "btn.reroll": "换一批", "btn.accept": "应下",
 	"btn.decline": "回绝", "btn.close": "关闭", "btn.buy": "买", "btn.use_on": "给{name}用",
 	"btn.sell": "卖掉", "btn.build": "加盖", "btn.new_game": "新开一局", "btn.settings": "设置",
@@ -155,6 +155,20 @@ const DEFAULTS := {
 	"market.plain.items": "货品", "market.plain.objects": "家具", "market.plain.rooms": "加盖",
 	"market.plain.pets": "动物", "market.plain.services": "服务", "btn.dismiss": "都不要",
 	"adopt.cost": "领一位进门要花 {n}",
+	"notice.ask": "{name}：{text}",
+	"how.ta_m": "他", "how.ta_f": "她", "how.or": "或",
+	"how.praise": "按底栏的“{btn}”，夸{ta}一句", "how.act_praise": "夸{ta}一句",
+	"how.item_have": "家里存着{item}，给{ta}用上", "how.act_use": "给{ta}用",
+	"how.item_buy": "去{shop}买{item}，回来给{ta}", "how.act_shop": "去{shop}买", "how.act_look": "去{shop}看看",
+	"how.drag_to": "把{ta}拖到{place}上", "how.drag_none": "家里还没有{place}，去{shop}置办",
+	"how.hold": "把{ta}拎起来，换个地方放下", "how.go_out": "按底栏的“{btn}”，送{ta}去",
+	"how.act_go_out": "送{ta}出门", "how.to_pet": "把{ta}拖到{pet}身边", "how.self": "{ta}得了空会自己去",
+	"how.buy": "去{shop}置办{thing}", "how.proposal": "等有人上门提亲", "how.wait": "这事急不来，等着吧",
+	"how.ill": "请{visitor}来瞧，或给{ta}吃对症的药", "how.ill_plain": "给{ta}吃对症的药",
+	"how.pet_hungry": "点“{feed}”，或“{call}”", "how.pet_ill": "给它用药，药在{shop}买",
+	"how.proposal_card": "点开，应下或回绝", "how.stray_card": "点开，留下或不留", "how.buyer_card": "点开，卖或不卖",
+	"how.letter_card": "点开拆信", "how.reply_card": "点开回信", "how.letters_card": "点开信匣",
+	"how.pet_away": "点开家人，看它去了哪", "how.pickup": "把人拖过去捡起来",
 }
 
 ## How loud a status word is in the bar: "bad" (the worst label of a need, a heavy mood),

@@ -9,7 +9,7 @@ const FILL := ViewWidgets.BUTTON
 const GOLD := Color("#E8B64A")
 const LINE := 2.0
 ## Every kind it can draw.
-const KINDS := ["family", "shop", "ledger", "stories", "arrange", "settings", "letters", "coin",
+const KINDS := ["family", "shop", "goods", "ledger", "stories", "arrange", "settings", "letters", "coin",
 	"grain", "sky", "proposal", "stray", "reply", "thanks", "need", "ill", "wish", "pet_away",
 	"pickup", "letter"]
 
@@ -42,6 +42,11 @@ func _draw() -> void:
 			_shape([Vector2(3, 10), Vector2(21, 10), Vector2(18.5, 21), Vector2(5.5, 21)], Color("#D99A4E"))
 			draw_arc(Vector2(12, 10), 6.0, PI, TAU, 12, INK, LINE)
 			draw_line(Vector2(5, 14.5), Vector2(19, 14.5), INK, 1.5)
+		"goods":
+			# A cloth bundle tied at the top.
+			_shape([Vector2(4, 11), Vector2(20, 11), Vector2(21, 19), Vector2(17, 22), Vector2(7, 22), Vector2(3, 19)], Color("#6F9BC9"))
+			_shape([Vector2(8, 11), Vector2(10, 5), Vector2(14, 5), Vector2(16, 11)], Color("#8FB4DA"))
+			_shape([Vector2(9.5, 9), Vector2(14.5, 9), Vector2(14.5, 12), Vector2(9.5, 12)], ViewWidgets.ACCENT)
 		"ledger":
 			_shape([Vector2(4, 3), Vector2(19, 3), Vector2(19, 21), Vector2(4, 21)], Color("#C8573E"))
 			_shape([Vector2(7, 3), Vector2(20, 3), Vector2(20, 19), Vector2(7, 19)], ViewWidgets.CREAM)

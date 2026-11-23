@@ -15,6 +15,8 @@ extends PanelContainer
 ##   while they are seen to be ill also "叫<name>来瞧" (a family member in the livelihood
 ##   that treats, as if dropped on them), the stock that treating uses, and "请<visitor>"
 ##   (the market's doctor service, with its price now), or how far the visitor has got.
+## Only the best few items show for a person (`QUICK_MAX`), and "全部家当…" opens the goods
+## panel with everything in store (`Goods`).
 ## An item button can also be dragged onto a person or an animal in the house.
 ## The choice is made here (`options`, plain data, also for tests); the bar carries it out.
 
@@ -25,7 +27,10 @@ signal dropped(entry: Dictionary, screen: Vector2)
 const WORDS := {"care.feed": "喂它", "care.use_pet": "给它用", "care.use_m": "给他用", "care.use_f": "给她用",
 	"care.call": "叫人来喂", "care.shop": "去{shop}买", "care.stock": "存 {n}", "care.nobody": "一时没人腾得出手",
 	"care.head": "家里有的", "care.doctor": "请{visitor} · {money}", "care.doctor_wait": "{visitor}在路上了",
-	"care.doctor_here": "{visitor}正在瞧", "care.treat": "叫{name}来瞧", "care.fits": "对症", "care.unfit": "不对症"}
+	"care.doctor_here": "{visitor}正在瞧", "care.treat": "叫{name}来瞧", "care.fits": "对症", "care.unfit": "不对症",
+	"care.all": "全部家当…"}
+## Items offered at once for a person (the best few, see `options`).
+const QUICK_MAX := 3
 ## Pixels the pointer must move with an item held before it counts as a drag.
 const DRAG_FROM := 8.0
 
@@ -58,7 +63,7 @@ static func short_name(name: String) -> String:
 ## `fits`) and the stock treating uses; put first, "doctor" (`service`; "doctor_wait"
 ## while one is on the way: shown, not pressed) and "treat" (a healer of the family:
 ## `healer`). Each is
-## {kind: "use" | "stock" | "call" | "shop" | "treat" | "doctor" | "doctor_wait", text, name,
+## {kind: "use" | "stock" | "call" | "shop" | "treat" | "doctor" | "doctor_wait" | "all", text, name,
 ## count, item, stock, tab, person, pet, fits, healer, service}.
 static func options(world: World, person: Person, pet: Pet, strings: ViewStrings, ill := false) -> Array[Dictionary]:
 	var out: Array[Dictionary] = []
@@ -119,6 +124,7 @@ static func options(world: World, person: Person, pet: Pet, strings: ViewStrings
 			var market := strings.t("btn.shop") if strings != null else ""
 			out.append({"kind": "shop", "text": word(strings, "care.shop").replace("{shop}", market), "item": shop_item,
 				"tab": str(pack.items[shop_item].get("market", ""))})
+		_add_all(out, world, strings)
 		return out
 	if person == null or not person.alive or OutingSystem.away(world, person):
 		return out
@@ -142,7 +148,14 @@ static func options(world: World, person: Person, pet: Pet, strings: ViewStrings
 		if cures != "":
 			e["fits"] = fitting.has(str(id))
 			e["text"] = "%s · %s" % [word(strings, "care.fits" if e["fits"] else "care.unfit"), use]
+		e["score"] = _score(world, person, str(id), e)
 		out.append(e)
+	# Only the few that suit them best: what they wish for or ask, the medicine that fits,
+	# then what lifts the needs they are lowest in. The rest are in the goods panel.
+	out.sort_custom(func(a, b): return float(a["score"]) > float(b["score"]))
+	out.resize(mini(out.size(), QUICK_MAX))
+	for e in out:
+		e.erase("score")
 	if ill:
 		_sick_options(out, world, person, strings)
 		# The family's healer, then the doctor, first: the tray scrolls, and these are the sure
@@ -152,7 +165,29 @@ static func options(world: World, person: Person, pet: Pet, strings: ViewStrings
 				if str(out[k]["kind"]) in kind:
 					out.push_front(out.pop_at(k))
 					break
+	_add_all(out, world, strings)
 	return out
+
+
+## "全部家当…": opens the goods panel (`Goods`), while anything is in store.
+static func _add_all(out: Array[Dictionary], world: World, strings: ViewStrings) -> void:
+	for id in world.inventory:
+		if int(world.inventory[id]) > 0:
+			out.append({"kind": "all", "text": word(strings, "care.all")})
+			return
+
+
+## How well item `id` suits `person` now (higher first, see `options`).
+static func _score(world: World, person: Person, id: String, e: Dictionary) -> float:
+	if e.has("fits"):
+		return 500.0 if bool(e["fits"]) else 1.0
+	if Goods.wanted_by(world, person).has(id):
+		return 1000.0
+	var sc := 2.0
+	var needs: Dictionary = world.pack.items[id].get("needs", {})
+	for n in needs:
+		sc += float(needs[n]) * (100.0 - float(person.needs.get(n, 100.0))) / 100.0
+	return sc
 
 
 ## The ways to have a sick person seen to: a healer of the family, the stock that takes, and
@@ -367,6 +402,15 @@ func texts() -> Array[String]:
 	for b in _buttons:
 		out.append(b.text)
 	return out
+
+
+## The button of the first entry of `kind` (and `item` when given) on show; null for none.
+func button_for(kind: String, item := "") -> Button:
+	for b in _buttons:
+		var e: Dictionary = b.get_meta("entry", {})
+		if str(e.get("kind", "")) == kind and (item == "" or str(e.get("item", "")) == item):
+			return b
+	return null
 
 
 ## Presses the first entry of `kind` (and `item` when given); false when none is on show.

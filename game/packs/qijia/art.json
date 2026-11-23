@@ -138,6 +138,7 @@
 	},
 	"messes": {"dirt": "mess_dirt", "wrapper": "mess_wrapper", "fruit_core": "mess_fruit_core", "cloth_scraps": "mess_cloth_scraps", "feathers": "mess_feathers", "droppings": "mess_droppings", "leaves": "mess_droppings",
 		"bowls": "mess_bowls", "mud": "mess_mud", "pet_hair": "mess_dirt"},
+	"items": {"herb_bundle": "col_herbs", "new_hairpin": "col_hairpin"},
 	"collectibles": {"egg": "col_egg", "old_kite": "col_old_kite", "coins": "col_coins", "hairpin": "col_hairpin", "greens": "col_greens",
 		"herbs": "col_herbs", "cicada_shell": "col_cicada_shell", "purse": "col_purse", "bronze_mirror": "col_bronze_mirror"},
 	"pets": {"dog": {"sprite": "dog", "height": 46, "front": "dog_front", "back": "dog_back", "front34": "dog_front34", "back34": "dog_back34"},
