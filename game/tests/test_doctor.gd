@@ -189,7 +189,8 @@ func test_family_healer_treats_of_their_own_accord():
 	var h := _healer(w)
 	w.stock["herbs"] = 2
 	var started := false
-	for i in 120:
+	# Within a few hours of play (they may first be out at the temple fair).
+	for i in 240:
 		w.advance(w.step_s)
 		if not h.current.is_empty() and str(h.current.action) == "treat_family":
 			started = true

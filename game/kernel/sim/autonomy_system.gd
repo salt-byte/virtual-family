@@ -688,7 +688,7 @@ static func candidates(world: World, p: Person, pool := 0) -> Array[Dictionary]:
 	var pets_home := PetSystem.home_key(world) if not world.pets.is_empty() else ""
 	var pet_room = null  # pet need id -> the most any pet at home lacks of it (filled on first need)
 	# The festival on: its actions join the live list, and its boost (if any) by `Info.idx`.
-	var fest := FestivalSystem.id_at(pack, world.now) if not pack.festivals.is_empty() else ""
+	var fest := FestivalSystem.id_at(pack, world.now, world.utc_offset) if not pack.festivals.is_empty() else ""
 	var fb := FestivalSystem.boosts(pack, fest)
 	var has_fb := not fb.is_empty()
 	# With a pool the actions come best bound first (`_live_by_cap`), so the pool fills with
@@ -1385,7 +1385,7 @@ static func _score(world: World, p: Person, a: Dictionary, hour := -1.0) -> floa
 	if not hours.is_empty() and not _in_hours(hour if hour >= 0.0 else world.local_hour(), hours):
 		score *= 0.1
 	var wf := WeatherSystem.action_factor(world, a, WeatherSystem.place_kind(world.pack, a)) \
-		* FestivalSystem.action_factor(world.pack, a, FestivalSystem.id_at(world.pack, world.now))
+		* FestivalSystem.action_factor(world.pack, a, FestivalSystem.id_at(world.pack, world.now, world.utc_offset))
 	if wf != 1.0:
 		score *= wf
 	var memory := int(world.pack.cfg("repeat_memory"))

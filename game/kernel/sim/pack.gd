@@ -164,10 +164,11 @@ var stories: Dictionary = {}
 var dishes: Dictionary = {}
 ## Kinds of animals (optional pets.json; see `PetSystem`).
 var pets: Dictionary = {}
-## Feast days at fixed points of the year (optional festivals.json; see `FestivalSystem`).
+## Feast days on real dates or at fixed points of the year (optional festivals.json; see
+## `FestivalSystem`).
 var festivals: Dictionary = {}
 ## `FestivalSystem`'s prepared calendar (built on first use).
-var festival_prep: Array = []
+var festival_prep: Dictionary = {}
 ## festival id -> `FestivalSystem.boosts` for it (built on first use).
 var festival_boosts: Dictionary = {}
 ## Letter templates (optional letters.json; see `LetterSystem`).

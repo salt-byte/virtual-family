@@ -33,6 +33,10 @@ func _init() -> void:
 	for c in FestivalSystem.calendar(w.pack):
 		var f: Dictionary = w.pack.festivals[c.id]
 		print("　%s　%s　第 %d–%d 分钟（%d 分钟）" % [f["name"], f["banner"], int(c.start_s) / 60, int(c.end_s) / 60, (int(c.end_s) - int(c.start_s)) / 60])
+	for c in FestivalSystem.dates_between(w.pack, w.now, w.now + 366 * 86400, w.utc_offset):
+		var f: Dictionary = w.pack.festivals[c.id]
+		print("　%s　%s　%s 起，%d 天（按现实日历，不在模拟的这几年里）" % [f["name"], f["banner"],
+			Time.get_date_string_from_unix_time(int(c.start_unix) + w.utc_offset), (int(c.end_unix) - int(c.start_unix)) / 86400])
 	var on := ""
 	var did := {}  # person uid -> [labels] during the festival on
 	var notes: Array[String] = []

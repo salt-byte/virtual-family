@@ -66,7 +66,7 @@ const DEFAULTS := {
 	"error.away": "人出门了，还没回来", "error.closed": "这个时辰去不成", "error.not_festival": "得等到过节才有",
 	"btn.go_out": "出门", "title.go_out": "叫{name}出门", "go_out.none": "这会儿没有能去的地方。",
 	"go_out.away": "去了几个时辰，回来带点东西", "status.away": "出门去了",
-	"festival.left": "还有 {m} 分钟", "ev.mourned": "{name}念叨起了{dead}",
+	"festival.left": "还有 {m} 分钟", "festival.left_h": "还有 {h} 小时", "festival.left_d": "还有 {d} 天", "ev.mourned": "{name}念叨起了{dead}",
 	"away.festival": "过了{name}", "away.outing": "{text}",
 	"error.no_letter": "没有这封信", "error.answered": "这封信已经回过了",
 	"error.too_late": "这事已经过去了", "error.no_choice": "做不了",
@@ -461,8 +461,12 @@ func festival_banner(world: World) -> Dictionary:
 	var banner := str(f.get("banner", ""))
 	if banner == "":
 		banner = str(f.get("name", ""))
-	var m := ceili(float(FestivalSystem.seconds_left(world)) / 60.0)
-	return {"banner": banner, "left": _f("festival.left", {"m": m})}
+	var s := FestivalSystem.seconds_left(world)
+	if s > 2 * 86400:
+		return {"banner": banner, "left": _f("festival.left_d", {"d": ceili(float(s) / 86400.0)})}
+	if s > 2 * 3600:
+		return {"banner": banner, "left": _f("festival.left_h", {"h": ceili(float(s) / 3600.0)})}
+	return {"banner": banner, "left": _f("festival.left", {"m": ceili(float(s) / 60.0)})}
 
 
 func sky_line(world: World) -> String:

@@ -24,7 +24,7 @@ const REQUIRED := {
 	"dishes.json": {"name": TYPE_STRING, "portions": TYPE_NIL},
 	"stories.json": {"title": TYPE_STRING, "unlock": TYPE_DICTIONARY, "fragments": TYPE_ARRAY, "finale": TYPE_DICTIONARY},
 	"pets.json": {"name": TYPE_STRING},
-	"festivals.json": {"name": TYPE_STRING, "season": TYPE_STRING, "from": TYPE_NIL, "to": TYPE_NIL},
+	"festivals.json": {"name": TYPE_STRING},
 	"letters.json": {"kind": TYPE_STRING, "text": TYPE_STRING},
 	"services.json": {"name": TYPE_STRING, "kind": TYPE_STRING, "price": TYPE_NIL},
 	"asks.json": {"text": TYPE_STRING, "kind": TYPE_STRING},
@@ -1423,8 +1423,10 @@ func _check_births() -> void:
 			_err("pack.json", _p.id, "unknown births key '%s'" % [k])
 
 
-## festivals.json: each at a stretch of a season of the pack (0 <= from < to <= 1, no two
-## overlapping), with a boost of numbers, a wish chance between 0 and 1 and text strings.
+## festivals.json: each either on real dates (`dates` of "YYYY-MM-DD", `days` a whole number
+## of at least 1) or at a stretch of a season of the pack (0 <= from < to <= 1); no two
+## overlapping either way; with a boost of numbers, a wish chance between 0 and 1 and text
+## strings.
 func _check_festivals() -> void:
 	if _p.festivals.is_empty():
 		return
@@ -1434,25 +1436,45 @@ func _check_festivals() -> void:
 		for s in c["list"]:
 			if s is Dictionary:
 				season_ids.append(str(s.get("id", "")))
-	if season_ids.is_empty():
-		_err("festivals.json", "*", "festivals need seasons in pack.json")
 	var spans := {}  # season -> [[from, to, id], ...]
+	var dated_spans := []  # [[local start s, local end s, id], ...]
 	for f in _p.festivals.values():
 		var id: String = f["id"]
-		if not (f.get("season") is String and season_ids.has(f["season"])):
-			if not season_ids.is_empty():
+		if f.has("dates"):
+			if not (f["dates"] is Array and not (f["dates"] as Array).is_empty()):
+				_err("festivals.json", id, "dates must be a non-empty array of \"YYYY-MM-DD\"")
+				continue
+			var days = f.get("days", 1)
+			if not (_is_num(days) and float(days) >= 1.0 and float(days) == floorf(float(days))):
+				_err("festivals.json", id, "days must be a whole number of at least 1")
+				continue
+			for d in f["dates"]:
+				var st := FestivalSystem.date_start(str(d)) if d is String else -1
+				if st < 0:
+					_err("festivals.json", id, "'%s' is not a date (YYYY-MM-DD)" % [str(d)])
+					continue
+				var en := st + int(days) * 86400
+				for other in dated_spans:
+					if st < int(other[1]) and int(other[0]) < en:
+						_err("festivals.json", id, "%s overlaps %s" % [str(d), other[2]])
+				dated_spans.append([st, en, id])
+		else:
+			if season_ids.is_empty():
+				_err("festivals.json", id, "a festival without dates needs seasons in pack.json")
+				continue
+			if not (f.get("season") is String and season_ids.has(f["season"])):
 				_err("festivals.json", id, "season '%s' is not a season" % [str(f.get("season", ""))])
-			continue
-		if not (_is_num(f.get("from")) and _is_num(f.get("to")) and float(f["from"]) >= 0.0 \
-				and float(f["from"]) < float(f["to"]) and float(f["to"]) <= 1.0):
-			_err("festivals.json", id, "needs 0 <= from < to <= 1")
-			continue
-		for other in spans.get(f["season"], []):
-			if float(f["from"]) < float(other[1]) and float(other[0]) < float(f["to"]):
-				_err("festivals.json", id, "overlaps %s" % [other[2]])
-		if not spans.has(f["season"]):
-			spans[f["season"]] = []
-		spans[f["season"]].append([f["from"], f["to"], id])
+				continue
+			if not (_is_num(f.get("from")) and _is_num(f.get("to")) and float(f["from"]) >= 0.0 \
+					and float(f["from"]) < float(f["to"]) and float(f["to"]) <= 1.0):
+				_err("festivals.json", id, "needs 0 <= from < to <= 1")
+				continue
+			for other in spans.get(f["season"], []):
+				if float(f["from"]) < float(other[1]) and float(other[0]) < float(f["to"]):
+					_err("festivals.json", id, "overlaps %s" % [other[2]])
+			if not spans.has(f["season"]):
+				spans[f["season"]] = []
+			spans[f["season"]].append([f["from"], f["to"], id])
 		_check_rates("festivals.json %s: boost" % id, f["boost"], false)
 		if not (_is_num(f["wish_chance"]) and float(f["wish_chance"]) >= 0.0 and float(f["wish_chance"]) <= 1.0):
 			_err("festivals.json", id, "wish_chance must be a number from 0 to 1")

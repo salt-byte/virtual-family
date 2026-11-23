@@ -94,7 +94,7 @@ func test_options_list_what_someone_could_be_sent_to_do():
 	for o in OutingSystem.options(w, p):
 		assert_eq(o.why, "", o.action)
 	var w2 := TestKit.world("qijia")
-	w2.set_time(NOON + 12 * 60, 0)  # 元宵
+	w2.set_time(1803124800, 0)  # 2027-02-20 12:00, 元宵
 	var p2 := TestKit.adult(w2)
 	ids = OutingSystem.options(w2, p2).map(func(o): return o.action)
 	assert_true(ids.has("see_lanterns"), str(ids))

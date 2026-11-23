@@ -3,8 +3,9 @@ extends TestCase
 ## list (button and drop on the gate), people out of sight while away, the market's
 ## festival goods and the away summary.
 
-## 2026-01-01 08:00 UTC: the start of qijia's year (元宵 is minutes 6-18, 中秋 144-156).
-var clk := {"unix": 1767254400.0, "offset": 0}
+## 2027-03-10 08:00 UTC: a day with no festival (qijia's festivals go by real dates).
+const PLAIN_8AM := 1804665600
+var clk := {"unix": float(PLAIN_8AM), "offset": 0}
 var n := 0
 
 
@@ -12,7 +13,9 @@ func _clock() -> Dictionary:
 	return clk
 
 
-func _main() -> Main:
+## A game started at unix time `start` (utc offset 0).
+func _main(start := PLAIN_8AM) -> Main:
+	clk = {"unix": float(start), "offset": 0}
 	n += 1
 	var d := "user://test_view_festivals_%d/" % n
 	DirAccess.make_dir_recursive_absolute(d)
@@ -32,7 +35,7 @@ func _done(m: Main) -> void:
 	m.free()
 
 
-## Runs the world to `minute` of the year (from 08:00) and lets the view catch up.
+## Runs the world to `minute` minutes after the game's start and lets the view catch up.
 func _to_minute(m: Main, minute: float) -> void:
 	var w := m.session.world
 	w.advance(float(clk.unix) + minute * 60.0 - float(w.now))
@@ -55,17 +58,25 @@ func _clear_overlays(m: Main) -> void:
 func test_the_festival_board_shows_the_festival_and_the_time_left():
 	var m := _main()
 	assert_eq(m.hud.festival_text(), "")
-	_to_minute(m, 150)   # 中秋
+	_done(m)
+	m = _main(1803164400)   # 2027-02-20 23:00, the last hour of 元宵
 	var t := m.hud.festival_text()
-	assert_true(t.contains("八月十五 · 中秋"), t)
-	assert_true(t.contains("还有 6 分钟"), t)
-	_to_minute(m, 160)
+	assert_true(t.contains("正月十五 · 元宵"), t)
+	assert_true(t.contains("还有 60 分钟"), t)
+	_to_minute(m, 61)
 	assert_eq(m.hud.festival_text(), "")
+	_done(m)
+	m = _main(1801785600 + 3600)   # 除夕 01:00: 过年 runs to the end of 初五
+	t = m.hud.festival_text()
+	assert_true(t.contains("过年") and t.contains("还有 6 天"), t)
+	_done(m)
+	m = _main(1802289600)   # 初五 20:00
+	assert_true(m.hud.festival_text().contains("还有 4 小时"), m.hud.festival_text())
 	_done(m)
 
 
 func test_festivals_outings_and_remembering_are_toasts():
-	var m := _main()
+	var m := _main(1803081420)   # 2027-02-19 23:57, three minutes before 元宵
 	_to_minute(m, 7)
 	var start := str(m.session.pack.festivals["lantern"]["start_text"])
 	assert_true(m.hud.toasts().has(start), str(m.hud.toasts()))
@@ -155,7 +166,9 @@ func test_festival_goods_are_greyed_out_of_season():
 	assert_true(m.panels.text().contains(m.session.strings.t("shop.why.not_festival")), m.panels.text())
 	assert_true(not m.panels.is_disabled("buy:rice"))
 	m.panels.close()
-	_to_minute(m, 84)   # 端午
+	_done(m)
+	m = _main(1812542400)   # 2027-06-09 12:00, 端午
+	m.session.world.money = 500
 	m.panels.open("shop")
 	m.panels.press("tab.items")
 	m.tick(0.016)

@@ -112,9 +112,14 @@ func test_no_more_eaters_than_portions():
 func test_a_dish_left_out_goes_to_waste():
 	var w := _home(); var cook := TestKit.adult(w); cook.needs["fed"] = 40.0
 	_run(w, cook, "cook_porridge")
+	assert_eq(w.dishes.size(), 1)
+	var d: Dictionary = w.dishes[0]
+	assert_true(int(d.expires_at) > w.now and int(d.expires_at) <= w.now + int(5.5 * 3600.0), "goes off within hours")
+	# Fed, so nobody comes for it before it goes off (brought forward to a minute away).
+	cook.needs["fed"] = 100.0
+	d.expires_at = w.now + 60
 	w.drain_events()
-	w.offline = true
-	w.advance(5.5 * 3600.0)
+	w.advance(120.0)
 	assert_eq(w.dishes.size(), 0)
 	var wasted := w.drain_events().filter(func(e): return e.type == "dish_finished")
 	assert_eq(wasted.size(), 1)

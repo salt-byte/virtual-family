@@ -2,15 +2,27 @@ extends TestCase
 ## Festivals (qijia's festivals.json; see `FestivalSystem`): fixed stretches of the year with
 ## their own actions, wishes and shop items.
 
-## 2026-01-01 12:00 UTC: a multiple of qijia's 4-hour year (spring begins).
-const YEAR_START := 1767268800
-## Minutes into qijia's year at which each festival is on (its middle).
-const MID := {"lantern": 12, "qingming": 42, "duanwu": 84, "mid_autumn": 150, "new_year": 232}
+## The day each of qijia's festivals begins in 2027 (real dates, local; the tests run at utc
+## offset 0). 过年 runs six days from 除夕, the others one day.
+const DAY := {"new_year": "2027-02-05", "lantern": "2027-02-20", "qingming": "2027-04-05",
+	"duanwu": "2027-06-09", "mid_autumn": "2027-09-15"}
+## 2027-03-10 12:00 UTC: a day with no festival.
+const PLAIN := 1804680000
 
 
-func _w(minute := 0.0, seed := 1) -> World:
+## Unix time of festival `id`'s first midnight, plus `minutes`.
+func _at(id: String, minutes := 0.0) -> int:
+	return FestivalSystem.date_start(DAY[id]) + int(minutes * 60.0)
+
+
+## Noon on festival `id`'s first day.
+func _mid(id: String) -> int:
+	return _at(id, 12 * 60)
+
+
+func _w(t := PLAIN, seed := 1) -> World:
 	var w := TestKit.world("qijia", seed)
-	w.set_time(YEAR_START + int(minute * 60.0), 0)
+	w.set_time(t, 0)
 	return w
 
 
@@ -18,33 +30,39 @@ func _types(events: Array) -> Array:
 	return events.map(func(e): return e.type)
 
 
-func test_qijia_has_five_festivals_each_visible_for_ten_minutes_or_more():
+func test_qijia_has_five_festivals_on_the_real_calendar_once_a_year():
 	var p := Pack.load_dir("res://packs/qijia")
-	var cal := FestivalSystem.calendar(p)
-	assert_eq(cal.map(func(c): return c.id), ["lantern", "qingming", "duanwu", "mid_autumn", "new_year"])
-	var last_end := -1
-	for c in cal:
-		assert_true(c.end_s - c.start_s >= 600, "%s lasts %d s" % [c.id, c.end_s - c.start_s])
-		assert_true(c.start_s >= last_end, "%s overlaps the one before" % c.id)
-		last_end = c.end_s
+	assert_eq(FestivalSystem.calendar(p), [], "none sits in the game's year")
+	var y2027 := FestivalSystem.dates_between(p, FestivalSystem.date_start("2027-01-01"), FestivalSystem.date_start("2028-01-01"))
+	assert_eq(y2027.map(func(c): return c.id), ["new_year", "lantern", "qingming", "duanwu", "mid_autumn"])
+	for c in y2027:
+		assert_eq(Time.get_date_string_from_unix_time(c.start_unix), DAY[c.id])
 		var f: Dictionary = p.festivals[c.id]
 		for k in ["name", "banner", "start_text", "end_text"]:
 			assert_true(str(f[k]) != "", "%s has a %s" % [c.id, k])
-	assert_eq(p.festivals["new_year"]["season"], "winter")
-	assert_eq(float(p.festivals["new_year"]["to"]), 1.0)  # 过年 closes the winter, the year's end
-	assert_eq(p.festivals["mid_autumn"]["season"], "autumn")
+	assert_eq(y2027[0].end_unix - y2027[0].start_unix, 6 * 86400, "过年: 除夕 to 初五")
+	assert_eq(y2027[4].end_unix - y2027[4].start_unix, 86400)
+	for id in DAY:
+		var dates: Array = p.festivals[id]["dates"]
+		assert_true(dates.has("2040-" + str(dates[-1]).substr(5)) and dates.has(DAY[id]), "%s covers 2026-2040" % id)
+	# The year's festivals are five events, not one every few hours of play.
+	assert_eq(FestivalSystem.dates_between(p, FestivalSystem.date_start("2026-11-23"), FestivalSystem.date_start("2026-11-23") + 30 * 86400), [])
 
 
-func test_the_festival_is_a_pure_function_of_the_clock():
+func test_the_festival_is_a_pure_function_of_the_clock_and_the_local_date():
 	var p := Pack.load_dir("res://packs/qijia")
-	for id in MID:
-		var t := YEAR_START + int(MID[id]) * 60
-		assert_eq(FestivalSystem.id_at(p, t), id)
-		assert_eq(FestivalSystem.id_at(p, t + 3 * 4 * 3600), id, "the same a few years on")
-	assert_eq(FestivalSystem.id_at(p, YEAR_START), "")
-	assert_eq(FestivalSystem.id_at(p, YEAR_START + 30 * 60), "")
-	assert_eq(FestivalSystem.id_at(p, YEAR_START + 6 * 60), "lantern", "starts on its first second")
-	assert_eq(FestivalSystem.id_at(p, YEAR_START + 18 * 60), "", "ends on its last")
+	for id in DAY:
+		assert_eq(FestivalSystem.id_at(p, _mid(id)), id)
+		assert_eq(FestivalSystem.id_at(p, _mid(id) + 4 * 3600), id, "on all day, not for minutes")
+	assert_eq(FestivalSystem.id_at(p, PLAIN), "")
+	assert_eq(FestivalSystem.id_at(p, _at("lantern")), "lantern", "starts at local midnight")
+	assert_eq(FestivalSystem.id_at(p, _at("lantern") - 1), "")
+	assert_eq(FestivalSystem.id_at(p, _at("lantern", 24 * 60)), "", "ends at the next midnight")
+	assert_eq(FestivalSystem.id_at(p, _at("new_year", 5 * 24 * 60 + 60)), "new_year", "初五")
+	assert_eq(FestivalSystem.id_at(p, _at("new_year", 6 * 24 * 60)), "")
+	# Local dates: at UTC+8 the festival begins eight hours before UTC midnight.
+	assert_eq(FestivalSystem.id_at(p, _at("lantern") - 8 * 3600, 8 * 3600), "lantern")
+	assert_eq(FestivalSystem.id_at(p, _at("lantern", 24 * 60) - 8 * 3600, 8 * 3600), "")
 
 
 func test_smoke_has_no_festivals_and_nothing_changes():
@@ -57,14 +75,16 @@ func test_smoke_has_no_festivals_and_nothing_changes():
 
 
 func test_start_and_end_events_and_the_world_field():
-	var w := _w(5); TestKit.adult(w)
-	w.advance(60)
+	var w := _w(_at("lantern", -1)); TestKit.adult(w)
+	w.advance(120)
 	var ev := w.drain_events()
 	assert_true(_types(ev).has("festival_started"), str(_types(ev)))
 	assert_eq(w.festival, "lantern")
 	assert_eq(FestivalSystem.current(w)["name"], "元宵")
-	assert_true(FestivalSystem.seconds_left(w) > 600)
-	w.advance(12 * 60)
+	assert_eq(FestivalSystem.seconds_left(w), 86400 - 60)
+	w.set_time(_at("lantern", 24 * 60 - 1), 0)
+	w.drain_events()
+	w.advance(120)
 	ev = w.drain_events()
 	var ended: Array = ev.filter(func(e): return e.type == "festival_ended")
 	assert_eq(ended.size(), 1)
@@ -74,11 +94,11 @@ func test_start_and_end_events_and_the_world_field():
 
 
 func test_festival_actions_happen_only_during_their_festival():
-	var w := _w(30); var p := TestKit.adult(w)
+	var w := _w(); var p := TestKit.adult(w)
 	w.advance(5)
 	assert_eq(AutonomySystem.can_do(w, p, "paste_couplets", -1), "not_festival")
 	assert_true(not AutonomySystem.candidates(w, p).any(func(c): return c.action == "paste_couplets"))
-	var w2 := _w(MID["new_year"]); var p2 := TestKit.adult(w2)
+	var w2 := _w(_mid("new_year")); var p2 := TestKit.adult(w2)
 	w2.advance(5)
 	assert_eq(AutonomySystem.can_do(w2, p2, "paste_couplets", -1), "")
 	assert_true(AutonomySystem.candidates(w2, p2).any(func(c): return c.action == "paste_couplets"))
@@ -86,7 +106,7 @@ func test_festival_actions_happen_only_during_their_festival():
 
 
 func test_people_take_part_on_their_own():
-	var w := _w(MID["mid_autumn"] - 6)
+	var w := _w(_at("mid_autumn", 19 * 60))
 	for i in 3:
 		TestKit.adult(w)
 	var done := {}
@@ -99,7 +119,7 @@ func test_people_take_part_on_their_own():
 
 
 func test_festival_items_are_sold_only_during_their_festival():
-	var w := _w(30); TestKit.adult(w); w.money = 500
+	var w := _w(); TestKit.adult(w); w.money = 500
 	var why := func(id: String) -> String:
 		for sec in MarketSystem.catalogue(w):
 			for e in sec.entries:
@@ -112,14 +132,14 @@ func test_festival_items_are_sold_only_during_their_festival():
 	assert_eq(w.money, 500)
 	assert_true(Commands.on_sale(w, "rice"), "everyday goods are always sold")
 	assert_eq(why.call("rice"), "")
-	w.set_time(YEAR_START + MID["duanwu"] * 60, 0)
+	w.set_time(_mid("duanwu"), 0)
 	assert_eq(why.call("realgar_wine"), "")
 	assert_true(w.command({"type": "buy", "item": "realgar_wine"}).ok)
 	assert_eq(int(w.inventory["realgar_wine"]), 1)
 
 
 func test_festival_wishes_come_with_the_festival_and_end_with_it_unpenalised():
-	var w := _w(MID["new_year"] - 12, 3)
+	var w := _w(_at("new_year", -10), 3)
 	for i in 6:
 		TestKit.adult(w)
 	w.advance(60 * 3)
@@ -140,12 +160,12 @@ func test_festival_wishes_come_with_the_festival_and_end_with_it_unpenalised():
 
 
 func test_a_festival_wish_forms_only_while_its_festival_is_on():
-	var w := _w(30); var p := TestKit.adult(w)
+	var w := _w(); var p := TestKit.adult(w)
 	w.advance(5)
 	var pool := WishSystem._eligible(w, p, false)
 	for id in pool[0]:
 		assert_eq(str(w.pack.wishes[id]["festival"]), "", id)
-	w.set_time(YEAR_START + MID["mid_autumn"] * 60, 0)
+	w.set_time(_mid("mid_autumn"), 0)
 	w.advance(5)
 	pool = WishSystem._eligible(w, p, false, "mid_autumn")
 	assert_true((pool[0] as Array).has("want_mooncake"), str(pool))
@@ -153,7 +173,7 @@ func test_a_festival_wish_forms_only_while_its_festival_is_on():
 
 
 func test_do_wish_pulls_the_action_up_and_is_granted_by_doing_it():
-	var w := _w(MID["mid_autumn"]); var p := TestKit.adult(w)
+	var w := _w(_at("mid_autumn", 20 * 60)); var p := TestKit.adult(w)
 	w.advance(5)
 	p.current = {}
 	p.wish = {}  # (the festival may have handed them a wish as it began)
@@ -172,7 +192,7 @@ func test_do_wish_pulls_the_action_up_and_is_granted_by_doing_it():
 
 
 func test_mourning_needs_someone_dead_and_names_them():
-	var w := _w(MID["qingming"]); var p := TestKit.adult(w)
+	var w := _w(_mid("qingming")); var p := TestKit.adult(w)
 	w.advance(5)
 	p.current = {}
 	assert_eq(AutonomySystem.can_do(w, p, "mourn_at_altar", -1), "no_object")  # no altar yet
@@ -195,7 +215,7 @@ func test_mourning_needs_someone_dead_and_names_them():
 
 
 func test_save_keeps_the_festival_and_old_saves_load():
-	var w := _w(MID["duanwu"] - 1); TestKit.adult(w); TestKit.adult(w)
+	var w := _w(_at("duanwu", -1)); TestKit.adult(w); TestKit.adult(w)
 	w.advance(120)
 	assert_eq(w.festival, "duanwu")
 	var d := w.to_dict()
@@ -207,7 +227,7 @@ func test_save_keeps_the_festival_and_old_saves_load():
 	assert_eq(back.to_dict(), w.to_dict(), "continues identically")
 	# A save from before festivals existed has no such key; it loads, and the first step
 	# notices the festival on.
-	var old := _w(MID["duanwu"]); TestKit.adult(old)
+	var old := _w(_mid("duanwu")); TestKit.adult(old)
 	var od := old.to_dict()
 	od.erase("festival")
 	var loaded := World.from_dict(old.pack, od)
@@ -221,10 +241,10 @@ func test_save_keeps_the_festival_and_old_saves_load():
 
 
 func test_an_absence_lists_the_festivals_it_crossed():
-	var w := _w(0); TestKit.adult(w); w.stock["food"] = 30
+	var w := _w(_at("lantern", -12 * 60)); TestKit.adult(w); w.stock["food"] = 30
 	w.advance(60)
-	var s := w.catch_up(4 * 3600)
-	assert_eq(s["festivals"], ["lantern", "qingming", "duanwu", "mid_autumn", "new_year"])
+	var s := w.catch_up(36 * 3600)
+	assert_eq(s["festivals"], ["lantern"])
 	for e in w.drain_events():
 		assert_true(e.type != "wish_formed" or str(w.pack.wishes[e.wish]["festival"]) == "", "no festival wishes while away")
 
@@ -232,9 +252,12 @@ func test_an_absence_lists_the_festivals_it_crossed():
 func test_validator_checks_festivals_and_what_uses_them():
 	var p := Pack.load_dir("res://packs/qijia")
 	assert_eq(p.errors, [] as Array[String])
-	p.festivals["lantern"]["season"] = "monsoon"
-	p.festivals["qingming"]["from"] = 0.2  # now overlaps nothing (lantern is gone), but:
-	p.festivals["duanwu"]["from"] = 0.6  # from >= to
+	p.festivals["lantern"]["dates"] = ["2027-13-01"]
+	p.festivals["qingming"]["dates"] = ["2027-02-07"]  # inside 过年 (2027-02-05, six days)
+	p.festivals["duanwu"]["days"] = 0
+	# The other way of placing one: in the game's year, by season.
+	p.festivals["mid_autumn"].erase("dates")
+	p.festivals["mid_autumn"]["season"] = "monsoon"
 	p.actions["paste_couplets"]["festivals"] = ["harvest_moon"]
 	p.items["mooncake"]["festivals"] = "mid_autumn"
 	p.wishes["want_market"]["actions"] = []
@@ -242,8 +265,9 @@ func test_validator_checks_festivals_and_what_uses_them():
 	p.actions["go_to_market"]["outing"]["returns"] = [{"item": "rice", "text": "x"}]
 	p.actions["temple_fair"]["object"] = "stool"
 	var errs := PackValidator.validate(p)
-	var want := ["festivals.json: lantern: season 'monsoon' is not a season",
-		"festivals.json: duanwu: needs 0 <= from < to <= 1",
+	var want := ["festivals.json: lantern: '2027-13-01' is not a date (YYYY-MM-DD)",
+		"festivals.json: duanwu: days must be a whole number of at least 1",
+		"festivals.json: mid_autumn: season 'monsoon' is not a season",
 		"actions.json: paste_couplets: festivals must be an array of festival ids",
 		"items.json: mooncake: festivals must be an array of festival ids",
 		"wishes.json: want_market: a do wish needs actions: a non-empty array of action ids",
@@ -252,9 +276,12 @@ func test_validator_checks_festivals_and_what_uses_them():
 		"actions.json: temple_fair: an outing leaves from rooms (no object)"]
 	for e in want:
 		assert_true(errs.has(e), "missing: " + e + "\n" + "\n".join(errs))
-	p.festivals["qingming"]["from"] = 0.05
-	p.festivals["lantern"]["season"] = "spring"
-	assert_true(PackValidator.validate(p).has("festivals.json: qingming: overlaps lantern"))
+	assert_true(errs.has("festivals.json: qingming: 2027-02-07 overlaps new_year") \
+		or errs.has("festivals.json: new_year: 2027-02-05 overlaps qingming"), "\n".join(errs))
+	p.festivals["mid_autumn"]["season"] = "autumn"
+	p.festivals["mid_autumn"]["from"] = 0.6
+	p.festivals["mid_autumn"]["to"] = 0.4
+	assert_true(PackValidator.validate(p).has("festivals.json: mid_autumn: needs 0 <= from < to <= 1"))
 
 
 func test_a_festival_boost_counts_the_same_in_the_choice_and_in_the_score():
@@ -262,7 +289,7 @@ func test_a_festival_boost_counts_the_same_in_the_choice_and_in_the_score():
 	assert_near(FestivalSystem.action_factor(p0, p0.actions["eavesdrop"], "new_year"), 1.3)  # tagged 爱热闹
 	assert_near(FestivalSystem.action_factor(p0, p0.actions["eavesdrop"], ""), 1.0)
 	assert_eq(FestivalSystem.action_factor(p0, p0.actions["paste_couplets"], "lantern"), 0.0)
-	var w := _w(MID["new_year"]); var p := TestKit.adult(w)
+	var w := _w(_mid("new_year")); var p := TestKit.adult(w)
 	w.advance(5)
 	p.current = {}
 	p.wish = {}
