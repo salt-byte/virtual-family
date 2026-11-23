@@ -1057,7 +1057,8 @@ func iso_picture(o: Dictionary, tex: Texture2D, w: World) -> Dictionary:
 	var axis := skin.object_axis(str(o.type))
 	var long_y := r.size.y / HouseSite.CELL.y > r.size.x / HouseSite.CELL.x
 	var flip := axis != "" and long_y != (axis == "y")
-	var width := (d[1].x - d[3].x) * ISO_FILL * skin.object_scale(str(o.type))
+	var whole := fill(o, r)
+	var width := (d[1].x - d[3].x) * ISO_FILL * skin.object_scale(str(o.type)) * whole
 	if axis == "":
 		# An old picture drawn from above: no wider than the footprint's middle.
 		width = (d[1].x - d[3].x) * 0.7
@@ -1065,8 +1066,23 @@ func iso_picture(o: Dictionary, tex: Texture2D, w: World) -> Dictionary:
 	var k := width / ts.x
 	var size := ts * k
 	var mid_x := (d[1].x + d[3].x) * 0.5 - foot.x
-	var bottom := d[2].y - foot.y + 6.0
+	# Smaller than the footprint: shrunk about its middle, so it stays in the middle of it.
+	var bottom := (d[2].y - foot.y) * whole + 6.0
 	return {"at": at, "rect": Rect2(mid_x - size.x * 0.5, bottom - size.y, size.x, size.y), "flip": flip}
+
+
+## How much of its footprint's diamond a piece's 45° picture fills, before its own `scale`:
+## the pack's `furniture_scale`, times (with `sizes` and `metres_per_cell`) its real length
+## plus depth over its footprint's, so it is drawn at its real size. The picture shrinks
+## about the middle of the footprint.
+func fill(o: Dictionary, r: Rect2) -> float:
+	var whole := skin.furniture_scale()
+	var real := skin.real_size(str(o.type))
+	var mpc := skin.metres_per_cell()
+	if real != Vector2.ZERO and mpc > 0.0:
+		var cells := r.size.x / HouseSite.CELL.x + r.size.y / HouseSite.CELL.y
+		whole *= clampf((real.x + real.y) / (mpc * cells), 0.3, 1.5)
+	return whole
 
 
 ## A picture's rect on the view, less the transparent margin round the drawing (what the

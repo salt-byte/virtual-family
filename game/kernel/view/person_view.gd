@@ -140,6 +140,10 @@ var _fetch_item := Vector2(INF, INF)
 var _carry_dest := Vector2(INF, INF)
 var _stoop_left := 0.0
 var _stow_left := 0.0
+## Walking eases in over WALK_EASE_IN seconds and slows over the last ARRIVE_EASE pixels.
+var _walk_ramp := 0.0
+const WALK_EASE_IN := 0.3
+const ARRIVE_EASE := 30.0
 const STOOP_TIME := 0.7
 const STOW_TIME := 0.9
 const HELD_SIZE := Vector2(30, 28)
@@ -429,7 +433,7 @@ func tick(delta: float) -> void:
 	if _lie > 0.0 and not lying_down():
 		pass  # getting up off the bed first
 	elif hv == null or not hv.iso or not hv.give_way(self, delta):
-		walk(SPEED * delta * pace())
+		walk(SPEED * delta * pace() * _ease(delta))
 	visible = not out_of_sight()
 	var moved := position - was
 	if _house() != null and _house().iso:
@@ -440,6 +444,19 @@ func tick(delta: float) -> void:
 	_turn(position - was, delta)
 	if pictured() and position != was or _fade < 1.0:
 		queue_redraw()
+
+
+## How fast they walk now, as a share of their pace: gathering speed over the first moments
+## of a walk, slowing as they come up to where they are going (never quite stopping short).
+func _ease(delta: float) -> float:
+	var left := position.distance_to(target)
+	if left <= ARRIVED:
+		_walk_ramp = 0.0
+		return 1.0
+	_walk_ramp = minf(1.0, _walk_ramp + delta / WALK_EASE_IN)
+	var start := 0.35 + 0.65 * smoothstep(0.0, 1.0, _walk_ramp)
+	var stop := clampf(0.4 + 0.6 * left / ARRIVE_EASE, 0.4, 1.0)
+	return start * stop
 
 
 ## The seat or bed they are on (its uid; -1 for none): while getting up, the bed they lay on.
@@ -527,11 +544,16 @@ func _turn(d: Vector2, delta := 1.0) -> void:
 	if len > 0.01:
 		if v.y <= -UP_SCREEN * len:
 			want = "back34"
-	elif not use_object.is_empty() and layout() != null and session.world != null:
-		var mid := layout().object_rect(use_object, session.world.pack).get_center()
-		var dv := IsoMath.basis().basis_xform(mid - position)
-		if absf(dv.x) > 1.0:
-			_facing = signf(dv.x)
+	else:
+		# Standing at work: turned to what they work on (the piece, or the thing on the ground
+		# they stoop for), their back to the camera when it is up the screen from them.
+		var focus := _focus()
+		if focus.x != INF:
+			var dv := IsoMath.basis().basis_xform(focus - position)
+			if absf(dv.x) > 1.0:
+				_facing = signf(dv.x)
+			if body_pose() in FACING_POSES and dv.y < -FACE_UP * dv.length():
+				want = "back34"
 	if not _look.has("rig_" + want):
 		want = "back" if want == "back34" and _look.has("rig_back") else "side"
 	if want != _turn_want:
@@ -540,6 +562,32 @@ func _turn(d: Vector2, delta := 1.0) -> void:
 	_turn_held += delta
 	if _turn_held >= TURN_HOLD:
 		turned = want
+
+
+## Poses in which they turn to what they work on (sitting, eating, sleeping and waving keep
+## facing the camera), and how far up the screen it must be for them to turn their back.
+const FACING_POSES := ["work", "stoop", "stow", "sweep", "stir", "scoop", "write", "read", "sew", "saw",
+	"hoe", "push", "reach_up", "scatter", "bow"]
+const FACE_UP := 0.3
+
+
+## What they turn to while standing at work (plan point): the piece they use, else the thing
+## they stoop for, else INF.
+func _focus() -> Vector2:
+	var l := layout()
+	if l == null or session.world == null:
+		return Vector2(INF, INF)
+	if not use_object.is_empty():
+		return l.object_rect(use_object, session.world.pack).get_center()
+	if fetch_item().x != INF:
+		return fetch_item()
+	var tid := int(person.current.get("target_uid", -1)) if person != null else -1
+	if tid >= 0:
+		for list in [session.world.messes, session.world.collectibles]:
+			for m in list:
+				if int(m.uid) == tid:
+					return l.cell_center(str(m.room), int(m.x), int(m.y))
+	return Vector2(INF, INF)
 
 
 ## A walk counts as up the screen when it climbs this much of its length: a walk along

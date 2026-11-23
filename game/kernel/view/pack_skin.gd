@@ -56,7 +56,9 @@ extends RefCounted
 ##                                               # the quilt over whoever lies down (`quilt`)
 ##     "decals": [{"sprite": "<sprite>", "room": "<room id>", "side": "north" | "west",
 ##                 "at": cells along the wall, "w": pixels, "y": 0..1 down the wall}],
-##     "scenery_scale": 1.0}                      # scenery pictures this much larger
+##     "scenery_scale": 1.0,                      # scenery pictures this much larger
+##     "furniture_scale": 1.0,                    # every piece of furniture this much of its footprint
+##     "figure_scale": 1.0}                       # people and animals this much of their height
 ## }
 
 const DEFAULT_ACCENT := Color("#E5533C")
@@ -167,6 +169,33 @@ func wall_decals() -> Array:
 		out.append({"tex": tex, "room": str(e.get("room", "")), "side": "west" if str(e.get("side", "")) == "west" else "north",
 			"at": float(e.get("at", 0.5)), "w": float(e.get("w", 50.0)), "y": float(e.get("y", 0.25))})
 	return out
+
+
+## The real size of object type `type` in metres (`iso.sizes`: {"<type>": [along its long
+## side, across it]}), ZERO when the pack gives none; with `iso.metres_per_cell`, the 45° view
+## draws it at that size (see `HouseView.iso_picture`) instead of filling its footprint.
+func real_size(type: String) -> Vector2:
+	var e = _iso_table("sizes").get(type)
+	if not (e is Array and e.size() >= 2):
+		return Vector2.ZERO
+	return Vector2(float(e[0]), float(e[1]))
+
+
+## Metres per cell of the plan (`iso.metres_per_cell`), 0 without one.
+func metres_per_cell() -> float:
+	return maxf(float(_table("iso").get("metres_per_cell", 0.0)), 0.0) if iso() else 0.0
+
+
+## How much of its footprint every piece of furniture fills in the 45° view (on top of its own
+## `scale`); 1 by default.
+func furniture_scale() -> float:
+	return clampf(float(_table("iso").get("furniture_scale", 1.0)), 0.3, 1.5) if iso() else 1.0
+
+
+## How tall people and animals are drawn in the 45° view, times their own `height`; 1 by
+## default (`iso.figure_scale`).
+func figure_scale() -> float:
+	return clampf(float(_table("iso").get("figure_scale", 1.0)), 0.3, 1.5) if iso() else 1.0
 
 
 ## How much larger scenery pictures stand in the 45° view.
@@ -344,7 +373,7 @@ func person_look(stage: String, sex: String, look := "") -> Dictionary:
 	out["rig"] = r
 	for k in FACING_RIGS:
 		out.erase(k)
-	out["height"] = float(e.get("height", out.get("height", 90.0)))
+	out["height"] = float(e.get("height", out.get("height", 90.0))) * figure_scale()
 	out["lean"] = float(e.get("lean", out.get("lean", 0.0)))
 	out["look"] = look
 	for k in FACING_RIGS:
@@ -383,7 +412,7 @@ func _stage_look(stage: String, sex: String) -> Dictionary:
 		var tex := sprite(str(e.get("sprite", "")))
 		if tex == null:
 			continue
-		var out := {"tex": tex, "height": float(e.get("height", 90.0)), "lean": float(e.get("lean", 0.0)),
+		var out := {"tex": tex, "height": float(e.get("height", 90.0)) * figure_scale(), "lean": float(e.get("lean", 0.0)),
 			"lying": bool(e.get("lying", false))}
 		var asleep := sprite(str(e.get("asleep", "")))
 		var iso_asleep := sprite(str(_table("iso").get("asleep", ""))) if iso() else null
@@ -414,7 +443,7 @@ func pet_look(kind: String) -> Dictionary:
 	var tex := sprite(str(e.get("sprite", "")))
 	if tex == null:
 		return {}
-	var out := {"tex": tex, "height": float(e.get("height", 40.0))}
+	var out := {"tex": tex, "height": float(e.get("height", 40.0)) * figure_scale()}
 	# Facing the camera / turned away, head-on or three-quarters (each optional).
 	for k in ["front", "back", "front34", "back34"]:
 		var t := sprite(str(e.get(k, "")))

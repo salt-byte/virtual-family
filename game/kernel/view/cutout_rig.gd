@@ -11,9 +11,12 @@ extends RefCounted
 ## mouth), "sleep" (lying, drawn turned on its back by the caller), "doze" (sitting, the
 ## head nodding off and jerking up) and "wave".
 
-const POSES := ["idle", "walk", "work", "sit", "eat", "sleep", "doze", "wave", "stoop", "carry", "stow"]
+const POSES := ["idle", "walk", "work", "sit", "eat", "sleep", "doze", "wave", "stoop", "carry", "stow",
+	"stir", "scoop", "write", "read", "sew", "saw", "hoe", "push", "reach_up", "scatter", "bow", "sweep"]
 ## Poses only the three-quarter rigs have keyframes for, and what the others do instead.
-const STAND_INS := {"stoop": "work", "carry": "walk", "stow": "work"}
+const STAND_INS := {"stoop": "work", "carry": "walk", "stow": "work", "stir": "work", "scoop": "work",
+	"write": "work", "read": "idle", "sew": "work", "saw": "work", "hoe": "work", "push": "work",
+	"reach_up": "work", "scatter": "work", "bow": "idle", "sweep": "work"}
 const WALK_PERIOD := 0.72
 const WORK_PERIOD := 0.7
 const EAT_PERIOD := 1.6

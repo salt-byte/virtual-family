@@ -263,7 +263,7 @@ func test_actions_pick_poses_from_the_pack():
 	assert_true(pv.drawn_height() < 40.0)
 	AutonomySystem.start(w, p, "sweep", -1)
 	pv.refresh()
-	assert_eq(pv.action_pose, "work")
+	assert_eq(pv.action_pose, "sweep", "the pack's own pose for it")
 	assert_true(not pv.on_object)
 	var stool: Dictionary = w.objects.filter(func(o): return o.type == "stool")[0]
 	AutonomySystem.start(w, p, "shell_beans", int(stool.uid))

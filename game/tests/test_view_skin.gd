@@ -140,12 +140,14 @@ func test_qijia_house_stands_pictures_and_people():
 			var piece: PropPiece = house.props[int(o.uid)]
 			var r := house.layout.object_rect(o, w.pack)
 			# The 45° view: the piece stands at the middle of its footprint (what it sorts by),
-			# the picture upright on the footprint's bottom corner and as wide as its diamond;
-			# seats and beds sort a little further back (someone on them is drawn over them).
+			# the picture upright on the footprint's bottom corner and as wide as its diamond,
+			# or, at its real size, shrunk about the footprint's middle; seats and beds sort a
+			# little further back (someone on them is drawn over them).
 			assert_eq(piece.position, r.get_center(), "stands on its footprint")
 			var d := IsoMath.diamond(r)
 			var foot := IsoMath.to_view(piece.position)
-			assert_near(foot.y + piece.rect.end.y, d[2].y + 6.0, 0.01, "on the bottom corner")
+			var k := house.fill(o, r)
+			assert_near(foot.y + piece.rect.end.y, foot.y + (d[2].y - foot.y) * k + 6.0, 0.01, "on the bottom corner")
 			assert_true(piece.rect.size.x <= d[1].x - d[3].x + 0.01, str(o.type))
 			assert_eq(piece.sort_bias < HouseView.FURNITURE_BIAS, house.skin.sat_on(str(o.type)), str(o.type))
 	assert_eq(house.props.size(), pictured)
