@@ -61,8 +61,9 @@ static func spawn(world: World, type: String, room := "", at := Vector2i(-1, -1)
 
 ## Removes a mess and counts it. Unknown uids are ignored. `by` is the uid of whoever
 ## cleaned it (-1: nobody in particular). The last mess gone pays the pack's `clean_reward`,
-## at most once per local day.
-static func clean(world: World, uid: int, by := -1) -> void:
+## at most once per local day. Without `pay_scrap` its scrap waits until it is carried away
+## (see `CarrySystem`).
+static func clean(world: World, uid: int, by := -1, pay_scrap := true) -> void:
 	for i in world.messes.size():
 		if world.messes[i].uid != uid:
 			continue
@@ -70,7 +71,8 @@ static func clean(world: World, uid: int, by := -1) -> void:
 		world.messes.remove_at(i)
 		world.stats["mess_cleaned"] = int(world.stats["mess_cleaned"]) + 1
 		world.emit("mess_cleaned", {"uid": uid})
-		_scrap(world, type, by)
+		if pay_scrap:
+			scrap(world, type, by)
 		if world.messes.is_empty():
 			world.stats["all_clean"] = int(world.stats["all_clean"]) + 1
 			_reward(world, by)
@@ -79,7 +81,7 @@ static func clean(world: World, uid: int, by := -1) -> void:
 
 ## Litter worth something (`scrap`: {value, chance}): whoever picked it up sells it for
 ## `value` coins with that chance. Types without `scrap` draw nothing.
-static func _scrap(world: World, type: String, by: int) -> void:
+static func scrap(world: World, type: String, by: int) -> void:
 	var sc = world.pack.mess_types.get(type, {}).get("scrap")
 	if not sc is Dictionary or (sc as Dictionary).is_empty() or by < 0:
 		return

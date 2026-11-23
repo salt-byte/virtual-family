@@ -5,7 +5,7 @@
 	 "stray_text": "门口蹲着一条瘦黄狗，肋条一根根数得清，见了人就摇尾巴。",
 	 "actions": [
 		{"id": "dog_threshold", "label": "趴在门槛上眯着眼", "object": "threshold", "duration_min": 20, "base": 10, "hours": [6, 20], "rest": true},
-		{"id": "dog_follow_child", "label": "颠颠地跟在孩子后头跑", "follows": "child", "duration_min": 24, "base": 10, "needs": {"fondness": 6}, "pace": "trot"},
+		{"id": "dog_follow_child", "label": "颠颠地跟在孩子后头跑", "follows": "child", "duration_min": 20, "base": 10, "needs": {"fondness": 6}, "pace": "trot"},
 		{"id": "dog_tag_along", "label": "跟在人脚后跟转悠", "follows": "anyone", "duration_min": 15, "base": 8, "hours": [6, 21], "needs": {"fondness": 3}, "pace": "trot"},
 		{"id": "dog_trot_yard", "label": "绕着院子颠颠地小跑", "rooms": ["yard"], "trot": 4, "pace": "trot", "duration_min": 12, "base": 8},
 		{"id": "dog_sniff", "label": "鼻子贴着墙根一路嗅过去", "rooms": ["yard", "gate", "woodshed"], "trot": 3, "pace": "slink", "duration_min": 12, "base": 7},

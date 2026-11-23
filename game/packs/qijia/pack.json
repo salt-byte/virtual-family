@@ -40,6 +40,7 @@
 	"story_ttl_min": 120,
 	"collect_keep": true,
 	"clean_reward": {"amount": 15},
+	"carry": {"cell_s": 0.45, "drop_s": 3},
 	"share": {"every": 30, "gap_min": 30, "level": true, "money_text": "今天挣了 {n} 文！", "level_text": "当上{level}了！"},
 	"feelings": [
 		{"sharing": true, "text": "乐得合不拢嘴"},

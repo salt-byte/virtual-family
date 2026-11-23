@@ -92,14 +92,31 @@ static func collect(world: World, p: Person, uid: int) -> void:
 	if c.is_empty():
 		return
 	world.collectibles.erase(c)
+	settle(world, p, c)
+
+
+## Settles collectible `c`, already off the ground (picked up, or carried to where it is
+## kept: see `CarrySystem`). With `stock` (a stock id) it goes into the larder instead of
+## the box.
+static func settle(world: World, p: Person, c: Dictionary) -> void:
+	if c.is_empty():
+		return
+	var uid := int(c.get("uid", -1))
 	if c.has("story"):
 		StorySystem.found(world, p, c)
 		return
 	var type := str(c["type"])
+	if not world.pack.collectibles.has(type):
+		return
 	var value := int(world.pack.collectibles[type]["value"])
 	var first := int(world.collection.get(type, 0)) == 0
 	world.stats["collected"] = int(world.stats["collected"]) + 1
 	world.collection[type] = int(world.collection.get(type, 0)) + 1
+	var stock := str(world.pack.collectibles[type].get("stock", ""))
+	if stock != "":
+		world.stock[stock] = int(world.stock.get(stock, 0)) + 1
+		world.emit("collected", {"uid": uid, "kind": type, "value": 0, "first": first, "person": p.uid, "stocked": stock})
+		return
 	if keeps(world.pack):
 		world.box[type] = int(world.box.get(type, 0)) + 1
 		world.emit("collected", {"uid": uid, "kind": type, "value": 0, "first": first, "person": p.uid, "kept": true})

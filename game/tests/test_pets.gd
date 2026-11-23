@@ -92,6 +92,8 @@ func test_a_hungry_neglected_dog_runs_away_and_the_children_miss_it():
 	var w := _q()
 	TestKit.adult(w)
 	var child := TestKit.adult(w, 8.0)
+	# Neglected: nothing turns up to cook either (found greens make a dish, a dish leaves scraps).
+	w.pack.config["collectible_interval_min"] = 1000000
 	var dog := _dog(w)
 	dog.needs["belly"] = 0.0
 	var happy0 := float(child.needs["happy"])

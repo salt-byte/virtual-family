@@ -12,7 +12,8 @@
 			"threshold": "iso_door_sill", "stone_bench": "iso_stone_bench", "carpenter_bench": "iso_carpenter_bench",
 			"herb_grinder": "iso_herb_grinder", "embroidery_frame": "iso_embroidery_frame", "tofu_box": "iso_tofu_box",
 			"peddler_pole": "iso_peddler_pole", "bookshelf": "iso_bookshelf", "trough": "iso_trough",
-			"bird_cage": "iso_bird_cage", "ayun_hoop": "iso_embroidery_frame", "washtub": "iso_washtub"
+			"bird_cage": "iso_bird_cage", "ayun_hoop": "iso_embroidery_frame", "washtub": "iso_washtub",
+			"trash_basket": "iso_trash_basket", "keepsake_chest": "iso_keepsake_chest", "cupboard": "iso_cupboard"
 		},
 		"scale": {"iso_woodpile": 0.75, "iso_millstone": 0.85, "iso_coop": 0.4},
 		"walls": {"gate": "iso_gatehouse", "fence_x": "iso_fence", "fence_y": "iso_fence_ns"},
@@ -72,7 +73,7 @@
 		"father": "chars/father.png", "mother": "chars/mother.png", "grandma": "chars/grandma.png", "child": "chars/child.png",
 		"iso_altar": "iso/altar.png", "iso_bird_cage": "iso/bird_cage.png", "iso_bookshelf": "iso/bookshelf.png",
 		"iso_bridge": "iso/bridge.png", "iso_carpenter_bench": "iso/carpenter_bench.png",
-		"iso_clothesline": "iso/clothesline.png", "iso_coop": "iso/coop.png", "iso_cupboard": "iso/cupboard.png",
+		"iso_clothesline": "iso/clothesline.png", "iso_coop": "iso/coop.png", "iso_cupboard": "iso/cupboard.png", "iso_trash_basket": "iso/trash_basket.png", "iso_keepsake_chest": "iso/keepsake_chest.png", "dustpan": "iso/dustpan.png",
 		"iso_desk": "iso/desk.png", "iso_dining_table": "iso/dining_table.png", "iso_door_sill": "iso/door_sill.png",
 		"iso_embroidery_frame": "iso/embroidery_frame.png", "iso_fence": "iso/fence.png",
 		"iso_fence_ns": "iso/fence_ns.png", "iso_garden": "iso/garden.png", "iso_gatehouse": "iso/gatehouse.png",
@@ -136,6 +137,7 @@
 		"tofu_box": "tofu_box", "peddler_pole": "peddler_pole", "bookshelf": "bookshelf", "trough": "trough",
 		"grain_heap": "grain_heap", "bird_cage": "bird_cage", "ayun_hoop": "embroidery_frame"
 	},
+	"carried": {"dirt": "dustpan", "mud": "dustpan", "leaves": "dustpan", "droppings": "dustpan", "pet_hair": "dustpan"},
 	"messes": {"dirt": "mess_dirt", "wrapper": "mess_wrapper", "fruit_core": "mess_fruit_core", "cloth_scraps": "mess_cloth_scraps", "feathers": "mess_feathers", "droppings": "mess_droppings", "leaves": "mess_droppings",
 		"bowls": "mess_bowls", "mud": "mess_mud", "pet_hair": "mess_dirt"},
 	"items": {"herb_bundle": "col_herbs", "new_hairpin": "col_hairpin"},

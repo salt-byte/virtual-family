@@ -1585,6 +1585,12 @@ func _draw() -> void:
 		else:
 			draw_rect(Rect2(at - Vector2(6, 6), Vector2(12, 12)), Color(0.95, 0.8, 0.2))
 		_small_name(font, at, session.strings.thing_name(c, w))
+	# Picked up by the sim before the person on screen got there: it lies there until they do.
+	for pv in people.values():
+		var item: Vector2 = (pv as PersonView).fetch_item()
+		var pic: Texture2D = (pv as PersonView).held_picture()
+		if item.x != INF and pic != null:
+			draw_texture_rect(pic, PackSkin.fit_rect(pic, proj * item + Vector2(0, 4), Vector2(30, 30)), false)
 	_draw_marks(w)
 	if _overlay != null:
 		_overlay.queue_redraw.call_deferred()

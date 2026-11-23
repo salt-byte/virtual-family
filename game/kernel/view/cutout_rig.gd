@@ -11,7 +11,9 @@ extends RefCounted
 ## mouth), "sleep" (lying, drawn turned on its back by the caller), "doze" (sitting, the
 ## head nodding off and jerking up) and "wave".
 
-const POSES := ["idle", "walk", "work", "sit", "eat", "sleep", "doze", "wave"]
+const POSES := ["idle", "walk", "work", "sit", "eat", "sleep", "doze", "wave", "stoop", "carry", "stow"]
+## Poses only the three-quarter rigs have keyframes for, and what the others do instead.
+const STAND_INS := {"stoop": "work", "carry": "walk", "stow": "work"}
 const WALK_PERIOD := 0.72
 const WORK_PERIOD := 0.7
 const EAT_PERIOD := 1.6
@@ -72,7 +74,8 @@ static func load_file(path: String) -> CutoutRig:
 			return null
 		r._by_id[id] = {"id": id, "parent": parent if parent is String else "", "z": float(p.get("z", 0)),
 			"tex": tex, "pivot": _v(p["pivot_px"]), "attach": _v(p.get("attach_px", [0, 0])),
-			"tint": float(p.get("tint", 1.0)), "size": Vector2(tex.get_size())}
+			"tint": float(p.get("tint", 1.0)), "size": Vector2(tex.get_size()),
+			"scale": clampf(float(p.get("scale", 1.0)), 0.25, 4.0)}
 	if r._by_id.is_empty():
 		return null
 	var seen := {}
@@ -85,7 +88,7 @@ static func load_file(path: String) -> CutoutRig:
 		# The three-quarter views play the keyframed animations next to the rigs.
 		r._anims = _anims34(path.get_base_dir().get_base_dir() + "/anims.humanoid_34.json")
 	if r._by_id.has("head"):
-		r.head_height = r._by_id["head"].size.y
+		r.head_height = r._by_id["head"].size.y * float(r._by_id["head"].scale)
 	for p in r.parts:
 		if p.parent == "":
 			r.unit = p.size.y / 100.0
@@ -93,8 +96,9 @@ static func load_file(path: String) -> CutoutRig:
 	var w := r.world({})
 	for p in r.parts:
 		var m: Transform2D = w[p.id]
+		var s := float(p.scale)
 		for c in [Vector2.ZERO, Vector2(p.size.x, 0), Vector2(0, p.size.y), p.size]:
-			top = minf(top, (m * (c - p.pivot)).y)
+			top = minf(top, (m * ((c - p.pivot) * s)).y)
 	r.height = maxf(-top, 1.0)
 	if r._by_id.has("leg_upper") and r._by_id.has("leg_lower"):
 		r.thigh = (r._by_id["leg_lower"].attach - r._by_id["leg_upper"].pivot).length()
@@ -155,7 +159,9 @@ func draw(ci: CanvasItem, pose: Dictionary, xform: Transform2D, modulate := Colo
 	var zs: Dictionary = pose.get("_z", {})
 	order.sort_custom(func(a, b): return float(zs.get(a.id, a.z)) < float(zs.get(b.id, b.z)))
 	for p in order:
-		ci.draw_set_transform_matrix(xform * (w[p.id] as Transform2D) * Transform2D(0.0, -p.pivot))
+		# A part's own `scale` (a child's bigger head) is about its joint.
+		var s := float(p.scale)
+		ci.draw_set_transform_matrix(xform * (w[p.id] as Transform2D) * Transform2D(0.0, Vector2(s, s), 0.0, Vector2.ZERO) * Transform2D(0.0, -p.pivot))
 		var t: float = p.tint
 		ci.draw_texture(p.tex, Vector2.ZERO, Color(modulate.r * t, modulate.g * t, modulate.b * t, modulate.a))
 	ci.draw_set_transform_matrix(Transform2D.IDENTITY)
@@ -173,7 +179,8 @@ func pose(name: String, t: float) -> Dictionary:
 		p["torso"] = (p.get("torso", Vector3.ZERO) as Vector3) + Vector3(3.0 + nod * 0.15, 0.0, 0.0)
 		return p
 	if not _anims.is_empty() and name != "sleep":
-		return _pose_34(name, t)
+		return _pose_34(name if _anims.has(name) else str(STAND_INS.get(name, name)), t)
+	name = str(STAND_INS.get(name, name))
 	if facing != "side":
 		return _pose_facing(name, t, breath)
 	match name:

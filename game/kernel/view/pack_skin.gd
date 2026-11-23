@@ -271,6 +271,16 @@ func collectible_sprite(type: String) -> Texture2D:
 	return sprite(str(_table("collectibles").get(type, "")))
 
 
+## The picture of what someone carries to its place (see `CarrySystem`): art.json
+## "carried": {"<mess or collectible type>": "<sprite>"} (a dustpan of sweepings, say), else
+## the thing's own picture; null for none.
+func carried_sprite(kind: String, type: String) -> Texture2D:
+	var own := sprite(str(_table("carried").get(type, "")))
+	if own != null:
+		return own
+	return collectible_sprite(type) if kind == "collectible" else mess_sprite(type)
+
+
 ## The picture of a shop item in the goods panel (art.json "items": {"<item id>": "<sprite
 ## name>"}); null when it has none (the panel draws an icon for its group).
 func item_sprite(id: String) -> Texture2D:

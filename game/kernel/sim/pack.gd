@@ -70,6 +70,9 @@ const DEFAULT_CONFIG := {
 	# Pay for a clean house (off while empty): `amount` coins when the last mess is cleaned
 	# away, at most once per local day.
 	"clean_reward": {},
+	# Carrying what is picked up or swept to its place (see `CarrySystem`): `cell_s` seconds
+	# a cell of the way, `drop_s` to put it down. Only types with `stow` are carried.
+	"carry": {"cell_s": 0.5, "drop_s": 3.0},
 	# Animals (off while empty or without a pets.json; see `PetSystem` and
 	# `PackValidator._check_pets` for the keys).
 	"pets": {},

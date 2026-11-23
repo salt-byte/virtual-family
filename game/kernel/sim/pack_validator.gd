@@ -163,6 +163,10 @@ func _check_pack_config() -> void:
 	var cr = c.get("clean_reward", {})
 	if not cr is Dictionary or (not cr.is_empty() and not (cr.get("amount") is int and cr["amount"] >= 0)):
 		_err("pack.json", _p.id, "clean_reward must be {} or {\"amount\": a whole number of at least 0}")
+	var ca = c.get("carry", {})
+	if not (ca is Dictionary and _is_num(ca.get("cell_s")) and float(ca["cell_s"]) >= 0.0 \
+			and _is_num(ca.get("drop_s")) and float(ca["drop_s"]) >= 0.0):
+		_err("pack.json", _p.id, "carry must be {\"cell_s\": seconds of at least 0, \"drop_s\": seconds of at least 0}")
 
 
 ## Each starting piece of furniture must be placeable on its own (known type and room, room
@@ -1113,6 +1117,7 @@ func _check_messes() -> void:
 		if not sc is Dictionary or (not sc.is_empty() and not (_is_num(sc.get("value")) and float(sc["value"]) >= 0.0 \
 				and _is_num(sc.get("chance", 1.0)))):
 			_err("messes.json", m["id"], "scrap must be {} or {value: whole number, chance}")
+		_check_stow("messes.json", m)
 
 
 func _check_goals() -> void:
@@ -1144,11 +1149,22 @@ func _is_num(v) -> bool:
 	return v is int or v is float
 
 
+## `stow` (optional): the object type it is carried to (see `CarrySystem`).
+func _check_stow(file: String, e: Dictionary) -> void:
+	var s = e.get("stow", "")
+	if not (s is String and (s == "" or _p.object_types.has(s))):
+		_err(file, str(e["id"]), "stow '%s' is not an object type" % [str(s)])
+
+
 func _check_collectibles() -> void:
 	for c in _p.collectibles.values():
 		_rooms_list("collectibles.json", c["id"], "rooms", c["rooms"])
 		if not c["keepsake"] is bool:
 			_err("collectibles.json", c["id"], "keepsake must be true or false")
+		_check_stow("collectibles.json", c)
+		var st = c.get("stock", "")
+		if not st is String:
+			_err("collectibles.json", c["id"], "stock must be a stock id (a string)")
 	if not _p.config.get("collect_keep") is bool:
 		_err("pack.json", _p.id, "collect_keep must be true or false")
 

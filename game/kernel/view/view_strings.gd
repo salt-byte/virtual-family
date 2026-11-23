@@ -66,7 +66,7 @@ const DEFAULTS := {
 	"error.away": "人出门了，还没回来", "error.closed": "这个时辰去不成", "error.not_festival": "得等到过节才有",
 	"btn.go_out": "出门", "title.go_out": "叫{name}出门", "go_out.none": "这会儿没有能去的地方。",
 	"go_out.away": "去了几个时辰，回来带点东西", "status.away": "出门去了",
-	"festival.left": "还有 {m} 分钟", "festival.left_h": "还有 {h} 小时", "festival.left_d": "还有 {d} 天", "ev.mourned": "{name}念叨起了{dead}",
+	"doing.carry": "把{thing}送去{place}", "festival.left": "还有 {m} 分钟", "festival.left_h": "还有 {h} 小时", "festival.left_d": "还有 {d} 天", "ev.mourned": "{name}念叨起了{dead}",
 	"away.festival": "过了{name}", "away.outing": "{text}",
 	"error.no_letter": "没有这封信", "error.answered": "这封信已经回过了",
 	"error.too_late": "这事已经过去了", "error.no_choice": "做不了",
@@ -270,6 +270,12 @@ func doing(p: Person, world: World) -> String:
 	if OutingSystem.away(world, p):
 		return t("status.away")
 	var aid := str(p.current.get("action", "")) if not p.current.is_empty() else ""
+	var carry: Dictionary = p.current.get("carry", {})
+	if not carry.is_empty():
+		var table: Dictionary = world.pack.collectibles if str(carry.kind) == "collectible" else world.pack.mess_types
+		var to := world.object(int(p.current.get("object_uid", -1)))
+		return _f("doing.carry", {"thing": str(table.get(str(carry.type), {}).get("name", "")),
+			"place": str(world.pack.object_types.get(str(to.get("type", "")), {}).get("name", ""))})
 	if aid != "" and world.pack.actions.has(aid):
 		return str(world.pack.actions[aid]["label"])
 	return t("idle")

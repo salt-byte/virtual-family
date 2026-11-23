@@ -1169,6 +1169,8 @@ static func duration_s(world: World, a: Dictionary) -> int:
 static func cancel(world: World, p: Person) -> void:
 	if p.current.is_empty():
 		return
+	if p.current.has("carry"):
+		CarrySystem.drop(world, p)
 	world.emit("action_cancelled", {"person": p.uid, "action": p.current["action"]})
 	p.current = {}
 
@@ -1181,6 +1183,9 @@ static func cancel(world: World, p: Person) -> void:
 ## `duration_s` seconds of a longer `remaining_s` pay, as always.
 static func _progress(world: World, p: Person, dt: float) -> void:
 	var cur := p.current
+	if cur.has("carry"):
+		CarrySystem.progress(world, p, dt)
+		return
 	var pack := world.pack
 	var c = pack.autonomy_progress.get(cur["action"])
 	if c == null:
@@ -1286,10 +1291,22 @@ static func player_led(a: Dictionary) -> bool:
 static func _finish(world: World, p: Person) -> void:
 	var id := str(p.current["action"])
 	var action: Dictionary = world.pack.actions[id]
+	# What was swept up or picked up may still have to be carried to its place (a second
+	# leg of this action, begun once the rest of it is settled: see `CarrySystem`).
+	var carry := {}
 	if str(action["cleans"]) != "":
-		MessSystem.clean(world, int(p.current.get("target_uid", -1)), p.uid)
+		var m := MessSystem.find(world, int(p.current.get("target_uid", -1)))
+		var later := not m.is_empty() and _carries(world, "mess", m)
+		if later:
+			carry = {"kind": "mess", "thing": m.duplicate(true)}
+		MessSystem.clean(world, int(p.current.get("target_uid", -1)), p.uid, not later)
 	if bool(action["picks"]):
-		CollectibleSystem.collect(world, p, int(p.current.get("target_uid", -1)))
+		var c := CollectibleSystem.find(world, int(p.current.get("target_uid", -1)))
+		if not c.is_empty() and not c.has("story") and _carries(world, "collectible", c):
+			world.collectibles.erase(c)
+			carry = {"kind": "collectible", "thing": c}
+		else:
+			CollectibleSystem.collect(world, p, int(p.current.get("target_uid", -1)))
 	var eats = action.get("eats")
 	if eats != null and not (eats as Array).is_empty():
 		DishSystem.eat(world, int(p.current.get("target_uid", -1)))
@@ -1333,6 +1350,19 @@ static func _finish(world: World, p: Person) -> void:
 		WishSystem.on_action_finished(world, p, id, led)
 	if not p.ask.is_empty():
 		AskSystem.on_action_finished(world, p, id, led)
+	if not carry.is_empty():
+		var started := p.current.is_empty() and CarrySystem.begin(world, p, id, str(carry.kind), carry.thing, led)
+		if not started:  # (something else took them meanwhile: it counts where it is)
+			if str(carry.kind) == "collectible":
+				CollectibleSystem.settle(world, p, carry.thing)
+			else:
+				MessSystem.scrap(world, str(carry.thing.get("type", "")), p.uid)
+
+
+## True when `thing` (a mess or a collectible) has a place to be carried to from where it lies.
+static func _carries(world: World, kind: String, thing: Dictionary) -> bool:
+	var stow := CarrySystem.stow_type(world.pack, kind, str(thing.get("type", "")))
+	return stow != "" and CarrySystem.destination(world, stow, str(thing.get("room", "")), int(thing.get("x", 0)), int(thing.get("y", 0))) >= 0
 
 
 ## First unclaimed target for the action's kind (-1 when it has none or none is free).

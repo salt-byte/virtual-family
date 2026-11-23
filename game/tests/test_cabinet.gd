@@ -237,13 +237,18 @@ func test_offline_pickups_go_into_the_box_unsold():
 	var w := _home()
 	w.advance(60)
 	var collected := int(w.stats["collected"])
+	var larder := int(w.stock.get("greens", 0)) + int(w.stock.get("herbs", 0))
 	var s := w.catch_up(8 * 3600)
 	var gained := int(w.stats["collected"]) - collected
 	assert_true(gained > 0, "something was picked up while away")
 	var kept := 0
 	for k in w.box:
 		kept += int(w.box[k])
-	assert_eq(kept, gained)
+	# What is eaten or used (greens, herbs) goes into the larder instead of the box (and may
+	# have been cooked or used meanwhile: at most that many).
+	var stocked := int(w.stock.get("greens", 0)) + int(w.stock.get("herbs", 0)) - larder
+	assert_true(kept <= gained and kept + stocked <= gained, "%d kept, %d stocked, %d picked" % [kept, stocked, gained])
+	assert_true(kept >= gained / 2, "most finds go into the box: %d of %d" % [kept, gained])
 	assert_true(not w.drain_events().any(func(e): return e.type == "collectibles_sold"))
 	assert_true(s.has("fragments"))
 

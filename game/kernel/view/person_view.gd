@@ -129,6 +129,20 @@ var turned := "front34"
 var _turn_want := "front34"
 var _turn_held := 0.0
 const TURN_HOLD := 0.12
+## Carrying something to its place (`CarrySystem`), beat by beat: walk to where it lay
+## (only when the screen is behind the sim: `_fetch`), stoop and pick it up (`_stoop_left`),
+## walk with it held in both hands, stoop and put it in (`stow`, while the leg lasts, or
+## `_stow_left` when the sim got there first). `_held` is its picture while in hand.
+var _carry_key := ""
+var _held: Texture2D
+var _fetch := Vector2(INF, INF)
+var _fetch_item := Vector2(INF, INF)
+var _carry_dest := Vector2(INF, INF)
+var _stoop_left := 0.0
+var _stow_left := 0.0
+const STOOP_TIME := 0.7
+const STOW_TIME := 0.9
+const HELD_SIZE := Vector2(30, 28)
 ## The rig drawn now and the one fading out after a turn (0..1 through TURN_FADE).
 var _rig_now: CutoutRig
 var _rig_now_k := 1.0
@@ -213,6 +227,7 @@ func refresh() -> void:
 		# On a seat or a bed the spot is on the piece itself (see `on_spot`).
 		base_target = want if on_object else l.stop_point(want)
 		target = base_target
+		_refresh_carry(w, l)
 	var elder := false
 	var stages: Array = w.pack.cfg("stages")
 	if not stages.is_empty():
@@ -238,6 +253,106 @@ func refresh() -> void:
 		if not u.is_empty() and person.needs.has(u.need):
 			_unwell = float(person.needs[u.need]) < float(u.below)
 	queue_redraw()
+
+
+## Keeps the carrying beats (see `_carry_key`) in step with the sim: a new carry leg (picked
+## up out of sight of the screen: they first fetch it); the sim done before they got there
+## (they still walk it over and put it in, then go on with whatever comes next).
+func _refresh_carry(w: World, l: HouseLayout) -> void:
+	var carry: Dictionary = person.current.get("carry", {})
+	if not carry.is_empty():
+		var key := "%d|%d" % [int(carry.get("uid", -1)), int(person.current.get("object_uid", -1))]
+		var skin := _skin()
+		_held = skin.carried_sprite(str(carry.kind), str(carry.type)) if skin != null else null
+		_carry_dest = base_target
+		if key != _carry_key:
+			_carry_key = key
+			var from := l.cell_center(str(carry.room), int(carry.x), int(carry.y))
+			if position.distance_to(from) > HouseSite.CELL.x * 1.5:
+				_fetch_item = from
+				_fetch = l.stop_point(from)
+	elif _carry_key != "":
+		if _carry_dest.x != INF and (position.distance_to(_carry_dest) > ARRIVED or _fetch.x != INF) and _stow_left <= 0.0:
+			# The sim has put it in already: the screen walks it over first.
+			_carry_key = "done"
+		elif _stow_left <= 0.0:
+			_end_carry()
+	if _carry_key == "":
+		return
+	if _carry_key == "done":
+		target = _carry_dest
+	if _fetch.x != INF:
+		target = _fetch
+	if _stoop_left > 0.0 or _stow_left > 0.0:
+		target = position
+
+
+func _end_carry() -> void:
+	_carry_key = ""
+	_held = null
+	_fetch = Vector2(INF, INF)
+	_fetch_item = Vector2(INF, INF)
+	_carry_dest = Vector2(INF, INF)
+	_stoop_left = 0.0
+	_stow_left = 0.0
+
+
+## True while they hold what they carry (not while still fetching it).
+func holding() -> bool:
+	return _held != null and _fetch.x == INF and _stoop_left <= 0.0
+
+
+## Where the thing they are about to fetch still lies (plan point), INF when none.
+func fetch_item() -> Vector2:
+	return _fetch_item if _fetch.x != INF or _stoop_left > 0.0 else Vector2(INF, INF)
+
+
+func held_picture() -> Texture2D:
+	return _held
+
+
+## Advances the carrying beats by `delta`: arriving to fetch, stooping, putting it in.
+func _tick_carry(delta: float) -> void:
+	if _carry_key == "":
+		return
+	if _fetch.x != INF and position.distance_to(_fetch) <= ARRIVED:
+		_fetch = Vector2(INF, INF)
+		_stoop_left = STOOP_TIME
+	if _stoop_left > 0.0:
+		_stoop_left -= delta
+		if _stoop_left <= 0.0:
+			_fetch_item = Vector2(INF, INF)
+			target = _carry_dest if _carry_dest.x != INF else target
+		return
+	if _carry_key == "done":
+		if _stow_left > 0.0:
+			_stow_left -= delta
+			if _stow_left <= 0.0:
+				_end_carry()
+				refresh()
+		elif position.distance_to(_carry_dest) <= ARRIVED:
+			_stow_left = STOW_TIME
+
+
+## Draws what they carry between their two hands (the ends of the forearms).
+func _draw_held(rig: CutoutRig, pose: Dictionary, xform: Transform2D) -> void:
+	if _held == null:
+		return
+	var w := rig.world(pose)
+	var sum := Vector2.ZERO
+	var n := 0
+	for id in ["arm_lower", "arm_back_lower"]:
+		if not rig.has_part(id) or not w.has(id):
+			continue
+		var pt := rig.part(id)
+		var size: Vector2 = pt.get("size", Vector2.ZERO)
+		var pivot: Vector2 = pt.get("pivot", Vector2.ZERO)
+		sum += xform * ((w[id] as Transform2D) * (Vector2(size.x * 0.5, size.y * 0.88) - pivot))
+		n += 1
+	if n == 0:
+		return
+	var at := sum / float(n)
+	draw_texture_rect(_held, PackSkin.fit_rect(_held, at + Vector2(0, HELD_SIZE.y * 0.45), HELD_SIZE), false)
 
 
 func _skin() -> PackSkin:
@@ -276,7 +391,7 @@ func pose() -> String:
 		return "asleep"
 	if position.distance_to(target) > ARRIVED and not held:
 		return "walking"
-	return "busy" if not person.current.is_empty() else "idle"
+	return "busy" if not person.current.is_empty() or _carry_key != "" else "idle"
 
 
 ## The words over them while they face the screen: news of what they earned, else thanks.
@@ -306,6 +421,7 @@ func tick(delta: float) -> void:
 		_mark.queue_free()
 		_mark = null
 	_tick_lying(delta)
+	_tick_carry(delta)
 	if held:
 		return
 	var was := position
@@ -864,7 +980,14 @@ func _draw_pictured() -> void:
 			_rig_was.draw(self, _rig_pose(_rig_was, bp), Transform2D(0.0, Vector2(_facing * k0, k0), 0.0, Vector2(0, lift + 2.0 - sit_up)), tw)
 		var k2 := h / rig.height * float(picked[1])
 		var tn := Color(tint, tint.a * smoothstep(0.0, 1.0, _fade))
-		rig.draw(self, _rig_pose(rig, bp), Transform2D(0.0, Vector2(_facing * k2, k2), 0.0, Vector2(0, lift + 2.0 - sit_up)), tn)
+		var rx := Transform2D(0.0, Vector2(_facing * k2, k2), 0.0, Vector2(0, lift + 2.0 - sit_up))
+		var rp := _rig_pose(rig, bp)
+		var away := turned in ["back", "back34"]
+		if holding() and away:
+			_draw_held(rig, rp, rx)   # turned away: what they hold is in front of them, hidden
+		rig.draw(self, rp, rx, tn)
+		if holding() and not away:
+			_draw_held(rig, rp, rx)
 	else:
 		# One flat picture: walking hops and sways; working squashes in time; sitting is
 		# drawn shorter; eating nods.
@@ -939,7 +1062,9 @@ func _pick_pose(w: World) -> String:
 	var a: Dictionary = w.pack.actions.get(aid, {})
 	if bool(a.get("slow", false)):
 		return "sleep"
-	if otype != "" or str(a.get("cleans", "")) != "" or bool(a.get("picks", false)):
+	if bool(a.get("picks", false)):
+		return "stoop"
+	if otype != "" or str(a.get("cleans", "")) != "":
 		return "work"
 	return "idle"
 
@@ -947,13 +1072,19 @@ func _pick_pose(w: World) -> String:
 ## The pose the body is drawn in: "wave" while thanking, "walk" on the way, else what the
 ## current action asks for (`action_pose`), "idle" with nothing to do.
 func body_pose() -> String:
+	if _stoop_left > 0.0:
+		return "stoop"
+	if _stow_left > 0.0:
+		return "stow"
 	match pose():
 		"thanks":
 			return "wave"
 		"walking":
-			return "walk"
+			return "carry" if holding() else "walk"
 		"idle":
-			return "idle"
+			return "stow" if holding() else "idle"
+	if holding():
+		return "stow"
 	return action_pose if action_pose != "" else "idle"
 
 

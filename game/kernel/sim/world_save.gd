@@ -503,6 +503,10 @@ static func _valid_person(p) -> bool:
 		return false
 	if c.has("room") and not _is_str(c["room"]):
 		return false  # optional: saves from before actions had rooms lack it
+	if c.has("carry") and not (typeof(c["carry"]) == TYPE_DICTIONARY and _has(c["carry"],
+			{"kind": "s", "type": "s", "uid": "i", "room": "s", "x": "i", "y": "i", "total_s": "i"})
+			and (not c["carry"].has("c") or typeof(c["carry"]["c"]) == TYPE_DICTIONARY)):
+		return false  # optional: only while carrying something to its place
 	return c.is_empty() or _has(c, {"action": "s", "object_uid": "i", "target_uid": "i", "remaining_s": "i"})
 
 
