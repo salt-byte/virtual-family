@@ -1000,6 +1000,7 @@ func _sync_props() -> void:
 					piece.alpha = a
 					piece.flip = spot.flip
 					piece.sort_bias = FURNITURE_BIAS - lift * IsoMath.TILE.y / HouseSite.CELL.y
+					piece.shade = spot.shade
 					piece.place_at(tex, r, spot.at)
 				else:
 					piece.queue_redraw()
@@ -1068,7 +1069,11 @@ func iso_picture(o: Dictionary, tex: Texture2D, w: World) -> Dictionary:
 	var mid_x := (d[1].x + d[3].x) * 0.5 - foot.x
 	# Smaller than the footprint: shrunk about its middle, so it stays in the middle of it.
 	var bottom := (d[2].y - foot.y) * whole + 6.0
-	return {"at": at, "rect": Rect2(mid_x - size.x * 0.5, bottom - size.y, size.x, size.y), "flip": flip}
+	# Its shadow: the footprint's diamond at the piece's real size, a little in from its edges.
+	var shade := PackedVector2Array()
+	for c in d:
+		shade.append((c - foot) * whole * 0.8)
+	return {"at": at, "rect": Rect2(mid_x - size.x * 0.5, bottom - size.y, size.x, size.y), "flip": flip, "shade": shade}
 
 
 ## How much of its footprint's diamond a piece's 45° picture fills, before its own `scale`:
