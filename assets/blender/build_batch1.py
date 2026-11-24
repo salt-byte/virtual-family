@@ -164,8 +164,15 @@ def render(name, fn, size):
     bc._mats.clear()
     fn()
     w, d = size
+    # Frame round what was built: as tall as its highest point (plus the footprint's own
+    # depth on the view and a margin), centred half way up.
+    top = 0.0
+    for o in bpy.context.scene.objects:
+        if o.type == "MESH":
+            for c in o.bound_box:
+                top = max(top, (o.matrix_world @ Vector(c)).z)
     span = (w + d) * math.cos(math.radians(45)) + 0.6
-    cam = bc.camera(sc, (0, 0, 0.6), span, span * 0.5 + 2.0)
+    cam = bc.camera(sc, (0, 0, top * 0.5), span, span * 0.5 + top * 0.87 + 0.6)
     path = os.path.join(GAME, name + ".png")
     sc.render.filepath = path
     bpy.ops.render.render(write_still=True)
