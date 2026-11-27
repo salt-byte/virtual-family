@@ -1,0 +1,364 @@
+{
+ "_about": {
+  "figure_px": 180,
+  "scale_note": "像素按人物 2x 美术尺寸（人约 180 px 高、拳头约 14 px 宽）；grip 是成品图里手握处的像素坐标（左上为原点），grip_frac 是相对宽高的比例",
+  "view": "四分之三前，光从左上"
+ },
+ "rice_bowl_full": {
+  "name": "一碗饭（带筷子）",
+  "file": "rice_bowl_full.png",
+  "size": [
+   30,
+   24
+  ],
+  "grip": [
+   13,
+   21
+  ],
+  "grip_frac": [
+   0.45,
+   0.93
+  ],
+  "orientation": "upright: 按图里的样子正着拿，底在下；手托碗底"
+ },
+ "bowl_empty": {
+  "name": "空碗",
+  "file": "bowl_empty.png",
+  "size": [
+   26,
+   19
+  ],
+  "grip": [
+   12,
+   17
+  ],
+  "grip_frac": [
+   0.5,
+   0.93
+  ],
+  "orientation": "upright: 按图里的样子正着拿，底在下；手托碗底"
+ },
+ "teacup": {
+  "name": "茶杯",
+  "file": "teacup.png",
+  "size": [
+   14,
+   13
+  ],
+  "grip": [
+   6,
+   7
+  ],
+  "grip_frac": [
+   0.5,
+   0.6
+  ],
+  "orientation": "upright: 按图里的样子正着拿，底在下；手捏杯身"
+ },
+ "medicine_bowl": {
+  "name": "药碗",
+  "file": "medicine_bowl.png",
+  "size": [
+   24,
+   17
+  ],
+  "grip": [
+   12,
+   15
+  ],
+  "grip_frac": [
+   0.5,
+   0.93
+  ],
+  "orientation": "upright: 按图里的样子正着拿，底在下；手托碗底"
+ },
+ "medicine_bottle": {
+  "name": "药瓶",
+  "file": "medicine_bottle.png",
+  "size": [
+   11,
+   16
+  ],
+  "grip": [
+   5,
+   10
+  ],
+  "grip_frac": [
+   0.5,
+   0.65
+  ],
+  "orientation": "upright: 按图里的样子正着拿，底在下；手握瓶肚"
+ },
+ "osmanthus_cake": {
+  "name": "桂花糕",
+  "file": "osmanthus_cake.png",
+  "size": [
+   18,
+   11
+  ],
+  "grip": [
+   8,
+   8
+  ],
+  "grip_frac": [
+   0.5,
+   0.75
+  ],
+  "orientation": "upright: 按图里的样子正着拿，底在下；指尖捏着油纸"
+ },
+ "tofu_tray": {
+  "name": "豆腐盘",
+  "file": "tofu_tray.png",
+  "size": [
+   46,
+   28
+  ],
+  "grip": [
+   22,
+   25
+  ],
+  "grip_frac": [
+   0.5,
+   0.92
+  ],
+  "orientation": "upright: 按图里的样子正着拿，底在下；双手端托盘下沿（单手时握点在下沿中间）"
+ },
+ "ladle": {
+  "name": "勺（木汤勺）",
+  "file": "ladle.png",
+  "size": [
+   14,
+   44
+  ],
+  "grip": [
+   6,
+   35
+  ],
+  "grip_frac": [
+   0.5,
+   0.82
+  ],
+  "orientation": "handle_down: 柄竖直朝下、头朝上；拿着走时可整体转 ±20°；舀汤时转 180° 勺头朝下"
+ },
+ "wok_spatula": {
+  "name": "锅铲",
+  "file": "wok_spatula.png",
+  "size": [
+   17,
+   42
+  ],
+  "grip": [
+   8,
+   34
+  ],
+  "grip_frac": [
+   0.5,
+   0.84
+  ],
+  "orientation": "handle_down: 柄竖直朝下、头朝上；拿着走时可整体转 ±20°；炒菜时向前倾 30–60°"
+ },
+ "book_open": {
+  "name": "翻开的线装书",
+  "file": "book_open.png",
+  "size": [
+   38,
+   27
+  ],
+  "grip": [
+   18,
+   23
+  ],
+  "grip_frac": [
+   0.5,
+   0.9
+  ],
+  "orientation": "upright: 按图里的样子正着拿，底在下；双手捧下沿（单手时握点在书脊下端）"
+ },
+ "book_closed": {
+  "name": "合上的书",
+  "file": "book_closed.png",
+  "size": [
+   23,
+   26
+  ],
+  "grip": [
+   4,
+   19
+  ],
+  "grip_frac": [
+   0.2,
+   0.75
+  ],
+  "orientation": "upright: 按图里的样子正着拿，底在下；手握书脊（左侧订线）"
+ },
+ "writing_brush": {
+  "name": "毛笔",
+  "file": "writing_brush.png",
+  "size": [
+   3,
+   30
+  ],
+  "grip": [
+   1,
+   13
+  ],
+  "grip_frac": [
+   0.5,
+   0.45
+  ],
+  "orientation": "tip_down: 笔尖朝下、竖直，写字时笔尖向下点；握笔杆中段"
+ },
+ "embroidery_hoop": {
+  "name": "绣绷（带针线）",
+  "file": "embroidery_hoop.png",
+  "size": [
+   30,
+   25
+  ],
+  "grip": [
+   2,
+   15
+  ],
+  "grip_frac": [
+   0.06,
+   0.62
+  ],
+  "orientation": "upright: 按图里的样子正着拿，底在下；手握绣绷左下竹圈"
+ },
+ "sugar_figure": {
+  "name": "糖人",
+  "file": "sugar_figure.png",
+  "size": [
+   29,
+   44
+  ],
+  "grip": [
+   9,
+   39
+  ],
+  "grip_frac": [
+   0.5,
+   0.92
+  ],
+  "orientation": "handle_down: 柄竖直朝下、头朝上；拿着走时可整体转 ±20°；握竹签下端"
+ },
+ "rattle_drum": {
+  "name": "拨浪鼓",
+  "file": "rattle_drum.png",
+  "size": [
+   32,
+   38
+  ],
+  "grip": [
+   16,
+   33
+  ],
+  "grip_frac": [
+   0.5,
+   0.88
+  ],
+  "orientation": "handle_down: 柄竖直朝下、头朝上；拿着走时可整体转 ±20°；握木柄，摇时左右转 ±30°"
+ },
+ "herb_bundle": {
+  "name": "一捆草药",
+  "file": "herb_bundle.png",
+  "size": [
+   23,
+   34
+  ],
+  "grip": [
+   11,
+   23
+  ],
+  "grip_frac": [
+   0.5,
+   0.72
+  ],
+  "orientation": "bundle_up: 花叶朝上、根朝下；握扎绳处"
+ },
+ "carpenter_plane": {
+  "name": "刨子",
+  "file": "carpenter_plane.png",
+  "size": [
+   38,
+   29
+  ],
+  "grip": [
+   27,
+   17
+  ],
+  "grip_frac": [
+   0.72,
+   0.62
+  ],
+  "orientation": "horizontal: 横放，刨木时贴着木板前后推；握刨刃后方的刨身"
+ },
+ "water_bucket": {
+  "name": "水桶",
+  "file": "water_bucket.png",
+  "size": [
+   29,
+   42
+  ],
+  "grip": [
+   14,
+   1
+  ],
+  "grip_frac": [
+   0.5,
+   0.03
+  ],
+  "orientation": "hanging: 手提提梁顶，桶垂在手下"
+ },
+ "broom": {
+  "name": "竹扫帚",
+  "file": "broom.png",
+  "size": [
+   45,
+   112
+  ],
+  "grip": [
+   23,
+   47
+  ],
+  "grip_frac": [
+   0.5,
+   0.42
+  ],
+  "orientation": "head_down: 扫帚头朝下、柄朝上；扫地时下端向一侧倾 20–30°，另一只手可握 (0.5, 0.05)"
+ },
+ "hoe": {
+  "name": "锄头",
+  "file": "hoe.png",
+  "size": [
+   34,
+   136
+  ],
+  "grip": [
+   5,
+   97
+  ],
+  "grip_frac": [
+   0.14,
+   0.72
+  ],
+  "orientation": "handle_down: 柄竖直朝下、头朝上；拿着走时可整体转 ±20°；锄板朝右；扛在肩上时转约 -60°，锄地时举过头再落下"
+ },
+ "axe": {
+  "name": "斧头",
+  "file": "axe.png",
+  "size": [
+   25,
+   66
+  ],
+  "grip": [
+   7,
+   57
+  ],
+  "grip_frac": [
+   0.3,
+   0.88
+  ],
+  "orientation": "handle_down: 柄竖直朝下、头朝上；拿着走时可整体转 ±20°；刃朝右；劈柴时举过头向下劈"
+ }
+}

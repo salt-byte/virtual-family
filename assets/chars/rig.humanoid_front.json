@@ -1,0 +1,160 @@
+{
+ "name": "humanoid_front",
+ "note": "正面 / 背面的人形，部件 id 和 rig.humanoid_side.json 一样，游戏按朝向换骨架。拆件图 3 行 2 列：头、躯干；上臂、前臂；裤子（两条大腿连着，脚本从中间切成一条）、小腿连脚。另一侧的胳膊腿（*_back_*）用镜像图，不压暗。正面、背面共用这份模板和 anims.humanoid_front.json。",
+ "facing": "front",
+ "sheet_rows": [
+  [
+   "head",
+   "torso"
+  ],
+  [
+   "arm_upper",
+   "arm_lower"
+  ],
+  [
+   "leg_upper",
+   "leg_lower"
+  ]
+ ],
+ "parts": [
+  {
+   "id": "head",
+   "parent": "torso",
+   "z": 2,
+   "pivot": {
+    "y": 0.92,
+    "x": "center"
+   },
+   "attach": {
+    "y": 0.05,
+    "x": "center"
+   },
+   "image_file": "head.png"
+  },
+  {
+   "id": "torso",
+   "z": 3,
+   "pivot": {
+    "y": 0.93,
+    "x": "center"
+   },
+   "image_file": "torso.png"
+  },
+  {
+   "id": "arm_upper",
+   "parent": "torso",
+   "z": 5,
+   "pivot": {
+    "top_w": 0.5,
+    "x": "center"
+   },
+   "attach": {
+    "y": 0.17,
+    "x": 0.93
+   },
+   "image_file": "arm_upper.png"
+  },
+  {
+   "id": "arm_lower",
+   "parent": "arm_upper",
+   "z": 6,
+   "pivot": {
+    "top_w": 0.5,
+    "x": "center"
+   },
+   "attach": {
+    "bottom_w": 0.5,
+    "x": "center"
+   },
+   "image_file": "arm_lower.png"
+  },
+  {
+   "id": "leg_upper",
+   "parent": "torso",
+   "z": 1,
+   "pivot": {
+    "y": 0.06,
+    "x": "center"
+   },
+   "attach": {
+    "y": 0.86,
+    "x": 0.66
+   },
+   "image_file": "leg_upper.png"
+  },
+  {
+   "id": "leg_lower",
+   "parent": "leg_upper",
+   "z": 0,
+   "pivot": {
+    "top_w": 0.5,
+    "x": "center"
+   },
+   "attach": {
+    "bottom_w": 0.5,
+    "x": "center"
+   },
+   "image_file": "leg_lower.png"
+  },
+  {
+   "id": "arm_back_upper",
+   "same_as": "arm_upper",
+   "parent": "torso",
+   "z": 5,
+   "pivot": {
+    "top_w": 0.5,
+    "x": "center"
+   },
+   "attach": {
+    "y": 0.17,
+    "x": 0.07
+   },
+   "image_file": "arm_upper_m.png"
+  },
+  {
+   "id": "arm_back_lower",
+   "same_as": "arm_lower",
+   "parent": "arm_back_upper",
+   "z": 6,
+   "pivot": {
+    "top_w": 0.5,
+    "x": "center"
+   },
+   "attach": {
+    "bottom_w": 0.5,
+    "x": "center"
+   },
+   "image_file": "arm_lower_m.png"
+  },
+  {
+   "id": "leg_back_upper",
+   "same_as": "leg_upper",
+   "parent": "torso",
+   "z": 1,
+   "pivot": {
+    "y": 0.06,
+    "x": "center"
+   },
+   "attach": {
+    "y": 0.86,
+    "x": 0.34
+   },
+   "image_file": "leg_upper_m.png"
+  },
+  {
+   "id": "leg_back_lower",
+   "same_as": "leg_lower",
+   "parent": "leg_back_upper",
+   "z": 0,
+   "pivot": {
+    "top_w": 0.5,
+    "x": "center"
+   },
+   "attach": {
+    "bottom_w": 0.5,
+    "x": "center"
+   },
+   "image_file": "leg_lower_m.png"
+  }
+ ]
+}

@@ -1,0 +1,713 @@
+{
+	"compound": [
+		11,
+		6,
+		34,
+		19
+	],
+	"metres_per_cell": 0.7,
+	"people": [
+		{
+			"uid": 1,
+			"x": 27.5,
+			"y": 9.5
+		}
+	],
+	"rooms": [
+		{
+			"built": true,
+			"h": 6.0,
+			"id": "hall",
+			"indoor": true,
+			"name": "堂屋",
+			"w": 10.0,
+			"x": 23.0,
+			"y": 6.0
+		},
+		{
+			"built": false,
+			"h": 6.0,
+			"id": "west_room",
+			"indoor": true,
+			"name": "西屋",
+			"w": 6.0,
+			"x": 17.0,
+			"y": 6.0
+		},
+		{
+			"built": true,
+			"h": 6.0,
+			"id": "bedroom",
+			"indoor": true,
+			"name": "卧房",
+			"w": 6.0,
+			"x": 33.0,
+			"y": 6.0
+		},
+		{
+			"built": true,
+			"h": 6.0,
+			"id": "kitchen",
+			"indoor": true,
+			"name": "灶间",
+			"w": 6.0,
+			"x": 11.0,
+			"y": 12.0
+		},
+		{
+			"built": true,
+			"h": 6.0,
+			"id": "woodshed",
+			"indoor": true,
+			"name": "柴房",
+			"w": 6.0,
+			"x": 11.0,
+			"y": 6.0
+		},
+		{
+			"built": false,
+			"h": 7.0,
+			"id": "study",
+			"indoor": true,
+			"name": "书房",
+			"w": 6.0,
+			"x": 11.0,
+			"y": 18.0
+		},
+		{
+			"built": true,
+			"h": 7.0,
+			"id": "yard",
+			"indoor": false,
+			"name": "院子",
+			"w": 17.0,
+			"x": 17.0,
+			"y": 12.0
+		},
+		{
+			"built": true,
+			"h": 7.0,
+			"id": "well",
+			"indoor": false,
+			"name": "井台",
+			"w": 5.0,
+			"x": 34.0,
+			"y": 12.0
+		},
+		{
+			"built": false,
+			"h": 6.0,
+			"id": "side",
+			"indoor": true,
+			"name": "厢房",
+			"w": 6.0,
+			"x": 39.0,
+			"y": 6.0
+		},
+		{
+			"built": true,
+			"h": 6.0,
+			"id": "pigsty",
+			"indoor": false,
+			"name": "猪圈",
+			"w": 6.0,
+			"x": 39.0,
+			"y": 19.0
+		},
+		{
+			"built": true,
+			"h": 6.0,
+			"id": "gate",
+			"indoor": false,
+			"name": "大门口",
+			"w": 8.0,
+			"x": 24.0,
+			"y": 19.0
+		},
+		{
+			"built": true,
+			"h": 6.0,
+			"id": "veg_plot",
+			"indoor": false,
+			"name": "菜园",
+			"w": 7.0,
+			"x": 32.0,
+			"y": 19.0
+		},
+		{
+			"built": true,
+			"h": 7.0,
+			"id": "coop_run",
+			"indoor": false,
+			"name": "鸡舍",
+			"w": 6.0,
+			"x": 39.0,
+			"y": 12.0
+		},
+		{
+			"built": true,
+			"h": 6.0,
+			"id": "threshing",
+			"indoor": false,
+			"name": "晒场",
+			"w": 7.0,
+			"x": 17.0,
+			"y": 19.0
+		},
+		{
+			"built": true,
+			"h": 16.0,
+			"id": "riverside",
+			"indoor": false,
+			"name": "河边",
+			"w": 3.0,
+			"x": 46.0,
+			"y": 7.0
+		},
+		{
+			"built": true,
+			"h": 11.0,
+			"id": "bamboo_grove",
+			"indoor": false,
+			"name": "竹林",
+			"w": 8.0,
+			"x": 1.0,
+			"y": 7.0
+		},
+		{
+			"built": true,
+			"h": 5.0,
+			"id": "field_ridge",
+			"indoor": false,
+			"name": "田埂",
+			"w": 20.0,
+			"x": 1.0,
+			"y": 26.0
+		},
+		{
+			"built": true,
+			"h": 3.0,
+			"id": "hill_path",
+			"indoor": false,
+			"name": "后山小路",
+			"w": 30.0,
+			"x": 13.0,
+			"y": 0.0
+		},
+		{
+			"built": true,
+			"h": 5.0,
+			"id": "village_tree",
+			"indoor": false,
+			"name": "村口大树下",
+			"w": 10.0,
+			"x": 32.0,
+			"y": 26.0
+		}
+	],
+	"size": [
+		56,
+		32
+	],
+	"sizes": {
+		"altar": [
+			1.3,
+			0.5
+		],
+		"ayun_hoop": [
+			0.6,
+			0.5
+		],
+		"bird_cage": [
+			0.35,
+			0.35
+		],
+		"bookshelf": [
+			1.8,
+			0.4
+		],
+		"carpenter_bench": [
+			1.4,
+			0.5
+		],
+		"clothesline": [
+			2.6,
+			0.3
+		],
+		"coop": [
+			0.65,
+			0.5
+		],
+		"cupboard": [
+			0.9,
+			0.45
+		],
+		"desk": [
+			1.2,
+			0.6
+		],
+		"dining_table": [
+			1.8,
+			1.3
+		],
+		"embroidery_frame": [
+			0.6,
+			0.5
+		],
+		"garden": [
+			2.0,
+			1.4
+		],
+		"grain_heap": [
+			1.2,
+			1.2
+		],
+		"grape_trellis": [
+			2.6,
+			1.4
+		],
+		"herb_grinder": [
+			0.5,
+			0.25
+		],
+		"kang": [
+			2.0,
+			1.5
+		],
+		"keepsake_chest": [
+			0.55,
+			0.33
+		],
+		"loom": [
+			1.2,
+			1.0
+		],
+		"millstone": [
+			0.9,
+			0.9
+		],
+		"peddler_pole": [
+			1.6,
+			0.5
+		],
+		"stone_bench": [
+			1.2,
+			0.4
+		],
+		"stool": [
+			0.35,
+			0.3
+		],
+		"stove": [
+			1.3,
+			0.7
+		],
+		"threshold": [
+			1.8,
+			0.25
+		],
+		"tofu_box": [
+			0.5,
+			0.5
+		],
+		"trash_basket": [
+			0.5,
+			0.5
+		],
+		"trough": [
+			1.6,
+			0.4
+		],
+		"vat": [
+			0.6,
+			0.6
+		],
+		"washtub": [
+			0.7,
+			0.7
+		],
+		"well_head": [
+			1.2,
+			1.2
+		],
+		"woodpile": [
+			1.8,
+			1.0
+		]
+	},
+	"things": [
+		{
+			"cell": [
+				0,
+				0
+			],
+			"h": 2.0,
+			"room": "bedroom",
+			"type": "kang",
+			"w": 3.0,
+			"x": 33.0,
+			"y": 6.0
+		},
+		{
+			"cell": [
+				3,
+				0
+			],
+			"h": 1.0,
+			"room": "hall",
+			"type": "desk",
+			"w": 2.0,
+			"x": 26.0,
+			"y": 6.0
+		},
+		{
+			"cell": [
+				0,
+				5
+			],
+			"h": 1.0,
+			"room": "hall",
+			"type": "stool",
+			"w": 1.0,
+			"x": 23.0,
+			"y": 11.0
+		},
+		{
+			"cell": [
+				0,
+				0
+			],
+			"h": 1.0,
+			"room": "kitchen",
+			"type": "stove",
+			"w": 2.0,
+			"x": 11.0,
+			"y": 12.0
+		},
+		{
+			"cell": [
+				3,
+				0
+			],
+			"h": 1.0,
+			"room": "kitchen",
+			"type": "vat",
+			"w": 1.0,
+			"x": 14.0,
+			"y": 12.0
+		},
+		{
+			"cell": [
+				0,
+				0
+			],
+			"h": 2.0,
+			"room": "coop_run",
+			"type": "coop",
+			"w": 2.0,
+			"x": 39.0,
+			"y": 12.0
+		},
+		{
+			"cell": [
+				5,
+				3
+			],
+			"h": 2.0,
+			"room": "hall",
+			"type": "dining_table",
+			"w": 3.0,
+			"x": 28.0,
+			"y": 9.0
+		},
+		{
+			"cell": [
+				6,
+				0
+			],
+			"h": 1.0,
+			"room": "hall",
+			"type": "altar",
+			"w": 2.0,
+			"x": 29.0,
+			"y": 6.0
+		},
+		{
+			"cell": [
+				1,
+				0
+			],
+			"h": 1.0,
+			"room": "hall",
+			"type": "keepsake_chest",
+			"w": 1.0,
+			"x": 24.0,
+			"y": 6.0
+		},
+		{
+			"cell": [
+				0,
+				2
+			],
+			"h": 1.0,
+			"room": "kitchen",
+			"type": "cupboard",
+			"w": 1.0,
+			"x": 11.0,
+			"y": 14.0
+		},
+		{
+			"cell": [
+				0,
+				0
+			],
+			"h": 2.0,
+			"room": "woodshed",
+			"type": "woodpile",
+			"w": 3.0,
+			"x": 11.0,
+			"y": 6.0
+		},
+		{
+			"cell": [
+				1,
+				1
+			],
+			"h": 2.0,
+			"room": "yard",
+			"type": "millstone",
+			"w": 2.0,
+			"x": 18.0,
+			"y": 13.0
+		},
+		{
+			"cell": [
+				12,
+				3
+			],
+			"h": 2.0,
+			"room": "yard",
+			"type": "grape_trellis",
+			"w": 4.0,
+			"x": 29.0,
+			"y": 15.0
+		},
+		{
+			"cell": [
+				5,
+				6
+			],
+			"h": 1.0,
+			"room": "yard",
+			"type": "clothesline",
+			"w": 4.0,
+			"x": 22.0,
+			"y": 18.0
+		},
+		{
+			"cell": [
+				0,
+				6
+			],
+			"h": 1.0,
+			"room": "yard",
+			"type": "trash_basket",
+			"w": 1.0,
+			"x": 17.0,
+			"y": 18.0
+		},
+		{
+			"cell": [
+				1,
+				2
+			],
+			"h": 2.0,
+			"room": "well",
+			"type": "well_head",
+			"w": 2.0,
+			"x": 35.0,
+			"y": 14.0
+		},
+		{
+			"cell": [
+				2,
+				3
+			],
+			"h": 1.0,
+			"room": "gate",
+			"type": "threshold",
+			"w": 3.0,
+			"x": 26.0,
+			"y": 22.0
+		},
+		{
+			"cell": [
+				5,
+				1
+			],
+			"h": 1.0,
+			"room": "gate",
+			"type": "stone_bench",
+			"w": 2.0,
+			"x": 29.0,
+			"y": 20.0
+		},
+		{
+			"cell": [
+				5,
+				0
+			],
+			"h": 1.0,
+			"room": "kitchen",
+			"type": "vat",
+			"w": 1.0,
+			"x": 16.0,
+			"y": 12.0
+		},
+		{
+			"cell": [
+				2,
+				2
+			],
+			"h": 1.0,
+			"room": "kitchen",
+			"type": "stool",
+			"w": 1.0,
+			"x": 13.0,
+			"y": 14.0
+		},
+		{
+			"cell": [
+				4,
+				3
+			],
+			"h": 1.0,
+			"room": "kitchen",
+			"type": "stool",
+			"w": 1.0,
+			"x": 15.0,
+			"y": 15.0
+		}
+	],
+	"walls": [
+		{
+			"a": 11,
+			"along": "x",
+			"b": 45,
+			"kind": "compound",
+			"line": 6,
+			"open": []
+		},
+		{
+			"a": 11,
+			"along": "x",
+			"b": 17,
+			"kind": "house",
+			"line": 12,
+			"open": [
+				13
+			]
+		},
+		{
+			"a": 23,
+			"along": "x",
+			"b": 39,
+			"kind": "house",
+			"line": 12,
+			"open": [
+				27,
+				28,
+				35
+			]
+		},
+		{
+			"a": 11,
+			"along": "x",
+			"b": 17,
+			"kind": "house",
+			"line": 18,
+			"open": []
+		},
+		{
+			"a": 39,
+			"along": "x",
+			"b": 45,
+			"kind": "fence",
+			"line": 19,
+			"open": []
+		},
+		{
+			"a": 11,
+			"along": "x",
+			"b": 45,
+			"kind": "compound",
+			"line": 25,
+			"open": [
+				27,
+				28
+			]
+		},
+		{
+			"a": 6,
+			"along": "y",
+			"b": 25,
+			"kind": "compound",
+			"line": 11,
+			"open": []
+		},
+		{
+			"a": 6,
+			"along": "y",
+			"b": 18,
+			"kind": "house",
+			"line": 17,
+			"open": [
+				14
+			]
+		},
+		{
+			"a": 6,
+			"along": "y",
+			"b": 12,
+			"kind": "house",
+			"line": 23,
+			"open": []
+		},
+		{
+			"a": 6,
+			"along": "y",
+			"b": 12,
+			"kind": "house",
+			"line": 33,
+			"open": [
+				9
+			]
+		},
+		{
+			"a": 6,
+			"along": "y",
+			"b": 12,
+			"kind": "house",
+			"line": 39,
+			"open": []
+		},
+		{
+			"a": 12,
+			"along": "y",
+			"b": 19,
+			"kind": "fence",
+			"line": 39,
+			"open": [
+				15
+			]
+		},
+		{
+			"a": 6,
+			"along": "y",
+			"b": 25,
+			"kind": "compound",
+			"line": 45,
+			"open": []
+		}
+	]
+}

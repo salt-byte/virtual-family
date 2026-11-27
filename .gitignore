@@ -9,3 +9,6 @@ assets/gen/inbox/
 assets/gen/review/
 __pycache__/
 .claude/
+web3d/node_modules/
+web3d/dist/
+assets/gen/out/

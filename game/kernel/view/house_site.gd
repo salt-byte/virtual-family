@@ -366,7 +366,20 @@ func detour(from: Vector2, to: Vector2, cells: Dictionary) -> Array:
 			_astar.set_point_disabled(_id(c), true)
 			added.append(c)
 			_avoiding[c] = true
+	# A diagonal step past a kept-off cell's corner was joined when the grid was built (both
+	# cells beside it open then): cut it for now too, as `step_open` would, or the way found
+	# brushes the cell's corner and is then refused below.
+	var cut: Array[Vector2i] = []
+	for c in added:
+		for d in [Vector2i(1, 1), Vector2i(-1, 1), Vector2i(1, -1), Vector2i(-1, -1)]:
+			var u := c + Vector2i(d.x, 0)
+			var v := c + Vector2i(0, d.y)
+			if _inside(u) and _inside(v) and _astar.are_points_connected(_id(u), _id(v)):
+				_astar.disconnect_points(_id(u), _id(v))
+				cut.append(Vector2i(_id(u), _id(v)))
 	var pts := route(from, to)
+	for e in cut:
+		_astar.connect_points(e.x, e.y)
 	_avoiding = {}
 	# The way found must keep off the cells all along (route falls back to walking straight
 	# when there is no way: that is no way round).

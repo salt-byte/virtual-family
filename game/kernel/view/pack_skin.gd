@@ -174,6 +174,50 @@ func wall_decals() -> Array:
 ## The real size of object type `type` in metres (`iso.sizes`: {"<type>": [along its long
 ## side, across it]}), ZERO when the pack gives none; with `iso.metres_per_cell`, the 45° view
 ## draws it at that size (see `HouseView.iso_picture`) instead of filling its footprint.
+## The 45° view: a picture drawn on a ruler, {px_per_m, anchor: Vector2 (the middle of the
+## footprint on the picture)} from iso.ruler; empty when the picture is fitted to its footprint.
+## Whether object type `type` has a picture of its own facing east (`<picture>_e`, for a
+## piece standing against a west wall: design/PLACEMENT.md section 3), used instead of
+## mirroring the south-facing one.
+func has_east(type: String) -> bool:
+	var name = _iso_table("objects").get(type)
+	return name is String and sprite(str(name) + "_e") != null
+
+
+## The 45° picture's name for `type`, its east-facing one when `east` and it has one.
+func _iso_name(type: String, east: bool) -> String:
+	var name = _iso_table("objects").get(type)
+	if not name is String:
+		return ""
+	return str(name) + "_e" if east and sprite(str(name) + "_e") != null else str(name)
+
+
+func object_ruler(type: String, east := false) -> Dictionary:
+	var name := _iso_name(type, east)
+	if name == "" or sprite(name) == null:
+		return {}
+	var e = _iso_table("ruler").get(name)
+	if not (e is Dictionary and float(e.get("px_per_m", 0.0)) > 0.0 and e.get("anchor") is Array and (e["anchor"] as Array).size() >= 2):
+		return {}
+	var out := {"px_per_m": float(e["px_per_m"]), "anchor": Vector2(float(e["anchor"][0]), float(e["anchor"][1])), "shadows": {}}
+	# Cast shadows at the same ruler, one per sun: {sun: {tex, anchor}}.
+	var sh = e.get("shadows")
+	if sh is Dictionary:
+		for sun in sh:
+			var x = sh[sun]
+			if x is Dictionary and x.get("file") is String and x.get("anchor") is Array and (x["anchor"] as Array).size() >= 2:
+				var t := texture(str(x["file"]))
+				if t != null:
+					out["shadows"][str(sun)] = {"tex": t, "anchor": Vector2(float(x["anchor"][0]), float(x["anchor"][1]))}
+	# A light it gives (a stove's fire): where on the ruler picture, how far it reaches, its colour.
+	var g = e.get("glow")
+	if g is Dictionary and g.get("at") is Array and (g["at"] as Array).size() >= 2:
+		var c = g.get("color", [1.0, 0.6, 0.3])
+		out["glow"] = {"at": Vector2(float(g["at"][0]), float(g["at"][1])), "radius_m": float(g.get("radius_m", 2.0)),
+			"color": Color(float(c[0]), float(c[1]), float(c[2]))}
+	return out
+
+
 func real_size(type: String) -> Vector2:
 	var e = _iso_table("sizes").get(type)
 	if not (e is Array and e.size() >= 2):
@@ -236,6 +280,18 @@ func floor_tile(room: String) -> Dictionary:
 	return tile(str(_table("floors").get(room, "")))
 
 
+## The patch of floor laid round a piece of furniture (bricks round the stove): art.json
+## "aprons": {"<type>": {"tile", "grow": cells on every side}}; {} for none.
+func apron(type: String) -> Dictionary:
+	var e = _table("aprons").get(type)
+	if not e is Dictionary:
+		return {}
+	var t := tile(str(e.get("tile", "")))
+	if t.is_empty():
+		return {}
+	return {"tile": t, "grow": float(e.get("grow", 0.5))}
+
+
 ## What the skin does with a decor shape of colour `html`: {tile}, {sprite}, {hide} or {}.
 func decor_rule(html: String) -> Dictionary:
 	var c := Color.html(html) if Color.html_is_valid(html) else Color(0, 0, 0, 0)
@@ -285,8 +341,8 @@ func wall_sprites(key: String) -> Array:
 	return out
 
 
-func object_sprite(type: String) -> Texture2D:
-	var own := _iso_sprite("objects", type)
+func object_sprite(type: String, east := false) -> Texture2D:
+	var own := sprite(_iso_name(type, east)) if iso() and _iso_name(type, east) != "" else null
 	if own != null:
 		return own
 	return sprite(str(_table("objects").get(type, "")))

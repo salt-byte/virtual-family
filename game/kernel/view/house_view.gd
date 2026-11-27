@@ -2,19 +2,17 @@ class_name HouseView
 extends Node2D
 ## Draws the house (rooms, furniture, messes, collectibles) and keeps one PersonView per
 ## living person. Panning moves this node; its scale fits a small house to the window, and a
-## house bigger than the window opens at scale 1 on the entrance room, zooms with the wheel
-## and scrolls by itself while something is carried near an edge. Reads the World, never
+## house bigger than the window is shown at one fixed scale (no zoom, as in Virtual Families),
+## is panned by dragging and scrolls by itself while something is carried near an edge. Reads the World, never
 ## writes it.
 
 ## The window size used when this node is not in a tree (tests).
 const VIEW_SIZE := Vector2(1280, 720)
 const BOTTOM_BAR := 96.0
-## Space kept clear around the fitted house, and the zoom range.
+## Space kept clear around the fitted house, and the range a fitted scale is clamped to.
 const FIT_MARGIN := 24.0
-const MIN_SCALE := 0.36
+const MIN_SCALE := 0.25
 const MAX_SCALE := 2.0
-## One wheel notch zooms by this factor.
-const WHEEL_ZOOM := 1.1
 ## Carrying something this close to an edge of the house area scrolls toward that edge.
 const EDGE := 40.0
 const EDGE_SPEED := 600.0
@@ -91,6 +89,36 @@ var _has_cursor := false
 ## The person the view follows (-1: none). Set by an explicit select; a manual pan or the
 ## person leaving ends it; carrying a person or arrange mode only pauses it.
 var follow_uid := -1
+
+
+## Late afternoon into dusk the light warms (peaks at 18:00, gone by 15:00 and 20:00).
+const DUSK_COLOR := Color(1.0, 0.86, 0.72)
+
+
+static func dusk_amount(hour: float) -> float:
+	if hour <= 15.0 or hour >= 20.0:
+		return 0.0
+	return (hour - 15.0) / 3.0 if hour <= 18.0 else (20.0 - hour) / 2.0
+
+
+## How strongly each sun's cast shadow shows at `hour`: the morning one until 8:00, crossing
+## to noon's by 12:00 and the evening one by 16:00; all fade out with the daylight.
+static func sun_mix(hour: float) -> Dictionary:
+	var day := 1.0 - night_amount(hour)
+	var m := 0.0
+	var n := 0.0
+	var e := 0.0
+	if hour <= 8.0:
+		m = 1.0
+	elif hour <= 12.0:
+		n = (hour - 8.0) / 4.0
+		m = 1.0 - n
+	elif hour <= 16.0:
+		e = (hour - 12.0) / 4.0
+		n = 1.0 - e
+	else:
+		e = 1.0
+	return {"morning": snappedf(m * day, 0.02), "noon": snappedf(n * day, 0.02), "evening": snappedf(e * day, 0.02)}
 
 
 static func night_amount(hour: float) -> float:
@@ -182,11 +210,6 @@ func start_scale(viewport_size: Vector2) -> float:
 ## The 45° view opens a little closer than 1, so people stand about as tall as in the target
 ## picture (ART_DIRECTION section 11: a grown-up ~90 px against a 64 px cell).
 const ISO_START_SCALE := 1.1
-
-
-## The smallest zoom the wheel reaches: the whole house in view, but never above 1.
-func min_zoom(viewport_size: Vector2) -> float:
-	return minf(fit_scale(viewport_size), 1.0)
 
 
 ## The middle of the area above the bottom bar (screen).
@@ -665,18 +688,6 @@ func zoom_to(s: float) -> void:
 	pan(Vector2.ZERO)
 
 
-## Zooms by `factor` around a point on the screen: the house point under it stays under it
-## (unless the pan clamp has to move the house). The zoom stays within
-## [min_zoom, MAX_SCALE].
-func zoom_at(screen: Vector2, factor: float) -> void:
-	var v := _view_size()
-	var s := clampf(scale.x * factor, min_zoom(v), MAX_SCALE)
-	var under := proj * world_pos(screen)
-	scale = Vector2.ONE * s
-	position = screen - under * s
-	pan(Vector2.ZERO)
-
-
 func _refit() -> void:
 	zoom_to(start_scale(_view_size()))
 
@@ -720,7 +731,16 @@ func refresh() -> void:
 	var w := session.world
 	var alive := {}
 	if w != null and w.phase != "invalid":
-		_modulate.color = Color.WHITE.lerp(NIGHT_COLOR, night_amount(w.local_hour()))
+		var hour := w.local_hour()
+		_modulate.color = Color.WHITE.lerp(DUSK_COLOR, dusk_amount(hour)).lerp(NIGHT_COLOR, night_amount(hour))
+		var mix := sun_mix(hour)
+		var night := night_amount(hour)
+		for uid in props:
+			var pc: PropPiece = props[uid]
+			if pc.sun_mix != mix or pc.night != night:
+				pc.sun_mix = mix
+				pc.night = night
+				pc.queue_redraw()
 		_update_site(w)
 		for p in w.people:
 			if p.alive:
@@ -967,7 +987,23 @@ func _build_scenery() -> void:
 
 ## The picture an object stands as, or null (drawn as a block).
 func object_picture(o: Dictionary) -> Texture2D:
-	return skin.object_sprite(str(o.type)) if skin != null else null
+	if skin == null:
+		return null
+	var w := session.world if session != null else null
+	var east := iso and w != null and skin.has_east(str(o.type)) and _faces_east(o, layout.object_rect(o, w.pack), skin.object_axis(str(o.type)))
+	return skin.object_sprite(str(o.type), east)
+
+
+## Whether the 45° picture of `o` (footprint `r`) turns to face east: a picture whose long
+## side runs the other way than the footprint's, or a square piece against a west wall
+## (design/PLACEMENT.md section 3).
+func _faces_east(o: Dictionary, r: Rect2, axis: String) -> bool:
+	if axis == "":
+		return false
+	if is_equal_approx(r.size.x / HouseSite.CELL.x, r.size.y / HouseSite.CELL.y):
+		return int(o.get("x", -1)) == 0 and int(o.get("y", -1)) != 0
+	var long_y := r.size.y / HouseSite.CELL.y > r.size.x / HouseSite.CELL.x
+	return long_y != (axis == "y")
 
 
 ## One PropPiece per object with a picture, kept in step with the world's objects.
@@ -1001,6 +1037,8 @@ func _sync_props() -> void:
 					piece.flip = spot.flip
 					piece.sort_bias = FURNITURE_BIAS - lift * IsoMath.TILE.y / HouseSite.CELL.y
 					piece.shade = spot.shade
+					piece.suns = spot.get("suns", {})
+					piece.set_glow(spot.get("glow", {}))
 					piece.place_at(tex, r, spot.at)
 				else:
 					piece.queue_redraw()
@@ -1056,24 +1094,90 @@ func iso_picture(o: Dictionary, tex: Texture2D, w: World) -> Dictionary:
 	var d := IsoMath.diamond(r)
 	var foot := proj * at
 	var axis := skin.object_axis(str(o.type))
-	var long_y := r.size.y / HouseSite.CELL.y > r.size.x / HouseSite.CELL.x
-	var flip := axis != "" and long_y != (axis == "y")
+	# Facing east: its own east-facing picture when it has one, else the south-facing one
+	# mirrored.
+	var east := _faces_east(o, r, axis)
+	var own_east := east and skin.has_east(str(o.type))
+	var flip := east and not own_east
 	var whole := fill(o, r)
 	var width := (d[1].x - d[3].x) * ISO_FILL * skin.object_scale(str(o.type)) * whole
 	if axis == "":
 		# An old picture drawn from above: no wider than the footprint's middle.
 		width = (d[1].x - d[3].x) * 0.7
 	var ts := Vector2(tex.get_size())
+	# Its shadow: the footprint's diamond at the piece's real size, a little in from its edges.
+	var shade := PackedVector2Array()
+	for c in d:
+		shade.append((c - foot) * whole * 0.8)
+	var ruler := skin.object_ruler(str(o.type), own_east)
+	if not ruler.is_empty():
+		# Drawn on the ruler (so many pixels a metre): scaled to the view's own metres, the
+		# middle of its footprint (`anchor`) on the middle of the footprint.
+		var k_r := view_px_per_m() / float(ruler["px_per_m"])
+		var sz := ts * k_r
+		var an: Vector2 = ruler["anchor"] * k_r
+		var x := sz.x - an.x if flip else an.x
+		var suns := {}
+		for sun in ruler["shadows"]:
+			var e: Dictionary = ruler["shadows"][sun]
+			var ssz := Vector2(e.tex.get_size()) * k_r
+			var sa: Vector2 = e.anchor * k_r
+			var sx := ssz.x - sa.x if flip else sa.x
+			suns[sun] = {"tex": e.tex, "rect": Rect2(-sx, -sa.y, ssz.x, ssz.y)}
+		# Backed onto its wall (design/PLACEMENT.md section 5): moved from the footprint's
+		# middle until its back meets the wall's face.
+		var bv := back_view(o, r, east, w)
+		for sun in suns:
+			suns[sun]["rect"].position += bv
+		for i in shade.size():
+			shade[i] += bv
+		var spot := {"at": at, "rect": Rect2(Vector2(-x, -an.y) + bv, sz), "flip": flip, "shade": shade, "suns": suns}
+		if ruler.has("glow"):
+			var gp: Vector2 = ruler["glow"]["at"] * k_r - an + bv
+			if flip:
+				gp.x = -gp.x
+			spot["glow"] = {"at": gp, "radius": float(ruler["glow"]["radius_m"]) * view_px_per_m(), "color": ruler["glow"]["color"]}
+		return spot
 	var k := width / ts.x
 	var size := ts * k
 	var mid_x := (d[1].x + d[3].x) * 0.5 - foot.x
 	# Smaller than the footprint: shrunk about its middle, so it stays in the middle of it.
 	var bottom := (d[2].y - foot.y) * whole + 6.0
-	# Its shadow: the footprint's diamond at the piece's real size, a little in from its edges.
-	var shade := PackedVector2Array()
-	for c in d:
-		shade.append((c - foot) * whole * 0.8)
 	return {"at": at, "rect": Rect2(mid_x - size.x * 0.5, bottom - size.y, size.x, size.y), "flip": flip, "shade": shade}
+
+
+## How far (metres east and south) a piece against an indoor room's north or west wall
+## moves from its footprint's middle so its back meets the wall's face: the footprint's
+## depth less the piece's real depth, halved, less half the wall's thickness. Zero for a
+## piece standing free, with no real size, or as long as it is deep (a stool, a vat: round,
+## no back to turn to the wall).
+func back_offset(o: Dictionary, r: Rect2, east: bool, w: World) -> Vector2:
+	var room = w.pack.rooms.get(str(o.get("room", "")))
+	var mpc := skin.metres_per_cell()
+	var real := skin.real_size(str(o.type))
+	if not room is Dictionary or bool(room.get("outdoor", false)) or mpc <= 0.0 or is_equal_approx(real.x, real.y):
+		return Vector2.ZERO
+	var half_wall := IsoWall.T * 0.5 * mpc
+	if int(o.get("y", -1)) == 0:
+		var depth := real.x if east else real.y
+		return Vector2(0, -maxf(r.size.y / HouseSite.CELL.y * mpc * 0.5 - depth * 0.5 - half_wall, 0.0))
+	if int(o.get("x", -1)) == 0:
+		var depth2 := real.y if east else real.x
+		return Vector2(-maxf(r.size.x / HouseSite.CELL.x * mpc * 0.5 - depth2 * 0.5 - half_wall, 0.0), 0)
+	return Vector2.ZERO
+
+
+## `back_offset` as view pixels.
+func back_view(o: Dictionary, r: Rect2, east: bool, w: World) -> Vector2:
+	var mpc := skin.metres_per_cell()
+	return proj.basis_xform(back_offset(o, r, east, w) * HouseSite.CELL / mpc) if mpc > 0.0 else Vector2.ZERO
+
+
+## The 45° view's pixels to a metre on the ground (a cell's diamond is TILE.x wide and its
+## side metres_per_cell long, seen corner on); 0 without metres_per_cell.
+func view_px_per_m() -> float:
+	var mpc := skin.metres_per_cell()
+	return IsoMath.TILE.x / (sqrt(2.0) * mpc) if mpc > 0.0 else 0.0
 
 
 ## How much of its footprint's diamond a piece's 45° picture fills, before its own `scale`:
@@ -1347,12 +1451,6 @@ func look_at_collectible(uid: int) -> bool:
 	return false
 
 
-## A wheel notch: zooms around the followed person while following, else around `screen`.
-func wheel_zoom(screen: Vector2, factor: float) -> void:
-	var pv := _followed()
-	zoom_at(to_screen(pv.position) if pv != null else screen, factor)
-
-
 ## A pan the player makes by dragging the ground: it ends following.
 func _manual_pan(by: Vector2) -> void:
 	follow_uid = -1
@@ -1511,8 +1609,6 @@ func _unhandled_input(event: InputEvent) -> void:
 			press(event.position)
 		else:
 			release(event.position)
-	elif event is InputEventMouseButton and event.pressed and event.button_index in [MOUSE_BUTTON_WHEEL_UP, MOUSE_BUTTON_WHEEL_DOWN]:
-		wheel_zoom(event.position, WHEEL_ZOOM if event.button_index == MOUSE_BUTTON_WHEEL_UP else 1.0 / WHEEL_ZOOM)
 	elif event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_RIGHT and event.pressed and _arrange_on():
 		arrange.cancel_held()
 	elif event is InputEventMouseMotion and _pressed:

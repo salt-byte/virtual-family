@@ -1,6 +1,6 @@
 extends TestCase
 ## The camera follows the person the player picks: an explicit select eases the view until
-## that person is in the middle; a manual pan stops it; the wheel zooms around them; while a
+## that person is in the middle; a manual pan stops it; while a
 ## person is carried or arrange mode is open it waits, then carries on.
 
 var clk := {"unix": 1767254400.0, "offset": 0}
@@ -130,35 +130,6 @@ func test_selecting_again_recentres():
 	m.free()
 
 
-func test_wheel_zoom_while_following_zooms_around_the_person():
-	var m := _main()
-	m.house.zoom_to(1.0)  # from life-size (the 45° view opens at ISO_START_SCALE)
-	var uid: int = m.session.world.people[0].uid
-	_push_away(m)
-	m.select(uid)
-	_ticks(m, 1.0)
-	var ev := InputEventMouseButton.new()
-	ev.button_index = MOUSE_BUTTON_WHEEL_UP
-	ev.pressed = true
-	ev.position = Vector2(100, 100)  # far from the person: it does not matter while following
-	m.house._unhandled_input(ev)
-	assert_near(m.house.scale.x, 1.1)
-	assert_eq(m.house.follow_uid, uid)
-	assert_true(_on_screen(m).distance_to(_centre()) <= 1.0, str(_on_screen(m)))
-	_ticks(m, 0.5)
-	assert_true(_on_screen(m).distance_to(_centre()) <= 1.0, str(_on_screen(m)))
-	m.free()
-
-
-func test_wheel_zoom_without_following_zooms_around_the_cursor():
-	var m := _main()
-	var at := Vector2(300, 200)
-	var under := m.house.world_pos(at)
-	m.house.wheel_zoom(at, 1.1)
-	assert_true(m.house.world_pos(at).distance_to(under) < 0.01)
-	m.free()
-
-
 func test_carrying_a_person_pauses_following_and_dropping_resumes_it():
 	var m := _main()
 	var w := m.session.world
@@ -219,7 +190,7 @@ func test_choosing_in_the_family_panel_follows_too():
 
 
 ## When the whole house fits on the screen the clamp keeps it centred: following changes
-## nothing (the small test pack, and qijia zoomed all the way out).
+## nothing (the small test pack, and qijia fitted to the window).
 func test_a_house_that_fits_stays_put_while_following():
 	var s := _main("_smoke")
 	var at := s.house.position
@@ -228,7 +199,7 @@ func test_a_house_that_fits_stays_put_while_following():
 	assert_eq(s.house.position, at)
 	s.free()
 	var m := _main()
-	m.house.zoom_to(m.house.min_zoom(Vector2(1280, 720)))
+	m.house.zoom_to(m.house.fit_scale(Vector2(1280, 720)))
 	var fitted := m.house.position
 	m.select(m.session.world.people[0].uid)
 	_ticks(m, 1.0)

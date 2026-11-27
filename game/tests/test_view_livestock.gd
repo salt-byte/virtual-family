@@ -220,21 +220,29 @@ func test_the_pigsty_has_a_fence_with_a_gate_and_the_coop_run_a_closed_south_sid
 	var m := _main()
 	var site := m.house.layout.site
 	# The coop run's south side is a fence from the start; the pigsty's west side once built.
-	for x in range(39, 45):
-		assert_eq(site.h_walls.get(Vector2i(x, 19), ""), HouseSite.FENCE)
-	assert_true(not site.v_walls.has(Vector2i(39, 22)), "no pen rails before the pigsty is built")
+	var run: Dictionary = m.session.world.pack.rooms["coop_run"]
+	var sty: Dictionary = m.session.world.pack.rooms["pigsty"]
+	var south := int(run["y"]) + int(run["h"])
+	assert_eq(int(sty["y"]), south, "the pigsty lies under the coop run")
+	var west := int(sty["x"])
+	for x in range(int(run["x"]), int(run["x"]) + int(run["w"])):
+		assert_eq(site.h_walls.get(Vector2i(x, south), ""), HouseSite.FENCE)
+	assert_true(not site.v_walls.has(Vector2i(west, south + 3)), "no pen rails before the pigsty is built")
 	_sty(m)
 	m.tick(0.016)
 	var gaps := 0
-	for y in range(19, 25):
-		assert_eq(site.v_walls.get(Vector2i(39, y), ""), HouseSite.FENCE)
-		if site.v_free(Vector2i(39, y)):
+	var gate := -1
+	for y in range(south, south + int(sty["h"])):
+		assert_eq(site.v_walls.get(Vector2i(west, y), ""), HouseSite.FENCE)
+		if site.v_free(Vector2i(west, y)):
 			gaps += 1
+			gate = y
 	assert_eq(gaps, 1, "one gate in the pigsty's fence")
 	# People walk in through it to the trough; elsewhere the rails stop them.
-	assert_true(site.step_open(Vector2i(38, 21), Vector2i(39, 21)), "the gate")
-	assert_true(not site.step_open(Vector2i(38, 23), Vector2i(39, 23)))
-	assert_true(not site.step_open(Vector2i(41, 18), Vector2i(41, 19)), "the coop run and the pigsty apart")
+	assert_true(site.step_open(Vector2i(west - 1, gate), Vector2i(west, gate)), "the gate")
+	var shut := gate + 2 if gate + 2 < south + int(sty["h"]) else gate - 2
+	assert_true(not site.step_open(Vector2i(west - 1, shut), Vector2i(west, shut)))
+	assert_true(not site.step_open(Vector2i(west + 2, south - 1), Vector2i(west + 2, south)), "the coop run and the pigsty apart")
 	var from := m.house.layout.cell_center("veg_plot", 3, 3)
 	var to := m.house.layout.cell_center("pigsty", 2, 2)
 	var way := site.route(from, to)
@@ -254,8 +262,9 @@ func test_the_coop_picture_and_the_live_hens_are_drawn_to_one_scale():
 		if o.type == "coop":
 			coop = o
 	var piece: PropPiece = m.house.props[int(coop.uid)]
-	# The coop picture's painted hen stands about 0.6 of the picture's height.
-	var painted := piece.rect.size.y * 0.6
+	# The coop picture (on the white-model ruler, with room above the dome) has its painted
+	# hen standing about a quarter of the picture's height.
+	var painted := piece.rect.size.y * 0.25
 	var hen: Pet = w.pets.filter(func(p): return p.kind == "hen")[0]
 	var live: float = m.house.pets[hen.uid].body().y
 	assert_true(absf(painted - live) <= live * 0.2, "painted hen %.0f px, live hen %.0f px" % [painted, live])
@@ -270,6 +279,7 @@ func test_no_standing_scenery_hides_the_pens_or_the_gate():
 		m.session.command({"type": "build_room", "room": id})
 	m.tick(0.016)
 	var l := m.house.layout
+	assert_true(not m.house.scenery.is_empty())
 	for piece in m.house.scenery:
 		var img := piece.tex.get_image()
 		if img.is_compressed():

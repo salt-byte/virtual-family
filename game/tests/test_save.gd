@@ -300,8 +300,8 @@ func test_smoke_save_rooms_built_round_trips_unchanged():
 	var r := WorldSave.restore(w.pack, _through_json(w.to_dict()))
 	assert_eq(r.world.rooms_built, w.rooms_built)
 
-## The connected house shrank the side room from 8x7 to 6x6. A save from the old layout
-## still loads: furniture that no longer fits moves to a free spot of the same room, a mess
+## The connected house once shrank the side room (8x7 to 6x6). A save from a layout where a
+## room was bigger still loads: furniture that no longer fits moves to a free spot of the same room, a mess
 ## or a thing lying about moves inside it.
 func test_save_from_the_old_layout_loads_with_things_moved_inside_shrunk_rooms():
 	var w := World.new(Pack.load_dir("res://packs/qijia"), 3); w.set_time(1767268800, 0)
@@ -310,9 +310,12 @@ func test_save_from_the_old_layout_loads_with_things_moved_inside_shrunk_rooms()
 	assert_true(w.command({type = "build_room", room = "side"}).ok)
 	var d := _through_json(w.to_dict())
 	var uid := int(d["next_uid"])
-	d["objects"].append({"uid": uid, "type": "stool", "room": "side", "x": 7, "y": 6})
-	d["messes"].append({"uid": uid + 1, "type": w.pack.mess_types.keys()[0], "room": "side", "x": 7, "y": 6})
-	d["collectibles"].append({"uid": uid + 2, "type": "egg", "room": "side", "x": 7, "y": 6, "expires_at": w.now + 600})
+	# Cells past the side room's far corner, as a save from a bigger layout would have them.
+	var rw := int(w.pack.rooms["side"]["w"])
+	var rh := int(w.pack.rooms["side"]["h"])
+	d["objects"].append({"uid": uid, "type": "stool", "room": "side", "x": rw + 1, "y": rh})
+	d["messes"].append({"uid": uid + 1, "type": w.pack.mess_types.keys()[0], "room": "side", "x": rw + 1, "y": rh})
+	d["collectibles"].append({"uid": uid + 2, "type": "egg", "room": "side", "x": rw + 1, "y": rh, "expires_at": w.now + 600})
 	d["next_uid"] = uid + 3
 	var money := int(d["money"])
 	var r := WorldSave.restore(w.pack, d)
@@ -324,4 +327,4 @@ func test_save_from_the_old_layout_loads_with_things_moved_inside_shrunk_rooms()
 	for list in [r.world.messes, r.world.collectibles]:
 		for m in list:
 			if m.room == "side":
-				assert_true(int(m.x) < 6 and int(m.y) < 6, str(m))
+				assert_true(int(m.x) < rw and int(m.y) < rh, str(m))

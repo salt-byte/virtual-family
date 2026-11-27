@@ -313,11 +313,11 @@ func test_sleeping_person_is_dimmed_not_bobbing():
 func test_fit_scale_fills_the_window_and_is_capped():
 	var q := Main.create("qijia", _clean_dir(), _clock)  # not in the tree: 1280x720
 	var qs := q.house.fit_scale(Vector2(1280, 720))
-	# The whole 56 x 32 map in the 45° view (a 2816 x 1408 diamond plus the back walls'
-	# headroom) fits at about 0.38; the smallest zoom went down to 0.36 so it does, and a huge
-	# window still caps at 2.
-	assert_true(qs >= HouseView.MIN_SCALE and qs <= 0.5, str(qs))   # the map is bigger than the window
-	assert_eq(q.house.fit_scale(Vector2(8000, 4800)), 2.0)
+	# The whole 84 x 48 map in the 45° view (a 4224 x 2112 diamond plus the back walls'
+	# headroom) would fit at about 0.26; the game never shows it that small (no zoom), and a
+	# huge window still caps at 2.
+	assert_true(qs > HouseView.MIN_SCALE and qs <= 0.5, str(qs))   # the map is bigger than the window
+	assert_eq(q.house.fit_scale(Vector2(16000, 9600)), 2.0)
 	assert_eq(q.house.fit_scale(Vector2(200, 200)), HouseView.MIN_SCALE)
 	q.free()
 	var m := Main.create("_smoke", _clean_dir(), _clock)

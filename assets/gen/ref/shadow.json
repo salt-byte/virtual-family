@@ -1,0 +1,602 @@
+{
+ "stove": {
+  "morning": {
+   "anchor": [
+    150.5,
+    161.5
+   ]
+  },
+  "noon": {
+   "anchor": [
+    85.5,
+    79.5
+   ]
+  },
+  "evening": {
+   "anchor": [
+    75.5,
+    48.5
+   ]
+  }
+ },
+ "vat": {
+  "morning": {
+   "anchor": [
+    83.5,
+    84.5
+   ]
+  },
+  "noon": {
+   "anchor": [
+    42.5,
+    45.5
+   ]
+  },
+  "evening": {
+   "anchor": [
+    32.5,
+    25.5
+   ]
+  }
+ },
+ "cupboard": {
+  "morning": {
+   "anchor": [
+    144.5,
+    170.5
+   ]
+  },
+  "noon": {
+   "anchor": [
+    49.5,
+    77.5
+   ]
+  },
+  "evening": {
+   "anchor": [
+    46.5,
+    28.5
+   ]
+  }
+ },
+ "stool": {
+  "morning": {
+   "anchor": [
+    50.5,
+    51.5
+   ]
+  },
+  "noon": {
+   "anchor": [
+    24.5,
+    28.5
+   ]
+  },
+  "evening": {
+   "anchor": [
+    22.5,
+    16.5
+   ]
+  }
+ },
+ "cupboard_e": {
+  "morning": {
+   "anchor": [
+    144.5,
+    170.5
+   ]
+  },
+  "noon": {
+   "anchor": [
+    49.5,
+    77.5
+   ]
+  },
+  "evening": {
+   "anchor": [
+    46.5,
+    28.5
+   ]
+  }
+ },
+ "dining_table": {
+  "morning": {
+   "anchor": [
+    155.5,
+    121.5
+   ]
+  },
+  "noon": {
+   "anchor": [
+    120.5,
+    81.5
+   ]
+  },
+  "evening": {
+   "anchor": [
+    118.5,
+    63.5
+   ]
+  }
+ },
+ "altar": {
+  "morning": {
+   "anchor": [
+    130.5,
+    127.5
+   ]
+  },
+  "noon": {
+   "anchor": [
+    64.5,
+    69.5
+   ]
+  },
+  "evening": {
+   "anchor": [
+    62.5,
+    35.5
+   ]
+  }
+ },
+ "desk": {
+  "morning": {
+   "anchor": [
+    122.5,
+    118.5
+   ]
+  },
+  "noon": {
+   "anchor": [
+    76.5,
+    65.5
+   ]
+  },
+  "evening": {
+   "anchor": [
+    73.5,
+    41.5
+   ]
+  }
+ },
+ "keepsake_chest": {
+  "morning": {
+   "anchor": [
+    61.5,
+    55.5
+   ]
+  },
+  "noon": {
+   "anchor": [
+    41.5,
+    34.5
+   ]
+  },
+  "evening": {
+   "anchor": [
+    40.5,
+    24.5
+   ]
+  }
+ },
+ "kang": {
+  "morning": {
+   "anchor": [
+    189.5,
+    143.5
+   ]
+  },
+  "noon": {
+   "anchor": [
+    154.5,
+    95.5
+   ]
+  },
+  "evening": {
+   "anchor": [
+    151.5,
+    80.5
+   ]
+  }
+ },
+ "bookshelf": {
+  "morning": {
+   "anchor": [
+    191.5,
+    203.5
+   ]
+  },
+  "noon": {
+   "anchor": [
+    98.5,
+    101.5
+   ]
+  },
+  "evening": {
+   "anchor": [
+    96.5,
+    52.5
+   ]
+  }
+ },
+ "woodpile": {
+  "morning": {
+   "anchor": [
+    100.5,
+    97.5
+   ]
+  },
+  "noon": {
+   "anchor": [
+    92.5,
+    62.5
+   ]
+  },
+  "evening": {
+   "anchor": [
+    88.5,
+    58.5
+   ]
+  }
+ },
+ "well_head": {
+  "morning": {
+   "anchor": [
+    125.5,
+    141.5
+   ]
+  },
+  "noon": {
+   "anchor": [
+    71.5,
+    67.5
+   ]
+  },
+  "evening": {
+   "anchor": [
+    70.5,
+    38.5
+   ]
+  }
+ },
+ "millstone": {
+  "morning": {
+   "anchor": [
+    79.5,
+    80.5
+   ]
+  },
+  "noon": {
+   "anchor": [
+    62.5,
+    43.5
+   ]
+  },
+  "evening": {
+   "anchor": [
+    59.5,
+    34.5
+   ]
+  }
+ },
+ "grape_trellis": {
+  "morning": {
+   "anchor": [
+    253.5,
+    242.5
+   ]
+  },
+  "noon": {
+   "anchor": [
+    172.5,
+    149.5
+   ]
+  },
+  "evening": {
+   "anchor": [
+    170.5,
+    89.5
+   ]
+  }
+ },
+ "stone_bench": {
+  "morning": {
+   "anchor": [
+    93.5,
+    74.5
+   ]
+  },
+  "noon": {
+   "anchor": [
+    60.5,
+    50.5
+   ]
+  },
+  "evening": {
+   "anchor": [
+    57.5,
+    33.5
+   ]
+  }
+ },
+ "trash_basket": {
+  "morning": {
+   "anchor": [
+    59.5,
+    55.5
+   ]
+  },
+  "noon": {
+   "anchor": [
+    29.5,
+    33.5
+   ]
+  },
+  "evening": {
+   "anchor": [
+    26.5,
+    18.5
+   ]
+  }
+ },
+ "clothesline": {
+  "morning": {
+   "anchor": [
+    211.5,
+    198.5
+   ]
+  },
+  "noon": {
+   "anchor": [
+    125.5,
+    112.5
+   ]
+  },
+  "evening": {
+   "anchor": [
+    124.5,
+    66.5
+   ]
+  }
+ },
+ "grain_heap": {
+  "morning": {
+   "anchor": [
+    85.5,
+    57.5
+   ]
+  },
+  "noon": {
+   "anchor": [
+    83.5,
+    45.5
+   ]
+  },
+  "evening": {
+   "anchor": [
+    82.5,
+    44.5
+   ]
+  }
+ },
+ "trough": {
+  "morning": {
+   "anchor": [
+    109.5,
+    75.5
+   ]
+  },
+  "noon": {
+   "anchor": [
+    94.5,
+    58.5
+   ]
+  },
+  "evening": {
+   "anchor": [
+    92.5,
+    50.5
+   ]
+  }
+ },
+ "washtub": {
+  "morning": {
+   "anchor": [
+    63.5,
+    60.5
+   ]
+  },
+  "noon": {
+   "anchor": [
+    41.5,
+    35.5
+   ]
+  },
+  "evening": {
+   "anchor": [
+    38.5,
+    24.5
+   ]
+  }
+ },
+ "coop": {
+  "morning": {
+   "anchor": [
+    99.5,
+    92.5
+   ]
+  },
+  "noon": {
+   "anchor": [
+    80.5,
+    53.5
+   ]
+  },
+  "evening": {
+   "anchor": [
+    77.5,
+    43.5
+   ]
+  }
+ },
+ "loom": {
+  "morning": {
+   "anchor": [
+    126.5,
+    156.5
+   ]
+  },
+  "noon": {
+   "anchor": [
+    91.5,
+    82.5
+   ]
+  },
+  "evening": {
+   "anchor": [
+    89.5,
+    48.5
+   ]
+  }
+ },
+ "embroidery_frame": {
+  "morning": {
+   "anchor": [
+    78.5,
+    102.5
+   ]
+  },
+  "noon": {
+   "anchor": [
+    29.5,
+    44.5
+   ]
+  },
+  "evening": {
+   "anchor": [
+    27.5,
+    21.5
+   ]
+  }
+ },
+ "carpenter_bench": {
+  "morning": {
+   "anchor": [
+    102.5,
+    83.5
+   ]
+  },
+  "noon": {
+   "anchor": [
+    67.5,
+    55.5
+   ]
+  },
+  "evening": {
+   "anchor": [
+    65.5,
+    37.5
+   ]
+  }
+ },
+ "tofu_box": {
+  "morning": {
+   "anchor": [
+    65.5,
+    54.5
+   ]
+  },
+  "noon": {
+   "anchor": [
+    49.5,
+    36.5
+   ]
+  },
+  "evening": {
+   "anchor": [
+    48.5,
+    28.5
+   ]
+  }
+ },
+ "peddler_pole": {
+  "morning": {
+   "anchor": [
+    124.5,
+    129.5
+   ]
+  },
+  "noon": {
+   "anchor": [
+    71.5,
+    66.5
+   ]
+  },
+  "evening": {
+   "anchor": [
+    68.5,
+    39.5
+   ]
+  }
+ },
+ "herb_grinder": {
+  "morning": {
+   "anchor": [
+    40.5,
+    32.5
+   ]
+  },
+  "noon": {
+   "anchor": [
+    27.5,
+    23.5
+   ]
+  },
+  "evening": {
+   "anchor": [
+    18.5,
+    17.5
+   ]
+  }
+ },
+ "garden": {
+  "morning": {
+   "anchor": [
+    180.5,
+    113.5
+   ]
+  },
+  "noon": {
+   "anchor": [
+    164.5,
+    93.5
+   ]
+  },
+  "evening": {
+   "anchor": [
+    164.5,
+    85.5
+   ]
+  }
+ },
+ "bird_cage": {
+  "morning": {
+   "anchor": [
+    57.5,
+    77.5
+   ]
+  },
+  "noon": {
+   "anchor": [
+    30.5,
+    32.5
+   ]
+  },
+  "evening": {
+   "anchor": [
+    28.5,
+    18.5
+   ]
+  }
+ }
+}

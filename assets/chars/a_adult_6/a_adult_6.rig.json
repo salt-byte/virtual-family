@@ -1,0 +1,290 @@
+{
+ "name": "a_adult_6",
+ "facing": "right",
+ "sheet_rows": [
+  [
+   "head",
+   "torso"
+  ],
+  [
+   "arm_upper",
+   "arm_lower"
+  ],
+  [
+   "leg_upper",
+   "leg_lower"
+  ]
+ ],
+ "parts": [
+  {
+   "id": "head",
+   "parent": "torso",
+   "z": 2,
+   "pivot": {
+    "y": 0.9,
+    "x": "center"
+   },
+   "attach": {
+    "y": 0.04,
+    "x": "center",
+    "dx": 0.04
+   },
+   "what": "头和脖子，侧脸朝右；脖子往下多画一截，会藏到躯干后面",
+   "image": "head.png",
+   "size": [
+    491,
+    483
+   ],
+   "pivot_px": [
+    297.2,
+    432.3
+   ],
+   "attach_px": [
+    179.3,
+    21.9
+   ]
+  },
+  {
+   "id": "torso",
+   "parent": null,
+   "z": 3,
+   "pivot": {
+    "y": 0.93,
+    "x": "center"
+   },
+   "what": "躯干，从肩到胯，侧面朝右；不带胳膊和腿",
+   "image": "torso.png",
+   "size": [
+    339,
+    479
+   ],
+   "pivot_px": [
+    164.1,
+    442.9
+   ]
+  },
+  {
+   "id": "arm_upper",
+   "parent": "torso",
+   "z": 7,
+   "pivot": {
+    "top_w": 0.5,
+    "x": "center"
+   },
+   "attach": {
+    "y": 0.16,
+    "x": "center"
+   },
+   "what": "上臂，竖直向下垂，肩头画成圆的",
+   "image": "arm_upper.png",
+   "size": [
+    199,
+    385
+   ],
+   "pivot_px": [
+    100.4,
+    81.0
+   ],
+   "attach_px": [
+    156.7,
+    78.7
+   ]
+  },
+  {
+   "id": "arm_lower",
+   "parent": "arm_upper",
+   "z": 8,
+   "pivot": {
+    "top_w": 0.5,
+    "x": "center"
+   },
+   "attach": {
+    "bottom_w": 0.5,
+    "x": "center"
+   },
+   "what": "前臂连手，竖直向下垂，手握拳或张开都行；肘头画成圆的",
+   "image": "arm_lower.png",
+   "size": [
+    174,
+    419
+   ],
+   "pivot_px": [
+    85.0,
+    78.5
+   ],
+   "attach_px": [
+    99.4,
+    290.5
+   ]
+  },
+  {
+   "id": "leg_upper",
+   "parent": "torso",
+   "z": 4,
+   "pivot": {
+    "top_w": 0.5,
+    "x": "center"
+   },
+   "attach": {
+    "y": 0.9,
+    "x": "center",
+    "dx": 0.06
+   },
+   "what": "大腿，竖直向下，胯头画成圆的",
+   "image": "leg_upper.png",
+   "size": [
+    323,
+    422
+   ],
+   "pivot_px": [
+    175.6,
+    150.2
+   ],
+   "attach_px": [
+    185.0,
+    428.7
+   ]
+  },
+  {
+   "id": "leg_lower",
+   "parent": "leg_upper",
+   "z": 5,
+   "pivot": {
+    "top_w": 0.5,
+    "x": "center"
+   },
+   "attach": {
+    "bottom_w": 0.5,
+    "x": "center"
+   },
+   "what": "小腿连脚，竖直向下，脚尖朝右；膝头画成圆的",
+   "image": "leg_lower.png",
+   "size": [
+    320,
+    425
+   ],
+   "pivot_px": [
+    116.4,
+    115.5
+   ],
+   "attach_px": [
+    154.5,
+    315.8
+   ]
+  },
+  {
+   "id": "arm_back_upper",
+   "same_as": "arm_upper",
+   "tint": 0.72,
+   "parent": "torso",
+   "z": 1,
+   "pivot": {
+    "top_w": 0.5,
+    "x": "center"
+   },
+   "attach": {
+    "y": 0.16,
+    "x": "center",
+    "dx": -0.1
+   },
+   "size": [
+    199,
+    385
+   ],
+   "pivot_px": [
+    100.4,
+    81.0
+   ],
+   "attach_px": [
+    123.4,
+    78.7
+   ]
+  },
+  {
+   "id": "arm_back_lower",
+   "same_as": "arm_lower",
+   "tint": 0.72,
+   "parent": "arm_back_upper",
+   "z": 0,
+   "pivot": {
+    "top_w": 0.5,
+    "x": "center"
+   },
+   "attach": {
+    "bottom_w": 0.5,
+    "x": "center"
+   },
+   "size": [
+    174,
+    419
+   ],
+   "pivot_px": [
+    85.0,
+    78.5
+   ],
+   "attach_px": [
+    99.4,
+    290.5
+   ]
+  },
+  {
+   "id": "leg_back_upper",
+   "same_as": "leg_upper",
+   "tint": 0.72,
+   "parent": "torso",
+   "z": 2,
+   "pivot": {
+    "top_w": 0.5,
+    "x": "center"
+   },
+   "attach": {
+    "y": 0.9,
+    "x": "center",
+    "dx": -0.08
+   },
+   "size": [
+    323,
+    422
+   ],
+   "pivot_px": [
+    175.6,
+    150.2
+   ],
+   "attach_px": [
+    138.4,
+    428.7
+   ]
+  },
+  {
+   "id": "leg_back_lower",
+   "same_as": "leg_lower",
+   "tint": 0.72,
+   "parent": "leg_back_upper",
+   "z": 1,
+   "pivot": {
+    "top_w": 0.5,
+    "x": "center"
+   },
+   "attach": {
+    "bottom_w": 0.5,
+    "x": "center"
+   },
+   "size": [
+    320,
+    425
+   ],
+   "pivot_px": [
+    116.4,
+    115.5
+   ],
+   "attach_px": [
+    154.5,
+    315.8
+   ]
+  }
+ ],
+ "root_px": [
+  0.0,
+  -456.9
+ ]
+}

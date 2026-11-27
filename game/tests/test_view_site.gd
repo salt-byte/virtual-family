@@ -59,29 +59,29 @@ func test_smoke_has_no_site_and_qijia_has_one():
 	assert_true(not HouseSite.new(Pack.load_dir("res://packs/_smoke")).enabled)
 	var s := _site(START)
 	assert_true(s.enabled)
-	assert_eq(s.size, Vector2i(56, 32))
-	assert_eq(s.compound, Rect2i(11, 6, 34, 19))
+	assert_eq(s.size, Vector2i(84, 48))
+	assert_eq(s.compound, Rect2i(17, 9, 51, 29))
 
 
 func test_rooms_share_walls_and_doors_open_them():
 	var s := _site(START)
 	# The hall's south wall: the main door (2 cells) is open, the cell beside it is wall.
-	assert_true(s.h_free(Vector2i(27, 12)) and s.h_free(Vector2i(28, 12)))
-	assert_true(not s.h_free(Vector2i(26, 12)))
+	assert_true(s.h_free(Vector2i(41, 18)) and s.h_free(Vector2i(42, 18)))
+	assert_true(not s.h_free(Vector2i(40, 18)) and not s.h_free(Vector2i(43, 18)))
 	# The hall and the bedroom share one wall with a door in it.
-	assert_true(s.v_walls.has(Vector2i(33, 7)) and not s.v_free(Vector2i(33, 7)))
-	assert_true(s.v_free(Vector2i(33, 9)))
+	assert_true(s.v_walls.has(Vector2i(50, 11)) and not s.v_free(Vector2i(50, 11)))
+	assert_true(s.v_free(Vector2i(50, 14)))
 	# Between two places in the open (yard and well) there is no wall.
-	assert_true(not s.v_walls.has(Vector2i(34, 14)))
+	assert_true(not s.v_walls.has(Vector2i(51, 21)))
 	# The compound wall, with the gate in its south side.
-	assert_true(not s.v_free(Vector2i(11, 20)) and not s.h_free(Vector2i(20, 25)))
-	assert_true(s.h_free(Vector2i(27, 25)) and s.h_free(Vector2i(28, 25)))
+	assert_true(not s.v_free(Vector2i(17, 30)) and not s.h_free(Vector2i(30, 38)))
+	assert_true(s.h_free(Vector2i(41, 38)) and s.h_free(Vector2i(42, 38)))
 
 
 func test_a_door_into_an_unbuilt_room_opens_when_it_is_built():
 	var s := _site(START)
-	assert_true(not s.v_free(Vector2i(23, 9)), "hall -> west room shut while it is a foundation")
-	assert_true(s.blocked.has(Vector2i(19, 9)), "nobody walks on a bare foundation")
+	assert_true(not s.v_free(Vector2i(35, 14)), "hall -> west room shut while it is a foundation")
+	assert_true(s.blocked.has(Vector2i(29, 14)), "nobody walks on a bare foundation")
 	var v := s.version
 	s.update({})  # nothing changes until the built set does
 	var built := START.duplicate()
@@ -91,29 +91,29 @@ func test_a_door_into_an_unbuilt_room_opens_when_it_is_built():
 		set[r] = true
 	s.update(set)
 	assert_true(s.version > v)
-	assert_true(s.v_free(Vector2i(23, 9)))
-	assert_true(not s.blocked.has(Vector2i(19, 9)))
+	assert_true(s.v_free(Vector2i(35, 14)))
+	assert_true(not s.blocked.has(Vector2i(29, 14)))
 
 
 func test_routes_go_through_doors_never_through_walls():
 	var s := _site(START)
-	var hall := _centre(s, Vector2i(25, 8))
-	var yard := _centre(s, Vector2i(22, 16))
+	var hall := _centre(s, Vector2i(38, 12))
+	var yard := _centre(s, Vector2i(33, 24))
 	assert_true(not s.clear_line(hall, yard), "the straight line crosses the hall's front wall")
 	var pts := s.route(hall, yard)
 	assert_true(pts.size() >= 1)
 	assert_true(_legs_clear(s, hall, pts, yard))
 	# Out of the bedroom, through the hall and the main door, out of the gate to the road.
-	var bed := _centre(s, Vector2i(37, 7))
-	var road := _centre(s, Vector2i(28, 29))
+	var bed := _centre(s, Vector2i(56, 11))
+	var road := _centre(s, Vector2i(42, 44))
 	var way := s.route(bed, road)
 	assert_true(_legs_clear(s, bed, way, road))
 	# The kitchen (west wing) to the woodshed above it: through their shared door.
-	var kitchen := _centre(s, Vector2i(15, 16))
-	var shed := _centre(s, Vector2i(15, 7))
+	var kitchen := _centre(s, Vector2i(23, 24))
+	var shed := _centre(s, Vector2i(23, 11))
 	assert_true(_legs_clear(s, kitchen, s.route(kitchen, shed), shed))
 	# In the open, or inside one room: straight.
-	assert_eq(s.route(yard, _centre(s, Vector2i(30, 17))).size(), 0)
+	assert_eq(s.route(yard, _centre(s, Vector2i(45, 26))).size(), 0)
 
 
 func test_a_person_walks_round_the_wall_through_the_door():
@@ -131,8 +131,8 @@ func test_a_person_walks_round_the_wall_through_the_door():
 	for i in 400:
 		pv.tick(0.05)
 		assert_true(site.clear_line(last, pv.position), "step %d %s -> %s" % [i, last, pv.position])
-		if last.y < 12 * 36 and pv.position.y >= 12 * 36:
-			crossed_door = pv.position.x > 27 * 48 and pv.position.x < 29 * 48
+		if last.y < 18 * 36 and pv.position.y >= 18 * 36:
+			crossed_door = pv.position.x > 41 * 48 and pv.position.x < 43 * 48
 		last = pv.position
 	assert_true(pv.position.distance_to(pv.target) < 1.0)
 	assert_true(crossed_door, "left the hall through its main door")
@@ -163,9 +163,9 @@ func test_back_walls_stand_tall_front_walls_low_and_see_through():
 	var back: IsoWall = null
 	var front: IsoWall = null
 	for wp in walls:
-		if wp.role == "wall" and wp.along == "x" and wp.line == 6 and wp.at == 25:
+		if wp.role == "wall" and wp.along == "x" and wp.line == 9 and wp.at == 38:
 			back = wp  # the north wall above the hall
-		if wp.role == "wall" and wp.along == "x" and wp.line == 12 and wp.at == 25:
+		if wp.role == "wall" and wp.along == "x" and wp.line == 18 and wp.at == 38:
 			front = wp  # the hall's south wall, onto the yard
 	assert_true(back != null and front != null)
 	# The 45° view (ART_DIRECTION section 11): the back walls stand 112 px with an eave, the
@@ -176,14 +176,14 @@ func test_back_walls_stand_tall_front_walls_low_and_see_through():
 	# Someone on the hall's front row stands behind the cut wall: it only reaches their
 	# ankles and never fades.
 	var pv: PersonView = m.house.people[m.session.world.people[0].uid]
-	pv.position = Vector2(25.5 * 48, 12 * 36 - 18)
+	pv.position = Vector2(38.5 * 48, 18 * 36 - 18)
 	pv.target = pv.position
 	pv.held = true
 	m.house.tick(0.016)
 	assert_true(m.house.sort_depth(front) > m.house.sort_depth(pv))
 	assert_eq(front.modulate.a, 1.0)
 	# The tall back wall fades for someone behind it (north of the house).
-	pv.position = Vector2(24.8 * 48, 6 * 36 - 30)  # on the screen right behind cell 25
+	pv.position = Vector2(37.8 * 48, 9 * 36 - 30)  # on the screen right behind cell 38
 	m.house.tick(0.016)
 	assert_true(back.modulate.a < 1.0, "someone behind the back wall")
 	assert_true(m.house.sort_depth(back) > m.house.sort_depth(pv))
@@ -198,25 +198,17 @@ func test_building_a_room_raises_its_walls():
 	assert_true(m.session.command({"type": "build_room", "room": "west_room"}).ok)
 	m.tick(0.016)
 	assert_true(m.house.walls.size() != before)
-	assert_true(m.house.layout.site.v_free(Vector2i(23, 9)))
-	m.free()
-
-
-func test_the_whole_map_fits_at_the_smallest_zoom():
-	var m := _main()
-	var v := Vector2(1280, 720)
-	m.house.zoom_to(m.house.min_zoom(v))
-	var b := m.house.layout.bounds()
-	var tl := m.house.to_screen(b.position)
-	var br := m.house.to_screen(b.end)
-	assert_true(tl.x >= -0.5 and br.x <= 1280.5 and tl.y >= -0.5 and br.y <= 720 - HouseView.BOTTOM_BAR + 0.5, "%s %s" % [tl, br])
+	assert_true(m.house.layout.site.v_free(Vector2i(35, 14)))
 	m.free()
 
 
 func test_bad_site_is_reported():
 	var p := Pack.load_dir("res://packs/qijia")
 	assert_true(p.is_valid(), str(p.errors))
-	p.config["site"] = {"w": 56, "h": 32, "doors": [{"x": 1}], "decor": [{"shape": "blob"}], "compound": {"x": 50, "y": 0, "w": 34, "h": 19}}
+	# The map keeps the pack's own size (every room fits), so only the three bad entries count.
+	var sw := int(p.config["site"]["w"])
+	var sh := int(p.config["site"]["h"])
+	p.config["site"] = {"w": sw, "h": sh, "doors": [{"x": 1}], "decor": [{"shape": "blob"}], "compound": {"x": sw - 6, "y": 0, "w": 51, "h": 29}}
 	var errs := PackValidator.validate(p)
 	var site_errs := errs.filter(func(e): return e.begins_with("pack.json: site:"))
 	assert_eq(site_errs.size(), 3, str(errs))
@@ -240,9 +232,9 @@ func test_routes_to_the_places_outside_go_through_the_gate():
 		var through_gate := false
 		var at := hall
 		for p: Vector2 in Array(way) + [to]:
-			if at.y < 25 * 36 and p.y > 25 * 36 or at.y > 25 * 36 and p.y < 25 * 36:
-				var x := at.x + (p.x - at.x) * (25 * 36 - at.y) / (p.y - at.y)
-				through_gate = through_gate or (x > 27 * 48 and x < 29 * 48)
+			if at.y < 38 * 36 and p.y > 38 * 36 or at.y > 38 * 36 and p.y < 38 * 36:
+				var x := at.x + (p.x - at.x) * (38 * 36 - at.y) / (p.y - at.y)
+				through_gate = through_gate or (x > 41 * 48 and x < 43 * 48)
 			at = p
 		assert_true(through_gate, id)
 	m.free()

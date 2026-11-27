@@ -1,5 +1,5 @@
 [
-	{"id": "rice", "name": "一袋米面", "category": "粮食", "price": 24, "stock": {"food": 8}},
+	{"id": "rice", "name": "一袋米面", "category": "粮食", "price": 30, "stock": {"food": 8}},
 	{"id": "ginger_pill", "name": "老姜红枣丸", "category": "药铺", "price": 30, "cures": "chill", "needs": {"health": 15}},
 	{"id": "indigo_salve", "name": "青黛药膏", "category": "药铺", "price": 36, "cures": "itch", "needs": {"health": 15}},
 	{"id": "herb_bundle", "name": "一包草药", "category": "药铺", "price": 12, "stock": {"herbs": 3}},

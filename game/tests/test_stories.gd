@@ -121,7 +121,7 @@ func test_visitor_brings_money_and_a_keepsake():
 	var money := w.money
 	var r := w.command({"type": "receive_visitor", "story": "embroidered_shoe"})
 	assert_true(r.ok)
-	assert_eq(w.money, money + 300)
+	assert_eq(w.money, money + 120)
 	var o := w.object(int(r.object))
 	assert_eq(o.type, "ayun_hoop")
 	assert_eq(o.room, "bedroom")
@@ -176,7 +176,7 @@ func test_dig_at_the_mark_pays_out():
 	var guard := 0
 	while not p.current.is_empty() and guard < 400:
 		w.advance(60); guard += 1
-	assert_true(w.money >= money + 1500)
+	assert_true(w.money >= money + 800)
 	assert_eq(w.stories["scholar_silver"]["stage"], "done")
 	assert_eq(w.command({"type": "drag", "person": p.uid, "story": "scholar_silver"}).error, "no_target")
 

@@ -310,4 +310,4 @@ func test_room_position_must_be_whole_and_nonnegative():
 func test_room_positions_load_as_ints():
 	var p := Pack.load_dir("res://packs/qijia")
 	assert_true(p.rooms["hall"]["x"] is int)
-	assert_eq(p.rooms["yard"]["y"], 12)  # the site plan moved the compound to (11, 6)
+	assert_eq(p.rooms["yard"]["y"], 18)  # the site plan puts the compound at (17, 9), the yard below the 9-deep wings

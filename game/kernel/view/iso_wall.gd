@@ -34,15 +34,19 @@ const SEE_THROUGH := 0.42
 
 const LINE := Color("#4A3424")
 const CAP := Color(0.376, 0.29, 0.227)
-const BEAM := Color(0.43, 0.3, 0.2)
+## Old dark wood: the beam, the posts, a door's frame.
+const BEAM := Color(0.3, 0.2, 0.13)
 const SKIRT := Color(0.59, 0.39, 0.24)
-const POST := Color(0.48, 0.32, 0.2)
+const POST := Color(0.34, 0.22, 0.14)
 const PLASTER := Color(0.95, 0.9, 0.81)
 const EARTH := Color(0.8, 0.62, 0.42)
 const STONE := Color(0.59, 0.59, 0.55)
 const EAVE := Color(0.44, 0.49, 0.56)
 const EAVE_DARK := Color(0.33, 0.37, 0.43)
 const TILE_CAP := Color(0.47, 0.52, 0.59)
+## The grey tiles laid on a cut house wall, and their rolled ridge.
+const LOW_TILE := Color(0.43, 0.44, 0.45)
+const LOW_TILE_DARK := Color(0.3, 0.31, 0.33)
 const LOW_TOP := Color(0.965, 0.91, 0.8)
 const LOW_FACE_X := Color(0.886, 0.824, 0.714)
 const LOW_FACE_Y := Color(0.776, 0.714, 0.612)
@@ -314,6 +318,25 @@ func _elevation(off: float) -> Transform2D:
 	return Transform2D(u, Vector2(0, 1), o - u * float(at) * IsoMath.EDGE)
 
 
+## A soft dark band over part of a face (elevation space): `a0` alpha at its top, `a1` at its
+## foot, so the face darkens toward the ground or under the beam the way a rendered wall does.
+func _band(r: Rect2, a0: float, a1: float) -> void:
+	var c0 := Color(0.08, 0.05, 0.03, a0)
+	var c1 := Color(0.08, 0.05, 0.03, a1)
+	draw_polygon(PackedVector2Array([r.position, Vector2(r.end.x, r.position.y), r.end, Vector2(r.position.x, r.end.y)]),
+		PackedColorArray([c0, c0, c1, c1]))
+
+
+## The wall's shadow on the ground in front of its face: `reach` cells out, fading.
+func _ground_shadow(t: float, reach: float, alpha: float) -> void:
+	var ends := _face_ends(t * 0.5)
+	var far := _face_ends(t * 0.5 + reach)
+	var c0 := Color(0.1, 0.06, 0.03, alpha)
+	var c1 := Color(0.1, 0.06, 0.03, 0.0)
+	draw_polygon(PackedVector2Array([_p(ends[0].x, ends[0].y), _p(ends[1].x, ends[1].y), _p(far[1].x, far[1].y), _p(far[0].x, far[0].y)]),
+		PackedColorArray([c0, c0, c1, c1]))
+
+
 func _draw_back() -> void:
 	var t := thickness(kind)
 	var h := height
@@ -322,14 +345,26 @@ func _draw_back() -> void:
 	var tint := Color(shade, shade, shade)
 	var u0 := float(at) * IsoMath.EDGE
 	var L := IsoMath.EDGE
+	if not open:
+		_ground_shadow(t, 0.4, 0.3)
 	draw_set_transform_matrix(_elevation(t * 0.5))
 	var tile := skin.wall_tile("compound" if compound else "house") if skin != null else {}
 	var face := Rect2(u0, -h, L, h)
 	var solid := face if not open else Rect2(u0, -h, L, LINTEL)
 	if tile.is_empty():
 		draw_rect(solid, (EARTH if compound else PLASTER) * tint)
+	elif open:
+		# Over a door: the same strip of the face as a whole wall would show there.
+		var tex: Texture2D = tile["tex"]
+		var k := float(tex.get_height()) / h
+		draw_texture_rect_region(tex, solid, Rect2(u0 * k, 0.0, L * k, LINTEL * k), tint)
 	else:
 		PackSkin.draw_tile(self, tile, solid, tint)
+	var soft := not tile.is_empty()
+	if soft and not open:
+		_band(Rect2(u0, -h * 0.4, L, h * 0.4), 0.0, 0.34)
+	if soft and not compound:
+		_band(Rect2(u0, -h + 9, L, 14), 0.32, 0.0)
 	if compound:
 		if not open:
 			draw_rect(Rect2(u0, -16, L, 16), STONE * tint)
@@ -340,25 +375,33 @@ func _draw_back() -> void:
 			draw_line(Vector2(u0, -16), Vector2(u0 + L, -16), LINE, 2.0)
 	else:
 		draw_rect(Rect2(u0, -h, L, 9), BEAM * tint)
-		draw_line(Vector2(u0, -h + 9), Vector2(u0 + L, -h + 9), LINE, 2.0)
-		if not open:
+		draw_rect(Rect2(u0, -h + 7, L, 2), BEAM.darkened(0.35) * tint)
+		if not soft:
+			draw_line(Vector2(u0, -h + 9), Vector2(u0 + L, -h + 9), LINE, 2.0)
+		if tile.is_empty() and not open:
 			draw_rect(Rect2(u0, -20, L, 20), SKIRT * tint)
 			draw_line(Vector2(u0, -20), Vector2(u0 + L, -20), LINE, 2.0)
 		# A post every third cell along the line.
 		if at % 3 == 0:
 			draw_rect(Rect2(u0 - 4, -h, 8, h), POST * tint)
-			draw_rect(Rect2(u0 - 4, -h, 8, h), LINE, false, 1.0)
+			draw_rect(Rect2(u0 - 4, -h, 3, h), POST.lightened(0.12) * tint)
+			draw_rect(Rect2(u0 + 2, -h, 2, h), POST.darkened(0.3) * tint)
+			if not soft:
+				draw_rect(Rect2(u0 - 4, -h, 8, h), LINE, false, 1.0)
+			else:
+				_band(Rect2(u0 - 4, -h * 0.4, 8, h * 0.4), 0.0, 0.3)
 	if open:
 		draw_rect(Rect2(u0, -h + LINTEL, L, h - LINTEL), OPENING)
 		draw_rect(Rect2(u0, -h + LINTEL - 6, L, 6), BEAM)
 		draw_rect(Rect2(u0 - 3, -h + LINTEL, 6, h - LINTEL), BEAM)
 		draw_rect(Rect2(u0 + L - 3, -h + LINTEL, 6, h - LINTEL), BEAM)
-	draw_line(Vector2(u0, -h), Vector2(u0 + L, -h), LINE, 2.0)
-	if not open:
-		draw_line(Vector2(u0, 0), Vector2(u0 + L, 0), LINE, 2.0)
+	if not soft:
+		draw_line(Vector2(u0, -h), Vector2(u0 + L, -h), LINE, 2.0)
+		if not open:
+			draw_line(Vector2(u0, 0), Vector2(u0 + L, 0), LINE, 2.0)
 	draw_set_transform_matrix(Transform2D.IDENTITY)
 	if end_face:
-		_end(h, t, (PLASTER if not compound else EARTH) * 0.85)
+		_end(h, t, (PLASTER if not compound else EARTH) * 0.85, soft)
 	# The top: a dark cut (house) or grey tiles (compound), and the house's eave outside.
 	var ends := _face_ends(0.0)
 	var a: Vector2 = ends[0]
@@ -368,7 +411,8 @@ func _draw_back() -> void:
 		_p(b.x + n.x * t * 0.5, b.y + n.y * t * 0.5, h), _p(a.x + n.x * t * 0.5, a.y + n.y * t * 0.5, h)])
 	draw_colored_polygon(top, TILE_CAP if compound else CAP)
 	top.append(top[0])
-	draw_polyline(top, LINE, 1.5)
+	if not soft:
+		draw_polyline(top, LINE, 1.5)
 	if eave:
 		var e0 := 0.11
 		var e1 := 0.75
@@ -380,8 +424,12 @@ func _draw_back() -> void:
 			var s := a.lerp(b, k)
 			draw_line(_p(s.x - n.x * 0.15, s.y - n.y * 0.15, h), _p(s.x - n.x * 0.72, s.y - n.y * 0.72, h - 10), EAVE_DARK, 2.0)
 			k += 0.5
-		poly.append(poly[0])
-		draw_polyline(poly, LINE, 1.5)
+		# The eave's lit front edge and its dark underside.
+		draw_line(poly[0], poly[1], EAVE.lightened(0.25), 1.5)
+		draw_line(poly[3], poly[2], EAVE_DARK.darkened(0.3), 2.0)
+		if not soft:
+			poly.append(poly[0])
+			draw_polyline(poly, LINE, 1.5)
 	elif compound:
 		var k2 := 0.25
 		while k2 < 1.0:
@@ -391,13 +439,21 @@ func _draw_back() -> void:
 
 
 ## The face where the wall stops at its +x / +y end, `h` high.
-func _end(h: float, t: float, c: Color) -> void:
+func _end(h: float, t: float, c: Color, soft := false) -> void:
 	var e := float(at + 1)
 	var pts: PackedVector2Array
 	if along == "x":
 		pts = PackedVector2Array([_p(e, line - t * 0.5), _p(e, line + t * 0.5), _p(e, line + t * 0.5, h), _p(e, line - t * 0.5, h)])
 	else:
 		pts = PackedVector2Array([_p(line - t * 0.5, e), _p(line + t * 0.5, e), _p(line + t * 0.5, e, h), _p(line - t * 0.5, e, h)])
+	if soft:
+		# Lit from the north-west: the end faces turn away, a shade darker toward the foot.
+		var top := c * 0.92
+		var foot := c * 0.7
+		top.a = 1.0
+		foot.a = 1.0
+		draw_polygon(pts, PackedColorArray([foot, foot, top, top]))
+		return
 	draw_colored_polygon(pts, c)
 	pts.append(pts[0])
 	draw_polyline(pts, LINE, 1.5)
@@ -412,18 +468,60 @@ func _draw_low() -> void:
 	var a: Vector2 = ends[0]
 	var b: Vector2 = ends[1]
 	var face := PackedVector2Array([_p(a.x, a.y), _p(b.x, b.y), _p(b.x, b.y, h), _p(a.x, a.y, h)])
-	draw_colored_polygon(face, face_col)
-	face.append(face[0])
-	draw_polyline(face, LINE, 1.5)
+	var bricks := skin.wall_tile("house_low") if skin != null and not earth else {}
+	if not bricks.is_empty():
+		_ground_shadow(t, 0.22, 0.32)
+	if bricks.is_empty():
+		draw_colored_polygon(face, face_col)
+	else:
+		# Grey brick, the west-turned faces a shade darker.
+		var shade := 1.0 if along == "x" else 0.84
+		draw_set_transform_matrix(_elevation(t * 0.5))
+		var r := Rect2(float(at) * IsoMath.EDGE, -h, IsoMath.EDGE, h)
+		PackSkin.draw_tile(self, bricks, r, Color(shade, shade, shade))
+		_band(r, 0.22, 0.0)
+		_band(Rect2(r.position.x, -h * 0.5, r.size.x, h * 0.5), 0.0, 0.3)
+		draw_set_transform_matrix(Transform2D.IDENTITY)
+		face_col = Color(0.5, 0.5, 0.5) * shade
+	if bricks.is_empty():
+		face.append(face[0])
+		draw_polyline(face, LINE, 1.5)
 	if end_face:
-		_end(h, t, face_col * 0.85)
+		_end(h, t, face_col * 0.85, not bricks.is_empty())
 	var c := _face_ends(0.0)
 	var n := Vector2(0, 1) if along == "x" else Vector2(1, 0)
 	var top := PackedVector2Array([_p(c[0].x - n.x * t * 0.5, c[0].y - n.y * t * 0.5, h), _p(c[1].x - n.x * t * 0.5, c[1].y - n.y * t * 0.5, h),
 		_p(c[1].x + n.x * t * 0.5, c[1].y + n.y * t * 0.5, h), _p(c[0].x + n.x * t * 0.5, c[0].y + n.y * t * 0.5, h)])
-	draw_colored_polygon(top, TILE_CAP if earth else LOW_TOP)
-	top.append(top[0])
-	draw_polyline(top, LINE, 1.5)
+	if earth or skin == null or skin.wall_tile("house_low").is_empty():
+		draw_colored_polygon(top, TILE_CAP if earth else LOW_TOP)
+		top.append(top[0])
+		draw_polyline(top, LINE, 1.5)
+		return
+	_tile_cap(c[0], c[1], n, t, h)
+
+
+## Grey tiles laid on a cut house wall: a cap a little wider than the wall, a rolled ridge
+## along the middle and the tiles' rolls across it.
+func _tile_cap(a: Vector2, b: Vector2, n: Vector2, t: float, h: float) -> void:
+	var w := t * 0.5 + 0.04
+	var lift := 3.0
+	var cap := PackedVector2Array([_p(a.x - n.x * w, a.y - n.y * w, h), _p(b.x - n.x * w, b.y - n.y * w, h),
+		_p(b.x + n.x * w, b.y + n.y * w, h), _p(a.x + n.x * w, a.y + n.y * w, h)])
+	draw_colored_polygon(cap, LOW_TILE_DARK)
+	var ridge := PackedVector2Array([_p(a.x - n.x * w * 0.55, a.y - n.y * w * 0.55, h + lift), _p(b.x - n.x * w * 0.55, b.y - n.y * w * 0.55, h + lift),
+		_p(b.x + n.x * w * 0.55, b.y + n.y * w * 0.55, h + lift), _p(a.x + n.x * w * 0.55, a.y + n.y * w * 0.55, h + lift)])
+	# The ridge's front side down to the cap, then its top.
+	var front := PackedVector2Array([_p(a.x + n.x * w, a.y + n.y * w, h), _p(b.x + n.x * w, b.y + n.y * w, h), ridge[2], ridge[3]])
+	draw_colored_polygon(front, LOW_TILE)
+	draw_colored_polygon(ridge, LOW_TILE.lightened(0.12))
+	var k := 0.125
+	while k < 1.0:
+		var s2 := a.lerp(b, k)
+		draw_line(_p(s2.x + n.x * w, s2.y + n.y * w, h), _p(s2.x + n.x * w * 0.55, s2.y + n.y * w * 0.55, h + lift), LOW_TILE_DARK, 1.0)
+		k += 0.25
+	# Light catches the ridge's top edge; the cap's front lip throws a thin dark line.
+	draw_line(ridge[0], ridge[1], LOW_TILE.lightened(0.35), 1.0)
+	draw_line(cap[3], cap[2], LOW_TILE_DARK.darkened(0.35), 1.2)
 
 
 func _draw_fence() -> void:

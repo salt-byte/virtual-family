@@ -7,8 +7,8 @@
   "native_transparent": false,
   "price_per_image": 0.12,
   "currency": "元",
-  "budget": 30,
-  "max_images": 250,
+  "budget": 40,
+  "max_images": 340,
   "pixel_size": null,
   "out_dirs": {},
   "extra": {}

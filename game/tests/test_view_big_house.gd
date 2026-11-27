@@ -1,6 +1,6 @@
 extends TestCase
-## A house bigger than one screen: it opens at scale 1 on the entrance room, zooms with the
-## wheel around the cursor, pans so any part can reach the middle, and scrolls by itself while
+## A house bigger than one screen: it opens life-size on the entrance room at a fixed scale
+## (the wheel does not zoom), pans so any part can reach the middle, and scrolls by itself while
 ## something is carried near an edge. Also: a person doing an action that names its rooms
 ## walks into that room; fixed furniture stays put in arrange mode.
 
@@ -50,38 +50,18 @@ func test_smoke_keeps_its_fitted_scale():
 	m.free()
 
 
-func test_zoom_at_keeps_the_house_point_under_the_cursor():
-	var m := _main()
-	m.house.zoom_to(1.0)  # from life-size (the 45° view opens at ISO_START_SCALE)
-	var at := Vector2(700, 300)
-	var under := m.house.world_pos(at)
-	m.house.zoom_at(at, 1.1)
-	assert_near(m.house.scale.x, 1.1)
-	assert_true(m.house.world_pos(at).distance_to(under) < 0.01, str(m.house.world_pos(at)))
-	m.house.zoom_at(at, 1.0 / 1.1)
-	m.house.zoom_at(at, 1.0 / 1.1)
-	assert_near(m.house.scale.x, 1.0 / 1.1)
-	for i in 30:
-		m.house.zoom_at(at, 1.0 / 1.1)
-	assert_near(m.house.scale.x, m.house.fit_scale(Vector2(1280, 720)))
-	for i in 30:
-		m.house.zoom_at(at, 1.1)
-	assert_near(m.house.scale.x, HouseView.MAX_SCALE)
-	m.free()
-
-
-func test_mouse_wheel_zooms():
+func test_mouse_wheel_does_not_zoom():
 	var m := _main(); m.session.command({"type": "adopt"}); m.tick(0.016)
-	m.house.zoom_to(1.0)  # from life-size (the 45° view opens at ISO_START_SCALE)
+	var s := m.house.scale.x
+	var at := m.house.position
 	var ev := InputEventMouseButton.new()
-	ev.button_index = MOUSE_BUTTON_WHEEL_UP
 	ev.pressed = true
 	ev.position = Vector2(640, 300)
-	m.house._unhandled_input(ev)
-	assert_near(m.house.scale.x, 1.1)
-	ev.button_index = MOUSE_BUTTON_WHEEL_DOWN
-	m.house._unhandled_input(ev)
-	assert_near(m.house.scale.x, 1.0)
+	for b in [MOUSE_BUTTON_WHEEL_UP, MOUSE_BUTTON_WHEEL_DOWN]:
+		ev.button_index = b
+		m.house._unhandled_input(ev)
+		assert_eq(m.house.scale.x, s)
+		assert_eq(m.house.position, at)
 	m.free()
 
 
@@ -172,9 +152,10 @@ func test_drag_onto_furniture_off_screen_after_edge_scrolling():
 	AutonomySystem.cancel(w, p); m.tick(0.016)
 	var o: Dictionary = w.objects.filter(func(x): return x.type == "coop")[0]
 	var centre := m.house.layout.object_rect(o, w.pack).get_center()
-	# In the 45° view the coop sits lower on the screen than the hall: lift the house a
-	# little too, so it comes level with the middle when scrolled back.
-	m.house.pan(Vector2(2000, -100))
+	# In the 45° view the coop sits lower on the screen than the hall (at the start just
+	# under the bottom bar): lift the house too, so it comes level with the middle when
+	# scrolled back.
+	m.house.pan(Vector2(2000, -400))
 	var screen := Rect2(Vector2.ZERO, Vector2(1280, 720 - HouseView.BOTTOM_BAR))
 	assert_true(not screen.has_point(m.house.to_screen(centre)), str(m.house.to_screen(centre)))
 	var pv: PersonView = m.house.people[p.uid]

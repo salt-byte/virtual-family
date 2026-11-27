@@ -1,0 +1,178 @@
+{
+ "note": "领养候选的长相。路径相对 assets/。height 是建议的游戏内身高（像素），让脖子以下的身子和父亲 / 母亲（老人和祖母）一样大，书生和瘦高农妇再高 4%；戴斗笠、盘高髻的人头顶更高，所以数比 90 大。三套骨架部件 id 相同，正面、背面走路用 chars/anims.humanoid_front.json。 四分之三视角（斜 45°）：rig_front34 身体转 45 度朝画面右下、rig_back34 背朝镜头朝右上，往左时整体水平翻转；骨架模板 chars/rig.humanoid_34.json，动作 chars/anims.humanoid_34.json（front34 走路 walk、back34 走路 walk_up）。",
+ "looks": [
+  {
+   "id": "a_adult_1",
+   "sex": "male",
+   "stage": "adult",
+   "name": "斗笠农夫",
+   "description": "斗笠压得低，赭黄短褂的袖子挽到小臂，腰里一根土红布带。裤腿卷到小腿肚，脚上一双草鞋，人晒得黝黑。",
+   "livelihoods": [
+    "farming"
+   ],
+   "height": 94,
+   "rig": "chars/a_adult_1/a_adult_1.rig.json",
+   "rig_front": "chars/a_adult_1_front/a_adult_1_front.rig.json",
+   "rig_back": "chars/a_adult_1_back/a_adult_1_back.rig.json",
+   "portrait": "chars/portraits/a_adult_1.png",
+   "rig_front34": "chars/a_adult_1_front34/a_adult_1_front34.rig.json",
+   "rig_back34": "chars/a_adult_1_back34/a_adult_1_back34.rig.json"
+  },
+  {
+   "id": "a_adult_2",
+   "sex": "male",
+   "stage": "adult",
+   "name": "清瘦书生",
+   "description": "又高又瘦，头戴黑方巾，月白长衫垂到脚面，领口袖口滚一道深蓝边。嘴总抿着，难得一笑。",
+   "livelihoods": [
+    "reading"
+   ],
+   "height": 91,
+   "rig": "chars/a_adult_2/a_adult_2.rig.json",
+   "rig_front": "chars/a_adult_2_front/a_adult_2_front.rig.json",
+   "rig_back": "chars/a_adult_2_back/a_adult_2_back.rig.json",
+   "portrait": "chars/portraits/a_adult_2.png",
+   "rig_front34": "chars/a_adult_2_front34/a_adult_2_front34.rig.json",
+   "rig_back34": "chars/a_adult_2_back34/a_adult_2_back34.rig.json"
+  },
+  {
+   "id": "a_adult_3",
+   "sex": "male",
+   "stage": "adult",
+   "name": "胖货郎",
+   "description": "圆脸圆肚子，两撇小胡子，眼睛笑成两道缝。深棕毡帽，米白衬褂外头套一件酱红坎肩，盘扣绷得紧紧的。",
+   "livelihoods": [
+    "peddling"
+   ],
+   "height": 97,
+   "rig": "chars/a_adult_3/a_adult_3.rig.json",
+   "rig_front": "chars/a_adult_3_front/a_adult_3_front.rig.json",
+   "rig_back": "chars/a_adult_3_back/a_adult_3_back.rig.json",
+   "portrait": "chars/portraits/a_adult_3.png",
+   "rig_front34": "chars/a_adult_3_front34/a_adult_3_front34.rig.json",
+   "rig_back34": "chars/a_adult_3_back34/a_adult_3_back34.rig.json"
+  },
+  {
+   "id": "a_adult_4",
+   "sex": "male",
+   "stage": "adult",
+   "name": "木匠",
+   "description": "方下巴，一圈短胡茬，白布头巾在脑后打个结。深褐短褂外挂一条土黄帆布围裙，胸口一只小口袋，腿上打着绑腿。",
+   "livelihoods": [
+    "carpentry"
+   ],
+   "height": 92,
+   "rig": "chars/a_adult_4/a_adult_4.rig.json",
+   "rig_front": "chars/a_adult_4_front/a_adult_4_front.rig.json",
+   "rig_back": "chars/a_adult_4_back/a_adult_4_back.rig.json",
+   "portrait": "chars/portraits/a_adult_4.png",
+   "rig_front34": "chars/a_adult_4_front34/a_adult_4_front34.rig.json",
+   "rig_back34": "chars/a_adult_4_back34/a_adult_4_back34.rig.json"
+  },
+  {
+   "id": "a_adult_5",
+   "sex": "female",
+   "stage": "adult",
+   "name": "绣娘",
+   "description": "瓜子脸，脑后一个圆髻，横插一根银簪，簪头一点红绒花。桃粉大襟袄滚月白边，脚上一双绣花鞋。",
+   "livelihoods": [
+    "embroidery"
+   ],
+   "height": 82,
+   "rig": "chars/a_adult_5/a_adult_5.rig.json",
+   "rig_front": "chars/a_adult_5_front/a_adult_5_front.rig.json",
+   "rig_back": "chars/a_adult_5_back/a_adult_5_back.rig.json",
+   "portrait": "chars/portraits/a_adult_5.png",
+   "rig_front34": "chars/a_adult_5_front34/a_adult_5_front34.rig.json",
+   "rig_back34": "chars/a_adult_5_back34/a_adult_5_back34.rig.json"
+  },
+  {
+   "id": "a_adult_6",
+   "sex": "female",
+   "stage": "adult",
+   "name": "豆腐娘",
+   "description": "圆脸红扑扑，一笑露出一排牙。白布头巾把头发全包住，靛蓝碎花袄外面套着白套袖，腰里系白围裙。",
+   "livelihoods": [
+    "tofu"
+   ],
+   "height": 88,
+   "rig": "chars/a_adult_6/a_adult_6.rig.json",
+   "rig_front": "chars/a_adult_6_front/a_adult_6_front.rig.json",
+   "rig_back": "chars/a_adult_6_back/a_adult_6_back.rig.json",
+   "portrait": "chars/portraits/a_adult_6.png",
+   "rig_front34": "chars/a_adult_6_front34/a_adult_6_front34.rig.json",
+   "rig_back34": "chars/a_adult_6_back34/a_adult_6_back34.rig.json"
+  },
+  {
+   "id": "a_adult_7",
+   "sex": "female",
+   "stage": "adult",
+   "name": "采药姑娘",
+   "description": "齐眉刘海，两条麻花辫垂在肩后，辫梢扎红头绳。砖红短袄，腰上斜挎一只浅棕布药囊，腿上打浅灰绑腿。",
+   "livelihoods": [
+    "medicine"
+   ],
+   "height": 86,
+   "rig": "chars/a_adult_7/a_adult_7.rig.json",
+   "rig_front": "chars/a_adult_7_front/a_adult_7_front.rig.json",
+   "rig_back": "chars/a_adult_7_back/a_adult_7_back.rig.json",
+   "portrait": "chars/portraits/a_adult_7.png",
+   "rig_front34": "chars/a_adult_7_front34/a_adult_7_front34.rig.json",
+   "rig_back34": "chars/a_adult_7_back34/a_adult_7_back34.rig.json"
+  },
+  {
+   "id": "a_adult_8",
+   "sex": "female",
+   "stage": "adult",
+   "name": "瘦高农妇",
+   "description": "高个子，长脸，眉头总皱着。头顶盘大髻，插一根木簪，扎一条藏青白点头帕。藕荷色大襟袄，袖子挽到小臂。",
+   "livelihoods": [
+    "farming",
+    "embroidery"
+   ],
+   "height": 89,
+   "rig": "chars/a_adult_8/a_adult_8.rig.json",
+   "rig_front": "chars/a_adult_8_front/a_adult_8_front.rig.json",
+   "rig_back": "chars/a_adult_8_back/a_adult_8_back.rig.json",
+   "portrait": "chars/portraits/a_adult_8.png",
+   "rig_front34": "chars/a_adult_8_front34/a_adult_8_front34.rig.json",
+   "rig_back34": "chars/a_adult_8_back34/a_adult_8_back34.rig.json"
+  },
+  {
+   "id": "a_elder_1",
+   "sex": "male",
+   "stage": "elder",
+   "name": "老郎中",
+   "description": "白胡子垂到胸口，黑瓜皮帽顶上一颗红绒结。灰蓝对襟长棉袄过了膝盖，背有点驼，笑眯眯的。",
+   "livelihoods": [
+    "medicine",
+    "reading"
+   ],
+   "height": 78,
+   "rig": "chars/a_elder_1/a_elder_1.rig.json",
+   "rig_front": "chars/a_elder_1_front/a_elder_1_front.rig.json",
+   "rig_back": "chars/a_elder_1_back/a_elder_1_back.rig.json",
+   "portrait": "chars/portraits/a_elder_1.png",
+   "rig_front34": "chars/a_elder_1_front34/a_elder_1_front34.rig.json",
+   "rig_back34": "chars/a_elder_1_back34/a_elder_1_back34.rig.json"
+  },
+  {
+   "id": "a_elder_2",
+   "sex": "female",
+   "stage": "elder",
+   "name": "老婆婆",
+   "description": "胖墩墩，满脸笑纹，银灰头发挽个小髻。额上勒一条黑抹额，正中缀一颗红珠，靛青大襟袄滚黑边。",
+   "livelihoods": [
+    "tofu",
+    "embroidery"
+   ],
+   "height": 74,
+   "rig": "chars/a_elder_2/a_elder_2.rig.json",
+   "rig_front": "chars/a_elder_2_front/a_elder_2_front.rig.json",
+   "rig_back": "chars/a_elder_2_back/a_elder_2_back.rig.json",
+   "portrait": "chars/portraits/a_elder_2.png",
+   "rig_front34": "chars/a_elder_2_front34/a_elder_2_front34.rig.json",
+   "rig_back34": "chars/a_elder_2_back34/a_elder_2_back34.rig.json"
+  }
+ ]
+}

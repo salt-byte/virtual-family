@@ -5,13 +5,13 @@ func _pack() -> Pack:
 
 func test_positioned_rooms_sit_where_the_pack_puts_them():
 	var l := HouseLayout.new(_pack())
-	# The connected house (ART_DIRECTION section 10): the compound's corner sits at map (11, 6).
-	assert_eq(l.room_rect("hall"), Rect2(23 * 48, 6 * 36, 10 * 48, 6 * 36))
-	assert_eq(l.room_rect("yard"), Rect2(17 * 48, 12 * 36, 17 * 48, 7 * 36))
-	assert_eq(l.room_rect("bedroom"), Rect2(33 * 48, 6 * 36, 6 * 48, 6 * 36))
-	assert_eq(l.room_rect("kitchen"), Rect2(11 * 48, 12 * 36, 6 * 48, 6 * 36))
-	assert_eq(l.room_rect("side"), Rect2(39 * 48, 6 * 36, 6 * 48, 6 * 36))
-	assert_eq(l.room_rect("threshing"), Rect2(17 * 48, 19 * 36, 7 * 48, 6 * 36))
+	# The connected house (ART_DIRECTION section 10): the compound's corner sits at map (17, 9).
+	assert_eq(l.room_rect("hall"), Rect2(35 * 48, 9 * 36, 15 * 48, 9 * 36))
+	assert_eq(l.room_rect("yard"), Rect2(26 * 48, 18 * 36, 25 * 48, 11 * 36))
+	assert_eq(l.room_rect("bedroom"), Rect2(50 * 48, 9 * 36, 9 * 48, 9 * 36))
+	assert_eq(l.room_rect("kitchen"), Rect2(17 * 48, 18 * 36, 9 * 48, 9 * 36))
+	assert_eq(l.room_rect("side"), Rect2(59 * 48, 9 * 36, 9 * 48, 9 * 36))
+	assert_eq(l.room_rect("threshing"), Rect2(26 * 48, 29 * 36, 10 * 48, 9 * 36))
 
 func test_cell_roundtrip_and_outside():
 	var l := HouseLayout.new(_pack())
@@ -23,7 +23,7 @@ func test_cell_roundtrip_and_outside():
 	# Rooms share walls now, so there are no gaps between them: outside the compound wall
 	# (north of it, and on the road south of the gate) is no room.
 	assert_eq(l.pos_to_cell(Vector2(100, 6.5 * 36)), {})
-	assert_eq(l.pos_to_cell(Vector2(28 * 48, 28 * 36)), {})
+	assert_eq(l.pos_to_cell(Vector2(42 * 48, 44 * 36)), {})
 
 func test_pick_priority_and_unbuilt_room():
 	var w := BalanceRun.setup("qijia", 1)
@@ -58,7 +58,7 @@ func test_stand_pos_below_furniture_or_center_when_against_edge():
 	# With a site plan nobody stands on the piece itself (it used to fall back to its middle
 	# when the cell below was outside its room): no wall stands between the yard's bottom row
 	# and the threshing floor below, so the spot below is used.
-	var low := {"type": t, "room": "yard", "x": 0, "y": 7 - h}
+	var low := {"type": t, "room": "yard", "x": 0, "y": int(p.rooms["yard"]["h"]) - h}
 	var lr := l.object_rect(low, p)
 	assert_eq(l.stand_pos(low, p), Vector2(lr.get_center().x, lr.end.y + l.CELL.y * 0.5))
 	assert_true(not lr.has_point(l.stand_pos(low, p)))
@@ -69,8 +69,10 @@ func test_bounds_cover_rooms_and_walls():
 	var b := l.bounds()
 	for id in _pack().rooms:
 		assert_true(b.encloses(l.room_rect(id)), id)
-	# With a site plan the bounds are the whole map (56 x 32 cells), not the rooms' extent.
-	assert_eq(b, Rect2(0, 0, 56 * 48, 32 * 36))
+	# With a site plan the bounds are the whole map (84 x 48 cells), not the rooms' extent.
+	var site: Dictionary = _pack().config["site"]
+	assert_eq(Vector2i(int(site["w"]), int(site["h"])), Vector2i(84, 48))
+	assert_eq(b, Rect2(0, 0, 84 * 48, 48 * 36))
 
 
 func test_nearest_room_picks_closest_of_the_given_rooms():

@@ -1,0 +1,60 @@
+{
+ "note": "原来一家五口的骨架索引（路径相对 assets/），和 looks.json 的字段一致：rig 侧面、rig_front / rig_back 正面 / 背面、rig_front34 / rig_back34 四分之三（斜 45°）。height 是游戏内身高（像素）。四分之三骨架用 chars/anims.humanoid_34.json。",
+ "people": [
+  {
+   "id": "a_father",
+   "height": 90,
+   "rig": "chars/a_father/a_father.rig.json",
+   "rig_front": "chars/a_father_front/a_father_front.rig.json",
+   "rig_back": "chars/a_father_back/a_father_back.rig.json",
+   "rig_front34": "chars/a_father_front34/a_father_front34.rig.json",
+   "rig_back34": "chars/a_father_back34/a_father_back34.rig.json"
+  },
+  {
+   "id": "a_mother",
+   "height": 86,
+   "rig": "chars/a_mother/a_mother.rig.json",
+   "rig_front": "chars/a_mother_front/a_mother_front.rig.json",
+   "rig_back": "chars/a_mother_back/a_mother_back.rig.json",
+   "rig_front34": "chars/a_mother_front34/a_mother_front34.rig.json",
+   "rig_back34": "chars/a_mother_back34/a_mother_back34.rig.json"
+  },
+  {
+   "id": "a_grandma",
+   "height": 74,
+   "rig": "chars/a_grandma/a_grandma.rig.json",
+   "rig_front": "chars/a_grandma_front/a_grandma_front.rig.json",
+   "rig_back": "chars/a_grandma_back/a_grandma_back.rig.json",
+   "rig_front34": "chars/a_grandma_front34/a_grandma_front34.rig.json",
+   "rig_back34": "chars/a_grandma_back34/a_grandma_back34.rig.json"
+  },
+  {
+   "id": "a_grandpa",
+   "height": 80,
+   "rig": "chars/a_grandpa/a_grandpa.rig.json",
+   "rig_front": "chars/a_grandpa_front/a_grandpa_front.rig.json",
+   "rig_back": "chars/a_grandpa_back/a_grandpa_back.rig.json",
+   "rig_front34": "chars/a_grandpa_front34/a_grandpa_front34.rig.json",
+   "rig_back34": "chars/a_grandpa_back34/a_grandpa_back34.rig.json"
+  },
+  {
+   "id": "a_child",
+   "height": 62,
+   "rig": "chars/a_child/a_child.rig.json",
+   "rig_front": "chars/a_child_front/a_child_front.rig.json",
+   "rig_back": "chars/a_child_back/a_child_back.rig.json",
+   "rig_front34": "chars/a_child_front34/a_child_front34.rig.json",
+   "rig_back34": "chars/a_child_back34/a_child_back34.rig.json"
+  }
+ ],
+ "pets": {
+  "a_dog": {
+   "front34": "chars/a_dog_front34/a_dog_front34.png",
+   "back34": "chars/a_dog_back34/a_dog_back34.png"
+  },
+  "a_cat": {
+   "front34": "chars/a_cat_front34/a_cat_front34.png",
+   "back34": "chars/a_cat_back34/a_cat_back34.png"
+  }
+ }
+}

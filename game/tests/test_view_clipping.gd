@@ -76,8 +76,11 @@ func test_stop_points_are_open_and_off_wall_lines_everywhere():
 	var feet := _footprints(m)
 	var rng := RandomNumberGenerator.new()
 	rng.seed = 7
+	# Anywhere in the compound.
+	var lo := Vector2(site.compound.position) * HouseSite.CELL
+	var hi := Vector2(site.compound.end) * HouseSite.CELL
 	for i in 400:
-		var p := Vector2(rng.randf_range(11 * 48, 45 * 48), rng.randf_range(6 * 36, 25 * 36))
+		var p := Vector2(rng.randf_range(lo.x, hi.x), rng.randf_range(lo.y, hi.y))
 		var s := site.stop_point(p)
 		assert_true(site.walkable(site.cell_of(s)), str(p))
 		assert_true(not _on_wall_line(site, s), "%s -> %s" % [p, s])
@@ -179,28 +182,42 @@ func test_the_gatehouse_fades_for_someone_under_it():
 	assert_true(gate != null)
 	var pv: PersonView = m.house.people.values()[0]
 	pv.held = true
-	pv.position = Vector2(28 * 48, 25 * 36 - 20)
+	# Under the gatehouse: in the middle of the gate in the compound's south wall.
+	var door := {}
+	for d in m.session.world.pack.config["site"]["doors"]:
+		if int(d["y"]) == m.house.layout.site.compound.end.y and str(d["along"]) == "x":
+			door = d
+	assert_true(not door.is_empty())
+	pv.position = Vector2((float(door["x"]) + float(door["len"]) * 0.5) * 48, float(door["y"]) * 36 - 20)
 	m.house.tick(0.016)
 	assert_true(gate.modulate.a < 1.0, "someone in the gateway")
-	pv.position = Vector2(20 * 48, 15 * 36)
+	pv.position = m.house.layout.cell_center("yard", 4, 4)
 	m.house.tick(0.016)
 	assert_eq(gate.modulate.a, 1.0)
 	m.free()
 
 
 ## The 45° view: a picture stays within its footprint's diamond across the screen and stands
-## on its bottom corner, so it never reaches over a wall beside it.
+## on its bottom corner, so it never reaches over a wall beside it. A picture drawn on the
+## ruler (at its real size, anchored at the footprint's middle) keeps its foot to the
+## footprint and may rise above it and overhang a little (TestKit.ruler_problems).
 func test_pictures_keep_to_their_footprint_and_off_walls():
 	var m := _main()
 	var w := m.session.world
+	var rulers := 0
 	for uid in m.house.props:
 		var piece: PropPiece = m.house.props[uid]
 		var o := w.object(uid)
+		if not m.house.skin.object_ruler(str(o.type)).is_empty():
+			rulers += 1
+			assert_eq(TestKit.ruler_problems(m.house, o, piece, w), [] as Array[String], str(o.type))
+			continue
 		var r := m.house.layout.object_rect(o, w.pack)
 		var d := IsoMath.diamond(r)
 		var pic := Rect2(IsoMath.to_view(piece.position) + piece.rect.position, piece.rect.size)
 		assert_true(pic.position.x >= d[3].x - 0.01 and pic.end.x <= d[1].x + 0.01, str(o.type))
 		assert_true(pic.end.y <= d[2].y + 6.01, str(o.type))
+	assert_true(rulers >= 3, "the stove, the vat and the cupboard stand on the ruler")
 	m.free()
 
 
@@ -503,16 +520,18 @@ func test_a_piece_is_not_put_where_its_picture_covers_another():
 	var m := _main()
 	var w := m.session.world
 	w.money = 1000
-	assert_true(m.house.picture_blocks("stool", "hall", 6, 2), "right behind the table")
+	var table: Dictionary = w.objects.filter(func(x): return x.type == "dining_table")[0]
+	var behind := Vector2i(int(table.x) + 1, int(table.y) - 1)
+	assert_true(m.house.picture_blocks("stool", "hall", behind.x, behind.y), "right behind the table")
 	var free := Vector2i(-1, -1)
-	for y in 6:
-		for x in 10:
+	for y in int(w.pack.rooms["hall"]["h"]):
+		for x in int(w.pack.rooms["hall"]["w"]):
 			if free.x < 0 and HouseSystem.can_place(w, "stool", "hall", x, y) == "" and not m.house.picture_blocks("stool", "hall", x, y):
 				free = Vector2i(x, y)
 	assert_true(free.x >= 0, "somewhere in the hall is clear")
 	m.arrange.enter()
 	m.arrange.pick_type("stool")
-	var r := m.arrange.drop(m.house.layout.cell_center("hall", 6, 2))
+	var r := m.arrange.drop(m.house.layout.cell_center("hall", behind.x, behind.y))
 	assert_eq(str(r.get("error", "")), "blocks_view")
 	assert_eq(m.hud.toasts()[-1], m.session.strings.error("blocks_view"))
 	assert_eq(m.arrange.held_type, "stool", "still in hand")

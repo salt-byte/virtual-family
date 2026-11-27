@@ -1,234 +1,2134 @@
 {
-	"dir": "art",
-	"accent": "#E5533C",
-	"pickup": "#4FB3E8",
-	"view": "iso",
-	"iso": {
-		"objects": {
-			"stove": "iso_stove", "kang": "iso_kang", "desk": "iso_desk", "loom": "iso_loom", "vat": "iso_vat",
-			"stool": "iso_stool", "coop": "iso_coop", "garden": "iso_garden", "dining_table": "iso_dining_table",
-			"altar": "iso_altar", "woodpile": "iso_woodpile", "millstone": "iso_millstone",
-			"grape_trellis": "iso_grape_trellis", "clothesline": "iso_clothesline", "well_head": "iso_well_head",
-			"threshold": "iso_door_sill", "stone_bench": "iso_stone_bench", "carpenter_bench": "iso_carpenter_bench",
-			"herb_grinder": "iso_herb_grinder", "embroidery_frame": "iso_embroidery_frame", "tofu_box": "iso_tofu_box",
-			"peddler_pole": "iso_peddler_pole", "bookshelf": "iso_bookshelf", "trough": "iso_trough",
-			"bird_cage": "iso_bird_cage", "ayun_hoop": "iso_embroidery_frame", "washtub": "iso_washtub",
-			"trash_basket": "iso_trash_basket", "keepsake_chest": "iso_keepsake_chest", "cupboard": "iso_cupboard"
-		},
-		"metres_per_cell": 0.7,
-		"sizes": {"kang": [2.0, 1.5], "stove": [1.3, 0.7], "desk": [1.2, 0.6], "loom": [1.2, 1.0], "vat": [0.6, 0.6],
-			"stool": [0.35, 0.3], "coop": [0.65, 0.5], "garden": [2.0, 1.4], "carpenter_bench": [1.4, 0.5],
-			"herb_grinder": [0.5, 0.25], "embroidery_frame": [0.6, 0.5], "tofu_box": [0.5, 0.5], "peddler_pole": [1.6, 0.5],
-			"bird_cage": [0.35, 0.35], "dining_table": [1.8, 1.3], "altar": [1.3, 0.5], "woodpile": [1.8, 1.0],
-			"millstone": [0.9, 0.9], "grape_trellis": [2.6, 1.4], "clothesline": [2.6, 0.3], "well_head": [1.2, 1.2],
-			"threshold": [1.8, 0.25], "stone_bench": [1.2, 0.4], "bookshelf": [1.8, 0.4], "trough": [1.6, 0.4],
-			"grain_heap": [1.2, 1.2], "ayun_hoop": [0.6, 0.5], "washtub": [0.7, 0.7], "trash_basket": [0.5, 0.5],
-			"keepsake_chest": [0.55, 0.33], "cupboard": [0.9, 0.45]},
-		"walls": {"gate": "iso_gatehouse", "fence_x": "iso_fence", "fence_y": "iso_fence_ns"},
-		"asleep": "iso_sleeper",
-		"quilt": {"sprite": "iso_sleeper", "corners": [[12, 165], [255, 60], [180, 300]],
-			"cut": [[0, 175], [15, 163], [50, 131], [100, 96], [150, 76], [190, 61], [215, 55], [250, 61], [400, 160], [400, 305], [0, 305]],
-			"pillow": "#7395C2", "line": "#4A3424", "mat": "#E2BE6E", "mat_line": "#9A7338"},
-		"decals": [
-			{"sprite": "iso_wall_window", "room": "hall", "side": "north", "at": 3.0, "w": 56, "y": 0.24},
-			{"sprite": "iso_wall_window", "room": "hall", "side": "north", "at": 7.0, "w": 56, "y": 0.24},
-			{"sprite": "iso_wall_window", "room": "bedroom", "side": "north", "at": 3.0, "w": 56, "y": 0.24},
-			{"sprite": "iso_wall_window", "room": "west_room", "side": "north", "at": 3.0, "w": 56, "y": 0.24},
-			{"sprite": "iso_wall_window", "room": "side", "side": "north", "at": 3.0, "w": 56, "y": 0.24},
-			{"sprite": "iso_wall_chili", "room": "woodshed", "side": "north", "at": 4.0, "w": 34, "y": 0.18},
-			{"sprite": "iso_wall_chili", "room": "kitchen", "side": "west", "at": 2.0, "w": 36, "y": 0.16},
-			{"sprite": "iso_wall_window", "room": "kitchen", "side": "west", "at": 4.5, "w": 46, "y": 0.24},
-			{"sprite": "iso_wall_window", "room": "study", "side": "west", "at": 3.5, "w": 50, "y": 0.24}
-		],
-		"scenery_scale": 1.2
-	},
-	"tiles": {
-		"grass": {"file": "tiles/grass.png", "size": [192, 144], "soften": 0.12},
-		"yard": {"file": "tiles/yard.png", "size": [192, 144], "soften": 0.25},
-		"road": {"file": "tiles/yard.png", "size": [192, 144], "soften": 0.1},
-		"floor_hall": {"file": "tiles/floor_hall.png", "size": [192, 144], "soften": 0.2},
-		"floor_wood": {"file": "tiles/floor_bed.png", "size": [192, 144], "soften": 0.2},
-		"floor_earth": {"file": "tiles/floor_earth.png", "size": [192, 144], "soften": 0.2},
-		"paving": {"file": "tiles/path.png", "size": [192, 144], "soften": 0.15},
-		"field": {"file": "tiles/field.png", "size": [192, 144], "soften": 0.08},
-		"water": {"file": "tiles/water.png", "size": [192, 144], "soften": 0.0},
-		"planks": {"file": "tiles/floor_bed.png", "size": [96, 72], "soften": 0.0},
-		"plaster": {"file": "tiles/wall.png", "fit_height": true},
-		"rammed_earth": {"file": "tiles/wall_compound.png", "fit_height": true}
-	},
-	"sprites": {
-		"altar": "props/altar.png", "bamboo": "props/bamboo.png", "big_tree": "props/big_tree.png",
-		"bridge": "props/bridge.png", "bush": "props/bush.png", "clothesline": "props/clothesline.png",
-		"col_coins": "props/col_coins.png", "col_egg": "props/col_egg.png", "col_hairpin": "props/col_hairpin.png",
-		"coop": "props/coop.png", "desk": "props/desk.png", "dining_table": "props/dining_table.png",
-		"door_sill": "props/door_sill.png", "fence": "props/fence.png", "garden": "props/garden.png",
-		"gatehouse": "props/gatehouse.png", "grape_trellis": "props/grape_trellis.png", "icon_ill": "props/icon_ill.png",
-		"kang": "props/kang.png", "loom": "props/loom.png", "mess_dirt": "props/mess_dirt.png",
-		"mess_droppings": "props/mess_droppings.png", "millstone": "props/millstone.png", "reeds": "props/reeds.png",
-		"rocks": "props/rocks.png", "scarecrow": "props/scarecrow.png", "stone_bench": "props/stone_bench.png",
-		"stool": "props/stool.png", "stove": "props/stove.png", "vat": "props/vat.png",
-		"well_head": "props/well_head.png", "woodpile": "props/woodpile.png",
-		"carpenter_bench": "props/carpenter_bench.png", "herb_grinder": "props/herb_grinder.png",
-		"embroidery_frame": "props/embroidery_frame.png", "tofu_box": "props/tofu_box.png",
-		"peddler_pole": "props/peddler_pole.png", "bookshelf": "props/bookshelf.png", "trough": "props/trough.png",
-		"grain_heap": "props/grain_heap.png", "bird_cage": "props/bird_cage.png", "mess_bowls": "props/mess_bowls.png",
-		"mess_mud": "props/mess_mud.png", "fence_ns": "props/fence_ns.png", "fence_ns_b": "props/fence_ns_b.png",
-		"col_greens": "props/col_greens.png", "col_herbs": "props/col_herbs.png",
-		"col_cicada_shell": "props/col_cicada_shell.png", "col_purse": "props/col_purse.png",
-		"col_bronze_mirror": "props/col_bronze_mirror.png",
-		"dog": "chars/dog.png", "cat": "chars/cat.png", "bird": "chars/bird.png", "grandpa": "chars/grandpa.png",
-		"baby": "chars/baby.png", "sleeper": "chars/sleeper.png",
-		"father": "chars/father.png", "mother": "chars/mother.png", "grandma": "chars/grandma.png", "child": "chars/child.png",
-		"iso_altar": "iso/altar.png", "iso_bird_cage": "iso/bird_cage.png", "iso_bookshelf": "iso/bookshelf.png",
-		"iso_bridge": "iso/bridge.png", "iso_carpenter_bench": "iso/carpenter_bench.png",
-		"iso_clothesline": "iso/clothesline.png", "iso_coop": "iso/coop.png", "iso_cupboard": "iso/cupboard.png", "iso_trash_basket": "iso/trash_basket.png", "iso_keepsake_chest": "iso/keepsake_chest.png", "dustpan": "iso/dustpan.png",
-		"iso_desk": "iso/desk.png", "iso_dining_table": "iso/dining_table.png", "iso_door_sill": "iso/door_sill.png",
-		"iso_embroidery_frame": "iso/embroidery_frame.png", "iso_fence": "iso/fence.png",
-		"iso_fence_ns": "iso/fence_ns.png", "iso_garden": "iso/garden.png", "iso_gatehouse": "iso/gatehouse.png",
-		"iso_grape_trellis": "iso/grape_trellis.png", "iso_herb_grinder": "iso/herb_grinder.png",
-		"iso_kang": "iso/kang.png", "iso_loom": "iso/loom.png", "iso_millstone": "iso/millstone.png",
-		"iso_peddler_pole": "iso/peddler_pole.png", "iso_sleeper": "iso/sleeper.png",
-		"iso_stone_bench": "iso/stone_bench.png", "iso_stool": "iso/stool.png", "iso_stove": "iso/stove.png",
-		"iso_tofu_box": "iso/tofu_box.png", "iso_trough": "iso/trough.png", "iso_vat": "iso/vat.png",
-		"iso_wall_chili": "iso/wall_chili.png", "iso_wall_door_curtain": "iso/wall_door_curtain.png",
-		"iso_wall_window": "iso/wall_window.png", "iso_washtub": "iso/washtub.png",
-		"iso_well_head": "iso/well_head.png", "iso_woodpile": "iso/woodpile.png", "dog_front": "chars/dog_front.png",
-		"dog_back": "chars/dog_back.png", "cat_front": "chars/cat_front.png", "cat_back": "chars/cat_back.png",
-		"dog_front34": "chars/dog_front34.png", "dog_back34": "chars/dog_back34.png", "cat_front34": "chars/cat_front34.png",
-		"cat_back34": "chars/cat_back34.png",
-		"pig": "chars/pig.png", "pig_front34": "chars/pig_front34.png", "pig_back34": "chars/pig_back34.png",
-		"pig_sleep": "chars/pig_sleep.png", "piglet": "chars/piglet.png", "piglet_front34": "chars/piglet_front34.png",
-		"piglet_back34": "chars/piglet_back34.png", "hen": "chars/hen.png", "hen_front34": "chars/hen_front34.png",
-		"hen_back34": "chars/hen_back34.png", "hen_sit": "chars/hen_sit.png", "chick_front34": "chars/chick_front34.png"
-	},
-	"ground": "grass",
-	"compound_ground": "yard",
-	"floors": {
-		"hall": "floor_hall",
-		"west_room": "floor_wood", "bedroom": "floor_wood", "study": "floor_wood", "side": "floor_wood",
-		"kitchen": "floor_earth", "woodshed": "floor_earth",
-		"well": "paving"
-	},
-	"decor": {
-		"#B5AFA3": {"tile": "paving"},
-		"#D8B88A": {"tile": "road"},
-		"#86C6DA": {"tile": "water"},
-		"#A8D8E6": {"hide": true},
-		"#B07A4A": {"tile": "planks"},
-		"#7A5235": {"hide": true},
-		"#B5C774": {"tile": "field"},
-		"#9DB060": {"hide": true},
-		"#6E9A4E": {"sprite": "bamboo"},
-		"#86B562": {"hide": true},
-		"#5F8F43": {"sprite": "big_tree"},
-		"#78A853": {"hide": true},
-		"#8FAE5C": {"sprite": "bush"},
-		"#7FA65A": {"sprite": "bush"},
-		"#A9A49A": {"sprite": "rocks"}
-	},
-	"scenery": [
-		{"sprite": "scarecrow", "x": 11.0, "y": 29.2, "w": 1.4},
-		{"sprite": "reeds", "x": 48.3, "y": 7.2, "w": 1.1},
-		{"sprite": "reeds", "x": 48.3, "y": 15.6, "w": 1.0},
-		{"sprite": "reeds", "x": 48.3, "y": 27.0, "w": 1.1},
-		{"sprite": "bush", "x": 22.6, "y": 4.4, "w": 1.0},
-		{"sprite": "bush", "x": 38.0, "y": 4.2, "w": 1.2}
-	],
-	"walls": {"house": "plaster", "compound": "rammed_earth", "gate": "gatehouse", "sill": "door_sill",
-		"fence_ns": ["fence_ns", "fence_ns_b"]},
-	"objects": {
-		"stove": "stove", "kang": "kang", "desk": "desk", "loom": "loom", "vat": "vat", "stool": "stool",
-		"coop": "coop", "garden": "garden", "dining_table": "dining_table", "altar": "altar",
-		"woodpile": "woodpile", "millstone": "millstone", "grape_trellis": "grape_trellis",
-		"clothesline": "clothesline", "well_head": "well_head", "threshold": "door_sill", "stone_bench": "stone_bench",
-		"carpenter_bench": "carpenter_bench", "herb_grinder": "herb_grinder", "embroidery_frame": "embroidery_frame",
-		"tofu_box": "tofu_box", "peddler_pole": "peddler_pole", "bookshelf": "bookshelf", "trough": "trough",
-		"grain_heap": "grain_heap", "bird_cage": "bird_cage", "ayun_hoop": "embroidery_frame"
-	},
-	"carried": {"dirt": "dustpan", "mud": "dustpan", "leaves": "dustpan", "droppings": "dustpan", "pet_hair": "dustpan"},
-	"messes": {"dirt": "mess_dirt", "wrapper": "mess_wrapper", "fruit_core": "mess_fruit_core", "cloth_scraps": "mess_cloth_scraps", "feathers": "mess_feathers", "droppings": "mess_droppings", "leaves": "mess_droppings",
-		"bowls": "mess_bowls", "mud": "mess_mud", "pet_hair": "mess_dirt"},
-	"items": {"herb_bundle": "col_herbs", "new_hairpin": "col_hairpin"},
-	"collectibles": {"egg": "col_egg", "old_kite": "col_old_kite", "coins": "col_coins", "hairpin": "col_hairpin", "greens": "col_greens",
-		"herbs": "col_herbs", "cicada_shell": "col_cicada_shell", "purse": "col_purse", "bronze_mirror": "col_bronze_mirror"},
-	"pets": {"dog": {"sprite": "dog", "height": 46, "front": "dog_front", "back": "dog_back", "front34": "dog_front34", "back34": "dog_back34"},
-		"cat": {"sprite": "cat", "height": 36, "front": "cat_front", "back": "cat_back", "front34": "cat_front34", "back34": "cat_back34"},
-		"bird": {"sprite": "bird", "height": 30},
-		"pig": {"sprite": "pig", "height": 44, "front34": "pig_front34", "back34": "pig_back34", "rest": "pig_sleep", "rest_height": 29},
-		"piglet": {"sprite": "piglet", "height": 23, "front34": "piglet_front34", "back34": "piglet_back34"},
-		"hen": {"sprite": "hen", "height": 28, "front34": "hen_front34", "back34": "hen_back34", "rest": "hen_sit", "rest_height": 23},
-		"chick": {"sprite": "chick_front34", "height": 14, "front34": "chick_front34"}},
-	"looks": {
-		"adult_1": {"stage": "adult", "sex": "male", "rig": "rigs/adult_1/adult_1.rig.json", "rig_front": "rigs/adult_1_front/adult_1_front.rig.json", "rig_back": "rigs/adult_1_back/adult_1_back.rig.json", "rig_front34": "rigs/adult_1_front34/adult_1_front34.rig.json", "rig_back34": "rigs/adult_1_back34/adult_1_back34.rig.json", "height": 94, "portrait": "portraits/adult_1.png", "asleep": "sleeper", "name": "斗笠农夫", "description": "斗笠压得低，赭黄短褂的袖子挽到小臂，腰里一根土红布带。裤腿卷到小腿肚，脚上一双草鞋，人晒得黝黑。"},
-		"adult_2": {"stage": "adult", "sex": "male", "rig": "rigs/adult_2/adult_2.rig.json", "rig_front": "rigs/adult_2_front/adult_2_front.rig.json", "rig_back": "rigs/adult_2_back/adult_2_back.rig.json", "rig_front34": "rigs/adult_2_front34/adult_2_front34.rig.json", "rig_back34": "rigs/adult_2_back34/adult_2_back34.rig.json", "height": 91, "portrait": "portraits/adult_2.png", "asleep": "sleeper", "name": "清瘦书生", "description": "又高又瘦，头戴黑方巾，月白长衫垂到脚面，领口袖口滚一道深蓝边。嘴总抿着，难得一笑。"},
-		"adult_3": {"stage": "adult", "sex": "male", "rig": "rigs/adult_3/adult_3.rig.json", "rig_front": "rigs/adult_3_front/adult_3_front.rig.json", "rig_back": "rigs/adult_3_back/adult_3_back.rig.json", "rig_front34": "rigs/adult_3_front34/adult_3_front34.rig.json", "rig_back34": "rigs/adult_3_back34/adult_3_back34.rig.json", "height": 92, "portrait": "portraits/adult_3.png", "asleep": "sleeper", "name": "胖货郎", "description": "圆脸圆肚子，两撇小胡子，眼睛笑成两道缝。深棕毡帽，米白衬褂外头套一件酱红坎肩，盘扣绷得紧紧的。"},
-		"adult_4": {"stage": "adult", "sex": "male", "rig": "rigs/adult_4/adult_4.rig.json", "rig_front": "rigs/adult_4_front/adult_4_front.rig.json", "rig_back": "rigs/adult_4_back/adult_4_back.rig.json", "rig_front34": "rigs/adult_4_front34/adult_4_front34.rig.json", "rig_back34": "rigs/adult_4_back34/adult_4_back34.rig.json", "height": 92, "portrait": "portraits/adult_4.png", "asleep": "sleeper", "name": "木匠", "description": "方下巴，一圈短胡茬，白布头巾在脑后打个结。深褐短褂外挂一条土黄帆布围裙，胸口一只小口袋，腿上打着绑腿。"},
-		"adult_5": {"stage": "adult", "sex": "female", "rig": "rigs/adult_5/adult_5.rig.json", "rig_front": "rigs/adult_5_front/adult_5_front.rig.json", "rig_back": "rigs/adult_5_back/adult_5_back.rig.json", "rig_front34": "rigs/adult_5_front34/adult_5_front34.rig.json", "rig_back34": "rigs/adult_5_back34/adult_5_back34.rig.json", "height": 82, "portrait": "portraits/adult_5.png", "asleep": "sleeper", "name": "绣娘", "description": "瓜子脸，脑后一个圆髻，横插一根银簪，簪头一点红绒花。桃粉大襟袄滚月白边，脚上一双绣花鞋。"},
-		"adult_6": {"stage": "adult", "sex": "female", "rig": "rigs/adult_6/adult_6.rig.json", "rig_front": "rigs/adult_6_front/adult_6_front.rig.json", "rig_back": "rigs/adult_6_back/adult_6_back.rig.json", "rig_front34": "rigs/adult_6_front34/adult_6_front34.rig.json", "rig_back34": "rigs/adult_6_back34/adult_6_back34.rig.json", "height": 88, "portrait": "portraits/adult_6.png", "asleep": "sleeper", "name": "豆腐娘", "description": "圆脸红扑扑，一笑露出一排牙。白布头巾把头发全包住，靛蓝碎花袄外面套着白套袖，腰里系白围裙。"},
-		"adult_7": {"stage": "adult", "sex": "female", "rig": "rigs/adult_7/adult_7.rig.json", "rig_front": "rigs/adult_7_front/adult_7_front.rig.json", "rig_back": "rigs/adult_7_back/adult_7_back.rig.json", "rig_front34": "rigs/adult_7_front34/adult_7_front34.rig.json", "rig_back34": "rigs/adult_7_back34/adult_7_back34.rig.json", "height": 86, "portrait": "portraits/adult_7.png", "asleep": "sleeper", "name": "采药姑娘", "description": "齐眉刘海，两条麻花辫垂在肩后，辫梢扎红头绳。砖红短袄，腰上斜挎一只浅棕布药囊，腿上打浅灰绑腿。"},
-		"adult_8": {"stage": "adult", "sex": "female", "rig": "rigs/adult_8/adult_8.rig.json", "rig_front": "rigs/adult_8_front/adult_8_front.rig.json", "rig_back": "rigs/adult_8_back/adult_8_back.rig.json", "rig_front34": "rigs/adult_8_front34/adult_8_front34.rig.json", "rig_back34": "rigs/adult_8_back34/adult_8_back34.rig.json", "height": 89, "portrait": "portraits/adult_8.png", "asleep": "sleeper", "name": "瘦高农妇", "description": "高个子，长脸，眉头总皱着。头顶盘大髻，插一根木簪，扎一条藏青白点头帕。藕荷色大襟袄，袖子挽到小臂。"},
-		"elder_1": {"stage": "elder", "sex": "male", "rig": "rigs/elder_1/elder_1.rig.json", "rig_front": "rigs/elder_1_front/elder_1_front.rig.json", "rig_back": "rigs/elder_1_back/elder_1_back.rig.json", "rig_front34": "rigs/elder_1_front34/elder_1_front34.rig.json", "rig_back34": "rigs/elder_1_back34/elder_1_back34.rig.json", "height": 78, "portrait": "portraits/elder_1.png", "asleep": "sleeper", "name": "老郎中", "description": "白胡子垂到胸口，黑瓜皮帽顶上一颗红绒结。灰蓝对襟长棉袄过了膝盖，背有点驼，笑眯眯的。", "lean": 5},
-		"elder_2": {"stage": "elder", "sex": "female", "rig": "rigs/elder_2/elder_2.rig.json", "rig_front": "rigs/elder_2_front/elder_2_front.rig.json", "rig_back": "rigs/elder_2_back/elder_2_back.rig.json", "rig_front34": "rigs/elder_2_front34/elder_2_front34.rig.json", "rig_back34": "rigs/elder_2_back34/elder_2_back34.rig.json", "height": 74, "portrait": "portraits/elder_2.png", "asleep": "sleeper", "name": "老婆婆", "description": "胖墩墩，满脸笑纹，银灰头发挽个小髻。额上勒一条黑抹额，正中缀一颗红珠，靛青大襟袄滚黑边。", "lean": 5}
-	},
-	"people": [
-		{"stage": "elder", "sex": "female", "sprite": "grandma", "height": 74, "rig": "rigs/grandma/grandma.rig.json",
-			"rig_front": "rigs/grandma_front/grandma_front.rig.json", "rig_back": "rigs/grandma_back/grandma_back.rig.json", "rig_front34": "rigs/grandma_front34/grandma_front34.rig.json", "rig_back34": "rigs/grandma_back34/grandma_back34.rig.json", "lean": 9, "asleep": "sleeper"},
-		{"stage": "elder", "sprite": "grandpa", "height": 80, "rig": "rigs/grandpa/grandpa.rig.json",
-			"rig_front": "rigs/grandpa_front/grandpa_front.rig.json", "rig_back": "rigs/grandpa_back/grandpa_back.rig.json", "rig_front34": "rigs/grandpa_front34/grandpa_front34.rig.json", "rig_back34": "rigs/grandpa_back34/grandpa_back34.rig.json", "lean": 11, "asleep": "sleeper"},
-		{"stage": "adult", "sex": "male", "sprite": "father", "height": 90, "rig": "rigs/father/father.rig.json",
-			"rig_front": "rigs/father_front/father_front.rig.json", "rig_back": "rigs/father_back/father_back.rig.json", "rig_front34": "rigs/father_front34/father_front34.rig.json", "rig_back34": "rigs/father_back34/father_back34.rig.json", "asleep": "sleeper"},
-		{"stage": "adult", "sprite": "mother", "height": 86, "rig": "rigs/mother/mother.rig.json",
-			"rig_front": "rigs/mother_front/mother_front.rig.json", "rig_back": "rigs/mother_back/mother_back.rig.json", "rig_front34": "rigs/mother_front34/mother_front34.rig.json", "rig_back34": "rigs/mother_back34/mother_back34.rig.json", "asleep": "sleeper"},
-		{"stage": "child", "sprite": "child", "height": 62, "rig": "rigs/child/child.rig.json",
-			"rig_front": "rigs/child_front/child_front.rig.json", "rig_back": "rigs/child_back/child_back.rig.json", "rig_front34": "rigs/child_front34/child_front34.rig.json", "rig_back34": "rigs/child_back34/child_back34.rig.json", "asleep": "sleeper"},
-		{"stage": "baby", "sprite": "baby", "height": 26, "lying": true}
-	],
-	"unwell": {"sprite": "icon_ill", "need": "health", "below": 50},
-	"poses": {
-		"on": ["kang", "stool", "stone_bench", "threshold"],
-		"step_over": ["threshold"],
-		"beds": {"kang": {"h": 31, "along": "long", "head": 0.95, "margin": 6}},
-		"seats": {"kang": {"h": 34, "in": 0.12}, "stool": {"h": 34, "in": 0.5}, "stone_bench": {"h": 26, "in": 0.5},
-			"threshold": {"h": 20, "in": 0.5}},
-		"objects": {"kang": "sit", "stool": "sit", "stone_bench": "sit", "threshold": "sit", "dining_table": "eat",
-			"stove": "stir", "vat": "scoop", "well_head": "scoop", "washtub": "scoop", "trough": "scoop", "grain_heap": "scoop",
-			"desk": "write", "bookshelf": "read", "loom": "sew", "embroidery_frame": "sew", "ayun_hoop": "sew",
-			"carpenter_bench": "saw", "garden": "hoe", "woodpile": "hoe", "millstone": "push", "herb_grinder": "push",
-			"tofu_box": "push", "peddler_pole": "push", "clothesline": "reach_up", "grape_trellis": "reach_up",
-			"coop": "scatter", "altar": "bow"},
-		"actions": {
-			"sweep": "sweep", "mop_mud": "sweep", "sweep_pet_hair": "sweep", "sweep_snow": "sweep", "rake_leaves": "sweep",
-			"shovel_droppings": "sweep", "pick_up": "stoop", "pick_wrapper": "stoop", "pick_fruit_core": "stoop",
-			"gather_cloth_scraps": "stoop", "pick_feathers": "stoop",
-			"sleep": "sleep", "nap": "sleep", "doze_on_kang": "doze", "sick_in_bed": "sleep", "hide_under_quilt": "sleep",
-			"baby_sleep": "sleep", "baby_nap": "sleep", "shell_beans": "sit", "crack_seeds": "sit",
-			"whittle_top": "sit", "weave_grasshopper": "sit", "straw_chess": "sit", "sit_and_stare": "sit",
-			"twist_hemp": "sit", "trellis_shade": "sit", "rest_on_well": "sit", "watch_passersby": "sit",
-			"pick_ears": "sit", "pipe_on_bench": "sit", "haggle_on_bench": "sit", "count_geese": "sit",
-			"count_stars": "sit", "sit_on_threshold_long": "sit", "weave_sandals": "sit",
-			"embroider_pillow": "sit", "sole_shoes": "sit", "soak_feet": "sit", "watch_sparrows": "sit",
-			"sew_baby_clothes": "sit", "shell_corn": "sit", "sort_soybeans": "sit", "face_in_knees": "sit",
-			"weep_in_corner": "sit", "fold_quilt": "sit", "eat_porridge": "eat", "eat_greens": "eat",
-			"eat_on_threshold": "eat", "sneak_a_bite": "eat", "drink_ladle": "eat", "gulp_water": "eat",
-			"taste_soup": "eat", "chew_straw": "eat", "mend_clothes": "work", "whet_knife": "work",
-			"swat_flies": "work", "count_coins": "work", "click_abacus": "work", "saw_timber": "work",
-			"snap_ink_line": "work", "chisel_mortise": "work", "fit_stool_legs": "work",
-			"rehandle_hoe": "work", "winnow_seed": "work", "sow_beans": "work", "flail_grain": "work",
-			"weigh_herbs": "work", "treat_family": "work", "dry_herbs": "work", "brew_medicine": "work", "split_silk": "work",
-			"trace_pattern": "work", "soak_soybeans": "work", "strain_soymilk": "work", "add_brine": "work",
-			"pack_wares": "work", "copy_model_script": "work", "write_essay": "work",
-			"dig_for_silver": "work", "wash_greens": "work", "sweep_leaves": "work",
-			"pick_eggplants": "work", "take_pulse": "work", "shadow_boxing": "work", "trim_lamp": "work",
-			"warm_hands": "work", "tally_harvest": "work", "rummage_chest": "work", "shake_drum": "work",
-			"beat_quilt": "work", "watch_ants": "idle", "tease_ants": "idle", "watch_snail": "idle",
-			"listen_crickets": "idle", "count_grapes": "idle", "well_reflection": "idle",
-			"read_the_sky": "idle", "doze_at_door": "idle", "lean_on_doorframe": "idle",
-			"bask_by_wall": "idle", "gaze_down_road": "idle", "stretch_at_door": "idle", "heat_kang": "work"
-		}
-	},
-	"keepsakes": {
-		"cabinet": {"file": "props/ui_cabinet.png", "left": [0, 151, 48, 114], "cell": [158, 151, 115, 114], "right": [482, 151, 49, 114], "top": [0, 0, 532, 50], "bottom": [0, 525, 532, 44], "edge": 48},
-		"tag": "props/ui_tag.png",
-		"pieces": {"almanac_page": "props/story/almanac_page.png", "ayun_hoop": "props/story/ayun_hoop.png", "bell_clapper": "props/story/bell_clapper.png", "birthday_slip": "props/story/birthday_slip.png", "cloth_tiger": "props/story/cloth_tiger.png", "ferry_tag": "props/story/ferry_tag.png", "half_sampler": "props/story/half_sampler.png", "half_sugar_monkey": "props/story/half_sugar_monkey.png", "kite_ribs": "props/story/kite_ribs.png", "letter_first_half": "props/story/letter_first_half.png", "letter_second_half": "props/story/letter_second_half.png", "pipe_bowl": "props/story/pipe_bowl.png", "poem_burnt": "props/story/poem_burnt.png", "poem_last": "props/story/poem_last.png", "poem_ledger": "props/story/poem_ledger.png", "poem_millstone": "props/story/poem_millstone.png", "poem_nine_steps": "props/story/poem_nine_steps.png", "poem_ten_years": "props/story/poem_ten_years.png", "pole_tip": "props/story/pole_tip.png", "pressed_flower": "props/story/pressed_flower.png", "rattle_drum": "props/story/rattle_drum.png", "red_shoe": "props/story/red_shoe.png", "sugar_wrapper": "props/story/sugar_wrapper.png", "swallow_tail": "props/story/swallow_tail.png", "tag_bundle": "props/story/tag_bundle.png", "tally_stick": "props/story/tally_stick.png", "tangled_line": "props/story/tangled_line.png", "tiger_shoe": "props/story/tiger_shoe.png", "yun_hairpin": "props/story/yun_hairpin.png"}
-	}
+  "dir": "art",
+  "accent": "#E5533C",
+  "pickup": "#4FB3E8",
+  "view": "iso",
+  "iso": {
+    "objects": {
+      "stove": "iso_stove",
+      "kang": "iso_kang",
+      "desk": "iso_desk",
+      "loom": "iso_loom",
+      "vat": "iso_vat",
+      "stool": "iso_stool",
+      "coop": "iso_coop",
+      "garden": "iso_garden",
+      "dining_table": "iso_dining_table",
+      "altar": "iso_altar",
+      "woodpile": "iso_woodpile",
+      "millstone": "iso_millstone",
+      "grape_trellis": "iso_grape_trellis",
+      "clothesline": "iso_clothesline",
+      "well_head": "iso_well_head",
+      "threshold": "iso_door_sill",
+      "stone_bench": "iso_stone_bench",
+      "carpenter_bench": "iso_carpenter_bench",
+      "herb_grinder": "iso_herb_grinder",
+      "embroidery_frame": "iso_embroidery_frame",
+      "tofu_box": "iso_tofu_box",
+      "peddler_pole": "iso_peddler_pole",
+      "bookshelf": "iso_bookshelf",
+      "trough": "iso_trough",
+      "bird_cage": "iso_bird_cage",
+      "ayun_hoop": "iso_embroidery_frame",
+      "washtub": "iso_washtub",
+      "trash_basket": "iso_trash_basket",
+      "keepsake_chest": "iso_keepsake_chest",
+      "cupboard": "iso_cupboard"
+    },
+    "metres_per_cell": 0.7,
+    "ruler": {
+      "iso_stove": {
+        "px_per_m": 129.3,
+        "anchor": [
+          131.2,
+          221.4
+        ],
+        "shadows": {
+          "morning": {
+            "file": "iso/shadow/stove_morning.png",
+            "anchor": [
+              150.5,
+              161.5
+            ]
+          },
+          "noon": {
+            "file": "iso/shadow/stove_noon.png",
+            "anchor": [
+              85.5,
+              79.5
+            ]
+          },
+          "evening": {
+            "file": "iso/shadow/stove_evening.png",
+            "anchor": [
+              75.5,
+              48.5
+            ]
+          }
+        },
+        "glow": {
+          "at": [
+            80,
+            212
+          ],
+          "radius_m": 2.2,
+          "color": [
+            1.0,
+            0.62,
+            0.3
+          ]
+        }
+      },
+      "iso_vat": {
+        "px_per_m": 129.3,
+        "anchor": [
+          89.0,
+          125.8
+        ],
+        "shadows": {
+          "morning": {
+            "file": "iso/shadow/vat_morning.png",
+            "anchor": [
+              83.5,
+              84.5
+            ]
+          },
+          "noon": {
+            "file": "iso/shadow/vat_noon.png",
+            "anchor": [
+              42.5,
+              45.5
+            ]
+          },
+          "evening": {
+            "file": "iso/shadow/vat_evening.png",
+            "anchor": [
+              32.5,
+              25.5
+            ]
+          }
+        }
+      },
+      "iso_cupboard_e": {
+        "px_per_m": 129.3,
+        "anchor": [
+          82.5,
+          228.1
+        ],
+        "shadows": {
+          "morning": {
+            "file": "iso/shadow/cupboard_e_morning.png",
+            "anchor": [
+              144.5,
+              170.5
+            ]
+          },
+          "noon": {
+            "file": "iso/shadow/cupboard_e_noon.png",
+            "anchor": [
+              49.5,
+              77.5
+            ]
+          },
+          "evening": {
+            "file": "iso/shadow/cupboard_e_evening.png",
+            "anchor": [
+              46.5,
+              28.5
+            ]
+          }
+        }
+      },
+      "iso_cupboard": {
+        "px_per_m": 129.3,
+        "anchor": [
+          82.5,
+          228.1
+        ],
+        "shadows": {
+          "morning": {
+            "file": "iso/shadow/cupboard_morning.png",
+            "anchor": [
+              144.5,
+              170.5
+            ]
+          },
+          "noon": {
+            "file": "iso/shadow/cupboard_noon.png",
+            "anchor": [
+              49.5,
+              77.5
+            ]
+          },
+          "evening": {
+            "file": "iso/shadow/cupboard_evening.png",
+            "anchor": [
+              46.5,
+              28.5
+            ]
+          }
+        }
+      },
+      "iso_stool": {
+        "px_per_m": 129.3,
+        "anchor": [
+          56.0,
+          81.4
+        ],
+        "shadows": {
+          "morning": {
+            "file": "iso/shadow/stool_morning.png",
+            "anchor": [
+              50.5,
+              51.5
+            ]
+          },
+          "noon": {
+            "file": "iso/shadow/stool_noon.png",
+            "anchor": [
+              24.5,
+              28.5
+            ]
+          },
+          "evening": {
+            "file": "iso/shadow/stool_evening.png",
+            "anchor": [
+              22.5,
+              16.5
+            ]
+          }
+        }
+      },
+      "iso_dining_table": {
+        "px_per_m": 129.3,
+        "anchor": [
+          147.5,
+          156.5
+        ],
+        "shadows": {
+          "morning": {
+            "file": "iso/shadow/dining_table_morning.png",
+            "anchor": [
+              155.5,
+              121.5
+            ]
+          },
+          "noon": {
+            "file": "iso/shadow/dining_table_noon.png",
+            "anchor": [
+              120.5,
+              81.5
+            ]
+          },
+          "evening": {
+            "file": "iso/shadow/dining_table_evening.png",
+            "anchor": [
+              118.5,
+              63.5
+            ]
+          }
+        }
+      },
+      "iso_altar": {
+        "px_per_m": 129.3,
+        "anchor": [
+          98.0,
+          171.9
+        ],
+        "shadows": {
+          "morning": {
+            "file": "iso/shadow/altar_morning.png",
+            "anchor": [
+              130.5,
+              127.5
+            ]
+          },
+          "noon": {
+            "file": "iso/shadow/altar_noon.png",
+            "anchor": [
+              64.5,
+              69.5
+            ]
+          },
+          "evening": {
+            "file": "iso/shadow/altar_evening.png",
+            "anchor": [
+              62.5,
+              35.5
+            ]
+          }
+        }
+      },
+      "iso_desk": {
+        "px_per_m": 129.3,
+        "anchor": [
+          100.0,
+          160.1
+        ],
+        "shadows": {
+          "morning": {
+            "file": "iso/shadow/desk_morning.png",
+            "anchor": [
+              122.5,
+              118.5
+            ]
+          },
+          "noon": {
+            "file": "iso/shadow/desk_noon.png",
+            "anchor": [
+              76.5,
+              65.5
+            ]
+          },
+          "evening": {
+            "file": "iso/shadow/desk_evening.png",
+            "anchor": [
+              73.5,
+              41.5
+            ]
+          }
+        }
+      },
+      "iso_keepsake_chest": {
+        "px_per_m": 129.3,
+        "anchor": [
+          59.5,
+          80.9
+        ],
+        "shadows": {
+          "morning": {
+            "file": "iso/shadow/keepsake_chest_morning.png",
+            "anchor": [
+              61.5,
+              55.5
+            ]
+          },
+          "noon": {
+            "file": "iso/shadow/keepsake_chest_noon.png",
+            "anchor": [
+              41.5,
+              34.5
+            ]
+          },
+          "evening": {
+            "file": "iso/shadow/keepsake_chest_evening.png",
+            "anchor": [
+              40.5,
+              24.5
+            ]
+          }
+        }
+      },
+      "iso_kang": {
+        "px_per_m": 129.3,
+        "anchor": [
+          175.9,
+          183.5
+        ],
+        "shadows": {
+          "morning": {
+            "file": "iso/shadow/kang_morning.png",
+            "anchor": [
+              189.5,
+              143.5
+            ]
+          },
+          "noon": {
+            "file": "iso/shadow/kang_noon.png",
+            "anchor": [
+              154.5,
+              95.5
+            ]
+          },
+          "evening": {
+            "file": "iso/shadow/kang_evening.png",
+            "anchor": [
+              151.5,
+              80.5
+            ]
+          }
+        }
+      },
+      "iso_bookshelf": {
+        "px_per_m": 129.3,
+        "anchor": [
+          120.0,
+          262.1
+        ],
+        "shadows": {
+          "morning": {
+            "file": "iso/shadow/bookshelf_morning.png",
+            "anchor": [
+              191.5,
+              203.5
+            ]
+          },
+          "noon": {
+            "file": "iso/shadow/bookshelf_noon.png",
+            "anchor": [
+              98.5,
+              101.5
+            ]
+          },
+          "evening": {
+            "file": "iso/shadow/bookshelf_evening.png",
+            "anchor": [
+              96.5,
+              52.5
+            ]
+          }
+        }
+      },
+      "iso_woodpile": {
+        "px_per_m": 129.3,
+        "anchor": [
+          109.9,
+          130.5
+        ],
+        "shadows": {
+          "morning": {
+            "file": "iso/shadow/woodpile_morning.png",
+            "anchor": [
+              100.5,
+              97.5
+            ]
+          },
+          "noon": {
+            "file": "iso/shadow/woodpile_noon.png",
+            "anchor": [
+              92.5,
+              62.5
+            ]
+          },
+          "evening": {
+            "file": "iso/shadow/woodpile_evening.png",
+            "anchor": [
+              88.5,
+              58.5
+            ]
+          }
+        }
+      },
+      "iso_well_head": {
+        "px_per_m": 129.3,
+        "anchor": [
+          116.5,
+          188.3
+        ],
+        "shadows": {
+          "morning": {
+            "file": "iso/shadow/well_head_morning.png",
+            "anchor": [
+              125.5,
+              141.5
+            ]
+          },
+          "noon": {
+            "file": "iso/shadow/well_head_noon.png",
+            "anchor": [
+              71.5,
+              67.5
+            ]
+          },
+          "evening": {
+            "file": "iso/shadow/well_head_evening.png",
+            "anchor": [
+              70.5,
+              38.5
+            ]
+          }
+        }
+      },
+      "iso_millstone": {
+        "px_per_m": 129.3,
+        "anchor": [
+          101.5,
+          119.2
+        ],
+        "shadows": {
+          "morning": {
+            "file": "iso/shadow/millstone_morning.png",
+            "anchor": [
+              79.5,
+              80.5
+            ]
+          },
+          "noon": {
+            "file": "iso/shadow/millstone_noon.png",
+            "anchor": [
+              62.5,
+              43.5
+            ]
+          },
+          "evening": {
+            "file": "iso/shadow/millstone_evening.png",
+            "anchor": [
+              59.5,
+              34.5
+            ]
+          }
+        }
+      },
+      "iso_grape_trellis": {
+        "px_per_m": 129.3,
+        "anchor": [
+          205.3,
+          350.7
+        ],
+        "shadows": {
+          "morning": {
+            "file": "iso/shadow/grape_trellis_morning.png",
+            "anchor": [
+              253.5,
+              242.5
+            ]
+          },
+          "noon": {
+            "file": "iso/shadow/grape_trellis_noon.png",
+            "anchor": [
+              172.5,
+              149.5
+            ]
+          },
+          "evening": {
+            "file": "iso/shadow/grape_trellis_evening.png",
+            "anchor": [
+              170.5,
+              89.5
+            ]
+          }
+        }
+      },
+      "iso_stone_bench": {
+        "px_per_m": 129.3,
+        "anchor": [
+          89.5,
+          101.4
+        ],
+        "shadows": {
+          "morning": {
+            "file": "iso/shadow/stone_bench_morning.png",
+            "anchor": [
+              93.5,
+              74.5
+            ]
+          },
+          "noon": {
+            "file": "iso/shadow/stone_bench_noon.png",
+            "anchor": [
+              60.5,
+              50.5
+            ]
+          },
+          "evening": {
+            "file": "iso/shadow/stone_bench_evening.png",
+            "anchor": [
+              57.5,
+              33.5
+            ]
+          }
+        }
+      },
+      "iso_trash_basket": {
+        "px_per_m": 129.3,
+        "anchor": [
+          69.5,
+          85.8
+        ],
+        "shadows": {
+          "morning": {
+            "file": "iso/shadow/trash_basket_morning.png",
+            "anchor": [
+              59.5,
+              55.5
+            ]
+          },
+          "noon": {
+            "file": "iso/shadow/trash_basket_noon.png",
+            "anchor": [
+              29.5,
+              33.5
+            ]
+          },
+          "evening": {
+            "file": "iso/shadow/trash_basket_evening.png",
+            "anchor": [
+              26.5,
+              18.5
+            ]
+          }
+        }
+      },
+      "iso_clothesline": {
+        "px_per_m": 129.3,
+        "anchor": [
+          150.0,
+          256.3
+        ],
+        "shadows": {
+          "morning": {
+            "file": "iso/shadow/clothesline_morning.png",
+            "anchor": [
+              211.5,
+              198.5
+            ]
+          },
+          "noon": {
+            "file": "iso/shadow/clothesline_noon.png",
+            "anchor": [
+              125.5,
+              112.5
+            ]
+          },
+          "evening": {
+            "file": "iso/shadow/clothesline_evening.png",
+            "anchor": [
+              124.5,
+              66.5
+            ]
+          }
+        }
+      },
+      "iso_grain_heap": {
+        "px_per_m": 129.3,
+        "anchor": [
+          129.0,
+          122.8
+        ],
+        "shadows": {
+          "morning": {
+            "file": "iso/shadow/grain_heap_morning.png",
+            "anchor": [
+              85.5,
+              57.5
+            ]
+          },
+          "noon": {
+            "file": "iso/shadow/grain_heap_noon.png",
+            "anchor": [
+              83.5,
+              45.5
+            ]
+          },
+          "evening": {
+            "file": "iso/shadow/grain_heap_evening.png",
+            "anchor": [
+              82.5,
+              44.5
+            ]
+          }
+        }
+      },
+      "iso_trough": {
+        "px_per_m": 129.3,
+        "anchor": [
+          111.0,
+          98.8
+        ],
+        "shadows": {
+          "morning": {
+            "file": "iso/shadow/trough_morning.png",
+            "anchor": [
+              109.5,
+              75.5
+            ]
+          },
+          "noon": {
+            "file": "iso/shadow/trough_noon.png",
+            "anchor": [
+              94.5,
+              58.5
+            ]
+          },
+          "evening": {
+            "file": "iso/shadow/trough_evening.png",
+            "anchor": [
+              92.5,
+              50.5
+            ]
+          }
+        }
+      },
+      "iso_washtub": {
+        "px_per_m": 129.3,
+        "anchor": [
+          77.0,
+          90.0
+        ],
+        "shadows": {
+          "morning": {
+            "file": "iso/shadow/washtub_morning.png",
+            "anchor": [
+              63.5,
+              60.5
+            ]
+          },
+          "noon": {
+            "file": "iso/shadow/washtub_noon.png",
+            "anchor": [
+              41.5,
+              35.5
+            ]
+          },
+          "evening": {
+            "file": "iso/shadow/washtub_evening.png",
+            "anchor": [
+              38.5,
+              24.5
+            ]
+          }
+        }
+      },
+      "iso_coop": {
+        "px_per_m": 129.3,
+        "anchor": [
+          120.7,
+          155.6
+        ],
+        "shadows": {
+          "morning": {
+            "file": "iso/shadow/coop_morning.png",
+            "anchor": [
+              99.5,
+              92.5
+            ]
+          },
+          "noon": {
+            "file": "iso/shadow/coop_noon.png",
+            "anchor": [
+              80.5,
+              53.5
+            ]
+          },
+          "evening": {
+            "file": "iso/shadow/coop_evening.png",
+            "anchor": [
+              77.5,
+              43.5
+            ]
+          }
+        }
+      },
+      "iso_loom": {
+        "px_per_m": 129.3,
+        "anchor": [
+          115.4,
+          203.9
+        ],
+        "shadows": {
+          "morning": {
+            "file": "iso/shadow/loom_morning.png",
+            "anchor": [
+              126.5,
+              156.5
+            ]
+          },
+          "noon": {
+            "file": "iso/shadow/loom_noon.png",
+            "anchor": [
+              91.5,
+              82.5
+            ]
+          },
+          "evening": {
+            "file": "iso/shadow/loom_evening.png",
+            "anchor": [
+              89.5,
+              48.5
+            ]
+          }
+        }
+      },
+      "iso_embroidery_frame": {
+        "px_per_m": 129.3,
+        "anchor": [
+          59.0,
+          151.1
+        ],
+        "shadows": {
+          "morning": {
+            "file": "iso/shadow/embroidery_frame_morning.png",
+            "anchor": [
+              78.5,
+              102.5
+            ]
+          },
+          "noon": {
+            "file": "iso/shadow/embroidery_frame_noon.png",
+            "anchor": [
+              29.5,
+              44.5
+            ]
+          },
+          "evening": {
+            "file": "iso/shadow/embroidery_frame_evening.png",
+            "anchor": [
+              27.5,
+              21.5
+            ]
+          }
+        }
+      },
+      "iso_carpenter_bench": {
+        "px_per_m": 129.3,
+        "anchor": [
+          94.5,
+          112.8
+        ],
+        "shadows": {
+          "morning": {
+            "file": "iso/shadow/carpenter_bench_morning.png",
+            "anchor": [
+              102.5,
+              83.5
+            ]
+          },
+          "noon": {
+            "file": "iso/shadow/carpenter_bench_noon.png",
+            "anchor": [
+              67.5,
+              55.5
+            ]
+          },
+          "evening": {
+            "file": "iso/shadow/carpenter_bench_evening.png",
+            "anchor": [
+              65.5,
+              37.5
+            ]
+          }
+        }
+      },
+      "iso_tofu_box": {
+        "px_per_m": 129.3,
+        "anchor": [
+          64.0,
+          76.3
+        ],
+        "shadows": {
+          "morning": {
+            "file": "iso/shadow/tofu_box_morning.png",
+            "anchor": [
+              65.5,
+              54.5
+            ]
+          },
+          "noon": {
+            "file": "iso/shadow/tofu_box_noon.png",
+            "anchor": [
+              49.5,
+              36.5
+            ]
+          },
+          "evening": {
+            "file": "iso/shadow/tofu_box_evening.png",
+            "anchor": [
+              48.5,
+              28.5
+            ]
+          }
+        }
+      },
+      "iso_peddler_pole": {
+        "px_per_m": 129.3,
+        "anchor": [
+          102.0,
+          171.4
+        ],
+        "shadows": {
+          "morning": {
+            "file": "iso/shadow/peddler_pole_morning.png",
+            "anchor": [
+              124.5,
+              129.5
+            ]
+          },
+          "noon": {
+            "file": "iso/shadow/peddler_pole_noon.png",
+            "anchor": [
+              71.5,
+              66.5
+            ]
+          },
+          "evening": {
+            "file": "iso/shadow/peddler_pole_evening.png",
+            "anchor": [
+              68.5,
+              39.5
+            ]
+          }
+        }
+      },
+      "iso_herb_grinder": {
+        "px_per_m": 129.3,
+        "anchor": [
+          56.0,
+          53.1
+        ],
+        "shadows": {
+          "morning": {
+            "file": "iso/shadow/herb_grinder_morning.png",
+            "anchor": [
+              40.5,
+              32.5
+            ]
+          },
+          "noon": {
+            "file": "iso/shadow/herb_grinder_noon.png",
+            "anchor": [
+              27.5,
+              23.5
+            ]
+          },
+          "evening": {
+            "file": "iso/shadow/herb_grinder_evening.png",
+            "anchor": [
+              18.5,
+              17.5
+            ]
+          }
+        }
+      },
+      "iso_garden": {
+        "px_per_m": 129.3,
+        "anchor": [
+          178.5,
+          134.9
+        ],
+        "shadows": {
+          "morning": {
+            "file": "iso/shadow/garden_morning.png",
+            "anchor": [
+              180.5,
+              113.5
+            ]
+          },
+          "noon": {
+            "file": "iso/shadow/garden_noon.png",
+            "anchor": [
+              164.5,
+              93.5
+            ]
+          },
+          "evening": {
+            "file": "iso/shadow/garden_evening.png",
+            "anchor": [
+              164.5,
+              85.5
+            ]
+          }
+        }
+      },
+      "iso_bird_cage": {
+        "px_per_m": 129.3,
+        "anchor": [
+          48.5,
+          114.9
+        ],
+        "shadows": {
+          "morning": {
+            "file": "iso/shadow/bird_cage_morning.png",
+            "anchor": [
+              57.5,
+              77.5
+            ]
+          },
+          "noon": {
+            "file": "iso/shadow/bird_cage_noon.png",
+            "anchor": [
+              30.5,
+              32.5
+            ]
+          },
+          "evening": {
+            "file": "iso/shadow/bird_cage_evening.png",
+            "anchor": [
+              28.5,
+              18.5
+            ]
+          }
+        }
+      }
+    },
+    "sizes": {
+      "kang": [
+        2.0,
+        1.38
+      ],
+      "stove": [
+        1.3,
+        0.7
+      ],
+      "desk": [
+        1.18,
+        0.58
+      ],
+      "loom": [
+        1.1,
+        0.95
+      ],
+      "vat": [
+        0.6,
+        0.6
+      ],
+      "stool": [
+        0.35,
+        0.3
+      ],
+      "coop": [
+        1.35,
+        0.95
+      ],
+      "garden": [
+        2.0,
+        1.4
+      ],
+      "carpenter_bench": [
+        1.3,
+        0.4
+      ],
+      "herb_grinder": [
+        0.55,
+        0.25
+      ],
+      "embroidery_frame": [
+        0.5,
+        0.45
+      ],
+      "tofu_box": [
+        0.48,
+        0.48
+      ],
+      "peddler_pole": [
+        1.35,
+        0.4
+      ],
+      "bird_cage": [
+        0.32,
+        0.32
+      ],
+      "dining_table": [
+        1.5,
+        1.3
+      ],
+      "altar": [
+        1.3,
+        0.42
+      ],
+      "woodpile": [
+        1.5,
+        1.0
+      ],
+      "millstone": [
+        1.3,
+        0.94
+      ],
+      "grape_trellis": [
+        2.5,
+        1.3
+      ],
+      "clothesline": [
+        2.55,
+        0.3
+      ],
+      "well_head": [
+        1.2,
+        1.2
+      ],
+      "threshold": [
+        1.8,
+        0.25
+      ],
+      "stone_bench": [
+        1.15,
+        0.38
+      ],
+      "bookshelf": [
+        1.7,
+        0.38
+      ],
+      "trough": [
+        1.6,
+        0.4
+      ],
+      "grain_heap": [
+        1.2,
+        1.2
+      ],
+      "ayun_hoop": [
+        0.6,
+        0.5
+      ],
+      "washtub": [
+        0.62,
+        0.62
+      ],
+      "trash_basket": [
+        0.5,
+        0.5
+      ],
+      "keepsake_chest": [
+        0.54,
+        0.34
+      ],
+      "cupboard": [
+        0.66,
+        0.5
+      ]
+    },
+    "walls": {
+      "gate": "iso_gatehouse",
+      "fence_x": "iso_fence",
+      "fence_y": "iso_fence_ns"
+    },
+    "asleep": "iso_sleeper",
+    "quilt": {
+      "sprite": "iso_sleeper",
+      "corners": [
+        [
+          12,
+          165
+        ],
+        [
+          255,
+          60
+        ],
+        [
+          180,
+          300
+        ]
+      ],
+      "cut": [
+        [
+          0,
+          175
+        ],
+        [
+          15,
+          163
+        ],
+        [
+          50,
+          131
+        ],
+        [
+          100,
+          96
+        ],
+        [
+          150,
+          76
+        ],
+        [
+          190,
+          61
+        ],
+        [
+          215,
+          55
+        ],
+        [
+          250,
+          61
+        ],
+        [
+          400,
+          160
+        ],
+        [
+          400,
+          305
+        ],
+        [
+          0,
+          305
+        ]
+      ],
+      "pillow": "#7395C2",
+      "line": "#4A3424",
+      "mat": "#E2BE6E",
+      "mat_line": "#9A7338"
+    },
+    "decals": [
+      {
+        "sprite": "iso_wall_window",
+        "room": "hall",
+        "side": "north",
+        "at": 4.5,
+        "w": 56,
+        "y": 0.24
+      },
+      {
+        "sprite": "iso_wall_window",
+        "room": "hall",
+        "side": "north",
+        "at": 10.5,
+        "w": 56,
+        "y": 0.24
+      },
+      {
+        "sprite": "iso_wall_window",
+        "room": "bedroom",
+        "side": "north",
+        "at": 4.5,
+        "w": 56,
+        "y": 0.24
+      },
+      {
+        "sprite": "iso_wall_window",
+        "room": "west_room",
+        "side": "north",
+        "at": 4.5,
+        "w": 56,
+        "y": 0.24
+      },
+      {
+        "sprite": "iso_wall_window",
+        "room": "side",
+        "side": "north",
+        "at": 4.5,
+        "w": 56,
+        "y": 0.24
+      },
+      {
+        "sprite": "iso_wall_chili",
+        "room": "woodshed",
+        "side": "north",
+        "at": 6.0,
+        "w": 34,
+        "y": 0.18
+      },
+      {
+        "sprite": "iso_wall_chili",
+        "room": "kitchen",
+        "side": "west",
+        "at": 3.0,
+        "w": 36,
+        "y": 0.16
+      },
+      {
+        "sprite": "iso_wall_window",
+        "room": "kitchen",
+        "side": "west",
+        "at": 6.75,
+        "w": 46,
+        "y": 0.24
+      },
+      {
+        "sprite": "iso_wall_window",
+        "room": "study",
+        "side": "west",
+        "at": 5.25,
+        "w": 50,
+        "y": 0.24
+      }
+    ],
+    "scenery_scale": 1.2
+  },
+  "tiles": {
+    "grass": {
+      "file": "tiles/grass.png",
+      "size": [
+        192,
+        144
+      ],
+      "soften": 0.12
+    },
+    "yard": {
+      "file": "tiles/yard.png",
+      "size": [
+        192,
+        144
+      ],
+      "soften": 0.25
+    },
+    "road": {
+      "file": "tiles/yard.png",
+      "size": [
+        192,
+        144
+      ],
+      "soften": 0.1
+    },
+    "floor_hall": {
+      "file": "tiles/floor_hall.png",
+      "size": [
+        192,
+        144
+      ],
+      "soften": 0.2
+    },
+    "floor_wood": {
+      "file": "tiles/floor_bed.png",
+      "size": [
+        192,
+        144
+      ],
+      "soften": 0.2
+    },
+    "floor_earth": {
+      "file": "tiles/floor_earth.png",
+      "size": [
+        192,
+        144
+      ],
+      "soften": 0.2
+    },
+    "paving": {
+      "file": "tiles/path.png",
+      "size": [
+        192,
+        144
+      ],
+      "soften": 0.15
+    },
+    "field": {
+      "file": "tiles/field.png",
+      "size": [
+        192,
+        144
+      ],
+      "soften": 0.08
+    },
+    "water": {
+      "file": "tiles/water.png",
+      "size": [
+        192,
+        144
+      ],
+      "soften": 0.0
+    },
+    "planks": {
+      "file": "tiles/floor_bed.png",
+      "size": [
+        96,
+        72
+      ],
+      "soften": 0.0
+    },
+    "plaster": {
+      "file": "tiles/wall.png",
+      "fit_height": true
+    },
+    "low_brick": {
+      "file": "tiles/wall_low.png",
+      "fit_height": true
+    },
+    "floor_brick": {
+      "file": "tiles/floor_brick.png",
+      "size": [
+        96,
+        72
+      ],
+      "soften": 0.1
+    },
+    "rammed_earth": {
+      "file": "tiles/wall_compound.png",
+      "fit_height": true
+    }
+  },
+  "sprites": {
+    "altar": "props/altar.png",
+    "bamboo": "props/bamboo.png",
+    "big_tree": "props/big_tree.png",
+    "bridge": "props/bridge.png",
+    "bush": "props/bush.png",
+    "clothesline": "props/clothesline.png",
+    "col_coins": "props/col_coins.png",
+    "col_egg": "props/col_egg.png",
+    "col_hairpin": "props/col_hairpin.png",
+    "coop": "props/coop.png",
+    "desk": "props/desk.png",
+    "dining_table": "props/dining_table.png",
+    "door_sill": "props/door_sill.png",
+    "fence": "props/fence.png",
+    "garden": "props/garden.png",
+    "gatehouse": "props/gatehouse.png",
+    "grape_trellis": "props/grape_trellis.png",
+    "icon_ill": "props/icon_ill.png",
+    "kang": "props/kang.png",
+    "loom": "props/loom.png",
+    "mess_dirt": "props/mess_dirt.png",
+    "mess_droppings": "props/mess_droppings.png",
+    "millstone": "props/millstone.png",
+    "reeds": "props/reeds.png",
+    "rocks": "props/rocks.png",
+    "scarecrow": "props/scarecrow.png",
+    "stone_bench": "props/stone_bench.png",
+    "stool": "props/stool.png",
+    "stove": "props/stove.png",
+    "vat": "props/vat.png",
+    "well_head": "props/well_head.png",
+    "woodpile": "props/woodpile.png",
+    "carpenter_bench": "props/carpenter_bench.png",
+    "herb_grinder": "props/herb_grinder.png",
+    "embroidery_frame": "props/embroidery_frame.png",
+    "tofu_box": "props/tofu_box.png",
+    "peddler_pole": "props/peddler_pole.png",
+    "bookshelf": "props/bookshelf.png",
+    "trough": "props/trough.png",
+    "grain_heap": "props/grain_heap.png",
+    "bird_cage": "props/bird_cage.png",
+    "mess_bowls": "props/mess_bowls.png",
+    "mess_mud": "props/mess_mud.png",
+    "fence_ns": "props/fence_ns.png",
+    "fence_ns_b": "props/fence_ns_b.png",
+    "col_greens": "props/col_greens.png",
+    "col_herbs": "props/col_herbs.png",
+    "col_cicada_shell": "props/col_cicada_shell.png",
+    "col_purse": "props/col_purse.png",
+    "col_bronze_mirror": "props/col_bronze_mirror.png",
+    "dog": "chars/dog.png",
+    "cat": "chars/cat.png",
+    "bird": "chars/bird.png",
+    "grandpa": "chars/grandpa.png",
+    "baby": "chars/baby.png",
+    "sleeper": "chars/sleeper.png",
+    "father": "chars/father.png",
+    "mother": "chars/mother.png",
+    "grandma": "chars/grandma.png",
+    "child": "chars/child.png",
+    "iso_altar": "iso/altar.png",
+    "iso_bird_cage": "iso/bird_cage.png",
+    "iso_bookshelf": "iso/bookshelf.png",
+    "iso_bridge": "iso/bridge.png",
+    "iso_carpenter_bench": "iso/carpenter_bench.png",
+    "iso_clothesline": "iso/clothesline.png",
+    "iso_coop": "iso/coop.png",
+    "iso_cupboard": "iso/cupboard.png",
+    "iso_cupboard_e": "iso/cupboard_e.png",
+    "iso_trash_basket": "iso/trash_basket.png",
+    "iso_keepsake_chest": "iso/keepsake_chest.png",
+    "dustpan": "iso/dustpan.png",
+    "iso_desk": "iso/desk.png",
+    "iso_dining_table": "iso/dining_table.png",
+    "iso_door_sill": "iso/door_sill.png",
+    "iso_embroidery_frame": "iso/embroidery_frame.png",
+    "iso_fence": "iso/fence.png",
+    "iso_fence_ns": "iso/fence_ns.png",
+    "iso_garden": "iso/garden.png",
+    "iso_gatehouse": "iso/gatehouse.png",
+    "iso_grape_trellis": "iso/grape_trellis.png",
+    "iso_herb_grinder": "iso/herb_grinder.png",
+    "iso_kang": "iso/kang.png",
+    "iso_loom": "iso/loom.png",
+    "iso_millstone": "iso/millstone.png",
+    "iso_peddler_pole": "iso/peddler_pole.png",
+    "iso_sleeper": "iso/sleeper.png",
+    "iso_stone_bench": "iso/stone_bench.png",
+    "iso_stool": "iso/stool.png",
+    "iso_stove": "iso/stove.png",
+    "iso_tofu_box": "iso/tofu_box.png",
+    "iso_trough": "iso/trough.png",
+    "iso_vat": "iso/vat.png",
+    "iso_wall_chili": "iso/wall_chili.png",
+    "iso_wall_door_curtain": "iso/wall_door_curtain.png",
+    "iso_wall_window": "iso/wall_window.png",
+    "iso_washtub": "iso/washtub.png",
+    "iso_well_head": "iso/well_head.png",
+    "iso_woodpile": "iso/woodpile.png",
+    "dog_front": "chars/dog_front.png",
+    "dog_back": "chars/dog_back.png",
+    "cat_front": "chars/cat_front.png",
+    "cat_back": "chars/cat_back.png",
+    "dog_front34": "chars/dog_front34.png",
+    "dog_back34": "chars/dog_back34.png",
+    "cat_front34": "chars/cat_front34.png",
+    "cat_back34": "chars/cat_back34.png",
+    "pig": "chars/pig.png",
+    "pig_front34": "chars/pig_front34.png",
+    "pig_back34": "chars/pig_back34.png",
+    "pig_sleep": "chars/pig_sleep.png",
+    "piglet": "chars/piglet.png",
+    "piglet_front34": "chars/piglet_front34.png",
+    "piglet_back34": "chars/piglet_back34.png",
+    "hen": "chars/hen.png",
+    "hen_front34": "chars/hen_front34.png",
+    "hen_back34": "chars/hen_back34.png",
+    "hen_sit": "chars/hen_sit.png",
+    "chick_front34": "chars/chick_front34.png",
+    "iso_grain_heap": "iso/grain_heap.png"
+  },
+  "ground": "grass",
+  "compound_ground": "yard",
+  "aprons": {
+    "stove": {
+      "tile": "floor_brick",
+      "grow": 0.9
+    }
+  },
+  "floors": {
+    "hall": "floor_brick",
+    "west_room": "floor_earth",
+    "bedroom": "floor_earth",
+    "study": "floor_earth",
+    "side": "floor_earth",
+    "kitchen": "floor_earth",
+    "woodshed": "floor_earth",
+    "well": "paving"
+  },
+  "decor": {
+    "#B5AFA3": {
+      "tile": "paving"
+    },
+    "#D8B88A": {
+      "tile": "road"
+    },
+    "#86C6DA": {
+      "tile": "water"
+    },
+    "#A8D8E6": {
+      "hide": true
+    },
+    "#B07A4A": {
+      "tile": "planks"
+    },
+    "#7A5235": {
+      "hide": true
+    },
+    "#B5C774": {
+      "tile": "field"
+    },
+    "#9DB060": {
+      "hide": true
+    },
+    "#6E9A4E": {
+      "sprite": "bamboo"
+    },
+    "#86B562": {
+      "hide": true
+    },
+    "#5F8F43": {
+      "sprite": "big_tree"
+    },
+    "#78A853": {
+      "hide": true
+    },
+    "#8FAE5C": {
+      "sprite": "bush"
+    },
+    "#7FA65A": {
+      "sprite": "bush"
+    },
+    "#A9A49A": {
+      "sprite": "rocks"
+    }
+  },
+  "scenery": [
+    {
+      "sprite": "scarecrow",
+      "x": 16.5,
+      "y": 43.8,
+      "w": 1.4
+    },
+    {
+      "sprite": "reeds",
+      "x": 72.45,
+      "y": 10.8,
+      "w": 1.1
+    },
+    {
+      "sprite": "reeds",
+      "x": 72.45,
+      "y": 23.4,
+      "w": 1.0
+    },
+    {
+      "sprite": "reeds",
+      "x": 72.45,
+      "y": 40.5,
+      "w": 1.1
+    },
+    {
+      "sprite": "bush",
+      "x": 33.9,
+      "y": 6.6,
+      "w": 1.0
+    },
+    {
+      "sprite": "bush",
+      "x": 57,
+      "y": 6.3,
+      "w": 1.2
+    }
+  ],
+  "walls": {
+    "house": "plaster",
+    "house_low": "low_brick",
+    "compound": "rammed_earth",
+    "gate": "gatehouse",
+    "sill": "door_sill",
+    "fence_ns": [
+      "fence_ns",
+      "fence_ns_b"
+    ]
+  },
+  "objects": {
+    "stove": "stove",
+    "kang": "kang",
+    "desk": "desk",
+    "loom": "loom",
+    "vat": "vat",
+    "stool": "stool",
+    "coop": "coop",
+    "garden": "garden",
+    "dining_table": "dining_table",
+    "altar": "altar",
+    "woodpile": "woodpile",
+    "millstone": "millstone",
+    "grape_trellis": "grape_trellis",
+    "clothesline": "clothesline",
+    "well_head": "well_head",
+    "threshold": "door_sill",
+    "stone_bench": "stone_bench",
+    "carpenter_bench": "carpenter_bench",
+    "herb_grinder": "herb_grinder",
+    "embroidery_frame": "embroidery_frame",
+    "tofu_box": "tofu_box",
+    "peddler_pole": "peddler_pole",
+    "bookshelf": "bookshelf",
+    "trough": "trough",
+    "grain_heap": "grain_heap",
+    "bird_cage": "bird_cage",
+    "ayun_hoop": "embroidery_frame"
+  },
+  "carried": {
+    "dirt": "dustpan",
+    "mud": "dustpan",
+    "leaves": "dustpan",
+    "droppings": "dustpan",
+    "pet_hair": "dustpan"
+  },
+  "messes": {
+    "dirt": "mess_dirt",
+    "wrapper": "mess_wrapper",
+    "fruit_core": "mess_fruit_core",
+    "cloth_scraps": "mess_cloth_scraps",
+    "feathers": "mess_feathers",
+    "droppings": "mess_droppings",
+    "leaves": "mess_droppings",
+    "bowls": "mess_bowls",
+    "mud": "mess_mud",
+    "pet_hair": "mess_dirt"
+  },
+  "items": {
+    "herb_bundle": "col_herbs",
+    "new_hairpin": "col_hairpin"
+  },
+  "collectibles": {
+    "egg": "col_egg",
+    "old_kite": "col_old_kite",
+    "coins": "col_coins",
+    "hairpin": "col_hairpin",
+    "greens": "col_greens",
+    "herbs": "col_herbs",
+    "cicada_shell": "col_cicada_shell",
+    "purse": "col_purse",
+    "bronze_mirror": "col_bronze_mirror"
+  },
+  "pets": {
+    "dog": {
+      "sprite": "dog",
+      "height": 46,
+      "front": "dog_front",
+      "back": "dog_back",
+      "front34": "dog_front34",
+      "back34": "dog_back34"
+    },
+    "cat": {
+      "sprite": "cat",
+      "height": 36,
+      "front": "cat_front",
+      "back": "cat_back",
+      "front34": "cat_front34",
+      "back34": "cat_back34"
+    },
+    "bird": {
+      "sprite": "bird",
+      "height": 30
+    },
+    "pig": {
+      "sprite": "pig",
+      "height": 44,
+      "front34": "pig_front34",
+      "back34": "pig_back34",
+      "rest": "pig_sleep",
+      "rest_height": 29
+    },
+    "piglet": {
+      "sprite": "piglet",
+      "height": 23,
+      "front34": "piglet_front34",
+      "back34": "piglet_back34"
+    },
+    "hen": {
+      "sprite": "hen",
+      "height": 28,
+      "front34": "hen_front34",
+      "back34": "hen_back34",
+      "rest": "hen_sit",
+      "rest_height": 23
+    },
+    "chick": {
+      "sprite": "chick_front34",
+      "height": 14,
+      "front34": "chick_front34"
+    }
+  },
+  "looks": {
+    "adult_1": {
+      "stage": "adult",
+      "sex": "male",
+      "rig": "rigs/adult_1/adult_1.rig.json",
+      "rig_front": "rigs/adult_1_front/adult_1_front.rig.json",
+      "rig_back": "rigs/adult_1_back/adult_1_back.rig.json",
+      "rig_front34": "rigs/adult_1_front34/adult_1_front34.rig.json",
+      "rig_back34": "rigs/adult_1_back34/adult_1_back34.rig.json",
+      "height": 94,
+      "portrait": "portraits/adult_1.png",
+      "asleep": "sleeper",
+      "name": "斗笠农夫",
+      "description": "斗笠压得低，赭黄短褂的袖子挽到小臂，腰里一根土红布带。裤腿卷到小腿肚，脚上一双草鞋，人晒得黝黑。"
+    },
+    "adult_2": {
+      "stage": "adult",
+      "sex": "male",
+      "rig": "rigs/adult_2/adult_2.rig.json",
+      "rig_front": "rigs/adult_2_front/adult_2_front.rig.json",
+      "rig_back": "rigs/adult_2_back/adult_2_back.rig.json",
+      "rig_front34": "rigs/adult_2_front34/adult_2_front34.rig.json",
+      "rig_back34": "rigs/adult_2_back34/adult_2_back34.rig.json",
+      "height": 91,
+      "portrait": "portraits/adult_2.png",
+      "asleep": "sleeper",
+      "name": "清瘦书生",
+      "description": "又高又瘦，头戴黑方巾，月白长衫垂到脚面，领口袖口滚一道深蓝边。嘴总抿着，难得一笑。"
+    },
+    "adult_3": {
+      "stage": "adult",
+      "sex": "male",
+      "rig": "rigs/adult_3/adult_3.rig.json",
+      "rig_front": "rigs/adult_3_front/adult_3_front.rig.json",
+      "rig_back": "rigs/adult_3_back/adult_3_back.rig.json",
+      "rig_front34": "rigs/adult_3_front34/adult_3_front34.rig.json",
+      "rig_back34": "rigs/adult_3_back34/adult_3_back34.rig.json",
+      "height": 92,
+      "portrait": "portraits/adult_3.png",
+      "asleep": "sleeper",
+      "name": "胖货郎",
+      "description": "圆脸圆肚子，两撇小胡子，眼睛笑成两道缝。深棕毡帽，米白衬褂外头套一件酱红坎肩，盘扣绷得紧紧的。"
+    },
+    "adult_4": {
+      "stage": "adult",
+      "sex": "male",
+      "rig": "rigs/adult_4/adult_4.rig.json",
+      "rig_front": "rigs/adult_4_front/adult_4_front.rig.json",
+      "rig_back": "rigs/adult_4_back/adult_4_back.rig.json",
+      "rig_front34": "rigs/adult_4_front34/adult_4_front34.rig.json",
+      "rig_back34": "rigs/adult_4_back34/adult_4_back34.rig.json",
+      "height": 92,
+      "portrait": "portraits/adult_4.png",
+      "asleep": "sleeper",
+      "name": "木匠",
+      "description": "方下巴，一圈短胡茬，白布头巾在脑后打个结。深褐短褂外挂一条土黄帆布围裙，胸口一只小口袋，腿上打着绑腿。"
+    },
+    "adult_5": {
+      "stage": "adult",
+      "sex": "female",
+      "rig": "rigs/adult_5/adult_5.rig.json",
+      "rig_front": "rigs/adult_5_front/adult_5_front.rig.json",
+      "rig_back": "rigs/adult_5_back/adult_5_back.rig.json",
+      "rig_front34": "rigs/adult_5_front34/adult_5_front34.rig.json",
+      "rig_back34": "rigs/adult_5_back34/adult_5_back34.rig.json",
+      "height": 82,
+      "portrait": "portraits/adult_5.png",
+      "asleep": "sleeper",
+      "name": "绣娘",
+      "description": "瓜子脸，脑后一个圆髻，横插一根银簪，簪头一点红绒花。桃粉大襟袄滚月白边，脚上一双绣花鞋。"
+    },
+    "adult_6": {
+      "stage": "adult",
+      "sex": "female",
+      "rig": "rigs/adult_6/adult_6.rig.json",
+      "rig_front": "rigs/adult_6_front/adult_6_front.rig.json",
+      "rig_back": "rigs/adult_6_back/adult_6_back.rig.json",
+      "rig_front34": "rigs/adult_6_front34/adult_6_front34.rig.json",
+      "rig_back34": "rigs/adult_6_back34/adult_6_back34.rig.json",
+      "height": 88,
+      "portrait": "portraits/adult_6.png",
+      "asleep": "sleeper",
+      "name": "豆腐娘",
+      "description": "圆脸红扑扑，一笑露出一排牙。白布头巾把头发全包住，靛蓝碎花袄外面套着白套袖，腰里系白围裙。"
+    },
+    "adult_7": {
+      "stage": "adult",
+      "sex": "female",
+      "rig": "rigs/adult_7/adult_7.rig.json",
+      "rig_front": "rigs/adult_7_front/adult_7_front.rig.json",
+      "rig_back": "rigs/adult_7_back/adult_7_back.rig.json",
+      "rig_front34": "rigs/adult_7_front34/adult_7_front34.rig.json",
+      "rig_back34": "rigs/adult_7_back34/adult_7_back34.rig.json",
+      "height": 86,
+      "portrait": "portraits/adult_7.png",
+      "asleep": "sleeper",
+      "name": "采药姑娘",
+      "description": "齐眉刘海，两条麻花辫垂在肩后，辫梢扎红头绳。砖红短袄，腰上斜挎一只浅棕布药囊，腿上打浅灰绑腿。"
+    },
+    "adult_8": {
+      "stage": "adult",
+      "sex": "female",
+      "rig": "rigs/adult_8/adult_8.rig.json",
+      "rig_front": "rigs/adult_8_front/adult_8_front.rig.json",
+      "rig_back": "rigs/adult_8_back/adult_8_back.rig.json",
+      "rig_front34": "rigs/adult_8_front34/adult_8_front34.rig.json",
+      "rig_back34": "rigs/adult_8_back34/adult_8_back34.rig.json",
+      "height": 89,
+      "portrait": "portraits/adult_8.png",
+      "asleep": "sleeper",
+      "name": "瘦高农妇",
+      "description": "高个子，长脸，眉头总皱着。头顶盘大髻，插一根木簪，扎一条藏青白点头帕。藕荷色大襟袄，袖子挽到小臂。"
+    },
+    "elder_1": {
+      "stage": "elder",
+      "sex": "male",
+      "rig": "rigs/elder_1/elder_1.rig.json",
+      "rig_front": "rigs/elder_1_front/elder_1_front.rig.json",
+      "rig_back": "rigs/elder_1_back/elder_1_back.rig.json",
+      "rig_front34": "rigs/elder_1_front34/elder_1_front34.rig.json",
+      "rig_back34": "rigs/elder_1_back34/elder_1_back34.rig.json",
+      "height": 78,
+      "portrait": "portraits/elder_1.png",
+      "asleep": "sleeper",
+      "name": "老郎中",
+      "description": "白胡子垂到胸口，黑瓜皮帽顶上一颗红绒结。灰蓝对襟长棉袄过了膝盖，背有点驼，笑眯眯的。",
+      "lean": 5
+    },
+    "elder_2": {
+      "stage": "elder",
+      "sex": "female",
+      "rig": "rigs/elder_2/elder_2.rig.json",
+      "rig_front": "rigs/elder_2_front/elder_2_front.rig.json",
+      "rig_back": "rigs/elder_2_back/elder_2_back.rig.json",
+      "rig_front34": "rigs/elder_2_front34/elder_2_front34.rig.json",
+      "rig_back34": "rigs/elder_2_back34/elder_2_back34.rig.json",
+      "height": 74,
+      "portrait": "portraits/elder_2.png",
+      "asleep": "sleeper",
+      "name": "老婆婆",
+      "description": "胖墩墩，满脸笑纹，银灰头发挽个小髻。额上勒一条黑抹额，正中缀一颗红珠，靛青大襟袄滚黑边。",
+      "lean": 5
+    }
+  },
+  "people": [
+    {
+      "stage": "elder",
+      "sex": "female",
+      "sprite": "grandma",
+      "height": 74,
+      "rig": "rigs/grandma/grandma.rig.json",
+      "rig_front": "rigs/grandma_front/grandma_front.rig.json",
+      "rig_back": "rigs/grandma_back/grandma_back.rig.json",
+      "rig_front34": "rigs/grandma_front34/grandma_front34.rig.json",
+      "rig_back34": "rigs/grandma_back34/grandma_back34.rig.json",
+      "lean": 9,
+      "asleep": "sleeper"
+    },
+    {
+      "stage": "elder",
+      "sprite": "grandpa",
+      "height": 80,
+      "rig": "rigs/grandpa/grandpa.rig.json",
+      "rig_front": "rigs/grandpa_front/grandpa_front.rig.json",
+      "rig_back": "rigs/grandpa_back/grandpa_back.rig.json",
+      "rig_front34": "rigs/grandpa_front34/grandpa_front34.rig.json",
+      "rig_back34": "rigs/grandpa_back34/grandpa_back34.rig.json",
+      "lean": 11,
+      "asleep": "sleeper"
+    },
+    {
+      "stage": "adult",
+      "sex": "male",
+      "sprite": "father",
+      "height": 90,
+      "rig": "rigs/father/father.rig.json",
+      "rig_front": "rigs/father_front/father_front.rig.json",
+      "rig_back": "rigs/father_back/father_back.rig.json",
+      "rig_front34": "rigs/father_front34/father_front34.rig.json",
+      "rig_back34": "rigs/father_back34/father_back34.rig.json",
+      "asleep": "sleeper"
+    },
+    {
+      "stage": "adult",
+      "sprite": "mother",
+      "height": 86,
+      "rig": "rigs/mother/mother.rig.json",
+      "rig_front": "rigs/mother_front/mother_front.rig.json",
+      "rig_back": "rigs/mother_back/mother_back.rig.json",
+      "rig_front34": "rigs/mother_front34/mother_front34.rig.json",
+      "rig_back34": "rigs/mother_back34/mother_back34.rig.json",
+      "asleep": "sleeper"
+    },
+    {
+      "stage": "child",
+      "sprite": "child",
+      "height": 62,
+      "rig": "rigs/child/child.rig.json",
+      "rig_front": "rigs/child_front/child_front.rig.json",
+      "rig_back": "rigs/child_back/child_back.rig.json",
+      "rig_front34": "rigs/child_front34/child_front34.rig.json",
+      "rig_back34": "rigs/child_back34/child_back34.rig.json",
+      "asleep": "sleeper"
+    },
+    {
+      "stage": "baby",
+      "sprite": "baby",
+      "height": 26,
+      "lying": true
+    }
+  ],
+  "unwell": {
+    "sprite": "icon_ill",
+    "need": "health",
+    "below": 50
+  },
+  "poses": {
+    "on": [
+      "kang",
+      "stool",
+      "stone_bench",
+      "threshold"
+    ],
+    "step_over": [
+      "threshold"
+    ],
+    "beds": {
+      "kang": {
+        "h": 31,
+        "along": "long",
+        "head": 0.95,
+        "margin": 6
+      }
+    },
+    "seats": {
+      "kang": {
+        "h": 34,
+        "in": 0.12
+      },
+      "stool": {
+        "h": 34,
+        "in": 0.5
+      },
+      "stone_bench": {
+        "h": 26,
+        "in": 0.5
+      },
+      "threshold": {
+        "h": 20,
+        "in": 0.5
+      }
+    },
+    "objects": {
+      "kang": "sit",
+      "stool": "sit",
+      "stone_bench": "sit",
+      "threshold": "sit",
+      "dining_table": "eat",
+      "stove": "stir",
+      "vat": "scoop",
+      "well_head": "scoop",
+      "washtub": "scoop",
+      "trough": "scoop",
+      "grain_heap": "scoop",
+      "desk": "write",
+      "bookshelf": "read",
+      "loom": "sew",
+      "embroidery_frame": "sew",
+      "ayun_hoop": "sew",
+      "carpenter_bench": "saw",
+      "garden": "hoe",
+      "woodpile": "hoe",
+      "millstone": "push",
+      "herb_grinder": "push",
+      "tofu_box": "push",
+      "peddler_pole": "push",
+      "clothesline": "reach_up",
+      "grape_trellis": "reach_up",
+      "coop": "scatter",
+      "altar": "bow"
+    },
+    "actions": {
+      "sweep": "sweep",
+      "mop_mud": "sweep",
+      "sweep_pet_hair": "sweep",
+      "sweep_snow": "sweep",
+      "rake_leaves": "sweep",
+      "shovel_droppings": "sweep",
+      "pick_up": "stoop",
+      "pick_wrapper": "stoop",
+      "pick_fruit_core": "stoop",
+      "gather_cloth_scraps": "stoop",
+      "pick_feathers": "stoop",
+      "sleep": "sleep",
+      "nap": "sleep",
+      "doze_on_kang": "doze",
+      "sick_in_bed": "sleep",
+      "hide_under_quilt": "sleep",
+      "baby_sleep": "sleep",
+      "baby_nap": "sleep",
+      "shell_beans": "sit",
+      "crack_seeds": "sit",
+      "whittle_top": "sit",
+      "weave_grasshopper": "sit",
+      "straw_chess": "sit",
+      "sit_and_stare": "sit",
+      "twist_hemp": "sit",
+      "trellis_shade": "sit",
+      "rest_on_well": "sit",
+      "watch_passersby": "sit",
+      "pick_ears": "sit",
+      "pipe_on_bench": "sit",
+      "haggle_on_bench": "sit",
+      "count_geese": "sit",
+      "count_stars": "sit",
+      "sit_on_threshold_long": "sit",
+      "weave_sandals": "sit",
+      "embroider_pillow": "sit",
+      "sole_shoes": "sit",
+      "soak_feet": "sit",
+      "watch_sparrows": "sit",
+      "sew_baby_clothes": "sit",
+      "shell_corn": "sit",
+      "sort_soybeans": "sit",
+      "face_in_knees": "sit",
+      "weep_in_corner": "sit",
+      "fold_quilt": "sit",
+      "eat_porridge": "eat",
+      "eat_greens": "eat",
+      "eat_on_threshold": "eat",
+      "sneak_a_bite": "eat",
+      "drink_ladle": "eat",
+      "gulp_water": "eat",
+      "taste_soup": "eat",
+      "chew_straw": "eat",
+      "mend_clothes": "work",
+      "whet_knife": "work",
+      "swat_flies": "work",
+      "count_coins": "work",
+      "click_abacus": "work",
+      "saw_timber": "work",
+      "snap_ink_line": "work",
+      "chisel_mortise": "work",
+      "fit_stool_legs": "work",
+      "rehandle_hoe": "work",
+      "winnow_seed": "work",
+      "sow_beans": "work",
+      "flail_grain": "work",
+      "weigh_herbs": "work",
+      "treat_family": "work",
+      "dry_herbs": "work",
+      "brew_medicine": "work",
+      "split_silk": "work",
+      "trace_pattern": "work",
+      "soak_soybeans": "work",
+      "strain_soymilk": "work",
+      "add_brine": "work",
+      "pack_wares": "work",
+      "copy_model_script": "work",
+      "write_essay": "work",
+      "dig_for_silver": "work",
+      "wash_greens": "work",
+      "sweep_leaves": "work",
+      "pick_eggplants": "work",
+      "take_pulse": "work",
+      "shadow_boxing": "work",
+      "trim_lamp": "work",
+      "warm_hands": "work",
+      "tally_harvest": "work",
+      "rummage_chest": "work",
+      "shake_drum": "work",
+      "beat_quilt": "work",
+      "watch_ants": "idle",
+      "tease_ants": "idle",
+      "watch_snail": "idle",
+      "listen_crickets": "idle",
+      "count_grapes": "idle",
+      "well_reflection": "idle",
+      "read_the_sky": "idle",
+      "doze_at_door": "idle",
+      "lean_on_doorframe": "idle",
+      "bask_by_wall": "idle",
+      "gaze_down_road": "idle",
+      "stretch_at_door": "idle",
+      "heat_kang": "work"
+    }
+  },
+  "keepsakes": {
+    "cabinet": {
+      "file": "props/ui_cabinet.png",
+      "left": [
+        0,
+        151,
+        48,
+        114
+      ],
+      "cell": [
+        158,
+        151,
+        115,
+        114
+      ],
+      "right": [
+        482,
+        151,
+        49,
+        114
+      ],
+      "top": [
+        0,
+        0,
+        532,
+        50
+      ],
+      "bottom": [
+        0,
+        525,
+        532,
+        44
+      ],
+      "edge": 48
+    },
+    "tag": "props/ui_tag.png",
+    "pieces": {
+      "almanac_page": "props/story/almanac_page.png",
+      "ayun_hoop": "props/story/ayun_hoop.png",
+      "bell_clapper": "props/story/bell_clapper.png",
+      "birthday_slip": "props/story/birthday_slip.png",
+      "cloth_tiger": "props/story/cloth_tiger.png",
+      "ferry_tag": "props/story/ferry_tag.png",
+      "half_sampler": "props/story/half_sampler.png",
+      "half_sugar_monkey": "props/story/half_sugar_monkey.png",
+      "kite_ribs": "props/story/kite_ribs.png",
+      "letter_first_half": "props/story/letter_first_half.png",
+      "letter_second_half": "props/story/letter_second_half.png",
+      "pipe_bowl": "props/story/pipe_bowl.png",
+      "poem_burnt": "props/story/poem_burnt.png",
+      "poem_last": "props/story/poem_last.png",
+      "poem_ledger": "props/story/poem_ledger.png",
+      "poem_millstone": "props/story/poem_millstone.png",
+      "poem_nine_steps": "props/story/poem_nine_steps.png",
+      "poem_ten_years": "props/story/poem_ten_years.png",
+      "pole_tip": "props/story/pole_tip.png",
+      "pressed_flower": "props/story/pressed_flower.png",
+      "rattle_drum": "props/story/rattle_drum.png",
+      "red_shoe": "props/story/red_shoe.png",
+      "sugar_wrapper": "props/story/sugar_wrapper.png",
+      "swallow_tail": "props/story/swallow_tail.png",
+      "tag_bundle": "props/story/tag_bundle.png",
+      "tally_stick": "props/story/tally_stick.png",
+      "tangled_line": "props/story/tangled_line.png",
+      "tiger_shoe": "props/story/tiger_shoe.png",
+      "yun_hairpin": "props/story/yun_hairpin.png"
+    }
+  }
 }

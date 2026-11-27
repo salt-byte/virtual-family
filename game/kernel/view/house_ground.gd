@@ -53,6 +53,7 @@ func _draw() -> void:
 			draw_rect(r, c)
 	for id in w.pack.rooms:
 		_floor(w, str(id))
+	_aprons(w)
 	_shadows(site)
 	_sills(site)
 	for id in w.pack.rooms:
@@ -114,6 +115,23 @@ func _floor(w: World, id: String) -> void:
 		PackSkin.draw_tile(self, earth, rect.grow(-6))
 		draw_rect(rect.grow(-6), Color(FOUNDATION, FOUNDATION_WASH))
 	_dashed(rect.grow(-6), DASH)
+
+
+## The patches of floor the skin lays round some furniture, kept inside its room.
+func _aprons(w: World) -> void:
+	if house.skin == null:
+		return
+	for o in w.objects:
+		var ap := house.skin.apron(str(o.type))
+		if ap.is_empty():
+			continue
+		var room := house.layout.room_rect(str(o.room))
+		var r := house.layout.object_rect(o, w.pack).grow_individual(
+			ap.grow * HouseSite.CELL.x, ap.grow * HouseSite.CELL.y, ap.grow * HouseSite.CELL.x, ap.grow * HouseSite.CELL.y)
+		r = r.intersection(room) if room.size != Vector2.ZERO else r
+		if r.size.x > 0.0 and r.size.y > 0.0:
+			PackSkin.draw_tile(self, ap.tile, r)
+			draw_rect(r, Color(SHADOW, 0.35), false, 1.5)
 
 
 ## Soft shadows on the ground: east-west walls cast south, north-south walls cast east, and
@@ -196,13 +214,13 @@ func _sills(site: HouseSite) -> void:
 			draw_texture_rect(sill, PackSkin.fit_rect(sill, Vector2(r.get_center().x, r.end.y + 4), Vector2(r.size.x, 24)), false)
 			continue
 		draw_rect(r, SILL)
-		draw_rect(r, LINE, false, 1.5)
+		draw_rect(r, Color(SILL.darkened(0.35), 0.7) if house.iso else LINE, false, 1.0 if house.iso else 1.5)
 	for e in site.v_open:
 		var x2: float = e.x * HouseSite.CELL.x
 		var y2: float = e.y * HouseSite.CELL.y
 		var r2 := Rect2(x2 - 6, y2 + 2, 12, HouseSite.CELL.y - 4)
 		draw_rect(r2, SILL)
-		draw_rect(r2, LINE, false, 1.5)
+		draw_rect(r2, Color(SILL.darkened(0.35), 0.7) if house.iso else LINE, false, 1.0 if house.iso else 1.5)
 
 
 ## The room's name written on the floor: indoors under the back wall, outdoors in the

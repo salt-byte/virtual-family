@@ -133,6 +133,7 @@ func test_qijia_house_stands_pictures_and_people():
 	assert_eq(house.texture_filter, CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS)
 	assert_true(not house.scenery.is_empty())
 	var pictured := 0
+	var rulers := 0
 	for o in w.objects:
 		if house.skin.object_sprite(str(o.type)) != null:
 			pictured += 1
@@ -144,13 +145,20 @@ func test_qijia_house_stands_pictures_and_people():
 			# or, at its real size, shrunk about the footprint's middle; seats and beds sort a
 			# little further back (someone on them is drawn over them).
 			assert_eq(piece.position, r.get_center(), "stands on its footprint")
+			assert_eq(piece.sort_bias < HouseView.FURNITURE_BIAS, house.skin.sat_on(str(o.type)), str(o.type))
+			if not house.skin.object_ruler(str(o.type)).is_empty():
+				# Drawn on the ruler: at its real size, anchored at the footprint's middle, the
+				# foot of the drawing on the footprint (it may stand taller than its diamond).
+				rulers += 1
+				assert_eq(TestKit.ruler_problems(house, o, piece, w), [] as Array[String], str(o.type))
+				continue
 			var d := IsoMath.diamond(r)
 			var foot := IsoMath.to_view(piece.position)
 			var k := house.fill(o, r)
 			assert_near(foot.y + piece.rect.end.y, foot.y + (d[2].y - foot.y) * k + 6.0, 0.01, "on the bottom corner")
 			assert_true(piece.rect.size.x <= d[1].x - d[3].x + 0.01, str(o.type))
-			assert_eq(piece.sort_bias < HouseView.FURNITURE_BIAS, house.skin.sat_on(str(o.type)), str(o.type))
 	assert_eq(house.props.size(), pictured)
+	assert_true(rulers > 0 and rulers < pictured, "some pieces on the ruler, the rest fitted to their diamond")
 	assert_true(pictured > 0)
 	for p in house.walls:
 		assert_true(p.skin == house.skin)
